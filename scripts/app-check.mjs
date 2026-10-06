@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+import fs from "node:fs";
+const BASE = "https://3000-it9tqk8zaxbam5cpuey10.e2b.app";
+const token = fs.readFileSync("/tmp/tok.txt", "utf8").trim();
+const session = JSON.stringify({ access_token: token, token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, refresh_token: "e2e", user: { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeee0004", aud: "authenticated", role: "authenticated", email: "e2e-proof@freeborn.app", app_metadata: {}, user_metadata: {}, created_at: "2026-10-05T21:00:00Z", updated_at: "2026-10-05T21:00:00Z" } });
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+await ctx.addInitScript(([k, v]) => localStorage.setItem(k, v), ["sb-ihwtpwlszegrjgakqsxx-auth-token", session]);
+const page = await ctx.newPage();
+await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.waitForSelector("text=The room is open.", { timeout: 25000 }).catch(() => {});
+const body = (await page.textContent("body")) || "";
+console.log(body.includes("The room is open.") ? "PASS | /app shows the real home screen" : "FAIL | home heading missing | " + body.slice(0, 90));
+console.log(body.includes("Discover") && body.includes("Likes") && body.includes("Chat") && body.includes("Settings") ? "PASS | app tabs present" : "FAIL | tabs missing");
+console.log(body.includes("of 5 in the room") ? "PASS | member deck inside the app" : "FAIL | deck missing in app");
+await browser.close();

@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+import fs from "node:fs";
+const BASE = "https://3000-iqq4qvh5ea0w2cny5y0bc.e2b.app";
+const token = fs.readFileSync("/tmp/tok.txt", "utf8").trim();
+const session = JSON.stringify({ access_token: token, token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, refresh_token: "e2e", user: { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeee0002", aud: "authenticated", role: "authenticated", email: "e2e-proof@freeborn.app", app_metadata: {}, user_metadata: {}, created_at: "2026-10-05T21:00:00Z", updated_at: "2026-10-05T21:00:00Z" } });
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext();
+await ctx.addInitScript(([k, v]) => localStorage.setItem(k, v), ["sb-ihwtpwlszegrjgakqsxx-auth-token", session]);
+const page = await ctx.newPage();
+await page.goto(`${BASE}/app/settings`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.waitForTimeout(8000);
+const inputVal = await page.locator('input').first().inputValue().catch(() => "NO-INPUT");
+console.log("first input value:", JSON.stringify(inputVal));
+const body = (await page.textContent("body")) || "";
+const idx = body.indexOf("Display name");
+console.log("around label:", JSON.stringify(body.slice(idx, idx + 80)));
+await browser.close();

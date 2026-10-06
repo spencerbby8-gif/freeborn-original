@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const BASE = "https://3000-i6gipzc6qr7oablffprmu.e2b.app";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
+const page = await ctx.newPage();
+await page.goto(`${BASE}/auth?mode=sign-in`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.locator('input[id="email"]').fill("e2e-nav@freeborn.app");
+await page.locator('input[id="password"]').fill("E2eNav2026x");
+await page.locator('button[type="submit"]').click();
+await page.waitForURL("**/app", { timeout: 25000 }).catch(() => {});
+await page.waitForSelector("nav.fixed.inset-x-0.bottom-0 a", { timeout: 20000 }).catch(() => {});
+await page.waitForSelector("article", { timeout: 20000 }).catch(() => {});
+const tabs = await page.locator("nav.fixed.inset-x-0.bottom-0 a").count();
+const deck = await page.locator("article").count();
+const greeting = await page.getByText("The room is open.").count();
+console.log(tabs === 5 && deck > 0 ? `PASS | completed member signs in -> /app with tabs=${tabs}, deck=${deck}, greeting=${greeting}` : `FAIL | tabs=${tabs} deck=${deck}`);
+await browser.close();

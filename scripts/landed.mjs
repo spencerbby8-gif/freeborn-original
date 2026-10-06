@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const BASE = "https://3000-iik52mlxqamly6lmn52ux.e2b.app";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ storageState: "/tmp/e2e-state.json" });
+const page = await ctx.newPage();
+await page.goto(`${BASE}/onboarding`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.waitForURL("**/discover", { timeout: 30000 });
+console.log("PASS | completed member: /onboarding now redirects to", page.url());
+await page.waitForTimeout(2500);
+const body = await page.textContent("body");
+console.log(body.includes("Proof") ? "PASS | discover personalizes for Proof" : "INFO | discover sample: " + body.slice(0, 100));
+await browser.close();

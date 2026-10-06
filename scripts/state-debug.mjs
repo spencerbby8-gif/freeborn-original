@@ -1,0 +1,15 @@
+import { chromium } from "playwright";
+const BASE = "https://3000-iik52mlxqamly6lmn52ux.e2b.app";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ storageState: "/tmp/e2e-state.json" });
+const page = await ctx.newPage();
+const logs = [];
+page.on("response", (r) => { if (r.url().includes("/api/")) logs.push(`[api] ${r.status()} ${r.url().slice(-40)}`); });
+await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle", timeout: 40000 }).catch(()=>{});
+await page.waitForTimeout(8000);
+console.log("URL:", page.url());
+console.log("BODY:", (await page.textContent("body")).slice(0, 200));
+console.log("LOGS:", logs.slice(-6).join("\n"));
+import fs from "node:fs"; const st = JSON.parse(fs.readFileSync("/tmp/e2e-state.json", "utf8"));
+console.log("storage origins:", st.origins?.map(o => o.origin + " keys=" + o.localStorage.map(l=>l.name.slice(0,30)).join(",")));
+await browser.close();

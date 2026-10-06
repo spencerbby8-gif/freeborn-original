@@ -1,0 +1,18 @@
+import { chromium } from "playwright";
+import fs from "node:fs";
+const BASE = "https://3000-i9vdslhp69tr4xeclrblm.e2b.app";
+const token = fs.readFileSync("/tmp/filtok.txt", "utf8").trim();
+const session = JSON.stringify({ access_token: token, token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, refresh_token: "e2e", user: { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeee0007", aud: "authenticated", role: "authenticated", email: "e2e-filter@freeborn.app", app_metadata: {}, user_metadata: {}, created_at: "2026-10-05T21:00:00Z", updated_at: "2026-10-05T21:00:00Z" } });
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
+await ctx.addInitScript(([k, v]) => { localStorage.setItem(k, v); localStorage.removeItem("freeborn.filters"); }, ["sb-ihwtpwlszegrjgakqsxx-auth-token", session]);
+const page = await ctx.newPage();
+await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.waitForSelector("article", { timeout: 25000 });
+await page.waitForTimeout(1200);
+const btns = await page.locator("button").allTextContents();
+console.log("buttons:", JSON.stringify(btns.filter(t=>t.trim())));
+const headerVisible = await page.locator("header.lg\\:hidden").isVisible().catch(()=>null);
+console.log("mobile header visible:", headerVisible);
+console.log("viewport:", page.viewportSize());
+await browser.close();

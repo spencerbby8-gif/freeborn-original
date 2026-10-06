@@ -1,0 +1,20 @@
+import { chromium } from "playwright";
+const BASE = "https://3000-iik52mlxqamly6lmn52ux.e2b.app";
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext();
+const page = await ctx.newPage();
+const logs = [];
+page.on("console", (m) => logs.push(`[${m.type()}] ${m.text().slice(0, 200)}`));
+page.on("requestfailed", (r) => logs.push(`[reqfail] ${r.url().slice(0, 100)} ${r.failure()?.errorText}`));
+page.on("response", (r) => { if (r.url().includes("/api/")) logs.push(`[api] ${r.status()} ${r.url().slice(0, 110)}`); });
+
+await page.goto(`${BASE}/auth?mode=sign-in`, { waitUntil: "networkidle", timeout: 60000 });
+await page.locator('input[id="email"]').fill("e2e-proof@freeborn.app");
+await page.locator('input[id="password"]').fill("E2eProof2026x");
+await page.locator('button[type="submit"]').click();
+await page.waitForURL("**/onboarding", { timeout: 45000 }).catch(() => {});
+await page.waitForTimeout(10000);
+console.log("URL:", page.url());
+console.log("BODY:", (await page.textContent("body")).slice(0, 300));
+console.log("LOGS:", logs.slice(-12).join("\n"));
+await browser.close();

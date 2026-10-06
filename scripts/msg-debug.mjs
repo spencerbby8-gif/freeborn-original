@@ -1,0 +1,25 @@
+import { chromium } from "playwright";
+import fs from "node:fs";
+const BASE = "https://3000-i8kxae4sjdrh55ghpc41y.e2b.app";
+const token = fs.readFileSync("/tmp/cardtok.txt", "utf8").trim();
+const session = JSON.stringify({ access_token: token, token_type: "bearer", expires_at: Math.floor(Date.now()/1000)+3600, expires_in: 3600, refresh_token: "e2e", user: { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeee0008", aud: "authenticated", role: "authenticated", email: "e2e-card@freeborn.app", app_metadata: {}, user_metadata: {}, created_at: "2026-10-05T21:00:00Z", updated_at: "2026-10-05T21:00:00Z" } });
+const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
+await ctx.addInitScript(([k, v]) => localStorage.setItem(k, v), ["sb-ihwtpwlszegrjgakqsxx-auth-token", session]);
+const page = await ctx.newPage();
+const logs = [];
+page.on("console", (m) => logs.push(`[${m.type()}] ${m.text().slice(0,120)}`));
+await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded", timeout: 40000 });
+await page.waitForSelector("article", { timeout: 25000 });
+await page.waitForTimeout(800);
+// click the card info area
+const infoBtn = page.locator("article button.block.w-full").first();
+console.log("info btn count:", await infoBtn.count());
+await infoBtn.click();
+await page.waitForTimeout(1500);
+const fullProfile = await page.getByText("Full profile").count();
+console.log("Full profile overlay:", fullProfile);
+const allBtns = await page.locator("button").allTextContents();
+console.log("buttons:", JSON.stringify(allBtns.filter(t=>t.trim()).slice(0,12)));
+console.log("Message btn:", await page.getByRole("button", { name: /Message/ }).count());
+await browser.close();
