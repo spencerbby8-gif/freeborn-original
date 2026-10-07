@@ -5,7 +5,24 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Fullscreen photo viewer. Tap a photo (on a card or profile) to open it.
  * Swipe left/right (or use arrows) to browse all photos at full size.
+ *
+ * Click-safety: when the viewer closes, the browser still dispatches the
+ * `click` event for the tap that closed it — and by then the overlay is
+ * gone, so the click would land on whatever button sits underneath (the
+ * header Filters button, top-right). We swallow that one ghost click in a
+ * capture-phase listener so nothing behind the viewer ever receives it.
  */
+function swallowNextClick() {
+  const eat = (e: MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    window.removeEventListener("click", eat, true);
+  };
+  window.addEventListener("click", eat, true);
+  // Safety net: never keep the trap around for real future clicks.
+  setTimeout(() => window.removeEventListener("click", eat, true), 450);
+}
+
 export function PhotoLightbox({
   photos,
   name,
@@ -18,13 +35,21 @@ export function PhotoLightbox({
   onClose: () => void;
 }) {
   const [idx, setIdx] = useState(Math.max(0, Math.min(startIndex, photos.length - 1)));
-  const dragRef = useRef<{ startX: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; moved: boolean } | null>(null);
+  const closingRef = useRef(false);
 
   const clamp = (i: number) => Math.max(0, Math.min(photos.length - 1, i));
 
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    swallowNextClick();
+    onClose();
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
       if (e.key === "ArrowRight") setIdx((i) => clamp(i + 1));
       if (e.key === "ArrowLeft") setIdx((i) => clamp(i - 1));
     };
@@ -35,18 +60,22 @@ export function PhotoLightbox({
       document.body.style.overflow = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos.length, onClose]);
+  }, [photos.length]);
 
   if (!photos.length) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur-sm"
+      className="fixed inset-0 z-[140] flex flex-col bg-black/95 backdrop-blur-sm"
       onPointerDown={(e) => {
-        dragRef.current = { startX: e.clientX, moved: false };
+        dragRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
       }}
       onPointerMove={(e) => {
-        if (dragRef.current && Math.abs(e.clientX - dragRef.current.startX) > 8) {
+        if (
+          dragRef.current &&
+          (Math.abs(e.clientX - dragRef.current.startX) > 8 ||
+            Math.abs(e.clientY - dragRef.current.startY) > 8)
+        ) {
           dragRef.current.moved = true;
         }
       }}
@@ -58,18 +87,27 @@ export function PhotoLightbox({
         if (d.moved && Math.abs(dx) > 50) {
           setIdx((i) => clamp(dx < 0 ? i + 1 : i - 1));
         } else if (!d.moved) {
-          onClose();
+          close();
         }
       }}
     >
-      <div className="flex items-center justify-between px-5 py-4">
+      <div
+        className="flex items-center justify-between px-5 py-4"
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+      >
         <span className="text-[13px] font-bold text-white/80">{name}</span>
         <span className="text-[12px] tabular-nums text-white/60">
           {idx + 1} / {photos.length}
         </span>
         <button
           type="button"
-          onClick={onClose}
+          onClick={(e) => {
+            e.stopPropagation();
+            close();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
           aria-label="Close photo viewer"
           className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
         >

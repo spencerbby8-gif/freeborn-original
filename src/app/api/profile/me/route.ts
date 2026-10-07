@@ -60,6 +60,7 @@ export async function GET(request: Request) {
   });
 
   const profile = {
+    id: user.id,
     displayName: row.display_name ?? "",
     age: ageFromBirthDate(row.birth_date ?? null),
     gender: row.gender ?? "",

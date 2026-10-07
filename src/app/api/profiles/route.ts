@@ -156,6 +156,7 @@ export async function GET(request: Request) {
       vaccinationStatus: row.vaccinationStatus,
       distanceKm,
       likes: countByProfile.get(row.id) ?? 0,
+      joinedAt: row.createdAt,
     });
   }
 

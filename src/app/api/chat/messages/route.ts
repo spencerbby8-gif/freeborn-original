@@ -80,6 +80,19 @@ export async function POST(request: Request) {
   await db.insert(messages).values({ matchId, senderId: member.id, body: clean });
   await db.update(matches).set({ lastMessageAt: new Date() }).where(eq(matches.id, matchId));
 
+  // Read receipts: the other member reads everything you've sent before they
+  // answer, so your messages flip to "read" the moment a reply lands.
+  await db
+    .update(messages)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(messages.matchId, matchId),
+        eq(messages.senderId, member.id),
+        sql`${messages.readAt} is null`
+      )
+    );
+
   // Persona reply, stamped a couple of seconds ahead so it arrives naturally.
   const otherId = match.userA === member.id ? match.userB : match.userA;
   const other = await getLocalProfile(otherId);

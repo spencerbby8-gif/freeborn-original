@@ -1,8 +1,18 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messages, profilePhotos, userProfiles } from "@/db/schema";
+import {
+  matches,
+  messages,
+  profilePhotos,
+  userProfiles,
+  verificationRequests,
+} from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 
+/**
+ * Alerts for the signed-in member: matches, unread messages (deep-linking
+ * straight into the right conversation), and verification status updates.
+ */
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
@@ -15,12 +25,13 @@ export async function GET(request: Request) {
 
   const items: Array<{
     id: string;
-    type: "match" | "message" | "tip";
+    type: "match" | "message" | "verification" | "tip";
     title: string;
     body: string;
     photo?: string;
     at: Date;
     unread: boolean;
+    href: string;
   }> = [];
 
   for (const m of myMatches) {
@@ -37,6 +48,7 @@ export async function GET(request: Request) {
       .orderBy(desc(profilePhotos.isPrimary), profilePhotos.position)
       .limit(1);
     const name = other?.displayName ?? "Someone";
+    const href = `/app/chat?match=${m.id}`;
 
     items.push({
       id: `match-${m.id}`,
@@ -46,6 +58,7 @@ export async function GET(request: Request) {
       photo: photo?.storagePath,
       at: m.createdAt,
       unread: false,
+      href,
     });
 
     const [{ unread }] = await db
@@ -74,6 +87,38 @@ export async function GET(request: Request) {
         photo: photo?.storagePath,
         at: last?.createdAt ?? m.createdAt,
         unread: true,
+        href,
+      });
+    }
+  }
+
+  // Verification engine alerts
+  const [latestVerify] = await db
+    .select()
+    .from(verificationRequests)
+    .where(eq(verificationRequests.accountId, member.id))
+    .orderBy(desc(verificationRequests.submittedAt))
+    .limit(1);
+  if (latestVerify) {
+    if (latestVerify.status === "approved") {
+      items.push({
+        id: `verify-${latestVerify.id}`,
+        type: "verification",
+        title: "You're verified",
+        body: "Your identity check passed — the teal seal is live on your profile.",
+        at: latestVerify.reviewedAt ?? latestVerify.submittedAt,
+        unread: false,
+        href: "/app/profile",
+      });
+    } else if (latestVerify.status === "pending") {
+      items.push({
+        id: `verify-${latestVerify.id}`,
+        type: "verification",
+        title: "Verification in review",
+        body: "Your selfie is being checked. It completes shortly in this preview room.",
+        at: latestVerify.submittedAt,
+        unread: false,
+        href: "/app/profile",
       });
     }
   }
@@ -88,6 +133,7 @@ export async function GET(request: Request) {
       body: "Like someone in Discover and the room opens up — matches and messages land here.",
       at: new Date(),
       unread: false,
+      href: "/app",
     });
   }
 

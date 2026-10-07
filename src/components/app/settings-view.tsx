@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { getAccessToken } from "@/lib/supabase/browser";
+import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
+import { openVerifyFlow } from "./verify-modal";
+import { VerifyBadge } from "@/components/verify-badge";
 
 type Settings = {
   account: { email: string };
@@ -158,6 +160,77 @@ function PanelTitle({ title, blurb }: { title: string; blurb: string }) {
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [area, setArea] = useState<AreaId>("profile");
+
+  /* Account security state */
+  const [pwdNew, setPwdNew] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
+  const [emailNew, setEmailNew] = useState("");
+  const [accountMsg, setAccountMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+
+  const accountAction = async (payload: Record<string, unknown>) => {
+    setBusy(true);
+    setAccountMsg(null);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAccountMsg({ ok: true, text: json.message ?? "Done." });
+      } else {
+        setAccountMsg({ ok: false, text: json.error ?? "Something went wrong." });
+      }
+      return res.ok;
+    } catch {
+      setAccountMsg({ ok: false, text: "Network error — try again." });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (pwdNew !== pwdConfirm) {
+      setAccountMsg({ ok: false, text: "The two password fields must match." });
+      return;
+    }
+    const ok = await accountAction({ action: "change-password", newPassword: pwdNew });
+    if (ok) {
+      setPwdNew("");
+      setPwdConfirm("");
+    }
+  };
+
+  const signOutEverywhere = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut({ scope: "global" });
+    } catch {
+      /* fall through to redirect */
+    }
+    window.location.href = "/auth?mode=sign-in";
+  };
+
+  const deactivate = async () => {
+    const ok = await accountAction({ action: "deactivate" });
+    if (ok) {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.signOut();
+      } catch {
+        /* ignore */
+      }
+      window.location.href = "/";
+    }
+  };
   const [profileState, setProfileState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [discoveryState, setDiscoveryState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [prefs, setPrefs] = useState<Prefs>({ ...DEFAULT_PREFS });
@@ -217,6 +290,43 @@ export function SettingsView() {
     <div className="mx-auto max-w-[720px]">
       <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Settings</h1>
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">Pick an area — everything lives in its place.</p>
+
+      {/* Identity verification */}
+      <div className="mt-5 flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
+        {settings?.profile.isVerified ? (
+          <>
+            <VerifyBadge size={26} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-black text-[var(--color-teal-300)]">Identity verified</p>
+              <p className="mt-0.5 text-[11.5px] leading-4 text-[var(--color-mist)]">
+                Your selfie check passed. The teal seal protects your account and builds trust.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+                <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Verify your identity</p>
+              <p className="mt-0.5 text-[11.5px] leading-4 text-[var(--color-mist)]">
+                Verified members get the teal seal, faster matches, and stronger protection.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openVerifyFlow}
+              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+            >
+              Verify
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Area navigation */}
       <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
@@ -397,6 +507,19 @@ export function SettingsView() {
             <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-[12px] leading-5 text-[var(--color-ash)]">
               Email, full birth date, and exact coordinates are never shown publicly — that's fixed, not a setting.
             </p>
+
+            <div className="rounded-2xl border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-4">
+              <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[var(--color-teal-300)]">
+                Freeborn's safety promise
+              </p>
+              <ul className="mt-3 space-y-2 text-[12px] leading-5 text-[var(--color-mist)]">
+                <li>· Identity checks use pose-mimic selfies with a moderation queue — never links sent in DMs.</li>
+                <li>· Reports land in a moderation queue with rate limits, so one person can't weaponize them.</li>
+                <li>· Chat media is stored privately per member — never sold, never handed to advertisers.</li>
+                <li>· New profile photos require re-verification, so the teal seal always matches the face.</li>
+                <li>· You can hide or deactivate your account at any time — one tap, no dark patterns.</li>
+              </ul>
+            </div>
           </div>
         ) : null}
 
@@ -431,11 +554,134 @@ export function SettingsView() {
 
         {area === "account" ? (
           <div className="space-y-4">
-            <PanelTitle title="Account" blurb="The quiet details." />
+            <PanelTitle title="Account" blurb="Security, email, and control over your account." />
+
+            {accountMsg ? (
+              <p
+                className={`rounded-xl border px-4 py-2.5 text-[12.5px] font-bold ${
+                  accountMsg.ok
+                    ? "border-[var(--color-teal-500)]/35 bg-[var(--color-teal-500)]/[0.08] text-[var(--color-teal-300)]"
+                    : "border-red-400/30 bg-red-500/[0.08] text-red-300"
+                }`}
+              >
+                {accountMsg.text}
+              </p>
+            ) : null}
+
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
               <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Email (private)</p>
               <p className="mt-1 truncate text-[14px] font-medium text-[var(--color-mist)]">{settings.account.email}</p>
             </div>
+
+            {/* Change email */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Change email</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+                We'll send a confirmation link to the new address before it takes effect.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={emailNew}
+                  onChange={(e) => setEmailNew(e.target.value)}
+                  type="email"
+                  placeholder="new@email.com"
+                  className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                />
+                <button
+                  type="button"
+                  disabled={busy || !emailNew.trim()}
+                  onClick={() => void accountAction({ action: "change-email", newEmail: emailNew.trim() }).then((ok) => ok && setEmailNew(""))}
+                  className="rounded-xl border border-white/10 bg-white/[0.05] px-4 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1] disabled:opacity-40"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+
+            {/* Change password */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Change password</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+                At least 8 characters. Use one you don't reuse anywhere else.
+              </p>
+              <div className="mt-3 grid gap-2">
+                <input
+                  value={pwdNew}
+                  onChange={(e) => setPwdNew(e.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="New password"
+                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                />
+                <input
+                  value={pwdConfirm}
+                  onChange={(e) => setPwdConfirm(e.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repeat new password"
+                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                />
+                <button
+                  type="button"
+                  disabled={busy || pwdNew.length < 8 || pwdNew !== pwdConfirm}
+                  onClick={() => void changePassword()}
+                  className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1] disabled:opacity-40"
+                >
+                  Save new password
+                </button>
+              </div>
+            </div>
+
+            {/* Sessions */}
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Sessions</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+                Ends this session and every other device signed into your account.
+              </p>
+              <button
+                type="button"
+                onClick={() => void signOutEverywhere()}
+                className="mt-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
+              >
+                Sign out of all devices
+              </button>
+            </div>
+
+            {/* Danger zone */}
+            <div className="rounded-2xl border border-red-400/20 bg-red-500/[0.04] p-4">
+              <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Danger zone</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+                Deactivating hides you from Discover immediately. Matches and history stay saved.
+              </p>
+              {!confirmDeactivate ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeactivate(true)}
+                  className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
+                >
+                  Deactivate my account
+                </button>
+              ) : (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void deactivate()}
+                    className="rounded-xl bg-red-500 px-4 py-2.5 text-[12.5px] font-black text-white transition hover:bg-red-400 disabled:opacity-50"
+                  >
+                    Yes, hide me now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeactivate(false)}
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+                  >
+                    Keep my account
+                  </button>
+                </div>
+              )}
+            </div>
+
             <form method="POST" action="/auth/signout">
               <button
                 type="submit"

@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Wordmark } from "@/components/wordmark";
 import { FilterPanel } from "./filter-panel";
+import { VerifyGate } from "./verify-modal";
 
 const tabs = [
   {
@@ -203,6 +204,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <FilterPanel open={filtersOpen} onClose={() => setFiltersOpen(false)} />
+
+      {/* Identity verification engine: popup 20s after sign-up */}
+      <VerifyGate />
     </div>
   );
 }

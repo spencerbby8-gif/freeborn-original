@@ -1,0 +1,13 @@
+var R=require("../../../chunks/ssr/[turbopack]_runtime.js")("server/app/app/chat/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0i3wl_2._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_03bw.o7.js")
+R.c("server/chunks/ssr/[root-of-the-server]__07r23jx._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__05h0t7p._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0nz59io._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_0inhx6q._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_0ghu-f7.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0cjv-23.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0lgvd_..js")
+R.c("server/chunks/ssr/_next-internal_server_app_app_chat_page_actions_0.j75wp.js")
+R.m(89078)
+module.exports=R.m(89078).exports

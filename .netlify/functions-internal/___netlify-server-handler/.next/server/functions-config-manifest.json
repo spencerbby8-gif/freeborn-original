@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/verification/check": {
+      "maxDuration": 120
+    }
+  }
+}

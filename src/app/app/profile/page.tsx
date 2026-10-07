@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
+import { openVerifyFlow } from "@/components/app/verify-modal";
+import { VerifyBadge } from "@/components/verify-badge";
+import { ProfileView } from "@/components/app/profile-view";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 type MeProfile = {
@@ -107,13 +110,82 @@ function TextField({
 }
 
 function ProfileInner() {
-  const [profile, setProfile] = useState<MeProfile | null>(null);
+  const [profile, setProfile] = useState<(MeProfile & { id?: string }) | null>(null);
   const [completeness, setCompleteness] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<MeProfile>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [viewAs, setViewAs] = useState<string | null>(null);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoManagerOpen, setPhotoManagerOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const uploadPhoto = useCallback(
+    async (dataUrl: string) => {
+      setPhotoBusy(true);
+      try {
+        const token = await getAccessToken().catch(() => null);
+        const res = await fetch("/api/profile/photos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ data: dataUrl }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok) {
+          setPhotoMsg(
+            json.revoked
+              ? "Photo added — your teal seal was removed until you re-verify."
+              : "Photo added to your profile."
+          );
+        } else {
+          setPhotoMsg(json.error ?? "Couldn't add that photo.");
+        }
+        setTimeout(() => setPhotoMsg(null), 5000);
+      } finally {
+        setPhotoBusy(false);
+        void load(); // refresh the verified/re-verify banner immediately
+      }
+    },
+    []
+  );
+
+  const deletePhoto = useCallback(async (path: string) => {
+    const token = await getAccessToken().catch(() => null);
+    const res = await fetch("/api/profile/photos", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ path }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setPhotoMsg(res.ok ? "Photo removed." : json.error ?? "Couldn't remove that photo here.");
+    setTimeout(() => setPhotoMsg(null), 5000);
+  }, []);
+
+  const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      if (profile?.isVerified) {
+        setPendingPhoto(dataUrl); // warn before touching the badge
+      } else {
+        void uploadPhoto(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const load = useCallback(async () => {
     const token = await getAccessToken().catch(() => null);
@@ -175,11 +247,58 @@ function ProfileInner() {
           <p className="mt-1.5 text-sm text-[var(--color-mist)]">How others see you in the room.</p>
         </div>
         {!editing ? (
-          <button type="button" onClick={startEdit} className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold">
-            Edit profile
-          </button>
+          <div className="flex items-center gap-2">
+            {profile?.id ? (
+              <button
+                type="button"
+                onClick={() => setViewAs(profile.id ?? null)}
+                className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold"
+                title="See exactly what other members see"
+              >
+                View as others
+              </button>
+            ) : null}
+            <button type="button" onClick={startEdit} className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold">
+              Edit profile
+            </button>
+          </div>
         ) : null}
       </div>
+
+      {/* Identity verification reminder */}
+      {profile.isVerified ? (
+        <div className="mt-6 flex items-center gap-3 rounded-[22px] border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/[0.07] p-4">
+          <VerifyBadge size={26} />
+          <div>
+            <p className="text-[14px] font-black text-[var(--color-teal-300)]">Identity verified</p>
+            <p className="mt-0.5 text-[12px] leading-4 text-[var(--color-mist)]">
+              The teal seal is live on your profile — members know they're talking to the real you.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/[0.06] p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+              <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+            </svg>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-black text-[var(--color-pearl)]">Verify your identity</p>
+            <p className="mt-0.5 text-[12px] leading-4 text-[var(--color-mist)]">
+              A 20-second selfie check earns the teal seal and keeps the room safe.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openVerifyFlow}
+            className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+          >
+            Verify now
+          </button>
+        </div>
+      )}
 
       {/* Completion */}
       <div className="mt-6 rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-5">
@@ -209,7 +328,7 @@ function ProfileInner() {
             {(profile.displayName || "You").charAt(0)}
           </span>
         )}
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-display text-xl font-semibold text-[var(--color-pearl)]">
             {profile.displayName || "Add your name"}
             {profile.age ? `, ${profile.age}` : ""}
@@ -218,7 +337,145 @@ function ProfileInner() {
             {[profile.city, profile.region].filter(Boolean).join(", ") || "Add your city"}
           </p>
         </div>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={onPhotoPicked}
+        />
+        <button
+          type="button"
+          disabled={photoBusy}
+          onClick={() => setPhotoManagerOpen(true)}
+          className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] font-bold text-[var(--color-sand)] transition hover:bg-white/[0.09] hover:text-[var(--color-pearl)] disabled:opacity-50"
+        >
+          Add more photos
+        </button>
       </div>
+
+      {/* Photo manager — onboarding-style grid */}
+      {photoManagerOpen ? (
+        <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="Manage photos">
+          <div className="animate-scale-in w-full max-w-[440px] rounded-[28px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-display text-[19px] font-semibold text-[var(--color-pearl)]">Your photos</p>
+                <p className="mt-0.5 text-[12px] text-[var(--color-mist)]">
+                  {profile.photos.length}/6 slots · first photo is your card photo
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPhotoManagerOpen(false)}
+                aria-label="Close photo manager"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[var(--color-mist)] transition hover:bg-white/[0.12] hover:text-[var(--color-pearl)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2.5">
+              {profile.photos.map((src, i) => (
+                <div key={`${src}-${i}`} className="relative">
+                  <img src={src} alt={`Profile photo ${i + 1}`} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover" />
+                  {i === 0 ? (
+                    <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">
+                      Card
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void deletePhoto(src)}
+                    aria-label={`Remove photo ${i + 1}`}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {profile.photos.length < 6 ? (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={() => photoInputRef.current?.click()}
+                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.05] text-[var(--color-gold-300)] transition hover:bg-[var(--color-gold-500)]/[0.1] disabled:opacity-50"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider">
+                    {photoBusy ? "Adding…" : "Add"}
+                  </span>
+                </button>
+              ) : null}
+            </div>
+
+            <p className="mt-4 rounded-xl border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--color-gold-300)]">
+              Adding a new photo removes your teal seal until you re-verify — that's how
+              members know the badge always matches the face.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {photoMsg ? (
+        <p className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-sand)]">
+          {photoMsg}
+        </p>
+      ) : null}
+
+      {/* New-photo warning: the teal seal is tied to your current photos */}
+      {pendingPhoto ? (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="animate-scale-in w-full max-w-[400px] rounded-[24px] border border-[var(--color-gold-500)]/30 bg-[#0c101d] p-6 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)]">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 3l9 16H3l9-16z" />
+                  <path d="M12 10v4M12 17h.01" />
+                </svg>
+              </span>
+              <div>
+                <p className="font-display text-[18px] font-semibold text-[var(--color-pearl)]">
+                  New photo, fresh check
+                </p>
+                <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
+                  Your teal seal verifies the photos currently on your profile. Adding a new
+                  photo removes the seal until you re-verify — that's how other members know
+                  the badge always matches the face.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const data = pendingPhoto;
+                  setPendingPhoto(null);
+                  if (data) void uploadPhoto(data);
+                }}
+                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98]"
+              >
+                Add it & re-verify after
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingPhoto(null)}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {viewAs ? <ProfileView profileId={viewAs} onClose={() => setViewAs(null)} /> : null}
 
       {!editing ? (
         <div className="mt-6 space-y-4">

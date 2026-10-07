@@ -35,7 +35,24 @@ type FullProfile = {
   replyRate: number | null;
   matchRate: number | null;
   conversationCount: number;
+  memberSince: string | null;
+  birthMonthYear: string;
+  distanceKm: number | null;
 };
+
+/** Instant re-open: full profiles are cached after first fetch. */
+const profileCache = new Map<string, FullProfile>();
+
+function joinedLabel(iso: string | null) {
+  if (!iso) return "";
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days < 1) return "Joined today";
+  if (days < 31) return `Joined ${days} day${days === 1 ? "" : "s"} ago`;
+  const months = Math.floor(days / 30.4);
+  if (months < 12) return `Joined ${months} month${months === 1 ? "" : "s"} ago`;
+  const years = Math.floor(months / 12);
+  return `Joined ${years} year${years === 1 ? "" : "s"} ago`;
+}
 
 const GOAL_LABELS: Record<string, string> = {
   long_term: "Long-term relationship",
@@ -79,11 +96,23 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
 
   useEffect(() => {
     setPhotoIdx(0);
+    // Real distance: pass the viewer's (already-consented, cached) location.
+    let qs = "";
+    try {
+      const raw = window.sessionStorage.getItem("freeborn.origin");
+      if (raw) {
+        const { lat, lng } = JSON.parse(raw) as { lat: number; lng: number };
+        if (Number.isFinite(lat) && Number.isFinite(lng)) qs = `?lat=${lat}&lng=${lng}`;
+      }
+    } catch {
+      /* no location → no distance */
+    }
     setProfile(null);
     (async () => {
-      const res = await fetch(`/api/profile/${profileId}`);
+      const res = await fetch(`/api/profile/${profileId}${qs}`);
       if (res.ok) {
         const json = await res.json();
+        profileCache.set(profileId, json.profile);
         setProfile(json.profile);
       } else {
         setFailed(true);
@@ -241,6 +270,26 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                   <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
                     {profile.occupation ? `${profile.occupation} · ` : ""}{profile.city}{profile.region ? `, ${profile.region}` : ""}
                   </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {profile.memberSince ? (
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M12 7v5l3 2" />
+                        </svg>
+                        {joinedLabel(profile.memberSince)}
+                      </p>
+                    ) : null}
+                    {profile.distanceKm != null ? (
+                      <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 21s-7-5.6-7-11a7 7 0 0114 0c0 5.4-7 11-7 11z" />
+                          <circle cx="12" cy="10" r="2.5" />
+                        </svg>
+                        {profile.distanceKm} km away
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -320,6 +369,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
             {/* The details */}
             {(() => {
               const details = [
+                { label: "Born", value: profile.birthMonthYear },
                 { label: "Height", value: profile.heightCm ? `${profile.heightCm} cm` : "" },
                 { label: "Language", value: profile.language },
                 { label: "Religion", value: profile.religion },

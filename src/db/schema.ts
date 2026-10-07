@@ -538,3 +538,79 @@ export const messages = pgTable(
     index("messages_match_created_idx").on(t.matchId, t.createdAt),
   ]
 );
+
+/* --- Identity verification engine ----------------------------------------- */
+
+export const verificationRequests = pgTable(
+  "verification_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    method: text("method").notNull().default("selfie"),
+    selfieMedia: text("selfie_media"),
+    rejectReason: text("reject_reason"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().default(utcNow),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("verification_requests_account_idx").on(t.accountId),
+    check(
+      "verification_status_check",
+      sql`${t.status} in ('pending','approved','rejected')`
+    ),
+  ]
+);
+
+/* --- Member reports (moderation queue) ------------------------------------ */
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterId: uuid("reporter_id").references(() => userProfiles.id, {
+      onDelete: "set null",
+    }),
+    subjectId: uuid("subject_id").references(() => userProfiles.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull().default("other"),
+    details: text("details"),
+    status: text("status").notNull().default("open"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    index("reports_subject_idx").on(t.subjectId),
+    check(
+      "reports_reason_check",
+      sql`${t.reason} in ('fake_profile','scam','harassment','safety','underage','inappropriate_media','other')`
+    ),
+  ]
+);
+
+/* --- Chat media store (voice notes, photos, videos) ------------------------
+   Stored locally so delivery works end-to-end without depending on external
+   storage buckets. Blobs are bytea; ids are random uuids. ------------------ */
+
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const chatMedia = pgTable(
+  "chat_media",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    senderId: uuid("sender_id").references(() => userProfiles.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").notNull().default("voice"),
+    mime: text("mime").notNull().default("application/octet-stream"),
+    data: bytea("data").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice')`)]
+);
