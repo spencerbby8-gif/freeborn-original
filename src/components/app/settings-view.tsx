@@ -356,8 +356,25 @@ export function SettingsView() {
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setAccountMsg({ ok: true, text: json.message ?? "Done." });
+        const label =
+          payload.action === "change-password"
+            ? "Password changed"
+            : payload.action === "change-email"
+              ? "Email updated"
+              : payload.action === "deactivate"
+                ? "Account hidden"
+                : "Account updated";
+        showToast({
+          tone: "success",
+          title: label,
+          body:
+            payload.action === "change-password"
+              ? "Your new password is active. Use it the next time you sign in."
+              : json.message ?? "Saved.",
+        });
       } else {
         setAccountMsg({ ok: false, text: json.error ?? "Something went wrong." });
+        showToast({ tone: "error", title: "Couldn't save that change", body: json.error ?? "Try again." });
       }
       return res.ok;
     } catch {

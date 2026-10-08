@@ -70,6 +70,19 @@ export function callChannel(callId: string): RealtimeChannel {
   return createSupabaseBrowserClient().channel(`fb-call:${callId}`);
 }
 
+/** Fire-and-forget trace entry — the end-to-end call black box. */
+export function traceCall(callId: string, role: string, event: string, info?: string) {
+  try {
+    void fetch("/api/calls/trace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callId, role, event, info }),
+    }).catch(() => undefined);
+  } catch {
+    /* tracing must never break a call */
+  }
+}
+
 /** Full teardown: unsubscribes AND removes every listener + the cached
     channel, so no stale handlers leak into the next call. */
 export function destroyChannel(channel: RealtimeChannel | null) {

@@ -657,7 +657,10 @@ export function VoiceRecorder({
           </svg>
         </span>
 
-        <div className="absolute inset-0 z-20 flex items-center gap-3 rounded-full border border-white/[0.08] bg-[#0c101d] px-3 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.9)]">
+        <div
+        className="fb-no-callout absolute inset-0 z-20 flex select-none items-center gap-3 rounded-full border border-white/[0.08] bg-[#0c101d] px-3 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.9)]"
+        onContextMenu={(e) => e.preventDefault()}
+      >
           {previewBlob ? <audio ref={previewAudioRef} src={previewUrl} preload="auto" /> : null}
 
           <button
@@ -756,7 +759,10 @@ export function VoiceRecorder({
         </svg>
       </button>
 
-      <div className="absolute inset-0 z-20 flex items-center gap-3 rounded-full border border-white/[0.08] bg-[#0c101d] px-4 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.9)]">
+      <div
+        className="fb-no-callout absolute inset-0 z-20 flex select-none items-center gap-3 rounded-full border border-white/[0.08] bg-[#0c101d] px-4 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.9)]"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         {paused ? (
           <span className="h-3 w-3 shrink-0 rounded-full bg-amber-400" />
         ) : (

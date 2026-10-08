@@ -21,6 +21,7 @@ import {
   newCallId,
   publish,
   ringChannel,
+  traceCall,
   type CallSignal,
   type RingPayload,
 } from "@/lib/call-bus";
@@ -81,6 +82,12 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const acceptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const offerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answerSentRef = useRef<RTCSessionDescriptionInit | null>(null);
+  /** ICE candidates that arrive before the remote description are buffered,
+      then flushed — addIceCandidate before setRemoteDescription throws. */
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+  const iceSentRef = useRef(0);
   /** Shows which path the media actually took. */
   const relaySeenRef = useRef(false);
 
@@ -111,6 +118,40 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
       clearInterval(pingTimerRef.current);
       pingTimerRef.current = null;
     }
+    if (answerTimerRef.current) {
+      clearInterval(answerTimerRef.current);
+      answerTimerRef.current = null;
+    }
+  };
+
+  const flushPendingIce = async (pc: RTCPeerConnection) => {
+    while (pendingIceRef.current.length > 0 && pc.remoteDescription) {
+      const cand = pendingIceRef.current.shift();
+      if (!cand) break;
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(cand));
+      } catch {
+        /* one bad candidate never kills the call */
+      }
+    }
+  };
+
+  /** The answer repeats every 2s until the media path is actually up — a
+      dropped broadcast can no longer strand the caller waiting forever. */
+  const startAnswerRetransmit = () => {
+    if (answerTimerRef.current) return;
+    answerTimerRef.current = setInterval(() => {
+      const pc = pcRef.current;
+      if (closedRef.current || !pc || pc.connectionState === "connected") {
+        if (answerTimerRef.current) clearInterval(answerTimerRef.current);
+        answerTimerRef.current = null;
+        return;
+      }
+      if (chanRef.current && answerSentRef.current) {
+        publish(chanRef.current, "signal", { t: "sdp", sdp: answerSentRef.current } satisfies CallSignal);
+        traceCall(callIdRef.current, role, "tx-answer-retry");
+      }
+    }, 2000);
   };
 
   const cleanup = useCallback((sendHangup: boolean) => {
@@ -164,7 +205,9 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         return;
       }
       if (sig.t === "sdp") {
+        traceCall(callIdRef.current, role, sig.sdp.type === "offer" ? "rx-offer" : "rx-answer");
         await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        await flushPendingIce(pc);
         if (sig.sdp.type === "offer") {
           offerSeenRef.current = true;
           if (acceptTimerRef.current) {
@@ -174,7 +217,12 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           setDetail("Answering their offer…");
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          if (chanRef.current) publish(chanRef.current, "signal", { t: "sdp", sdp: answer } satisfies CallSignal);
+          answerSentRef.current = answer;
+          if (chanRef.current) {
+            publish(chanRef.current, "signal", { t: "sdp", sdp: answer } satisfies CallSignal);
+            traceCall(callIdRef.current, role, "tx-answer");
+          }
+          startAnswerRetransmit();
           setDetail("Securing the connection…");
         } else {
           answerSeenRef.current = true;
@@ -187,10 +235,14 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         return;
       }
       if (sig.t === "ice" && sig.cand) {
+        if (!pc.remoteDescription) {
+          pendingIceRef.current.push(sig.cand);
+          return;
+        }
         await pc.addIceCandidate(new RTCIceCandidate(sig.cand));
       }
-    } catch {
-      /* a dropped packet is recoverable — keep negotiating */
+    } catch (err) {
+      traceCall(callIdRef.current, role, "signal-error", err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -211,6 +263,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     negWatchRef.current = setTimeout(() => {
       if (closedRef.current) return;
       if (stateRef.current === "negotiating") {
+        traceCall(callIdRef.current, role, "watchdog-fired", `iceSent=${iceSentRef.current}`);
         cleanup(false);
         setStateBoth("failed", "Couldn't find a stable path — call again.");
       }
@@ -246,12 +299,15 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         pc.onicecandidate = (e) => {
           if (!e.candidate) return;
           if (e.candidate.type === "relay") relaySeenRef.current = true;
+          iceSentRef.current += 1;
           if (chanRef.current) {
             publish(chanRef.current, "signal", { t: "ice", cand: e.candidate.toJSON() } satisfies CallSignal);
+            if (iceSentRef.current === 1) traceCall(callIdRef.current, role, "tx-ice-first", e.candidate.type ?? "unknown");
           }
         };
         pc.onconnectionstatechange = () => {
           if (closedRef.current) return;
+          traceCall(callIdRef.current, role, "conn-state", pc.connectionState);
           if (pc.connectionState === "connected") {
             restartedRef.current = false;
             if (healTimerRef.current) {
@@ -304,6 +360,9 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         chan.on("broadcast", { event: "control" }, (msg) => {
           const p = msg.payload as CallSignal;
           if (closedRef.current) return;
+          if (p.t === "accept" || p.t === "declined" || p.t === "busy") {
+            traceCall(callIdRef.current, role, `rx-${p.t}`);
+          }
           if (p.t === "hangup") {
             cleanup(false);
             setStateBoth("ended", `${peer.name} ended the call`);
@@ -349,7 +408,11 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
 
         chan.subscribe((status) => {
           if (cancelled || closedRef.current) return;
-          if (status !== "SUBSCRIBED") return;
+          if (status !== "SUBSCRIBED") {
+            traceCall(callIdRef.current, role, "chan-status", String(status));
+            return;
+          }
+          traceCall(callIdRef.current, role, "chan-subscribed");
 
           if (role === "caller") {
             setStateBoth("ringing", `Ringing ${peer.name}…`);
@@ -368,12 +431,14 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
                       from: self ?? { id: "", name: "Freeborn member", photo: "" },
                     } satisfies RingPayload,
                   })
-                  .catch(() => undefined);
+                  .then(() => traceCall(callIdRef.current, role, "tx-ring"))
+                  .catch((e) => traceCall(callIdRef.current, role, "tx-ring-fail", String(e)));
               }
             });
           } else {
             // Already accepted in the incoming-call screen.
             publish(chan, "control", { t: "accept" } satisfies CallSignal);
+            traceCall(callIdRef.current, role, "tx-accept");
             setDetail("Accepted — waiting for their offer…");
             /* Retransmit: broadcasts can drop; the accept repeats every 1.5s
                until their offer arrives. */

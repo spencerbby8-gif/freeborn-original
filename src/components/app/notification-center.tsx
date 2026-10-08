@@ -78,10 +78,27 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   useEffect(() => {
     let cancelled = false;
 
+    const soundsOn = () => {
+      try {
+        const raw = window.localStorage.getItem("freeborn.preferences");
+        if (!raw) return true;
+        return (JSON.parse(raw) as { sounds?: boolean }).sounds !== false;
+      } catch {
+        return true;
+      }
+    };
+
     const fire = (a: Alert) => {
       const key = ++seq.current;
       setBanners((b) => [...b.slice(-2), { ...a, key }]);
-      playChime();
+      if (soundsOn()) {
+        playChime();
+        // Retry once — some browsers block the first audio attempt after a
+        // long idle; the alert must still be heard.
+        setTimeout(() => {
+          if (soundsOn()) playChime();
+        }, 350);
+      }
       pushBrowserNotification(a.title, a.body, a.href);
       setTimeout(() => setBanners((b) => b.filter((x) => x.key !== key)), 6_500);
     };
@@ -143,9 +160,16 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
 
     void tick();
     const iv = setInterval(() => void tick(), POLL_MS);
+    /* Healing: the moment the member returns to the tab, sync immediately —
+       no waiting for the next tick after being away. */
+    const onVisible = () => {
+      if (!document.hidden) void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { callChannel, destroyChannel, publish, type RingPayload } from "@/lib/call-bus";
+import { callChannel, destroyChannel, publish, traceCall, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
 
@@ -39,6 +39,7 @@ export function CallListener() {
       ring.on("broadcast", { event: "ring" }, (msg) => {
         const payload = msg.payload as RingPayload;
         if (!payload?.callId || cancelled) return;
+        traceCall(payload.callId, "callee", "rx-ring");
         if (busyRef.current) {
           // Already ringing or on a call — tell the caller we're busy,
           // on THIS call's own channel.
