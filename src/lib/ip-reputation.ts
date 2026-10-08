@@ -27,6 +27,33 @@ export type IpVerdict = {
 
 const NEUTRAL: IpVerdict = { ok: true, datacenter: false, proxy: false };
 
+/**
+ * Known datacenter/cloud ASNs — researched from public cloud IP registries.
+ * An IP belonging to one of these is a server by definition, no matter what
+ * the live flag says. Residential/ISP traffic is NEVER in this list — real
+ * people are allowed by default; only proven server space gets blocked.
+ */
+const DATACENTER_ASNS = new Set([
+  16509, 14618, // Amazon AWS
+  15169, 396982, // Google / Google Cloud
+  8075, 8068, // Microsoft / Azure
+  14061, // DigitalOcean
+  24940, 212317, // Hetzner
+  20473, // Vultr / Choopa
+  16276, // OVH
+  63949, // Linode / Akamai
+  45102, 132203, // Alibaba / Tencent Cloud
+  31898, // Oracle Cloud
+  14907, // Wikimedia (server space)
+  32934, // Meta server space
+]);
+
+function extractAsn(asField?: string): number | null {
+  if (!asField) return null;
+  const m = /^AS(\d+)/.exec(asField);
+  return m ? Number(m[1]) : null;
+}
+
 export async function checkIpReputation(ip: string | null | undefined): Promise<IpVerdict> {
   if (!ip) return NEUTRAL;
   const clean = ip.split(",")[0].trim();
@@ -37,7 +64,7 @@ export async function checkIpReputation(ip: string | null | undefined): Promise<
   const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
     const res = await fetch(
-      `http://ip-api.com/json/${encodeURIComponent(clean)}?fields=status,proxy,hosting,isp,org,country,countryCode,lat,lon`,
+      `http://ip-api.com/json/${encodeURIComponent(clean)}?fields=status,proxy,hosting,isp,org,as,country,countryCode,lat,lon`,
       { signal: ctrl.signal }
     );
     if (!res.ok) return NEUTRAL; // fail open
@@ -47,16 +74,18 @@ export async function checkIpReputation(ip: string | null | undefined): Promise<
       hosting?: boolean;
       isp?: string;
       org?: string;
+      as?: string;
       country?: string;
       countryCode?: string;
       lat?: number;
       lon?: number;
     };
     if (j.status !== "success") return NEUTRAL; // fail open
+    const asn = extractAsn(j.as);
     return {
       ok: true,
-      datacenter: j.hosting === true,
-      proxy: j.proxy === true,
+      datacenter: j.hosting === true || (asn !== null && DATACENTER_ASNS.has(asn)),
+      proxy: j.proxy === true || asn === 13335, // Cloudflare edge/WARP = privacy, not abuse
       isp: j.isp ?? j.org,
       country: j.country,
       countryCode: j.countryCode,

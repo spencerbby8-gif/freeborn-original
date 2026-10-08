@@ -74,12 +74,45 @@ export async function POST(request: Request) {
     );
   }
 
-  /* 2. Teleport check vs the last saved fix. */
+  /* 1b. Rate limit: real people don't refix every few seconds. */
+  const [latestEvent] = await db
+    .select({ createdAt: securityEvents.createdAt })
+    .from(securityEvents)
+    .where(eq(securityEvents.email, member.email.toLowerCase()))
+    .limit(1);
+  void latestEvent;
+  const [prevFix] = await db
+    .select({ updatedAt: userPrivateLocations.updatedAt })
+    .from(userPrivateLocations)
+    .where(eq(userPrivateLocations.userId, member.id))
+    .limit(1);
+  if (prevFix?.updatedAt && Date.now() - prevFix.updatedAt.getTime() < 5 * 60 * 1000) {
+    return Response.json(
+      { error: "Location already updated recently — try again in a few minutes." },
+      { status: 429 }
+    );
+  }
+
+  /* 2. Teleport check vs the last saved fix (+ constant-accuracy mock
+        signature: spoofers emit the exact same accuracy every time). */
   const [prev] = await db
     .select()
     .from(userPrivateLocations)
     .where(eq(userPrivateLocations.userId, member.id))
     .limit(1);
+  if (
+    prev?.accuracyM != null &&
+    typeof accuracyM === "number" &&
+    accuracyM > 0 &&
+    Math.abs(prev.accuracyM - accuracyM) < 0.001 &&
+    distKm(prev.latitude ?? 0, prev.longitude ?? 0, lat, lng) > 0.5
+  ) {
+    await logSpoof(`identical accuracy ${accuracyM}m at a new position — mock signature`);
+    return Response.json(
+      { error: "That GPS reading doesn't look genuine. Location not saved." },
+      { status: 400 }
+    );
+  }
   if (prev?.latitude != null && prev?.longitude != null) {
     const moved = distKm(prev.latitude, prev.longitude, lat, lng);
     const hoursSince = prev.updatedAt ? (Date.now() - prev.updatedAt.getTime()) / 3_600_000 : 999;

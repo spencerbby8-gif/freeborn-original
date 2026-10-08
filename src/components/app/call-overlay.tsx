@@ -34,6 +34,8 @@ type CallProps = {
   self?: { id: string; name: string; photo: string };
   /** Callee receives this from the ring; caller generates it. */
   callId?: string;
+  /** Fired once when a call that actually connected ends — for the call log. */
+  onCallEnd?: (kind: "voice" | "video", seconds: number) => void;
   onClose: () => void;
 };
 
@@ -50,7 +52,7 @@ type CallState =
 
 const RING_TIMEOUT_MS = 45_000;
 
-export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdProp, onClose }: CallProps) {
+export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdProp, onCallEnd, onClose }: CallProps) {
   const [state, setState] = useState<CallState>("preparing");
   const [detail, setDetail] = useState(role === "caller" ? "Preparing your media…" : "Answering…");
   const [seconds, setSeconds] = useState(0);
@@ -90,6 +92,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const iceSentRef = useRef(0);
   /** Shows which path the media actually took. */
   const relaySeenRef = useRef(false);
+  /** Call-log bookkeeping: was it ever connected, and for how long. */
+  const liveEverRef = useRef(false);
+  const secondsRef = useRef(0);
+  const loggedRef = useRef(false);
 
   const setStateBoth = (s: CallState, d?: string) => {
     stateRef.current = s;
@@ -158,6 +164,11 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     if (closedRef.current) return;
     closedRef.current = true;
     clearTimers();
+    /* Call log: report connected calls exactly once. */
+    if (liveEverRef.current && !loggedRef.current) {
+      loggedRef.current = true;
+      onCallEnd?.(kind, secondsRef.current);
+    }
     if (sendHangup && chanRef.current) {
       publish(chanRef.current, "control", { t: "hangup" } satisfies CallSignal);
     }
@@ -309,6 +320,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           if (closedRef.current) return;
           traceCall(callIdRef.current, role, "conn-state", pc.connectionState);
           if (pc.connectionState === "connected") {
+            liveEverRef.current = true;
             restartedRef.current = false;
             if (healTimerRef.current) {
               clearTimeout(healTimerRef.current);
@@ -482,7 +494,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
 
   useEffect(() => {
     if (state !== "live") return;
-    const iv = setInterval(() => setSeconds((s) => s + 1), 1000);
+    const iv = setInterval(() => {
+      secondsRef.current += 1;
+      setSeconds(secondsRef.current);
+    }, 1000);
     return () => clearInterval(iv);
   }, [state]);
 

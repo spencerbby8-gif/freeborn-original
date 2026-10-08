@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { reports } from "@/db/schema";
+import { reports, userProfiles, warnings } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
-import { triageReport } from "@/lib/moderation";
+import { factCheckReport } from "@/lib/moderation";
 
 export const dynamic = "force-dynamic";
 
@@ -78,21 +78,54 @@ export async function POST(request: Request) {
     })
     .returning({ id: reports.id });
 
-  /* AI triage — classifies severity the moment the report lands so humans
-     handle the dangerous ones first. Never blocks the report itself. */
+  /* DUAL-MODEL FACT CHECK — two independent engines judge observable
+     evidence only (never private chats). Reports alone never ban anyone;
+     the outcome is dismiss / warn / escalate-for-hard-evidence. */
   let severity: string | null = null;
+  let outcome: string | null = null;
   try {
-    const verdict = await triageReport(safeReason, safeDetails ?? "");
+    const [{ count: priorReports }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reports)
+      .where(eq(reports.subjectId, profileId));
+
+    const targetSummary = [
+      target.displayName ?? "no name",
+      target.city ?? "no city",
+      target.bio ?? "no bio",
+      `joined ${target.createdAt?.toISOString?.() ?? "unknown"}`,
+      target.isVerified ? "IDENTITY VERIFIED" : "not identity-verified",
+    ].join(" · ");
+
+    const verdict = await factCheckReport(
+      safeReason,
+      safeDetails ?? "",
+      targetSummary,
+      priorReports,
+      Boolean(target.isVerified)
+    );
+
     if (verdict) {
       severity = verdict.severity;
+      outcome = verdict.action;
       await db
         .update(reports)
         .set({ severity: verdict.severity, triageSummary: verdict.summary.slice(0, 200) })
         .where(eq(reports.id, filed.id));
+
+      /* A warning is issued only when BOTH models find the claim credible
+         and serious — and never against verified members on one engine. */
+      if (verdict.action === "warn") {
+        await db.insert(warnings).values({
+          email: (target.email ?? "").toLowerCase(),
+          kind: "behavior-report",
+          detail: `${safeReason}: ${verdict.summary.slice(0, 160)}`,
+        });
+      }
     }
   } catch {
-    /* triage outage never stops a report */
+    /* justice-engine outage never stops a report */
   }
 
-  return Response.json({ ok: true, severity });
+  return Response.json({ ok: true, severity, outcome });
 }

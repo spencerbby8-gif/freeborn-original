@@ -37,7 +37,7 @@ const ICEBREAKERS = [
 
 type StagedItem = { id: number; kind: "image" | "video"; dataUrl: string };
 
-const MEDIA_RE = /^\[\[(image|video|voice):([^\]|]+)(?:\|([\d.]+))?\]\]$/;
+const MEDIA_RE = /^\[\[(image|video|voice|call):([^\]|]+)(?:\|([\d.]+))?\]\]$/;
 const QUOTE_RE = /^\[\[quote:([^|]{1,60})\|(.{1,220})\]\]$/;
 const MAX_PACKET_ITEMS = 10;
 
@@ -222,6 +222,28 @@ function MediaPacket({
       {voices.map((v, i) => (
         <VoiceBubble key={i} url={v.url} mine seconds={v.dur} />
       ))}
+      {items
+        .filter((i) => i.kind === "call")
+        .map((c, i) => (
+          <div
+            key={`call-${i}`}
+            className="flex w-[240px] max-w-full items-center gap-3 rounded-xl bg-black/20 px-3.5 py-2.5"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-[12.5px] font-black">
+                {c.url === "video" ? "Video call" : "Voice call"}
+              </p>
+              <p className="text-[11px] opacity-75">
+                {c.dur ? `${Math.floor(c.dur / 60)}:${String(Math.floor(c.dur % 60)).padStart(2, "0")} · connected` : "connected"}
+              </p>
+            </div>
+          </div>
+        ))}
     </div>
   );
 }
@@ -387,24 +409,56 @@ function Thread({
     })();
   }, []);
 
+  /* Optimistic echo: my messages appear INSTANTLY, then reconcile with the
+     server on the next poll — no waiting round-trip to see your own words. */
+  const pendingRef = useRef<Array<{ body: string; at: number }>>([]);
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/chat/messages?match=${match.id}`, {
       headers: authHeaders(token),
     });
     if (res.ok) {
       const json = await res.json();
-      setMessages(json.messages);
+      const real = json.messages as MessageRow[];
+      const pending = pendingRef.current.filter(
+        (p) =>
+          Date.now() - p.at < 20_000 &&
+          !real.some((m) => m.mine && m.body === p.body)
+      );
+      pendingRef.current = pending;
+      if (pending.length > 0) {
+        const temps: MessageRow[] = pending.map((p, i) => ({
+          id: `tmp-${p.at}-${i}`,
+          body: p.body,
+          mine: true,
+          at: new Date(p.at).toISOString(),
+          read: false,
+          reactions: [],
+        }));
+        setMessages([...real, ...temps]);
+      } else {
+        setMessages(real);
+      }
     }
   }, [match.id, token]);
 
   useEffect(() => {
     void load();
-    const iv = setInterval(() => void load(), 4000);
+    const iv = setInterval(() => void load(), 3000);
     return () => clearInterval(iv);
   }, [load]);
 
+  /* Instant snap to the latest message — the chat always opens AT the
+     current conversation, never hanging at the top. */
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const firstScroll = useRef(true);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    if (!firstScroll.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+    firstScroll.current = false;
   }, [messages.length]);
 
   const flash = (msg: string) => {
@@ -515,7 +569,14 @@ function Thread({
     setSending(true);
     setText("");
     setReplyTo(null);
-    await postMessage(buildBody(clean));
+    const body = buildBody(clean);
+    /* Optimistic echo — your words appear instantly, zero round-trip wait. */
+    pendingRef.current.push({ body, at: Date.now() });
+    setMessages((prev) => [
+      ...prev,
+      { id: `tmp-${Date.now()}`, body, mine: true, at: new Date().toISOString(), read: false, reactions: [] },
+    ]);
+    await postMessage(body);
     setSending(false);
   };
 
@@ -623,7 +684,7 @@ function Thread({
       h.moved = true;
     }
     // Slide LEFT to quote (the direction members expect).
-    if (h.moved) setQuoteArmedId(dx < -64 && Math.abs(dx) > Math.abs(dy) * 1.4 ? h.id : null);
+    if (h.moved) setQuoteArmedId(dx < -44 && Math.abs(dx) > Math.abs(dy) * 1.3 ? h.id : null);
   };
 
   const onBubbleUp = (m: MessageRow) => (e: React.PointerEvent) => {
@@ -851,7 +912,7 @@ function Thread({
         </div>
       ) : null}
 
-      <div className="flex-1 space-y-3 overflow-y-auto py-5">{rows.length > 0 ? rows : (
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
         <div className="pt-8 text-center">
           <p className="text-sm text-[var(--color-mist)]">The conversation is open — say hello.</p>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
@@ -1194,6 +1255,9 @@ function Thread({
           matchId={match.id}
           peer={{ id: match.with.id, name: match.with.name, photo: match.with.photo }}
           self={self}
+          onCallEnd={(k, secs) => {
+            if (secs > 0) void postMessage(`[[call:${k}|${secs}]]`);
+          }}
           onClose={() => setCall(null)}
         />
       ) : null}

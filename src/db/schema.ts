@@ -637,6 +637,37 @@ export const securityEvents = pgTable(
   (t) => [index("security_events_email_idx").on(t.email), index("security_events_ip_idx").on(t.ip)]
 );
 
+/** Warnings — the step BEFORE any suspension for behavior issues. Accounts
+    are warned first; only hard evidence (automated traffic) suspends. */
+export const warnings = pgTable(
+  "warnings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    kind: text("kind").notNull().default("behavior"),
+    detail: text("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [index("warnings_email_idx").on(t.email)]
+);
+
+/** Appeals — suspended members plead their case; two models + the security
+    record investigate, results within 2 days. */
+export const appeals = pgTable(
+  "appeals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    detail: text("detail").notNull(),
+    status: text("status").notNull().default("under_review"),
+    verdict: text("verdict"),
+    investigation: text("investigation"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [index("appeals_email_idx").on(t.email)]
+);
+
 /** Suspended accounts — datacenter/automated signups land here and are
     bounced back to the auth screen with a policy notice on every retry. */
 export const suspensions = pgTable(

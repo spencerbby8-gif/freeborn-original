@@ -74,7 +74,7 @@ export const authStatusMessages = {
   suspended: {
     tone: "error" as const,
     title: "Account suspended",
-    body: "This account was suspended under Freeborn's Privacy & Safety Policy — our checks found datacenter or automated traffic behind it. Real members connect from real devices. If you believe this is a mistake, contact support from a normal connection.",
+    body: "This account was suspended under Freeborn's Privacy & Safety Policy — our checks found datacenter or automated traffic behind it. Real members connect from real devices. If this is a mistake, file an appeal at freeborn.app/appeal — investigators review every case and results come within 2 days.",
   },
 };
 

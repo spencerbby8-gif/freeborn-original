@@ -358,6 +358,19 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
         </button>
       </div>
 
+      {/* GPS-first tip: precise location = real visibility */}
+      <div className="mt-3 flex items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] p-4">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
+          <PinIcon size={16} />
+        </span>
+        <p className="text-[12.5px] leading-5 text-[var(--color-mist)]">
+          <span className="font-black text-[var(--color-gold-300)]">Tip — use your device GPS.</span>{" "}
+          Precise location measures true distances, so real people near you see you first and
+          you see them. Manually typing a different city makes your distances unreliable and
+          quietly reduces your visibility.
+        </p>
+      </div>
+
       {detected ? (
         <p className="animate-scale-in flex items-center gap-2 rounded-xl border border-[var(--color-teal-500)]/25 bg-[var(--color-teal-500)]/[0.07] px-3.5 py-2.5 text-[12px] font-bold text-[var(--color-teal-300)]" role="status">
           <CheckIcon size={13} strokeWidth={2.5} />
