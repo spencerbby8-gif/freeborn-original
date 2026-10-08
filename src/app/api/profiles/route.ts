@@ -45,17 +45,21 @@ export async function GET(request: Request) {
      vaccination stance powers the values-affinity ranking. */
   let viewerId: string | null = null;
   let viewerVax = "prefer_not_to_say";
+  let viewerVerified = false;
   const hiddenIds = new Set<string>();
   if (request.headers.get("authorization")?.startsWith("Bearer ")) {
     const member = await getMember(request).catch(() => null);
     viewerId = member?.id ?? null;
     if (viewerId) {
       const [viewerRow] = await db
-        .select({ vaccinationStatus: userProfiles.vaccinationStatus })
+        .select({ vaccinationStatus: userProfiles.vaccinationStatus, isVerified: userProfiles.isVerified })
         .from(userProfiles)
         .where(eq(userProfiles.id, viewerId))
         .limit(1);
-      if (viewerRow) viewerVax = viewerRow.vaccinationStatus;
+      if (viewerRow) {
+        viewerVax = viewerRow.vaccinationStatus;
+        viewerVerified = viewerRow.isVerified;
+      }
       const blocks = await db
         .select({ blockerId: blockedUsers.blockerId, blockedId: blockedUsers.blockedId })
         .from(blockedUsers)
@@ -224,6 +228,10 @@ export async function GET(request: Request) {
     if (hiddenIds.has(row.id)) continue;
     // A card without a photo renders blank — photoless profiles stay out.
     if (!photoByUser.has(row.id)) continue;
+    // Their privacy choice: who is allowed to see them in discovery.
+    const dp = (row as { discoverPrivacy?: string }).discoverPrivacy ?? "everyone";
+    if (dp === "verified" && !viewerVerified) continue;
+    if (dp === "unvaccinated" && viewerVax !== "unvaccinated") continue;
 
     const age = ageFromBirthDate(row.birthDate);
     const isOnline =

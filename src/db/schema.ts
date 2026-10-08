@@ -125,6 +125,10 @@ export const userProfiles = pgTable(
     periodicReverificationDueAt: timestamp("periodic_reverification_due_at", {
       withTimezone: true,
     }),
+    /* Privacy controls — who can message me / who can see me in discovery.
+       Values: everyone | verified | unvaccinated */
+    messagePrivacy: text("message_privacy").notNull().default("everyone"),
+    discoverPrivacy: text("discover_privacy").notNull().default("everyone"),
   },
   (t) => [
     check(

@@ -82,6 +82,8 @@ export async function GET(request: Request) {
     relationshipGoals: row.relationship_goals ?? [],
     photos: photoUrls,
     isVerified: row.is_verified ?? false,
+    messagePrivacy: row.message_privacy ?? "everyone",
+    discoverPrivacy: row.discover_privacy ?? "everyone",
     memberSince: row.created_at,
   };
 
@@ -141,6 +143,16 @@ export async function POST(request: Request) {
     } else if (typeof value === "string") {
       patch[COLUMN[key]] = value.trim();
     }
+  }
+
+  /* Privacy settings — validated against the three real options. */
+  const PRIVACY_VALUES = new Set(["everyone", "verified", "unvaccinated"]);
+  const bodyObj = body as Record<string, unknown>;
+  if (typeof bodyObj.messagePrivacy === "string" && PRIVACY_VALUES.has(bodyObj.messagePrivacy)) {
+    patch.message_privacy = bodyObj.messagePrivacy;
+  }
+  if (typeof bodyObj.discoverPrivacy === "string" && PRIVACY_VALUES.has(bodyObj.discoverPrivacy)) {
+    patch.discover_privacy = bodyObj.discoverPrivacy;
   }
 
   if (Object.keys(patch).length === 0) {

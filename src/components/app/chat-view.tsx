@@ -604,6 +604,13 @@ function Thread({
         if (h && h.id === m.id && !h.moved) setPickerFor({ id: m.id, x: h.x, y: h.y });
       }, 460),
     };
+    /* Capture the pointer so the slide keeps firing even when the finger
+       drifts outside the bubble — this is what made slide-to-quote die. */
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   };
 
   const onBubbleMove = (e: React.PointerEvent) => {
@@ -619,7 +626,12 @@ function Thread({
     if (h.moved) setQuoteArmedId(dx < -64 && Math.abs(dx) > Math.abs(dy) * 1.4 ? h.id : null);
   };
 
-  const onBubbleUp = (m: MessageRow) => () => {
+  const onBubbleUp = (m: MessageRow) => (e: React.PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
     const h = bubbleHold.current;
     bubbleHold.current = null;
     if (!h) return;
@@ -701,7 +713,7 @@ function Thread({
               transition: "transform 160ms ease",
             }}
             onContextMenu={(e) => e.preventDefault()}
-            className={`fb-no-callout relative select-none rounded-[20px] text-[14px] leading-6 ${
+            className={`fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine

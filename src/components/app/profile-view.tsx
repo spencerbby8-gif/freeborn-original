@@ -49,6 +49,7 @@ type FullProfile = {
   memberSince: string | null;
   birthMonthYear: string;
   distanceKm: number | null;
+  messageRestricted?: string | null;
 };
 
 /** Instant re-open: full profiles are cached after first fetch. */
@@ -611,19 +612,29 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               );
             })()}
 
-            {/* Start a conversation */}
+            {/* Start a conversation — or the member's privacy boundary */}
             <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
-              <button
-                type="button"
-                onClick={() => void handleMessage()}
-                disabled={msgBusy}
-                className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
-                </svg>
-                {msgBusy ? "Opening…" : `Message ${profile.name}`}
-              </button>
+              {profile.messageRestricted ? (
+                <div className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-[13px] font-bold text-[var(--color-mist)]">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+                    <rect x="5" y="10" width="14" height="10" rx="2.5" />
+                    <path d="M8 10V7a4 4 0 018 0v3" />
+                  </svg>
+                  {profile.messageRestricted}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleMessage()}
+                  disabled={msgBusy}
+                  className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
+                  </svg>
+                  {msgBusy ? "Opening…" : `Message ${profile.name}`}
+                </button>
+              )}
             </div>
           </div>
         )}

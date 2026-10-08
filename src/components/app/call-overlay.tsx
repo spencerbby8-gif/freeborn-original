@@ -15,9 +15,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ICE_SERVERS,
   callChannel,
   destroyChannel,
+  getIceConfig,
   newCallId,
   publish,
   ringChannel,
@@ -73,6 +73,16 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const restartedRef = useRef(false);
   const healTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const negWatchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Handshake reliability: broadcasts are fire-and-forget, so the accept and
+      the offer are re-sent on a timer until the other side answers. */
+  const offerSentRef = useRef<RTCSessionDescriptionInit | null>(null);
+  const answerSeenRef = useRef(false);
+  const offerSeenRef = useRef(false);
+  const acceptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const offerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Shows which path the media actually took. */
+  const relaySeenRef = useRef(false);
 
   const setStateBoth = (s: CallState, d?: string) => {
     stateRef.current = s;
@@ -88,6 +98,18 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     if (negWatchRef.current) {
       clearTimeout(negWatchRef.current);
       negWatchRef.current = null;
+    }
+    if (acceptTimerRef.current) {
+      clearInterval(acceptTimerRef.current);
+      acceptTimerRef.current = null;
+    }
+    if (offerTimerRef.current) {
+      clearInterval(offerTimerRef.current);
+      offerTimerRef.current = null;
+    }
+    if (pingTimerRef.current) {
+      clearInterval(pingTimerRef.current);
+      pingTimerRef.current = null;
     }
   };
 
@@ -144,12 +166,22 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
       if (sig.t === "sdp") {
         await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
         if (sig.sdp.type === "offer") {
+          offerSeenRef.current = true;
+          if (acceptTimerRef.current) {
+            clearInterval(acceptTimerRef.current);
+            acceptTimerRef.current = null;
+          }
           setDetail("Answering their offer…");
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           if (chanRef.current) publish(chanRef.current, "signal", { t: "sdp", sdp: answer } satisfies CallSignal);
           setDetail("Securing the connection…");
         } else {
+          answerSeenRef.current = true;
+          if (offerTimerRef.current) {
+            clearInterval(offerTimerRef.current);
+            offerTimerRef.current = null;
+          }
           setDetail("Answer received — securing the connection…");
         }
         return;
@@ -168,6 +200,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     closedRef.current = false;
     madeOfferRef.current = false;
     restartedRef.current = false;
+    offerSentRef.current = null;
+    answerSeenRef.current = false;
+    offerSeenRef.current = false;
+    relaySeenRef.current = false;
     let cancelled = false;
 
     /* Watchdog: a handshake stuck in "negotiating" for 25s is a dead path —
@@ -197,8 +233,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           void localVideoRef.current.play().catch(() => undefined);
         }
 
-        /* Peer connection */
-        const pc = new RTCPeerConnection(ICE_SERVERS);
+        /* Peer connection — STUN + TURN relay (mandatory on mobile carriers). */
+        const ice = await getIceConfig();
+        if (cancelled) return;
+        const pc = new RTCPeerConnection(ice);
         pcRef.current = pc;
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         pc.ontrack = (e) => {
@@ -206,7 +244,9 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           if (s) attachRemote(s);
         };
         pc.onicecandidate = (e) => {
-          if (e.candidate && chanRef.current) {
+          if (!e.candidate) return;
+          if (e.candidate.type === "relay") relaySeenRef.current = true;
+          if (chanRef.current) {
             publish(chanRef.current, "signal", { t: "ice", cand: e.candidate.toJSON() } satisfies CallSignal);
           }
         };
@@ -218,7 +258,19 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
               clearTimeout(healTimerRef.current);
               healTimerRef.current = null;
             }
-            setStateBoth("live", "Connected");
+            setStateBoth(
+              "live",
+              relaySeenRef.current ? "Connected · relayed path (strong)" : "Connected · direct path"
+            );
+            /* Keepalive: a quiet ping every 10s keeps the channel warm and
+               proves the link is still alive end to end. */
+            if (!pingTimerRef.current) {
+              pingTimerRef.current = setInterval(() => {
+                if (chanRef.current && !closedRef.current) {
+                  publish(chanRef.current, "control", { t: "ping" } satisfies CallSignal);
+                }
+              }, 10_000);
+            }
             return;
           }
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
@@ -271,8 +323,23 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
               try {
                 const offer = await pcx.createOffer();
                 await pcx.setLocalDescription(offer);
+                offerSentRef.current = offer;
                 if (chanRef.current) publish(chanRef.current, "signal", { t: "sdp", sdp: offer } satisfies CallSignal);
                 setDetail("Offer sent — waiting for their answer…");
+                /* Retransmit: broadcasts can drop; the offer repeats every 2s
+                   until their answer lands. */
+                if (!offerTimerRef.current) {
+                  offerTimerRef.current = setInterval(() => {
+                    if (closedRef.current || answerSeenRef.current) {
+                      if (offerTimerRef.current) clearInterval(offerTimerRef.current);
+                      offerTimerRef.current = null;
+                      return;
+                    }
+                    if (chanRef.current && offerSentRef.current) {
+                      publish(chanRef.current, "signal", { t: "sdp", sdp: offerSentRef.current } satisfies CallSignal);
+                    }
+                  }, 2000);
+                }
               } catch {
                 /* retryable via Call again */
               }
@@ -308,6 +375,18 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             // Already accepted in the incoming-call screen.
             publish(chan, "control", { t: "accept" } satisfies CallSignal);
             setDetail("Accepted — waiting for their offer…");
+            /* Retransmit: broadcasts can drop; the accept repeats every 1.5s
+               until their offer arrives. */
+            if (!acceptTimerRef.current) {
+              acceptTimerRef.current = setInterval(() => {
+                if (closedRef.current || offerSeenRef.current) {
+                  if (acceptTimerRef.current) clearInterval(acceptTimerRef.current);
+                  acceptTimerRef.current = null;
+                  return;
+                }
+                if (chanRef.current) publish(chanRef.current, "control", { t: "accept" } satisfies CallSignal);
+              }, 1500);
+            }
           }
         });
       } catch {

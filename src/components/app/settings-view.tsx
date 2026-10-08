@@ -186,6 +186,8 @@ type Settings = {
     discoverable: boolean;
     isVerified: boolean;
     stage: string;
+    messagePrivacy: string;
+    discoverPrivacy: string;
   };
   discovery: {
     ageMin: number;
@@ -678,6 +680,48 @@ export function SettingsView() {
                 await post({ profile: { discoverable: v } });
               }}
             />
+
+            {/* Who can see you in discovery */}
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-[13px] font-black text-[var(--color-pearl)]">Who can see you in Discover</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
+                Control who your card can appear to.
+              </p>
+              <select
+                value={p.discoverPrivacy ?? "everyone"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setP({ discoverPrivacy: v });
+                  void post({ profile: { discoverPrivacy: v } });
+                }}
+                className="mt-2.5 min-h-[46px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] font-bold text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)]"
+              >
+                <option value="everyone" className="bg-[#0c101d]">Everyone</option>
+                <option value="verified" className="bg-[#0c101d]">Only verified members</option>
+                <option value="unvaccinated" className="bg-[#0c101d]">Only unvaccinated members</option>
+              </select>
+            </div>
+
+            {/* Who can message you */}
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <p className="text-[13px] font-black text-[var(--color-pearl)]">Who can message you</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
+                Applies when starting a conversation — and to every message after.
+              </p>
+              <select
+                value={p.messagePrivacy ?? "everyone"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setP({ messagePrivacy: v });
+                  void post({ profile: { messagePrivacy: v } });
+                }}
+                className="mt-2.5 min-h-[46px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] font-bold text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)]"
+              >
+                <option value="everyone" className="bg-[#0c101d]">Everyone</option>
+                <option value="verified" className="bg-[#0c101d]">Only verified members</option>
+                <option value="unvaccinated" className="bg-[#0c101d]">Only unvaccinated members</option>
+              </select>
+            </div>
             <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-[12px] leading-5 text-[var(--color-ash)]">
               Email, full birth date, and exact coordinates are never shown publicly — that's fixed, not a setting.
             </p>

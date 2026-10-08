@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { getMember } from "@/lib/app-auth";
 import {
   matches,
   messages,
@@ -136,6 +137,29 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     ? (row.promptAnswers as Array<{ prompt?: string; answer?: string }>)
     : [];
 
+  /* The viewer's messaging rights under this member's privacy rules. */
+  let messageRestricted: string | null = null;
+  const mp = row.messagePrivacy ?? "everyone";
+  if (mp !== "everyone") {
+    const name = mp === "verified" ? "Only verified members can message" : "Only unvaccinated members can message";
+    const viewer = await getMember(request).catch(() => null);
+    if (!viewer) {
+      messageRestricted = name;
+    } else {
+      const [me] = await db
+        .select({
+          isVerified: userProfiles.isVerified,
+          vaccinationStatus: userProfiles.vaccinationStatus,
+        })
+        .from(userProfiles)
+        .where(eq(userProfiles.id, viewer.id))
+        .limit(1);
+      const allowed =
+        mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
+      if (!allowed) messageRestricted = name;
+    }
+  }
+
   return Response.json({
     profile: {
       id: row.id,
@@ -162,6 +186,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       prompts,
       photos: photoUrls,
       verified: row.isVerified,
+      messageRestricted,
       vaccinationStatus: row.vaccinationStatus,
       replyRate,
       matchRate,

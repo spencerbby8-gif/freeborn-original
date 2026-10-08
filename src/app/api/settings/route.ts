@@ -35,6 +35,8 @@ export async function GET(request: Request) {
       discoverable: profile.discoverable ?? true,
       isVerified: profile.is_verified ?? false,
       stage: profile.onboarding_stage ?? "account_created",
+      messagePrivacy: profile.message_privacy ?? "everyone",
+      discoverPrivacy: profile.discover_privacy ?? "everyone",
     },
     discovery: {
       ageMin: prefs.age_min ?? 22,
@@ -84,6 +86,13 @@ export async function POST(request: Request) {
       if (typeof profile.occupation === "string") patch.occupation = profile.occupation.slice(0, 80);
       if (typeof profile.education === "string") patch.education = profile.education.slice(0, 80);
       if (typeof profile.discoverable === "boolean") patch.discoverable = profile.discoverable;
+      const PRIVACY_VALUES = new Set(["everyone", "verified", "unvaccinated"]);
+      if (typeof profile.messagePrivacy === "string" && PRIVACY_VALUES.has(profile.messagePrivacy)) {
+        patch.message_privacy = profile.messagePrivacy;
+      }
+      if (typeof profile.discoverPrivacy === "string" && PRIVACY_VALUES.has(profile.discoverPrivacy)) {
+        patch.discover_privacy = profile.discoverPrivacy;
+      }
       const { error } = await supabase.from("user_profiles").update(patch).eq("id", user.id);
       if (error) throw error;
     }

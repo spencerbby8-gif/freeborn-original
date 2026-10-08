@@ -31,6 +31,35 @@ export async function POST(request: Request) {
     .limit(1);
   if (!other) return Response.json({ error: "Profile not found." }, { status: 404 });
 
+  /* Their privacy rule: who may start conversations with them. Enforced
+     here AND on every message send — truthful, never bypassed. */
+  const mp = other.messagePrivacy ?? "everyone";
+  if (mp !== "everyone") {
+    const [me] = await db
+      .select({
+        isVerified: userProfiles.isVerified,
+        vaccinationStatus: userProfiles.vaccinationStatus,
+      })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, member.id))
+      .limit(1);
+    const allowed =
+      mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
+    if (!allowed) {
+      const name = other.displayName ?? "This member";
+      return Response.json(
+        {
+          error:
+            mp === "verified"
+              ? `${name} only accepts messages from verified members.`
+              : `${name} only accepts messages from unvaccinated members.`,
+          restricted: true,
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   const [userA, userB] = [member.id, otherId].sort();
   const existing = await db
     .select()

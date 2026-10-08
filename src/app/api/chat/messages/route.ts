@@ -107,6 +107,43 @@ export async function POST(request: Request) {
   const match = await ownsMatch(matchId, member.id);
   if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
 
+  /* Privacy rules keep applying inside an open conversation too. */
+  const otherId = match.userA === member.id ? match.userB : match.userA;
+  const [other] = await db
+    .select({
+      displayName: userProfiles.displayName,
+      messagePrivacy: userProfiles.messagePrivacy,
+    })
+    .from(userProfiles)
+    .where(eq(userProfiles.id, otherId))
+    .limit(1);
+  const mp = other?.messagePrivacy ?? "everyone";
+  if (mp !== "everyone") {
+    const [me] = await db
+      .select({
+        isVerified: userProfiles.isVerified,
+        vaccinationStatus: userProfiles.vaccinationStatus,
+      })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, member.id))
+      .limit(1);
+    const allowed =
+      mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
+    if (!allowed) {
+      const name = other?.displayName ?? "This member";
+      return Response.json(
+        {
+          error:
+            mp === "verified"
+              ? `${name} only accepts messages from verified members.`
+              : `${name} only accepts messages from unvaccinated members.`,
+          restricted: true,
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   /* Scam guard: flag recognizable scam patterns so the recipient is warned. */
   await db
     .insert(messages)

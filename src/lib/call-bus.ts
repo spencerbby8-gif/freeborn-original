@@ -12,12 +12,33 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+/** Fallback (STUN-only) — used only if the ICE endpoint is unreachable. */
 export const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+let iceCache: RTCConfiguration | null = null;
+
+/** Fetch the real ICE config (STUN + TURN relay). TURN is what makes calls
+    connect on mobile carrier networks — STUN alone silently fails there. */
+export async function getIceConfig(): Promise<RTCConfiguration> {
+  if (iceCache) return iceCache;
+  try {
+    const res = await fetch("/api/calls/ice", { cache: "no-store" });
+    if (!res.ok) return ICE_SERVERS;
+    const json = (await res.json()) as RTCConfiguration;
+    if (json && Array.isArray(json.iceServers) && json.iceServers.length > 0) {
+      iceCache = json;
+      return json;
+    }
+    return ICE_SERVERS;
+  } catch {
+    return ICE_SERVERS;
+  }
+}
 
 export type RingPayload = {
   callId: string;
@@ -31,6 +52,7 @@ export type CallSignal =
   | { t: "declined" }
   | { t: "busy" }
   | { t: "hangup" }
+  | { t: "ping" }
   | { t: "sdp"; sdp: RTCSessionDescriptionInit }
   | { t: "ice"; cand: RTCIceCandidateInit };
 
