@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { UnvaxBadge } from "@/components/unvax-badge";
+import { VerifyBadge } from "@/components/verify-badge";
 import { UnvaxTip } from "@/components/unvax-tip";
 import { Wordmark } from "@/components/wordmark";
 import { ProfileView } from "./profile-view";
@@ -628,9 +629,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-black/10" />
 
-                  {/* Top-right badges: unvaccinated stance (+ one-time tip) */}
+                  {/* Top-right badges: verification + unvaccinated stance.
+                      The verified badge disappears automatically when the member
+                      uploads new photos (the server revokes is_verified). */}
                   <div className="absolute right-4 top-8 z-10 flex flex-col items-end gap-2">
                     <div className="relative flex items-center gap-2">
+                      {profile.verified ? (
+                        <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
+                          <VerifyBadge size={20} />
+                        </span>
+                      ) : null}
                       {profile.vaccinationStatus === "unvaccinated" ? (
                         <UnvaxBadge size={20} />
                       ) : null}

@@ -3,6 +3,7 @@ import { chatMedia } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 /* Strict per-kind whitelists and caps — keeps the store safe and fast. */
 const RULES: Record<string, { mimes: Set<string>; maxBytes: number }> = {
@@ -21,6 +22,7 @@ const RULES: Record<string, { mimes: Set<string>; maxBytes: number }> = {
       "audio/mpeg",
       "audio/wav",
       "audio/ogg",
+      "audio/x-m4a",
       "audio/webm;codecs=opus",
     ]),
     maxBytes: 8 * 1024 * 1024,
@@ -39,53 +41,46 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
 }
 
 /**
- * POST /api/chat/media
- * Stores a chat attachment (voice note / photo / video) in the local media
- * table and returns its id. The matching GET route streams it back, so both
- * sides of a conversation can play or view it with zero external deps.
+ * POST /api/chat/media — multipart upload (voice note / photo / video).
+ * Multipart instead of base64 JSON: ~35% smaller payloads and no body-bloat
+ * failures, which is what was killing voice and video delivery.
  */
 export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
-  let body: unknown;
+  let form: FormData;
   try {
-    body = await request.json();
+    form = await request.formData();
   } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 });
+    return Response.json({ error: "A multipart upload is required." }, { status: 400 });
   }
 
-  const { data, kind } = (body ?? {}) as { data?: string; kind?: string };
-  const rule = RULES[kind ?? ""];
-  if (!data || !data.startsWith("data:") || !rule) {
-    return Response.json({ error: "A valid attachment is required." }, { status: 400 });
+  const file = form.get("file");
+  const kind = String(form.get("kind") ?? "");
+  const rule = RULES[kind];
+  if (!(file instanceof File) || !rule) {
+    return Response.json({ error: "A valid file and kind are required." }, { status: 400 });
   }
 
-  const mimeMatch = /^data:([^;]+);base64,(.+)$/.exec(data);
-  if (!mimeMatch) {
-    return Response.json({ error: "Unsupported attachment format." }, { status: 400 });
+  const mime = (file.type || "").split(";")[0];
+  if (!rule.mimes.has(mime) && !rule.mimes.has(file.type)) {
+    return Response.json({ error: `Unsupported ${kind} format (${file.type || "unknown"}).` }, { status: 400 });
   }
-  const mime = mimeMatch[1];
-  const base64 = mimeMatch[2];
-  if (!rule.mimes.has(mime)) {
-    return Response.json({ error: "Unsupported attachment type." }, { status: 400 });
-  }
-
-  const bytes = Buffer.from(base64, "base64");
-  if (bytes.length > rule.maxBytes) {
+  if (file.size > rule.maxBytes) {
     return Response.json(
-      { error: `Attachment too large (max ${Math.round(rule.maxBytes / 1024 / 1024)} MB).` },
+      { error: `${kind === "voice" ? "Voice note" : "File"} too large (max ${Math.round(rule.maxBytes / 1024 / 1024)} MB).` },
       { status: 400 }
     );
   }
-
-  if (rateLimited(member.id, 40, 60 * 60 * 1000)) {
+  if (rateLimited(member.id, 200, 60 * 60 * 1000)) {
     return Response.json({ error: "Too many uploads — try again later." }, { status: 429 });
   }
 
+  const bytes = Buffer.from(await file.arrayBuffer());
   const [row] = await db
     .insert(chatMedia)
-    .values({ senderId: member.id, kind: kind as string, mime, data: bytes })
+    .values({ senderId: member.id, kind, mime, data: bytes })
     .returning({ id: chatMedia.id });
 
   return Response.json({ ok: true, id: row.id, kind });

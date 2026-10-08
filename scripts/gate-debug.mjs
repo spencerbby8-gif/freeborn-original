@@ -10,7 +10,7 @@ page.on("response", (r) => { if (r.url().includes("/api/")) logs.push(`[api] ${r
 
 await page.goto(`${BASE}/auth?mode=sign-in`, { waitUntil: "networkidle", timeout: 60000 });
 await page.locator('input[id="email"]').fill("e2e-proof@freeborn.app");
-await page.locator('input[id="password"]').fill(process.env.E2E_PASSWORD ?? "");
+await page.locator('input[id="password"]').fill("E2eProof2026x");
 await page.locator('button[type="submit"]').click();
 await page.waitForURL("**/onboarding", { timeout: 45000 }).catch(() => {});
 await page.waitForTimeout(10000);

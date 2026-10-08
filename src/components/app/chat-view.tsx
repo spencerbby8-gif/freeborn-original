@@ -289,6 +289,24 @@ function Thread({
   const [replyTo, setReplyTo] = useState<{ name: string; text: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  /** My own identity — carried in the ring so the callee sees who's calling. */
+  const [self, setSelf] = useState<{ id: string; name: string; photo: string } | undefined>(undefined);
+
+  useEffect(() => {
+    void (async () => {
+      const t = await getAccessToken().catch(() => null);
+      if (!t) return;
+      try {
+        const res = await fetch("/api/profile/me", { headers: { Authorization: `Bearer ${t}` } });
+        if (!res.ok) return;
+        const json = await res.json();
+        const p = json.profile ?? {};
+        setSelf({ id: p.id ?? "", name: p.displayName ?? "Freeborn member", photo: (p.photos ?? [])[0] ?? "" });
+      } catch {
+        /* call still works without the pretty identity */
+      }
+    })();
+  }, []);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/chat/messages?match=${match.id}`, {
@@ -317,14 +335,11 @@ function Thread({
 
   /* --- Voice notes: rebuilt Telegram-style module ------------------------------ */
 
-  const sendVoice = async (dataUrl: string, seconds: number) => {
+  const sendVoice = async (blob: Blob, seconds: number) => {
     setUploading(true);
     try {
-      const url = await uploadMedia(dataUrl, "voice");
-      if (!url) {
-        flash("Voice note failed to send.");
-        return;
-      }
+      const url = await uploadMedia(blob, "voice");
+      if (!url) return; // uploadMedia already told the member why
       await postMessage(buildBody(`[[voice:${url}|${seconds}]]`));
       setReplyTo(null);
     } finally {
@@ -389,18 +404,28 @@ function Thread({
     return `${quote}\n${content}`.slice(0, 2000);
   };
 
-  /** Upload into the local media store → playable/viewable by both sides. */
-  const uploadMedia = async (dataUrl: string, kind: "image" | "video" | "voice") => {
+  /** Upload into the media store via multipart (no base64 bloat → voice and
+      video actually go through). */
+  const uploadMedia = async (blob: Blob, kind: "image" | "video" | "voice") => {
     try {
+      const ext = kind === "voice" ? "webm" : kind === "video" ? "mp4" : "jpg";
+      const form = new FormData();
+      form.append("file", blob, `upload.${ext}`);
+      form.append("kind", kind);
       const res = await fetch("/api/chat/media", {
         method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({ data: dataUrl, kind }),
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        flash(j.error ?? "Upload failed — try again.");
+        return null;
+      }
       const json = await res.json();
       return `/api/chat/media/${json.id}`;
     } catch {
+      flash("Upload failed — check your connection.");
       return null;
     }
   };
@@ -427,6 +452,10 @@ function Thread({
     e.target.value = "";
     for (const file of files) {
       if (staged.length >= MAX_PACKET_ITEMS) break;
+      if (file.size > 20 * 1024 * 1024) {
+        flash("That file is over 20 MB — trim it down and try again.");
+        continue;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         setStaged((s) =>
@@ -454,8 +483,13 @@ function Thread({
     setStaged([]);
     const markers: string[] = [];
     for (const item of items) {
-      const url = await uploadMedia(item.dataUrl, item.kind);
-      if (url) markers.push(`[[${item.kind}:${url}]]`);
+      try {
+        const blob = await (await fetch(item.dataUrl)).blob();
+        const url = await uploadMedia(blob, item.kind);
+        if (url) markers.push(`[[${item.kind}:${url}]]`);
+      } catch {
+        flash("One attachment couldn't be read — skipped.");
+      }
     }
     if (markers.length) {
       const content = [markers.join("\n"), caption].filter(Boolean).join("\n");
@@ -663,7 +697,7 @@ function Thread({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-200px)] flex-col lg:h-[calc(100dvh-120px)]">
+    <div className="flex h-[calc(100dvh-212px)] min-h-[380px] flex-col sm:h-[calc(100dvh-168px)] lg:h-[calc(100dvh-118px)]">
       <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
         <button
           type="button"
@@ -1038,9 +1072,11 @@ function Thread({
       {call ? (
         <CallOverlay
           kind={call}
-          name={match.with.name}
-          photo={match.with.photo}
-          onEnd={() => setCall(null)}
+          role="caller"
+          matchId={match.id}
+          peer={{ id: match.with.id, name: match.with.name, photo: match.with.photo }}
+          self={self}
+          onClose={() => setCall(null)}
         />
       ) : null}
     </div>

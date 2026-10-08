@@ -1,354 +1,318 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-
 /**
- * Freeborn call engine — voice & video.
+ * FREEBORN CALLS — real end-to-end, device to device.
  *
- * Real media pipeline: getUserMedia → RTCPeerConnection pair with full
- * offer/answer + ICE candidate exchange (loopback signaling in the preview
- * room), DTLS/SRTP encrypted transport, and a live analyser on the RECEIVED
- * WebRTC track that drives the speaking indicator. In production the same
- * engine swaps the loopback signaling for a WebSocket signaling server plus
- * STUN/TURN — nothing in the media path changes.
+ * Signaling rides Supabase Realtime (ring → accept → SDP/ICE exchange);
+ * the media itself flows peer-to-peer over WebRTC. The caller's own voice is
+ * NEVER played back through the speaker — that's what caused the echo.
  */
 
-type CallKind = "voice" | "video";
-type Phase = "starting" | "ringing" | "connecting" | "connected" | "failed";
+import { useEffect, useRef, useState } from "react";
+import {
+  ICE_SERVERS,
+  callChannel,
+  publish,
+  ringChannel,
+  type CallSignal,
+} from "@/lib/call-bus";
 
-function fmtClock(totalSeconds: number) {
-  const m = Math.floor(totalSeconds / 60);
-  const s = Math.floor(totalSeconds % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+type CallProps = {
+  kind: "voice" | "video";
+  role: "caller" | "callee";
+  matchId: string;
+  peer: { id: string; name: string; photo: string };
+  /** The signed-in member's own identity — carried in the ring so the
+      callee sees who is calling. */
+  self?: { id: string; name: string; photo: string };
+  onClose: () => void;
+};
 
-export function CallOverlay({
-  kind,
-  name,
-  photo,
-  onEnd,
-}: {
-  kind: CallKind;
-  name: string;
-  photo: string;
-  onEnd: () => void;
-}) {
-  const [phase, setPhase] = useState<Phase>("starting");
+type CallState = "connecting" | "ringing" | "declined" | "busy" | "live" | "ended" | "error";
+
+const RING_TIMEOUT_MS = 45_000;
+
+export function CallOverlay({ kind, role, matchId, peer, self, onClose }: CallProps) {
+  const [state, setState] = useState<CallState>(role === "caller" ? "ringing" : "connecting");
   const [seconds, setSeconds] = useState(0);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(kind === "video");
-  const [speakerOn, setSpeakerOn] = useState(true);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [remoteLevel, setRemoteLevel] = useState(0);
-  const [error, setError] = useState<string | null>(null);
 
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const localRef = useRef<MediaStream | null>(null);
+  const chanRef = useRef<ReturnType<typeof callChannel> | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const pcARef = useRef<RTCPeerConnection | null>(null);
-  const pcBRef = useRef<RTCPeerConnection | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const levelTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const endedRef = useRef(false);
+  const closedRef = useRef(false);
+  const madeOfferRef = useRef(false);
 
-  const teardown = useCallback(() => {
-    endedRef.current = true;
-    if (ringTimerRef.current) clearTimeout(ringTimerRef.current);
-    if (clockTimerRef.current) clearInterval(clockTimerRef.current);
-    if (levelTimerRef.current) clearInterval(levelTimerRef.current);
-    ringTimerRef.current = null;
-    clockTimerRef.current = null;
-    levelTimerRef.current = null;
-    if (audioCtxRef.current) {
-      void audioCtxRef.current.close().catch(() => undefined);
-      audioCtxRef.current = null;
-    }
-    pcARef.current?.close();
-    pcBRef.current?.close();
-    pcARef.current = null;
-    pcBRef.current = null;
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    remoteStreamRef.current?.getTracks().forEach((t) => t.stop());
-    localStreamRef.current = null;
-    remoteStreamRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    return teardown;
-  }, [teardown]);
-
-  /* Meter the audio we actually receive over the WebRTC track. */
-  const attachRemoteMeter = useCallback((stream: MediaStream) => {
+  const hangup = (notify = true) => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    if (notify && chanRef.current) publish(chanRef.current, "signal", { t: "hangup" } satisfies CallSignal);
     try {
-      const Ctx =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new Ctx();
-      audioCtxRef.current = ctx;
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      src.connect(analyser);
-      const buf = new Uint8Array(analyser.fftSize);
-      levelTimerRef.current = setInterval(() => {
-        analyser.getByteTimeDomainData(buf);
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
-        setRemoteLevel(Math.min(1, peak / 70));
-      }, 120);
+      pcRef.current?.close();
     } catch {
-      /* meter is optional */
+      /* already closed */
     }
-  }, []);
+    localRef.current?.getTracks().forEach((t) => t.stop());
+    setState("ended");
+    setTimeout(onClose, 900);
+  };
 
-  /* Establish the real WebRTC connection (loopback signaling). */
-  const connect = useCallback(async () => {
-    const local = localStreamRef.current;
-    if (!local || endedRef.current) return;
-    setPhase("connecting");
+  /* --- WebRTC setup ---------------------------------------------------------- */
+
+  const attachRemote = (stream: MediaStream) => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = stream;
+      void remoteAudioRef.current.play().catch(() => undefined);
+    }
+    if (kind === "video" && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = stream;
+      void remoteVideoRef.current.play().catch(() => undefined);
+    }
+  };
+
+  const setupPeer = () => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    pcRef.current = pc;
+    localRef.current?.getTracks().forEach((t) => pc.addTrack(t, localRef.current!));
+    pc.ontrack = (e) => {
+      const [stream] = e.streams;
+      if (stream) attachRemote(stream);
+    };
+    pc.onicecandidate = (e) => {
+      if (e.candidate && chanRef.current) {
+        publish(chanRef.current, "signal", { t: "ice", cand: e.candidate.toJSON() } satisfies CallSignal);
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") setState("live");
+      if (pc.connectionState === "failed") hangup(false);
+    };
+    return pc;
+  };
+
+  const handleSignal = async (sig: CallSignal) => {
+    const pc = pcRef.current;
+    if (!pc || closedRef.current) return;
     try {
-      const iceServers: RTCIceServer[] = [];
-      const pcA = new RTCPeerConnection({ iceServers });
-      const pcB = new RTCPeerConnection({ iceServers });
-      pcARef.current = pcA;
-      pcBRef.current = pcB;
-
-      pcA.onicecandidate = (e) => {
-        if (e.candidate) void pcB.addIceCandidate(e.candidate).catch(() => undefined);
-      };
-      pcB.onicecandidate = (e) => {
-        if (e.candidate) void pcA.addIceCandidate(e.candidate).catch(() => undefined);
-      };
-      pcB.ontrack = (e) => {
-        // Some browsers deliver tracks without a stream association —
-        // wrap the track ourselves so audio always reaches the speaker.
-        const stream = e.streams[0] ?? new MediaStream([e.track]);
-        remoteStreamRef.current = stream;
-        setRemoteStream(stream);
-        attachRemoteMeter(stream);
-      };
-
-      local.getTracks().forEach((t) => pcA.addTrack(t, local));
-
-      const offer = await pcA.createOffer();
-      await pcA.setLocalDescription(offer);
-      await pcB.setRemoteDescription(offer);
-      const answer = await pcB.createAnswer();
-      await pcB.setLocalDescription(answer);
-      await pcA.setRemoteDescription(answer);
-
-      if (endedRef.current) return;
-      setPhase("connected");
-      clockTimerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      if (sig.t === "hangup") {
+        hangup(false);
+      } else if (sig.t === "sdp") {
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        if (sig.sdp.type === "offer") {
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          if (chanRef.current) publish(chanRef.current, "signal", { t: "sdp", sdp: answer } satisfies CallSignal);
+        }
+      } else if (sig.t === "ice" && sig.cand) {
+        await pc.addIceCandidate(new RTCIceCandidate(sig.cand));
+      }
     } catch {
-      setError("Couldn't establish the call line. Check device permissions and try again.");
-      setPhase("failed");
+      /* a dropped candidate is recoverable; keep the call alive */
     }
-  }, [attachRemoteMeter]);
+  };
 
-  /* Boot: permission first, then ring, then connect (Safari-safe order). */
+  /* --- Mount: media + channels ------------------------------------------------ */
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-          video:
-            kind === "video"
-              ? { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
-              : false,
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: kind === "video" ? { facingMode: "user", width: { ideal: 640 } } : false,
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        localStreamRef.current = stream;
-        if (localVideoRef.current && kind === "video") {
+        localRef.current = stream;
+        if (kind === "video" && localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
+          void localVideoRef.current.play().catch(() => undefined);
         }
-        setPhase("ringing");
-        ringTimerRef.current = setTimeout(() => void connect(), 1900);
+
+        setupPeer();
+        const chan = callChannel(matchId);
+        chanRef.current = chan;
+        chan.on("broadcast", { event: "signal" }, (msg) => {
+          void handleSignal(msg.payload as CallSignal);
+        });
+        chan.subscribe((status) => {
+          if (status !== "SUBSCRIBED" || cancelled) return;
+
+          if (role === "caller") {
+            // Ring the other device for real — with who's calling.
+            const ring = ringChannel(peer.id);
+            ring.subscribe((s) => {
+              if (s === "SUBSCRIBED") {
+                void ring
+                  .send({
+                    type: "broadcast",
+                    event: "ring",
+                    payload: {
+                      matchId,
+                      kind,
+                      from: self ?? { id: "", name: "Freeborn member", photo: "" },
+                    },
+                  })
+                  .catch(() => undefined);
+              }
+            });
+          } else {
+            // Callee already accepted in the listener — tell the caller.
+            publish(chan, "control", { t: "accept" } satisfies CallSignal);
+          }
+        });
+
+        if (role === "caller") {
+          // Listen for accept/declined/busy on the call channel too.
+          chan.on("broadcast", { event: "control" }, (msg) => {
+            const p = msg.payload as CallSignal;
+            if (p.t === "declined") setState("declined");
+            if (p.t === "busy") setState("busy");
+            if (p.t === "accept") {
+              void (async () => {
+                const pc = pcRef.current;
+                if (!pc || madeOfferRef.current) return;
+                madeOfferRef.current = true;
+                setState("connecting");
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                if (chanRef.current)
+                  publish(chanRef.current, "signal", { t: "sdp", sdp: offer } satisfies CallSignal);
+              })();
+            }
+          });
+        }
       } catch {
         if (!cancelled) {
-          setError("Microphone or camera unavailable — allow access and try again.");
-          setPhase("failed");
+          setState("error");
+          setTimeout(onClose, 2500);
         }
       }
     })();
+
     return () => {
       cancelled = true;
+      hangup(false);
+      try {
+        chanRef.current?.unsubscribe();
+      } catch {
+        /* gone */
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind]);
+  }, []);
 
-  /* Wire the received WebRTC stream to the speaker output. */
+  /* --- Ring timeout (caller) + call timer ------------------------------------- */
+
   useEffect(() => {
-    const el = remoteAudioRef.current;
-    if (el && remoteStream) {
-      el.srcObject = remoteStream;
-      el.muted = !speakerOn;
-      void el.play().catch(() => undefined);
-    }
-  }, [remoteStream, speakerOn]);
+    if (role !== "caller") return;
+    const t = setTimeout(() => {
+      setState((s) => (s === "ringing" ? "ended" : s));
+      hangup();
+    }, RING_TIMEOUT_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const endCall = () => {
-    teardown();
-    onEnd();
-  };
-
-  const toggleSpeaker = () => {
-    const next = !speakerOn;
-    setSpeakerOn(next);
-    if (remoteAudioRef.current) remoteAudioRef.current.muted = !next;
-  };
+  useEffect(() => {
+    if (state !== "live") return;
+    const iv = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, [state]);
 
   const toggleMic = () => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
     const next = !micOn;
-    stream.getAudioTracks().forEach((t) => (t.enabled = next));
     setMicOn(next);
+    localRef.current?.getAudioTracks().forEach((t) => (t.enabled = next));
   };
 
   const toggleCam = () => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
     const next = !camOn;
-    stream.getVideoTracks().forEach((t) => (t.enabled = next));
     setCamOn(next);
+    localRef.current?.getVideoTracks().forEach((t) => (t.enabled = next));
   };
 
-  const statusLabel =
-    phase === "starting"
-      ? "Preparing…"
-      : phase === "ringing"
-        ? `Ringing ${name}…`
-        : phase === "connecting"
-          ? "Connecting line…"
-          : phase === "connected"
-            ? fmtClock(seconds)
-            : phase === "failed"
-              ? "Call failed"
-              : "";
+  const fmt = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+  const statusText =
+    state === "ringing"
+      ? "Ringing…"
+      : state === "connecting"
+        ? "Connecting…"
+        : state === "declined"
+          ? `${peer.name} declined the call`
+          : state === "busy"
+            ? `${peer.name} is on another call`
+            : state === "ended"
+              ? "Call ended"
+              : state === "error"
+                ? "Camera or microphone unavailable"
+                : fmt;
 
   return (
-    <div className="fixed inset-0 z-[170] flex flex-col bg-[#05070f]/[0.99] text-[var(--color-pearl)]" role="dialog" aria-modal="true" aria-label={`${kind} call with ${name}`}>
-      {/* Remote audio output — the actual WebRTC receive path */}
-      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-      {/* Remote stage */}
-      <div className="relative flex flex-1 flex-col items-center justify-center px-6">
-        {kind === "video" && phase === "connected" ? (
-          <div
-            className="absolute inset-0 transition-opacity duration-700"
-            style={{ opacity: 0.28 + remoteLevel * 0.5 }}
-          >
-            {photo ? (
-              <img src={photo} alt="" className="h-full w-full object-cover blur-xl" />
-            ) : null}
-            <div className="absolute inset-0 bg-[#05070f]/60" />
-          </div>
-        ) : null}
+    <div className="fixed inset-0 z-[200] flex flex-col bg-[#070a14]/98 backdrop-blur-md">
+      {/* Hidden remote audio — the ONLY thing that makes sound. */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
 
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="relative">
-            {phase === "connected" ? (
-              <span
-                className="absolute -inset-3 rounded-full border-2 border-[var(--color-teal-300)]/70 transition-transform duration-150"
-                style={{ transform: `scale(${1 + remoteLevel * 0.14})`, opacity: 0.25 + remoteLevel * 0.75 }}
-              />
-            ) : phase === "ringing" ? (
-              <span className="call-ring absolute -inset-3 rounded-full border-2 border-[var(--color-gold-300)]/60" />
-            ) : null}
-            {photo ? (
-              <img
-                src={photo}
-                alt={name}
-                className="h-36 w-36 rounded-full border border-white/15 object-cover shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] sm:h-44 sm:w-44"
-              />
-            ) : (
-              <span className="flex h-36 w-36 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-5xl font-semibold text-white sm:h-44 sm:w-44">
-                {name.charAt(0)}
-              </span>
-            )}
-          </div>
-
-          <h2 className="mt-6 font-display text-[26px] font-semibold">{name}</h2>
-          <p className={`mt-1.5 text-[13px] font-bold tabular-nums ${phase === "connected" ? "text-[var(--color-teal-300)]" : "text-[var(--color-mist)]"}`}>
-            {statusLabel}
-          </p>
-          {phase === "connected" ? (
-            <p className="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-[var(--color-ash)]">
-              {kind === "video" ? "Video call" : "Voice call"} · encrypted line · preview room
-            </p>
-          ) : null}
-          {error ? (
-            <p className="mt-3 max-w-[36ch] text-center text-[12.5px] font-bold text-red-300">{error}</p>
-          ) : null}
-        </div>
-
-        {/* Local video PiP */}
-        {kind === "video" ? (
-          <div className="absolute bottom-6 right-5 z-20 w-[124px] overflow-hidden rounded-2xl border border-white/15 bg-black shadow-[0_18px_50px_-12px_rgba(0,0,0,0.9)] sm:w-[168px]">
-            <video ref={localVideoRef} autoPlay playsInline muted className="aspect-[3/4] w-full object-cover" style={{ transform: "scaleX(-1)" }} />
-            {!camOn ? (
-              <span className="absolute inset-0 flex items-center justify-center bg-black/80 text-[10px] font-black uppercase tracking-wider text-white/70">
-                Camera off
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+      <div className="flex items-center justify-between px-6 pt-6">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
+          {kind === "video" ? "Freeborn video call" : "Freeborn voice call"}
+        </p>
+        <p className="text-[13px] font-black tabular-nums text-[var(--color-gold-300)]">{statusText}</p>
       </div>
 
-      {/* Controls */}
-      <div className="relative z-10 flex items-center justify-center gap-5 pb-10 pt-4">
+      <div className="relative flex flex-1 flex-col items-center justify-center gap-6 px-6">
+        {kind === "video" && state === "live" ? (
+          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" />
+        ) : null}
+
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          {peer.photo ? (
+            <img
+              src={peer.photo}
+              alt={peer.name}
+              className={`rounded-full border-2 border-white/15 object-cover ${state === "ringing" ? "h-36 w-36 animate-pulse" : "h-32 w-32"}`}
+            />
+          ) : (
+            <span className="flex h-32 w-32 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-4xl font-bold text-white">
+              {peer.name.charAt(0)}
+            </span>
+          )}
+          <p className="font-display text-2xl font-semibold text-[var(--color-pearl)]">{peer.name}</p>
+        </div>
+
+        {kind === "video" && (
+          <video
+            ref={localVideoRef}
+            muted
+            autoPlay
+            playsInline
+            className="absolute bottom-24 right-4 z-20 h-40 w-28 rounded-2xl border border-white/20 bg-black object-cover"
+          />
+        )}
+      </div>
+
+      <div className="flex items-center justify-center gap-5 pb-10">
         <button
           type="button"
           onClick={toggleMic}
           aria-label={micOn ? "Mute microphone" : "Unmute microphone"}
-          className={`flex h-14 w-14 items-center justify-center rounded-full border transition active:scale-95 ${
-            micOn
-              ? "border-white/15 bg-white/[0.07] text-white hover:bg-white/[0.12]"
-              : "border-red-400/50 bg-red-500/25 text-red-200"
+          className={`flex h-14 w-14 items-center justify-center rounded-full border transition ${
+            micOn ? "border-white/15 bg-white/[0.06] text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
           }`}
         >
-          {micOn ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0014 0M12 18v3" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0014 0M12 18v3M4 4l16 16" />
-            </svg>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleSpeaker}
-          aria-label={speakerOn ? "Speaker off" : "Speaker on"}
-          title={speakerOn ? "Speaker on" : "Speaker off"}
-          className={`flex h-14 w-14 items-center justify-center rounded-full border transition active:scale-95 ${
-            speakerOn
-              ? "border-white/15 bg-white/[0.07] text-white hover:bg-white/[0.12]"
-              : "border-red-400/50 bg-red-500/25 text-red-200"
-          }`}
-        >
-          {speakerOn ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none" />
-              <path d="M15.5 8.5a5 5 0 010 7M18.5 6a9 9 0 010 12" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor" stroke="none" />
-              <path d="M16 9l6 6M22 9l-6 6" />
-            </svg>
-          )}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0014 0M12 18v3" />
+            {!micOn ? <path d="M4 4l16 16" /> : null}
+          </svg>
         </button>
 
         {kind === "video" ? (
@@ -356,28 +320,25 @@ export function CallOverlay({
             type="button"
             onClick={toggleCam}
             aria-label={camOn ? "Turn camera off" : "Turn camera on"}
-            className={`flex h-14 w-14 items-center justify-center rounded-full border transition active:scale-95 ${
-              camOn
-                ? "border-white/15 bg-white/[0.07] text-white hover:bg-white/[0.12]"
-                : "border-red-400/50 bg-red-500/25 text-red-200"
+            className={`flex h-14 w-14 items-center justify-center rounded-full border transition ${
+              camOn ? "border-white/15 bg-white/[0.06] text-white" : "border-red-400/50 bg-red-500/20 text-red-300"
             }`}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="6" width="13" height="12" rx="2.5" />
               <path d="M16 10.5l5-3v9l-5-3" />
-              {!camOn ? <path d="M4 4l16 16" /> : null}
             </svg>
           </button>
         ) : null}
 
         <button
           type="button"
-          onClick={endCall}
+          onClick={() => hangup()}
           aria-label="End call"
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-[#e5484d] text-white shadow-[0_18px_44px_-10px_rgba(229,72,77,0.8)] transition hover:bg-[#d93a3f] active:scale-95"
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_16px_40px_-10px_rgba(239,68,68,0.7)] transition active:scale-95"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M12 9c-3.2 0-6.1.9-8.4 2.4-.8.5-1 1.6-.5 2.4l1 1.6c.4.7 1.3 1 2 .7l2.2-.9c.6-.2 1-.8 1-1.4v-1.2c1.7-.5 3.7-.5 5.4 0v1.2c0 .6.4 1.2 1 1.4l2.2.9c.7.3 1.6 0 2-.7l1-1.6c.5-.8.3-1.9-.5-2.4C18.1 9.9 15.2 9 12 9z" />
+            <path d="M12 9c-3.2 0-6.1.9-8.5 2.4l2 3.1c1.9-1.1 4.1-1.7 6.5-1.7s4.6.6 6.5 1.7l2-3.1C18.1 9.9 15.2 9 12 9z" />
           </svg>
         </button>
       </div>

@@ -271,7 +271,7 @@ export function VoiceRecorder({
   onError,
   disabled,
 }: {
-  onSend: (dataUrl: string, seconds: number) => void;
+  onSend: (blob: Blob, seconds: number) => void;
   onError?: (message: string) => void;
   disabled?: boolean;
 }) {
@@ -341,9 +341,8 @@ export function VoiceRecorder({
     const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
     if (blob.size < 400) return;
     const secs = Math.max(1, Math.round(secondsRef.current));
-    const reader = new FileReader();
-    reader.onload = () => onSend(String(reader.result), secs);
-    reader.readAsDataURL(blob);
+    // Hand the raw blob straight over — multipart upload, no base64 bloat.
+    onSend(blob, secs);
   };
 
   const start = async () => {

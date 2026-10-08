@@ -114,17 +114,9 @@ export async function POST(request: Request) {
   await db.update(matches).set({ lastMessageAt: new Date() }).where(eq(matches.id, matchId));
 
   // Read receipts: the other member reads everything you've sent before they
-  // answer, so your messages flip to "read" the moment a reply lands.
-  await db
-    .update(messages)
-    .set({ readAt: new Date() })
-    .where(
-      and(
-        eq(messages.matchId, matchId),
-        eq(messages.senderId, member.id),
-        sql`${messages.readAt} is null`
-      )
-    );
+  // answer. Honest read receipts: YOUR messages flip to "read" only when the
+  // OTHER member opens the conversation (their GET marks them). Nothing is
+  // marked read at send time.
 
   // No scripted replies. Every message in Freeborn is written by a real
   // member — fake activity is exactly what destroyed the platforms we're

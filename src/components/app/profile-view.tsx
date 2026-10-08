@@ -466,8 +466,13 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                   </>
                 ) : null}
 
-                {/* Top-right badge: unvaccinated stance */}
+                {/* Top-right badges: verification + unvaccinated stance */}
                 <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
+                  {profile.verified ? (
+                    <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
+                      <VerifyBadge size={20} />
+                    </span>
+                  ) : null}
                   {profile.vaccinationStatus === "unvaccinated" ? <UnvaxBadge size={20} /> : null}
                 </div>
 

@@ -7,6 +7,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Wordmark } from "@/components/wordmark";
 import { FilterPanel } from "./filter-panel";
 import { VerifyGate } from "./verify-modal";
+import { CallListener } from "./call-listener";
+import { NotificationCenter } from "./notification-center";
 
 const tabs = [
   {
@@ -81,6 +83,24 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  /** Unread dots — fed live by the NotificationCenter. */
+  const [unread, setUnread] = useState<{ alerts: number; chat: number; likes: number }>({
+    alerts: 0,
+    chat: 0,
+    likes: 0,
+  });
+
+  useEffect(() => {
+    const onUnread = (e: Event) => {
+      const d = (e as CustomEvent<{ alerts: number; chat: number; likes: number }>).detail;
+      if (d) setUnread(d);
+    };
+    window.addEventListener("freeborn:unread", onUnread);
+    return () => window.removeEventListener("freeborn:unread", onUnread);
+  }, []);
+
+  const dotFor = (href: string): number =>
+    href === "/app/notifications" ? unread.alerts : href === "/app/chat" ? unread.chat : href === "/app/likes" ? unread.likes : 0;
 
   useEffect(() => {
     (async () => {
@@ -123,17 +143,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           <nav className="mt-8 flex flex-col gap-1.5">
             {tabs.map((tab) => {
               const active = isActive(tab.href);
+              const count = dotFor(tab.href);
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
+                  className={`relative flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
                     active
                       ? "bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
                       : "text-[var(--color-mist)] hover:bg-white/[0.05] hover:text-[var(--color-pearl)]"
                   }`}
                 >
-                  {tab.icon}
+                  <span className="relative">
+                    {tab.icon}
+                    {count > 0 ? (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-white ring-2 ring-[#0a0d18]">
+                        {count > 9 ? "9+" : count}
+                      </span>
+                    ) : null}
+                  </span>
                   {tab.label}
                 </Link>
               );
@@ -187,6 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-[560px] items-stretch justify-around">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
+            const count = dotFor(tab.href);
             return (
               <Link
                 key={tab.href}
@@ -195,7 +224,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   active ? "text-[var(--color-gold-300)]" : "text-[var(--color-ash)]"
                 }`}
               >
-                {tab.icon}
+                <span className="relative">
+                  {tab.icon}
+                  {count > 0 ? (
+                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-white ring-2 ring-[#0a0d18]">
+                      {count > 9 ? "9+" : count}
+                    </span>
+                  ) : null}
+                </span>
                 {tab.label}
               </Link>
             );
@@ -205,8 +241,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <FilterPanel open={filtersOpen} onClose={() => setFiltersOpen(false)} />
 
-      {/* Identity verification engine: popup 20s after sign-up */}
+      {/* Identity verification engine: one gentle invite */}
       <VerifyGate />
+
+      {/* Real incoming calls — rings this device wherever the member is */}
+      <CallListener />
+
+      {/* Alert banners + chime + unread dots, live */}
+      <NotificationCenter />
     </div>
   );
 }
