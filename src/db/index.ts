@@ -2,29 +2,28 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 /**
- * Fallback connection (Supabase transaction pooler) — same documented
- * pattern as the Supabase URL/key fallbacks in src/lib/supabase/*. This
- * module is server-only (API routes), so the string never ships to the
- * browser bundle.
+ * Database connection (Supabase transaction pooler).
  *
- * Resolution order (survives the platform resetting .env between rebuilds):
+ * Credentials are NEVER hardcoded in this file — the repository is public,
+ * so the connection string must come from the environment. Configure it in
+ * Netlify -> Site settings -> Environment (see DEPLOY.md).
+ *
+ * Resolution order:
  *  1. SUPABASE_TRANSACTION_POOLER — the member-provided pooler env var.
- *  2. A real (non-sandbox-default) DATABASE_URL.
- *  3. The pooler fallback constant below.
- * The empty local sandbox DB is only used when nothing else is configured,
- * so Freeborn always runs on the member's Supabase in practice.
+ *  2. DATABASE_URL, unless it is the local sandbox default below.
  */
-const FALLBACK_DATABASE_URL = "postgresql://postgres.ihwtpwlszegrjgakqsxx:cfn6VrT7sUQ9QK8b@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
 const LOCAL_SANDBOX_URL = "postgresql://postgres:postgres@127.0.0.1:5432/app_db";
 
 const envUrl = process.env.DATABASE_URL;
 const poolerUrl = process.env.SUPABASE_TRANSACTION_POOLER;
 const databaseUrl =
-  poolerUrl ??
-  (envUrl && envUrl !== LOCAL_SANDBOX_URL ? envUrl : FALLBACK_DATABASE_URL);
+  poolerUrl ?? (envUrl && envUrl !== LOCAL_SANDBOX_URL ? envUrl : undefined);
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
+  throw new Error(
+    "DATABASE_URL is required. Set SUPABASE_TRANSACTION_POOLER (preferred) or " +
+      "DATABASE_URL to your Supabase pooler connection string. See DEPLOY.md.",
+  );
 }
 
 const globalForDb = globalThis as typeof globalThis & {
