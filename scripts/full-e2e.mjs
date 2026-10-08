@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 
 const BASE = "https://3000-iik52mlxqamly6lmn52ux.e2b.app";
 const EMAIL = "e2e-proof@freeborn.app";
-const PASSWORD = "E2eProof2026x";
+const PASSWORD = process.env.E2E_PASSWORD ?? "";
 
 const results = [];
 const ok = (name, pass, detail = "") => {
