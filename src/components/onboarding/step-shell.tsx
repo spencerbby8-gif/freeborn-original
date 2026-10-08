@@ -107,7 +107,7 @@ export function StepShell({
                 type="button"
                 onClick={onBack}
                 disabled={pending}
-                className="inline-flex h-[52px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-6 text-sm font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.07] active:scale-[0.98] disabled:opacity-50"
+                className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-bold leading-4 text-[var(--color-pearl)] transition hover:bg-white/[0.07] active:scale-[0.98] disabled:opacity-50"
               >
                 <ArrowIcon size={16} className="rotate-180" />
                 Back
@@ -119,7 +119,7 @@ export function StepShell({
             <button
               type="submit"
               disabled={pending}
-              className="magic-button btn-shine group relative inline-flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-8 text-sm font-black text-[var(--color-ink)] shadow-lg transition hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              className="magic-button btn-shine group relative inline-flex min-h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-8 py-3.5 text-sm font-black leading-4 text-[var(--color-ink)] shadow-lg transition hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               {pending ? (
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

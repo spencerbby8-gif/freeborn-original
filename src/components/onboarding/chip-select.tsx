@@ -60,7 +60,7 @@ export function ChipSelect({ label, options, value, onChange, error, hint, optio
               onClick={() => toggle(option)}
               aria-pressed={active}
               disabled={disabled}
-              className={`inline-flex h-[42px] items-center gap-2 rounded-full border px-5 text-[14px] font-bold transition-all active:scale-[0.96] ${
+              className={`inline-flex min-h-[42px] items-center gap-2 rounded-full border px-5 py-2 text-[14px] font-bold leading-4 transition-all active:scale-[0.96] ${
                 active
                   ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)] shadow-[0_0_15px_rgba(217,167,82,0.2)]"
                   : disabled

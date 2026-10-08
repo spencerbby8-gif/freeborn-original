@@ -621,7 +621,7 @@ export function SettingsView() {
                       type="button"
                       onClick={() => setD({ distanceKm: o.value })}
                       aria-pressed={active}
-                      className={`h-[40px] rounded-full border px-4 text-[13px] font-bold transition ${
+                      className={`min-h-[40px] rounded-full border px-4 py-2 text-[13px] font-bold leading-4 transition ${
                         active
                           ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)]"
                           : "border-white/10 bg-white/[0.02] text-[var(--color-sand)] hover:border-white/20"
@@ -647,7 +647,7 @@ export function SettingsView() {
                         })
                       }
                       aria-pressed={active}
-                      className={`h-[40px] rounded-full border px-4 text-[13px] font-bold transition ${
+                      className={`min-h-[40px] rounded-full border px-4 py-2 text-[13px] font-bold leading-4 transition ${
                         active
                           ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)]"
                           : "border-white/10 bg-white/[0.02] text-[var(--color-sand)] hover:border-white/20"

@@ -81,12 +81,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    /* Merge, don't clobber: partial events (e.g. "you're viewing this tab,
+       its dot is zero") must not erase the other tabs' real counts. */
     const onUnread = (e: Event) => {
-      const d = (e as CustomEvent<{ alerts: number; chat: number; likes: number }>).detail;
-      if (d) setUnread(d);
+      const d = (e as CustomEvent<{ alerts?: number; chat?: number; likes?: number }>).detail;
+      if (!d) return;
+      setUnread((prev) => ({
+        alerts: d.alerts ?? prev.alerts,
+        chat: d.chat ?? prev.chat,
+        likes: d.likes ?? prev.likes,
+      }));
     };
     window.addEventListener("freeborn:unread", onUnread);
-    return () => window.removeEventListener("freeborn:unread", onUnread);
+    window.addEventListener("freeborn:viewing", onUnread);
+    return () => {
+      window.removeEventListener("freeborn:unread", onUnread);
+      window.removeEventListener("freeborn:viewing", onUnread);
+    };
   }, []);
 
   const dotFor = (href: string): number =>
@@ -108,6 +119,23 @@ export function AppShell({ children }: { children: ReactNode }) {
            the screen. Cached for 10 minutes so tab switches stay instant. */
         setEmail(user.email ?? null);
         setChecking(false);
+
+        /* Presence heartbeat — truthful Active status for everyone. */
+        const beat = () => {
+          void (async () => {
+            try {
+              const t = (await supabase.auth.getSession()).data.session?.access_token;
+              await fetch("/api/heartbeat", {
+                method: "POST",
+                headers: t ? { Authorization: `Bearer ${t}` } : {},
+              }).catch(() => undefined);
+            } catch {
+              /* presence is best-effort */
+            }
+          })();
+        };
+        beat();
+        window.setInterval(beat, 4 * 60 * 1000);
 
         try {
           const cachedAt = Number(window.sessionStorage.getItem("fb-security-checked") ?? "0");

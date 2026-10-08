@@ -37,22 +37,30 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   const seq = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
   const firstRun = useRef(true);
+  const pathnameRef = useRef<string | undefined>(pathname);
 
-  /* Opening the Alerts tab counts as viewing them — the dot clears. */
   useEffect(() => {
-    if (pathname?.startsWith("/app/notifications")) {
-      window.dispatchEvent(
-        new CustomEvent("freeborn:unread", { detail: { alerts: 0, chat: 0, likes: 0 } })
-      );
-      // Let the next poll recount naturally; keep chat's real number.
-      window.dispatchEvent(new CustomEvent("freeborn:alerts-viewed"));
-    }
+    pathnameRef.current = pathname;
   }, [pathname]);
 
-  /* Unlock the sound engine on the member's first interaction — after this,
-     every alert can ring immediately, even before focus. */
+  /* Accurate dots: the tab you're standing in reads as zero. */
   useEffect(() => {
-    const unlock = () => warmAudio();
+    const detail = {
+      alerts: pathname?.startsWith("/app/notifications") ? 0 : undefined,
+      chat: pathname?.startsWith("/app/chat") ? 0 : undefined,
+      likes: pathname?.startsWith("/app/likes") ? 0 : undefined,
+    };
+    window.dispatchEvent(new CustomEvent("freeborn:viewing", { detail }));
+  }, [pathname]);
+
+  /* Unlock sound + ask for browser notifications on the FIRST real gesture
+     (highest grant rate). After that, alerts fire as OS banners even when
+     Freeborn's tab is hidden behind other apps. */
+  useEffect(() => {
+    const unlock = () => {
+      warmAudio();
+      void requestNotifyPermission();
+    };
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
     return () => {
@@ -147,9 +155,15 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
             /* ignore */
           }
 
+          /* Accurate dots — the tab you're standing in always reads zero. */
+          const p = pathnameRef.current ?? "";
           window.dispatchEvent(
             new CustomEvent("freeborn:unread", {
-              detail: { alerts: fresh.length, chat: chatUnread, likes: newLikes },
+              detail: {
+                alerts: p.startsWith("/app/notifications") ? 0 : fresh.length,
+                chat: p.startsWith("/app/chat") ? 0 : chatUnread,
+                likes: p.startsWith("/app/likes") ? 0 : newLikes,
+              },
             })
           );
         }

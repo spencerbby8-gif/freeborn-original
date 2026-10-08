@@ -9,7 +9,14 @@ import { VoiceBubble, VoiceRecorder } from "./voice-note";
 
 type MatchRow = {
   id: string;
-  with: { id: string; name: string; city: string; photo: string };
+  with: {
+    id: string;
+    name: string;
+    city: string;
+    photo: string;
+    active?: boolean;
+    lastActiveAt?: string | null;
+  };
   lastMessage: { body: string; mine: boolean; at: string } | null;
   unread: number;
 };
@@ -869,11 +876,23 @@ function Thread({
           aria-label={`View ${match.with.name}'s profile`}
           className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-85"
         >
-          <Avatar photo={match.with.photo} name={match.with.name} size={40} />
+          <span className="relative shrink-0">
+            <Avatar photo={match.with.photo} name={match.with.name} size={40} />
+            {match.with.active ? (
+              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
+            ) : null}
+          </span>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-black">{match.with.name}</p>
-            <p className="truncate text-[12px] text-[var(--color-mist)]">
-              {match.with.city || "Freeborn member"}
+            <p className="flex items-center gap-1.5 truncate text-[12px] text-[var(--color-mist)]">
+              {match.with.active ? (
+                <span className="flex items-center gap-1 font-bold text-[#5fd394]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#2fbf71]" />
+                  Active now
+                </span>
+              ) : (
+                match.with.city || "Freeborn member"
+              )}
             </p>
           </div>
         </button>
@@ -1370,7 +1389,12 @@ export function ChatView() {
                 }}
                 className="shrink-0 transition hover:opacity-85"
               >
-                <Avatar photo={m.with.photo} name={m.with.name} />
+                <span className="relative block">
+                  <Avatar photo={m.with.photo} name={m.with.name} />
+                  {m.with.active ? (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
+                  ) : null}
+                </span>
               </button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">

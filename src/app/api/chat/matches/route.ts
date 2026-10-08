@@ -67,6 +67,8 @@ export async function GET(request: Request) {
         )
       );
 
+    const active =
+      other.lastActiveAt != null && Date.now() - other.lastActiveAt.getTime() < 15 * 60 * 1000;
     out.push({
       id: row.id,
       with: {
@@ -74,6 +76,8 @@ export async function GET(request: Request) {
         name: other.displayName ?? "Member",
         city: other.city ?? "",
         photo: resolvePhotoUrl(photo?.storagePath ?? ""),
+        active,
+        lastActiveAt: other.lastActiveAt ?? null,
       },
       lastMessage: last
         ? {

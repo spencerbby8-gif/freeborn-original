@@ -705,6 +705,25 @@ select:focus {
   animation: fb-heart-burst 0.9s ease-out both;
 }
 
+/* Large-font / display-scaling safety: no button or control may escape its
+   container when members crank up their font size. */
+button,
+a,
+select,
+input,
+textarea {
+  max-width: 100%;
+}
+button {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+p,
+li,
+span {
+  overflow-wrap: break-word;
+}
+
 /* Long-press on chat bubbles / mic must never trigger text selection,
    Google popups, or callouts — holds belong to Freeborn gestures. */
 .fb-no-callout,

@@ -96,6 +96,12 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const liveEverRef = useRef(false);
   const secondsRef = useRef(0);
   const loggedRef = useRef(false);
+  /** Keeps the remote stream so it can be (re)attached to the video element
+      the moment it exists — this was the hole that hid the other person. */
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const attachedTracksRef = useRef<Set<string>>(new Set());
+  /** Self-view orientation: natural by default; one tap flips to mirror. */
+  const [flipSelf, setFlipSelf] = useState(false);
 
   const setStateBoth = (s: CallState, d?: string) => {
     stateRef.current = s;
@@ -195,8 +201,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   /* --- Media plumbing ---------------------------------------------------------- */
 
   const attachRemote = (stream: MediaStream) => {
+    remoteStreamRef.current = stream;
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = stream;
+      remoteAudioRef.current.volume = 0.92;
       void remoteAudioRef.current.play().catch(() => undefined);
     }
     if (kind === "video" && remoteVideoRef.current) {
@@ -284,8 +292,15 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
       setStateBoth("preparing", "Preparing your media…");
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: kind === "video" ? { facingMode: "user", width: { ideal: 640 } } : false,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            latency: 0,
+            sampleRate: 48000,
+          } as MediaTrackConstraints,
+          video: kind === "video" ? { facingMode: "user", width: { ideal: 640 }, frameRate: { ideal: 24 } } : false,
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -305,7 +320,12 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         pc.ontrack = (e) => {
           const [s] = e.streams;
-          if (s) attachRemote(s);
+          /* Idempotent attach: renegotiations must never double-wire audio
+             (double-wiring is one of the classic echo sources). */
+          const key = e.track.id;
+          if (!s || attachedTracksRef.current.has(key)) return;
+          attachedTracksRef.current.add(key);
+          attachRemote(s);
         };
         pc.onicecandidate = (e) => {
           if (!e.candidate) return;
@@ -494,11 +514,15 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
 
   useEffect(() => {
     if (state !== "live") return;
+    /* Re-attach the remote stream once the live UI is up — belt and braces
+       so the other person is ALWAYS visible and heard. */
+    if (remoteStreamRef.current) attachRemote(remoteStreamRef.current);
     const iv = setInterval(() => {
       secondsRef.current += 1;
       setSeconds(secondsRef.current);
     }, 1000);
     return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   const callAgain = () => {
@@ -545,8 +569,18 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
 
       {/* Stage */}
       <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden px-6">
-        {kind === "video" && state === "live" ? (
-          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 h-full w-full object-cover" />
+        {/* Remote video stays MOUNTED for the whole call — the remote stream
+            arrives during negotiation, so the element must already exist or
+            the other person's video gets dropped (that was the bug). */}
+        {kind === "video" ? (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+              state === "live" ? "opacity-100" : "opacity-0"
+            }`}
+          />
         ) : null}
 
         <div className="relative z-10 flex flex-col items-center gap-4">
@@ -581,13 +615,28 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         </div>
 
         {kind === "video" ? (
-          <video
-            ref={localVideoRef}
-            muted
-            autoPlay
-            playsInline
-            className="absolute bottom-6 right-4 z-20 h-40 w-28 rounded-2xl border border-white/20 bg-black object-cover"
-          />
+          <div className="absolute bottom-6 right-4 z-20">
+            <video
+              ref={localVideoRef}
+              muted
+              autoPlay
+              playsInline
+              className={`h-40 w-28 rounded-2xl border border-white/20 bg-black object-cover ${
+                flipSelf ? "-scale-x-100" : ""
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setFlipSelf((f) => !f)}
+              aria-label="Flip self-view orientation"
+              title="Flip self view"
+              className="absolute -left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white backdrop-blur-sm transition active:scale-90"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 1v22" strokeDasharray="3 3" />
+              </svg>
+            </button>
+          </div>
         ) : null}
       </div>
 
