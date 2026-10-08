@@ -444,7 +444,7 @@ function Thread({
 
   useEffect(() => {
     void load();
-    const iv = setInterval(() => void load(), 3000);
+    const iv = setInterval(() => void load(), 2500);
     return () => clearInterval(iv);
   }, [load]);
 

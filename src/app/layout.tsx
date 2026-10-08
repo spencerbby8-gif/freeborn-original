@@ -63,6 +63,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="bg-[var(--color-night)]">
+      <head>
+        {/* Speed layer: warm the connections before the first request needs
+            them — auth calls, images, and the captcha start instantly. */}
+        <link rel="preconnect" href="https://ihwtpwlszegrjgakqsxx.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://realtime.supabase.co" />
+        <link rel="preconnect" href="https://images.pexels.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
+        <link rel="dns-prefetch" href="https://ip-api.com" />
+      </head>
       <body className="min-h-screen bg-[var(--color-night)] font-body text-[var(--color-pearl)] antialiased">
         <ToastHost />
         {children}
