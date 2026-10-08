@@ -71,6 +71,11 @@ export const authStatusMessages = {
     title: "Your session didn't carry over",
     body: "If you're inside a preview panel or iframe, your browser may block its cookies. Use 'Open in new tab' (top right) and sign in there — that always works.",
   },
+  suspended: {
+    tone: "error" as const,
+    title: "Account suspended",
+    body: "This account was suspended under Freeborn's Privacy & Safety Policy — our checks found datacenter or automated traffic behind it. Real members connect from real devices. If you believe this is a mistake, contact support from a normal connection.",
+  },
 };
 
 export type AuthStatusKey = keyof typeof authStatusMessages;

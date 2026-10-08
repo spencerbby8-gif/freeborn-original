@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reports } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
+import { triageReport } from "@/lib/moderation";
 
 export const dynamic = "force-dynamic";
 
@@ -66,12 +68,31 @@ export async function POST(request: Request) {
     );
   }
 
-  await db.insert(reports).values({
-    reporterId: member.id,
-    subjectId: profileId,
-    reason: safeReason,
-    details: safeDetails,
-  });
+  const [filed] = await db
+    .insert(reports)
+    .values({
+      reporterId: member.id,
+      subjectId: profileId,
+      reason: safeReason,
+      details: safeDetails,
+    })
+    .returning({ id: reports.id });
 
-  return Response.json({ ok: true });
+  /* AI triage — classifies severity the moment the report lands so humans
+     handle the dangerous ones first. Never blocks the report itself. */
+  let severity: string | null = null;
+  try {
+    const verdict = await triageReport(safeReason, safeDetails ?? "");
+    if (verdict) {
+      severity = verdict.severity;
+      await db
+        .update(reports)
+        .set({ severity: verdict.severity, triageSummary: verdict.summary.slice(0, 200) })
+        .where(eq(reports.id, filed.id));
+    }
+  } catch {
+    /* triage outage never stops a report */
+  }
+
+  return Response.json({ ok: true, severity });
 }

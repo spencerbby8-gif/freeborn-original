@@ -29,7 +29,7 @@ console.log("password field present:", (await page.locator('input[id="password"]
 
 console.log("\n=== 2) FILL + SUBMIT (unconfirmed test account — expect an error notice, NOT a reload) ===");
 await page.locator('input[id="email"]').fill("audit-smoke@freeborn.app");
-await page.locator('input[id="password"]').fill(process.env.E2E_PASSWORD ?? "");
+await page.locator('input[id="password"]').fill("AuditSmoke2026x");
 const before = page.url();
 await page.locator('button[type="submit"]').click();
 await page.waitForTimeout(6000);
@@ -65,7 +65,7 @@ if (frame) {
   const emailInput = frame.locator('input[id="email"]');
   console.log("iframe auth form loaded:", (await emailInput.count()) > 0);
   await emailInput.fill("audit-smoke@freeborn.app");
-  await frame.locator('input[id="password"]').fill(process.env.E2E_PASSWORD ?? "");
+  await frame.locator('input[id="password"]').fill("AuditSmoke2026x");
   await frame.locator('button[type="submit"]').click();
   await iframePage.waitForTimeout(6000);
   const iframeBody = await frame.textContent("body");

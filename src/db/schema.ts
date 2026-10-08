@@ -606,6 +606,9 @@ export const reports = pgTable(
     reason: text("reason").notNull().default("other"),
     details: text("details"),
     status: text("status").notNull().default("open"),
+    /** AI triage severity — filled by the moderation engine on arrival. */
+    severity: text("severity"),
+    triageSummary: text("triage_summary"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [
@@ -615,6 +618,38 @@ export const reports = pgTable(
       sql`${t.reason} in ('fake_profile','scam','harassment','safety','underage','inappropriate_media','other')`
     ),
   ]
+);
+
+/* --- Security & trust layer ------------------------------------------------- */
+
+/** Every security signal we observe — IP reputation hits, GPS spoof suspects,
+    automated-traffic blocks. One row per event, kept forever for review. */
+export const securityEvents = pgTable(
+  "security_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email"),
+    ip: text("ip"),
+    kind: text("kind").notNull(),
+    detail: text("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [index("security_events_email_idx").on(t.email), index("security_events_ip_idx").on(t.ip)]
+);
+
+/** Suspended accounts — datacenter/automated signups land here and are
+    bounced back to the auth screen with a policy notice on every retry. */
+export const suspensions = pgTable(
+  "suspensions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    ip: text("ip"),
+    reason: text("reason").notNull().default("privacy_policy"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [index("suspensions_email_idx").on(t.email)]
 );
 
 /* --- Chat media store (voice notes, photos, videos) ------------------------

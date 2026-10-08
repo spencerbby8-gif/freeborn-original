@@ -103,6 +103,28 @@ export function AppShell({ children }: { children: ReactNode }) {
           window.location.replace("/auth?mode=sign-in");
           return;
         }
+
+        /* The door: IP reputation check right after authentication.
+           Datacenter/automated accounts are suspended and bounced back to
+           the auth screen with the policy notice. */
+        try {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          const res = await fetch("/api/security/check", {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok) {
+            const verdict = await res.json();
+            if (verdict.suspended) {
+              await supabase.auth.signOut().catch(() => undefined);
+              window.location.replace("/auth?mode=sign-in&status=suspended");
+              return;
+            }
+          }
+        } catch {
+          /* security intel outage never locks out a real member */
+        }
+
         setEmail(user.email ?? null);
         setChecking(false);
       } catch {

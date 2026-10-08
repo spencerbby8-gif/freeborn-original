@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supa
 import { getAuthErrorMessage } from "@/lib/auth/messages";
 import { getBaseUrl } from "@/lib/auth/url";
 import { showToast } from "@/components/toast-host";
+import { TurnstileGate, turnstileEnabled } from "./turnstile";
 
 export type AuthScreenMode =
   | "sign-in"
@@ -71,6 +72,8 @@ export function AuthExperience({
   const [values, setValues] = useState<Values>(emptyState);
   const [errors, setErrors] = useState<Errors>({});
   const [pending, setPending] = useState<"email" | "google" | null>(null);
+  /** Turnstile human-check token (active only when the site key is set). */
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   /* Coming back from the Google redirect (including the browser's back/forward
      cache) must never leave a stale "Connecting…" spinner on the screen. */
@@ -157,6 +160,14 @@ export function AuthExperience({
     setErrors({});
     if (pending === "email") return;
     if (!validate()) return;
+    if (turnstileEnabled() && !captchaToken) {
+      showToast({
+        tone: "error",
+        title: "One quick check first",
+        body: "Complete the human check below, then continue.",
+      });
+      return;
+    }
     setPending("email");
     const email = values.email.trim().toLowerCase();
 
@@ -164,7 +175,11 @@ export function AuthExperience({
       if (!supabase) throw new Error("service_unavailable");
 
       if (mode === "sign-in") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: values.password,
+          options: captchaToken ? { captchaToken } : undefined,
+        });
         if (error) throw error;
         const { data: check } = await supabase.auth.getUser();
         if (!check?.user) {
@@ -181,7 +196,10 @@ export function AuthExperience({
         const { data, error } = await supabase.auth.signUp({
           email,
           password: values.password,
-          options: { emailRedirectTo: `${getBaseUrl()}/auth/callback?next=/onboarding` },
+          options: {
+            emailRedirectTo: `${getBaseUrl()}/auth/callback?next=/onboarding`,
+            ...(captchaToken ? { captchaToken } : {}),
+          },
         });
         if (error) throw error;
         if (data.session) {
@@ -243,6 +261,7 @@ export function AuthExperience({
         options: {
           redirectTo: `${origin}/auth/callback?next=/onboarding`,
           queryParams: { prompt: "select_account" },
+          ...(captchaToken ? { captchaToken } : {}),
         },
       });
       if (error) throw error;
@@ -322,9 +341,22 @@ export function AuthExperience({
         </div>
 
         {notice ? (
-          <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12.5px] font-semibold leading-relaxed text-[var(--color-mist)]">
-            <span className="text-[var(--color-pearl)]">{notice.title}.</span> {notice.body}
-          </p>
+          notice.tone === "error" ? (
+            <div className="mt-5 rounded-2xl border border-red-400/45 bg-red-500/10 px-4 py-3.5">
+              <p className="flex items-center gap-2 text-[13px] font-black text-red-300">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" aria-hidden>
+                  <path d="M12 8v5M12 16.5h.01" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                {notice.title}
+              </p>
+              <p className="mt-1.5 text-[12.5px] font-semibold leading-relaxed text-red-200/85">{notice.body}</p>
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12.5px] font-semibold leading-relaxed text-[var(--color-mist)]">
+              <span className="text-[var(--color-pearl)]">{notice.title}.</span> {notice.body}
+            </p>
+          )
         ) : null}
 
         {/* Tabs: Sign in / Create account */}
@@ -433,6 +465,10 @@ export function AuthExperience({
                 onChange={(event) => updateField("confirmPassword", event.target.value)}
               />
             </div>
+          ) : null}
+
+          {mode === "sign-in" || mode === "sign-up" ? (
+            <TurnstileGate onToken={setCaptchaToken} />
           ) : null}
 
           <button

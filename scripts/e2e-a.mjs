@@ -8,7 +8,7 @@ const page = await ctx.newPage();
 
 await page.goto(`${BASE}/auth?mode=sign-in`, { waitUntil: "networkidle", timeout: 40000 });
 await page.locator('input[id="email"]').fill("e2e-proof@freeborn.app");
-await page.locator('input[id="password"]').fill(process.env.E2E_PASSWORD ?? "");
+await page.locator('input[id="password"]').fill("E2eProof2026x");
 await page.locator('button[type="submit"]').click();
 await page.waitForURL("**/onboarding", { timeout: 40000 });
 console.log("PASS A1 | sign-in -> /onboarding");
