@@ -5,6 +5,7 @@ import { getAccessToken } from "@/lib/supabase/browser";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import { CallOverlay } from "./call-overlay";
+import { VoiceBubble, VoiceRecorder } from "./voice-note";
 
 type MatchRow = {
   id: string;
@@ -13,7 +14,26 @@ type MatchRow = {
   unread: number;
 };
 
-type MessageRow = { id: string; body: string; mine: boolean; at: string; read: boolean };
+type ReactionChip = { emoji: string; mine: boolean; count: number };
+type MessageRow = {
+  id: string;
+  body: string;
+  mine: boolean;
+  at: string;
+  read: boolean;
+  flagged?: boolean;
+  reactions: ReactionChip[];
+};
+
+const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
+
+/** Opener suggestions for fresh matches — conversations die when they start cold. */
+const ICEBREAKERS = [
+  "What's a value you'll never compromise on?",
+  "What does your ideal Sunday look like?",
+  "Best meal you've had this month?",
+  "What's something you're building right now?",
+];
 
 type StagedItem = { id: number; kind: "image" | "video"; dataUrl: string };
 
@@ -145,167 +165,6 @@ function Receipt({ read }: { read: boolean }) {
       <path d="M1.5 6.5l3.4 3.5L11.5 3" />
       {read ? <path d="M8 8.5l1.4 1.5L16.5 3" /> : null}
     </svg>
-  );
-}
-
-/* --- Telegram-style voice note: play/pause, 1x→1.5x→2x, scrub-to-seek ------ */
-
-function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean; seconds?: number }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const waveRef = useRef<HTMLDivElement | null>(null);
-  const scrubbingRef = useRef(false);
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [rate, setRate] = useState(1);
-  const [failed, setFailed] = useState(false);
-  const [dur, setDur] = useState<number | null>(seconds ?? null);
-  const bars = useMemo(() => seededBars(url, 30), [url]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (a) a.playbackRate = rate;
-  }, [rate]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    const onMeta = () => {
-      if (isFinite(a.duration) && a.duration > 0) setDur(a.duration);
-    };
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    const onEnd = () => {
-      setPlaying(false);
-      setProgress(0);
-    };
-    a.addEventListener("loadedmetadata", onMeta);
-    a.addEventListener("play", onPlay);
-    a.addEventListener("pause", onPause);
-    a.addEventListener("ended", onEnd);
-    return () => {
-      a.removeEventListener("loadedmetadata", onMeta);
-      a.removeEventListener("play", onPlay);
-      a.removeEventListener("pause", onPause);
-      a.removeEventListener("ended", onEnd);
-    };
-  }, []);
-
-  // Smooth playhead via rAF while playing.
-  useEffect(() => {
-    if (!playing) return;
-    let raf = 0;
-    const loop = () => {
-      const a = audioRef.current;
-      if (a) {
-        const d = dur ?? (isFinite(a.duration) && a.duration > 0 ? a.duration : 1);
-        setProgress(Math.min(1, a.currentTime / d));
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, dur]);
-
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playing) a.pause();
-    else void a.play().catch(() => undefined);
-  };
-
-  const cycleRate = () => setRate((r) => (r === 1 ? 1.5 : r === 1.5 ? 2 : 1));
-
-  const seekFromX = (clientX: number) => {
-    const el = waveRef.current;
-    const a = audioRef.current;
-    if (!el || !a) return;
-    const rect = el.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const d = dur ?? (isFinite(a.duration) && a.duration > 0 ? a.duration : 0);
-    if (d > 0) {
-      a.currentTime = frac * d;
-      setProgress(frac);
-    }
-  };
-
-  if (failed) {
-    // Codec not playable in this browser → fall back to native controls.
-    return <audio src={url} controls preload="auto" className="h-10 w-[250px] max-w-full" />;
-  }
-
-  return (
-    <div className="flex w-[262px] max-w-full items-center gap-2.5 py-1">
-      <audio ref={audioRef} src={url} preload="auto" onError={() => setFailed(true)} />
-      <button
-        type="button"
-        onClick={toggle}
-        onPointerDown={(e) => e.stopPropagation()}
-        aria-label={playing ? "Pause voice note" : "Play voice note"}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/25 text-white transition hover:bg-white/35 active:scale-95"
-      >
-        {playing ? (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <rect x="6" y="4.5" width="4" height="15" rx="1.4" />
-            <rect x="14" y="4.5" width="4" height="15" rx="1.4" />
-          </svg>
-        ) : (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
-          </svg>
-        )}
-      </button>
-      <div
-        ref={waveRef}
-        className="flex h-9 flex-1 cursor-pointer touch-none items-center gap-[2.5px]"
-        aria-hidden
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          scrubbingRef.current = true;
-          try {
-            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-          } catch {
-            /* ignore */
-          }
-          seekFromX(e.clientX);
-        }}
-        onPointerMove={(e) => {
-          if (scrubbingRef.current) seekFromX(e.clientX);
-        }}
-        onPointerUp={() => {
-          scrubbingRef.current = false;
-        }}
-      >
-        {bars.map((b, i) => (
-          <span
-            key={i}
-            className={`w-[3px] rounded-full ${
-              i / bars.length <= progress ? "bg-white" : mine ? "bg-white/40" : "bg-white/25"
-            }`}
-            style={{ height: `${7 + b * 19}px` }}
-          />
-        ))}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <span className={`text-[11px] font-bold tabular-nums ${mine ? "text-white/85" : "text-[var(--color-mist)]"}`}>
-          {fmtClock(dur ?? 0)}
-        </span>
-        <button
-          type="button"
-          onClick={cycleRate}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label={`Playback speed ${rate}x`}
-          className={`rounded-full px-1.5 py-px text-[9.5px] font-black tabular-nums transition ${
-            rate > 1
-              ? "bg-white/25 text-white"
-              : mine
-                ? "bg-white/10 text-white/70 hover:bg-white/20"
-                : "bg-white/[0.07] text-[var(--color-mist)] hover:bg-white/[0.14]"
-          }`}
-        >
-          {rate}x
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -456,6 +315,58 @@ function Thread({
     setTimeout(() => setToast(null), 2200);
   };
 
+  /* --- Voice notes: rebuilt Telegram-style module ------------------------------ */
+
+  const sendVoice = async (dataUrl: string, seconds: number) => {
+    setUploading(true);
+    try {
+      const url = await uploadMedia(dataUrl, "voice");
+      if (!url) {
+        flash("Voice note failed to send.");
+        return;
+      }
+      await postMessage(buildBody(`[[voice:${url}|${seconds}]]`));
+      setReplyTo(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  /* --- Reactions: hold a bubble to pick, double-tap to love -------------------- */
+
+  const [pickerFor, setPickerFor] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [burstId, setBurstId] = useState<string | null>(null);
+  const lastBubbleTap = useRef<{ id: string; t: number }>({ id: "", t: 0 });
+
+  const applyReaction = (m: MessageRow, emoji: string, on: boolean): MessageRow => {
+    const others = m.reactions.filter((r) => r.emoji !== emoji);
+    const existing = m.reactions.find((r) => r.emoji === emoji);
+    const count = existing ? existing.count + (on ? 1 : -1) : 1;
+    const next = count > 0 ? [...others, { emoji, mine: on, count }] : others;
+    return { ...m, reactions: next };
+  };
+
+  const toggleReaction = async (m: MessageRow, emoji: string) => {
+    const mine = m.reactions.some((r) => r.emoji === emoji && r.mine);
+    setMessages((prev) => prev.map((x) => (x.id === m.id ? applyReaction(x, emoji, !mine) : x)));
+    try {
+      await fetch("/api/chat/reactions", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ message: m.id, emoji }),
+      });
+    } catch {
+      /* the next poll heals the state */
+    }
+  };
+
+  const doubleTapLove = (m: MessageRow) => {
+    const hasMine = m.reactions.some((r) => r.emoji === "❤️" && r.mine);
+    if (!hasMine) void toggleReaction(m, "❤️");
+    setBurstId(m.id);
+    setTimeout(() => setBurstId(null), 900);
+  };
+
   const postMessage = useCallback(
     async (body: string) => {
       await fetch("/api/chat/messages", {
@@ -510,7 +421,6 @@ function Thread({
   const videoRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<StagedItem[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [micError, setMicError] = useState<string | null>(null);
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
     const files = Array.from(e.target.files ?? []);
@@ -558,282 +468,6 @@ function Thread({
     setSending(false);
   };
 
-  /* --- Telegram-style voice recording ---------------------------------------- */
-
-  type RecMode = "idle" | "hold" | "locked";
-  const [recMode, setRecMode] = useState<RecMode>("idle");
-  const [cancelArmed, setCancelArmed] = useState(false);
-  const [recPaused, setRecPaused] = useState(false);
-  const [recSeconds, setRecSeconds] = useState(0);
-  const [liveBars, setLiveBars] = useState<number[]>([]);
-
-  const recModeRef = useRef<RecMode>("idle");
-  const recRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const levelTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const clockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const secondsRef = useRef(0);
-  const holdStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
-  const cancelArmedRef = useRef(false);
-  const discardRef = useRef(false);
-  /** True when the finger lifted while the mic permission was still loading. */
-  const pendingUpRef = useRef(false);
-  /** True only once the mic stream + recorder actually exist. */
-  const streamReadyRef = useRef(false);
-
-  /** Stop the recorder only when it's actually running — double-stops throw. */
-  const safeStopRec = () => {
-    const r = recRef.current;
-    if (r && r.state !== "inactive") {
-      try {
-        r.stop();
-      } catch {
-        /* already stopped */
-      }
-    }
-  };
-
-  const cleanupRecInternals = () => {
-    if (levelTimerRef.current) clearInterval(levelTimerRef.current);
-    if (clockTimerRef.current) clearInterval(clockTimerRef.current);
-    levelTimerRef.current = null;
-    clockTimerRef.current = null;
-    if (audioCtxRef.current) {
-      void audioCtxRef.current.close().catch(() => undefined);
-      audioCtxRef.current = null;
-    }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  };
-
-  const sendVoice = async (dataUrl: string, seconds: number) => {
-    setUploading(true);
-    try {
-      const url = await uploadMedia(dataUrl, "voice");
-      if (!url) {
-        flash("Voice note failed to send.");
-        return;
-      }
-      await postMessage(buildBody(`[[voice:${url}|${seconds}]]`));
-      setReplyTo(null);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRecStop = () => {
-    cleanupRecInternals();
-    const rec = recRef.current;
-    recRef.current = null;
-    recModeRef.current = "idle";
-    streamReadyRef.current = false;
-    setRecMode("idle");
-    setCancelArmed(false);
-    cancelArmedRef.current = false;
-    setRecPaused(false);
-    setLiveBars([]);
-    if (discardRef.current) {
-      discardRef.current = false;
-      flash("Voice note discarded.");
-      return;
-    }
-    if (!rec) return;
-    const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-    if (blob.size < 400) return;
-    const seconds = Math.max(1, Math.round(secondsRef.current));
-    const reader = new FileReader();
-    reader.onload = () => void sendVoice(String(reader.result), seconds);
-    reader.readAsDataURL(blob);
-  };
-
-  const startRecording = async () => {
-    if (recModeRef.current !== "idle") return;
-    pendingUpRef.current = false;
-    // Show the recording UI instantly so press-and-hold feels immediate;
-    // the real stream attaches a moment later (permission latency included).
-    recModeRef.current = "hold";
-    setRecMode("hold");
-    streamReadyRef.current = false;
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
-      streamRef.current = stream;
-      // Prefer Opus — the clearest, most natural voice codec browsers offer.
-      const candidates = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-        "audio/ogg;codecs=opus",
-      ];
-      const mimeType = candidates.find((c) => MediaRecorder.isTypeSupported(c));
-      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      recRef.current = rec;
-      chunksRef.current = [];
-      discardRef.current = false;
-      rec.ondataavailable = (ev) => {
-        if (ev.data.size) chunksRef.current.push(ev.data);
-      };
-      rec.onstop = handleRecStop;
-      rec.onerror = () => {
-        cleanupRecInternals();
-        recRef.current = null;
-        recModeRef.current = "idle";
-        streamReadyRef.current = false;
-        setRecMode("idle");
-        setMicError("Recording failed midway — press and hold to try again.");
-        setTimeout(() => setMicError(null), 5000);
-      };
-      rec.start(250);
-      streamReadyRef.current = true;
-      secondsRef.current = 0;
-      setRecSeconds(0);
-      setLiveBars([]);
-
-      // The finger lifted while the permission prompt was still open — the
-      // hold never really happened, so discard instead of hanging.
-      if (pendingUpRef.current) {
-        pendingUpRef.current = false;
-        discardRef.current = true;
-        rec.stop();
-        return;
-      }
-
-      try {
-        const Ctx =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const ctx = new Ctx();
-        audioCtxRef.current = ctx;
-        const src = ctx.createMediaStreamSource(stream);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        src.connect(analyser);
-        const buf = new Uint8Array(analyser.fftSize);
-        levelTimerRef.current = setInterval(() => {
-          analyser.getByteTimeDomainData(buf);
-          let peak = 0;
-          for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
-          setLiveBars((b) => [...b.slice(-31), Math.min(1, peak / 80)]);
-        }, 110);
-      } catch {
-        /* meter is optional */
-      }
-      clockTimerRef.current = setInterval(() => {
-        if (recRef.current?.state === "recording") {
-          secondsRef.current += 1;
-          setRecSeconds(secondsRef.current);
-        }
-      }, 1000);
-    } catch {
-      recModeRef.current = "idle";
-      setRecMode("idle");
-      setMicError(
-        "Microphone not reachable. Allow mic access for this site in your browser's site settings, then press and hold the mic again."
-      );
-      setTimeout(() => setMicError(null), 6500);
-    }
-  };
-
-  const lockRecording = () => {
-    if (recModeRef.current !== "hold") return;
-    recModeRef.current = "locked";
-    setRecMode("locked");
-    setCancelArmed(false);
-    cancelArmedRef.current = false;
-  };
-
-  const removeHoldListeners = () => {
-    window.removeEventListener("pointermove", onHoldMove);
-    window.removeEventListener("pointerup", onHoldUp);
-    window.removeEventListener("pointercancel", onHoldCancel);
-  };
-
-  const onHoldMove = (e: PointerEvent) => {
-    const s = holdStartRef.current;
-    if (!s || recModeRef.current !== "hold") return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    setCancelArmed(dx < -64);
-    cancelArmedRef.current = dx < -64;
-    if (dy < -80 && !cancelArmedRef.current) lockRecording();
-  };
-
-  const onHoldUp = () => {
-    removeHoldListeners();
-    if (recModeRef.current !== "hold") return;
-    if (!streamReadyRef.current) {
-      // The UI shows "hold" instantly, but the stream may still be pending
-      // (permission prompt). Remember the lift and cancel cleanly once it
-      // resolves — this is what kept recordings from hanging or auto-locking.
-      pendingUpRef.current = true;
-      return;
-    }
-    const s = holdStartRef.current;
-    holdStartRef.current = null;
-    if (cancelArmedRef.current) {
-      discardRef.current = true;
-      safeStopRec();
-      return;
-    }
-    const heldMs = s ? Date.now() - s.t : 1000;
-    if (heldMs < 380) {
-      lockRecording();
-      return;
-    }
-    safeStopRec(); // release → send
-  };
-
-  const onHoldCancel = () => {
-    removeHoldListeners();
-    if (recModeRef.current !== "hold") return;
-    holdStartRef.current = null;
-    discardRef.current = true;
-    safeStopRec();
-  };
-
-  const onMicPointerDown = (e: React.PointerEvent) => {
-    if (recModeRef.current !== "idle") return;
-    e.preventDefault();
-    holdStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
-    cancelArmedRef.current = false;
-    window.addEventListener("pointermove", onHoldMove);
-    window.addEventListener("pointerup", onHoldUp);
-    window.addEventListener("pointercancel", onHoldCancel);
-    void startRecording();
-  };
-
-  const togglePause = () => {
-    const rec = recRef.current;
-    if (!rec) return;
-    if (rec.state === "recording") {
-      rec.pause();
-      setRecPaused(true);
-    } else if (rec.state === "paused") {
-      rec.resume();
-      setRecPaused(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      removeHoldListeners();
-      discardRef.current = true;
-      if (recRef.current && recRef.current.state !== "inactive") recRef.current.stop();
-      cleanupRecInternals();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const recording = recMode !== "idle";
 
   /* --- Bubble gestures: hold to copy, slide right to quote ------------------- */
 
@@ -854,7 +488,7 @@ function Thread({
       moved: false,
       timer: setTimeout(() => {
         const h = bubbleHold.current;
-        if (h && h.id === m.id && !h.moved) setSheetFor(m);
+        if (h && h.id === m.id && !h.moved) setPickerFor({ id: m.id, x: h.x, y: h.y });
       }, 460),
     };
   };
@@ -876,6 +510,17 @@ function Thread({
     bubbleHold.current = null;
     if (!h) return;
     if (h.timer) clearTimeout(h.timer);
+    // Double-tap = instant love (Telegram). A quick second tap on the same
+    // bubble wins over everything else.
+    if (!h.moved) {
+      const now = Date.now();
+      if (lastBubbleTap.current.id === m.id && now - lastBubbleTap.current.t < 320) {
+        lastBubbleTap.current = { id: "", t: 0 };
+        doubleTapLove(m);
+        return;
+      }
+      lastBubbleTap.current = { id: m.id, t: now };
+    }
     if (quoteArmedId === m.id) {
       setReplyTo({
         name: m.mine ? "You" : match.with.name,
@@ -941,7 +586,7 @@ function Thread({
               transform: quoteArmedId === m.id ? "translateX(34px)" : undefined,
               transition: "transform 160ms ease",
             }}
-            className={`select-none rounded-[20px] text-[14px] leading-6 ${
+            className={`relative select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
@@ -949,6 +594,19 @@ function Thread({
                 : "rounded-bl-md border border-white/[0.07] bg-white/[0.045] text-[var(--color-ivory)]"
             }`}
           >
+            {m.flagged && !m.mine ? (
+              <div className="mb-2 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2">
+                <svg className="mt-0.5 shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 3l9 16H3l9-16z" />
+                  <path d="M12 10v4M12 17h.01" />
+                </svg>
+                <p className="text-[10.5px] font-bold leading-4 text-amber-300">
+                  Freeborn safety: this message matches patterns commonly used by scammers.
+                  Never send money, gift cards, or crypto to someone you haven't met — and
+                  report them from their profile.
+                </p>
+              </div>
+            ) : null}
             <MessageContent body={m.body} onImage={setLightboxUrl} />
             <span
               className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
@@ -958,7 +616,47 @@ function Thread({
               {new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               {m.mine ? <Receipt read={m.read} /> : null}
             </span>
+            {burstId === m.id ? (
+              <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                <svg
+                  className="fb-heart-burst h-16 w-16 drop-shadow-[0_6px_18px_rgba(239,94,94,0.8)]"
+                  viewBox="0 0 24 24"
+                  fill="#ff6b7a"
+                  aria-hidden
+                >
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              </span>
+            ) : null}
           </div>
+          {m.reactions && m.reactions.length > 0 ? (
+            <div
+              className={`absolute -bottom-3.5 z-10 flex gap-1 ${
+                m.mine ? "right-1" : "left-1"
+              }`}
+            >
+              {m.reactions.map((r) => (
+                <button
+                  key={r.emoji}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void toggleReaction(m, r.emoji);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  aria-label={`React ${r.emoji} (${r.count})`}
+                  className={`fb-pop-in flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[11px] font-bold transition active:scale-90 ${
+                    r.mine
+                      ? "border-[var(--color-ember-500)]/60 bg-[#1c1013] text-[#ffb4a6]"
+                      : "border-white/15 bg-[#141827] text-[var(--color-pearl)]"
+                  }`}
+                >
+                  <span>{r.emoji}</span>
+                  {r.count > 1 ? <span className="tabular-nums">{r.count}</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -1027,9 +725,24 @@ function Thread({
       ) : null}
 
       <div className="flex-1 space-y-3 overflow-y-auto py-5">{rows.length > 0 ? rows : (
-        <p className="pt-10 text-center text-sm text-[var(--color-mist)]">
-          The conversation is open — say hello.
-        </p>
+        <div className="pt-8 text-center">
+          <p className="text-sm text-[var(--color-mist)]">The conversation is open — say hello.</p>
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
+            Try an opener
+          </p>
+          <div className="mx-auto mt-2.5 flex max-w-[440px] flex-wrap justify-center gap-2">
+            {ICEBREAKERS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setText(s)}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--color-sand)] transition hover:border-[var(--color-gold-500)]/50 hover:text-[var(--color-pearl)]"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
         <div ref={bottomRef} />
       </div>
@@ -1135,169 +848,130 @@ function Thread({
         </div>
       ) : null}
 
-      {micError ? (
-        <div className="mb-2 rounded-xl border border-red-400/30 bg-red-500/10 px-3.5 py-2 text-[12px] font-bold text-red-300">
-          {micError}
-        </div>
-      ) : null}
 
-      {/* Composer — or recording bar */}
-      {recording ? (
-        <div className="flex items-center gap-3 border-t border-white/[0.06] pt-4">
-          {recPaused ? (
-            <span className="h-3 w-3 shrink-0 rounded-full bg-amber-400" />
+      {/* Composer — voice recording overlays it Telegram-style */}
+      <div className="relative flex items-center gap-2 border-t border-white/[0.06] pt-4">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          aria-label="Add photos to the packet"
+          title="Add photos"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3" y="5" width="18" height="14" rx="2.5" />
+            <circle cx="9" cy="10" r="1.6" />
+            <path d="M21 16l-4.5-4.5L9 18" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => videoRef.current?.click()}
+          disabled={uploading}
+          aria-label="Add videos to the packet"
+          title="Add videos"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3" y="6" width="13" height="12" rx="2.5" />
+            <path d="M16 10.5l5-3v9l-5-3" />
+          </svg>
+        </button>
+
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (staged.length > 0) void sendPacket();
+              else void send();
+            }
+          }}
+          placeholder={staged.length > 0 ? "Add a caption to the packet\u2026" : `Message ${match.with.name}\u2026`}
+          maxLength={1800}
+          autoComplete="off"
+          enterKeyHint="send"
+          className="min-h-[48px] flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-[14px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+        />
+
+        <VoiceRecorder
+          onSend={(dataUrl, seconds) => void sendVoice(dataUrl, seconds)}
+          onError={flash}
+          disabled={uploading}
+        />
+
+        <button
+          type="button"
+          onClick={() => (staged.length > 0 ? void sendPacket() : void send())}
+          disabled={sending || uploading || (!text.trim() && staged.length === 0)}
+          aria-label={staged.length > 0 ? "Send packet" : "Send message"}
+          title={staged.length > 0 ? "Send packet" : "Send message"}
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
+        >
+          {staged.length > 0 ? (
+            <span className="text-[13px] font-black">{staged.length}</span>
           ) : (
-            <span className="rec-pulse h-3 w-3 shrink-0 rounded-full bg-red-500" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+            </svg>
           )}
-          <span className="w-11 shrink-0 text-[14px] font-black tabular-nums text-[var(--color-pearl)]">
-            {fmtClock(recSeconds)}
-          </span>
+        </button>
+      </div>
 
-          <div className="flex h-8 flex-1 items-center gap-[2.5px] overflow-hidden" aria-hidden>
-            {(liveBars.length ? liveBars : [0.15]).map((b, i) => (
-              <span
-                key={i}
-                className="w-[3px] rounded-full bg-[var(--color-gold-300)]"
-                style={{ height: `${6 + b * 20}px`, opacity: 0.35 + b * 0.65 }}
-              />
-            ))}
-          </div>
-
-          {recMode === "hold" ? (
-            <p className={`shrink-0 text-[11px] font-bold ${cancelArmed ? "text-red-300" : "text-[var(--color-ash)]"}`}>
-              {cancelArmed ? "Release to discard" : "← slide to discard · slide up to lock"}
-            </p>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={togglePause}
-                aria-label={recPaused ? "Resume recording" : "Pause recording"}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
-              >
-                {recPaused ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                    <rect x="6" y="4.5" width="4" height="15" rx="1.4" />
-                    <rect x="14" y="4.5" width="4" height="15" rx="1.4" />
-                  </svg>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  discardRef.current = true;
-                  safeStopRec();
-                }}
-                aria-label="Discard voice note"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-400/40 bg-red-500/15 text-red-300 transition hover:bg-red-500/25"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a2 2 0 002 1.8h6A2 2 0 0017 20l1-13M9 7V5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 5v2" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => safeStopRec()}
-                aria-label="Send voice note"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 border-t border-white/[0.06] pt-4">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            aria-label="Add photos to the packet"
-            title="Add photos"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="5" width="18" height="14" rx="2.5" />
-              <circle cx="9" cy="10" r="1.6" />
-              <path d="M21 16l-4.5-4.5L9 18" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => videoRef.current?.click()}
-            disabled={uploading}
-            aria-label="Add videos to the packet"
-            title="Add videos"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="6" width="13" height="12" rx="2.5" />
-              <path d="M16 10.5l5-3v9l-5-3" />
-            </svg>
-          </button>
-
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (staged.length > 0) void sendPacket();
-                else void send();
-              }
-            }}
-            placeholder={staged.length > 0 ? "Add a caption to the packet…" : `Message ${match.with.name}…`}
-            maxLength={1800}
-            autoComplete="off"
-            enterKeyHint="send"
-            className="min-h-[48px] flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-[14px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)]"
-          />
-
-          <button
-            type="button"
-            onPointerDown={onMicPointerDown}
-            onContextMenu={(e) => e.preventDefault()}
-            onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && recMode === "idle") {
-                e.preventDefault();
-                void startRecording().then(() => lockRecording());
-              }
-            }}
-            disabled={uploading}
-            aria-label="Hold to record a voice note"
-            title="Hold to record · slide left to discard · slide up to lock"
-            className="flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] active:scale-95 disabled:opacity-40"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-              <rect x="9" y="3" width="6" height="11" rx="3" />
-              <path d="M5 11a7 7 0 0014 0M12 18v3" />
-            </svg>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => (staged.length > 0 ? void sendPacket() : void send())}
-            disabled={sending || uploading || (!text.trim() && staged.length === 0)}
-            aria-label={staged.length > 0 ? "Send packet" : "Send message"}
-            title={staged.length > 0 ? "Send packet" : "Send message"}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
-          >
-            {staged.length > 0 ? (
-              <span className="text-[13px] font-black">{staged.length}</span>
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-              </svg>
-            )}
-          </button>
-        </div>
-      )}
+      {/* Hold-to-react picker (double-tap = instant love) */}
+      {pickerFor
+        ? (() => {
+            const msg = messages.find((x) => x.id === pickerFor.id);
+            if (!msg) return null;
+            const left = Math.max(12, Math.min((typeof window !== "undefined" ? window.innerWidth : 360) - 310, pickerFor.x - 150));
+            const top = Math.max(80, pickerFor.y - 74);
+            return (
+              <div className="fixed inset-0 z-[145]" onClick={() => setPickerFor(null)}>
+                <div
+                  className="fb-pop-in fixed flex items-center gap-1 rounded-full border border-white/[0.1] bg-[#10141f] px-2 py-1.5 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.9)]"
+                  style={{ left, top }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {REACTION_EMOJIS.map((emo) => (
+                    <button
+                      key={emo}
+                      type="button"
+                      onClick={() => {
+                        void toggleReaction(msg, emo);
+                        setPickerFor(null);
+                      }}
+                      aria-label={`React ${emo}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-[20px] transition hover:scale-125 hover:bg-white/[0.08] ${
+                        msg.reactions.some((r) => r.emoji === emo && r.mine)
+                          ? "bg-[var(--color-ember-500)]/25"
+                          : ""
+                      }`}
+                    >
+                      {emo}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSheetFor(msg);
+                      setPickerFor(null);
+                    }}
+                    aria-label="More actions"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-mist)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)]"
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <circle cx="5" cy="12" r="1.8" />
+                      <circle cx="12" cy="12" r="1.8" />
+                      <circle cx="19" cy="12" r="1.8" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })()
+        : null}
 
       {/* Long-press action sheet */}
       {sheetFor ? (

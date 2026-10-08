@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 import {
   matches,
   messages,
@@ -63,7 +64,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
   // Fallback: members onboarded through Supabase keep their photos there —
   // this keeps "view as others" complete with every picture intact.
-  let photoUrls = photos.map((p) => p.storagePath);
+  let photoUrls = photos.map((p) => resolvePhotoUrl(p.storagePath));
   if (photoUrls.length === 0) {
     try {
       const supabase = await createSupabaseServerClient();

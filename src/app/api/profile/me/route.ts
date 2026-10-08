@@ -1,4 +1,5 @@
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +54,7 @@ export async function GET(request: Request) {
     .eq("user_id", user.id)
     .order("position", { ascending: true });
 
-  const photoUrls = (photos ?? []).map((p) => {
-    const path = p.storage_path as string;
-    if (/^https?:\/\//.test(path)) return path;
-    return supabase.storage.from("profile-photos").getPublicUrl(path).data.publicUrl;
-  });
+  const photoUrls = (photos ?? []).map((p) => resolvePhotoUrl(p.storage_path as string));
 
   const profile = {
     id: user.id,

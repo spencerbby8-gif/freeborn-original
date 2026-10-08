@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AuthInput } from "./auth-input";
-import { AuthNotice } from "./auth-notice";
 import { PasswordStrength } from "./password-strength";
 import { GoogleGlyph } from "@/components/icons";
 import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supabase/browser";
 import { getAuthErrorMessage } from "@/lib/auth/messages";
 import { getBaseUrl } from "@/lib/auth/url";
+import { showToast } from "@/components/toast-host";
 
 export type AuthScreenMode =
   | "sign-in"
@@ -21,23 +21,40 @@ type Values = { email: string; password: string; confirmPassword: string };
 type Errors = Partial<Record<keyof Values, string>>;
 
 const emptyState: Values = { email: "", password: "", confirmPassword: "" };
-
-const switchItems: Array<{ mode: AuthScreenMode; label: string }> = [
+const switchItems: Array<{ mode: "sign-in" | "sign-up"; label: string }> = [
   { mode: "sign-in", label: "Sign in" },
   { mode: "sign-up", label: "Create account" },
 ];
-
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function Spinner() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" className="spin" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 
+function friendlyError(error: unknown): string {
+  const msg = error instanceof Error ? error.message.toLowerCase() : "";
+  if (msg.includes("already registered") || msg.includes("already been registered"))
+    return "An account already exists for this email — switch to the Sign in tab.";
+  return getAuthErrorMessage(error);
+}
+
+/**
+ * Freeborn auth — email + password, the classic way:
+ *  - Sign in: email + password.
+ *  - Create account: email + password (+ confirm, strength meter).
+ *  - Google stays one tap.
+ *
+ * Hardened against the "stuck loading" bug: the email form is NEVER disabled
+ * by the Google button, and coming back from Google (back button, back/forward
+ * cache) always resets any stale "Connecting…" state.
+ *
+ * Every result surfaces as a popup toast pinned at the top of the screen.
+ */
 export function AuthExperience({
   initialMode,
   notice,
@@ -53,17 +70,28 @@ export function AuthExperience({
   const [mode, setMode] = useState<AuthScreenMode>(initialMode);
   const [values, setValues] = useState<Values>(emptyState);
   const [errors, setErrors] = useState<Errors>({});
-  const [localNotice, setLocalNotice] = useState<Notice | null>(notice ?? null);
   const [pending, setPending] = useState<"email" | "google" | null>(null);
 
-  const isAuth = mode === "sign-in" || mode === "sign-up";
+  /* Coming back from the Google redirect (including the browser's back/forward
+     cache) must never leave a stale "Connecting…" spinner on the screen. */
+  useEffect(() => {
+    const clearStaleGoogle = () => setPending((p) => (p === "google" ? null : p));
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) clearStaleGoogle();
+      else clearStaleGoogle();
+    };
+    const onVisibility = () => {
+      if (!document.hidden) clearStaleGoogle();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
-  /**
-   * After a successful auth, route by onboarding state: finished members go
-   * straight into the app shell (/app, tabs included); everyone else starts
-   * (or resumes) onboarding. This avoids flashing the onboarding screen at
-   * members who are already done.
-   */
+  /** Route by onboarding state after any successful auth. */
   const enterAfterAuth = async () => {
     try {
       if (supabase) {
@@ -97,7 +125,6 @@ export function AuthExperience({
     if (next === mode) return;
     setMode(next);
     setErrors({});
-    setLocalNotice(null);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("mode", next);
@@ -109,57 +136,43 @@ export function AuthExperience({
   const validate = (): boolean => {
     const next: Errors = {};
     const email = values.email.trim().toLowerCase();
-
-    if (mode !== "update-password" && !EMAIL_PATTERN.test(email)) {
-      next.email = "Enter a valid email address.";
-    }
-
-    if ((mode === "sign-in") && values.password.length === 0) {
-      next.password = "Enter your password.";
-    }
-
+    if (mode !== "update-password" && !EMAIL_PATTERN.test(email)) next.email = "Enter a valid email address.";
+    if (mode === "sign-in" && values.password.length === 0) next.password = "Enter your password.";
     if (mode === "sign-up" || mode === "update-password") {
       if (values.password.length < 8) next.password = "Use at least 8 characters.";
       else if (!/[A-Z]/.test(values.password)) next.password = "Add at least one uppercase letter.";
       else if (!/[a-z]/.test(values.password)) next.password = "Add at least one lowercase letter.";
       else if (!/[0-9]/.test(values.password)) next.password = "Add at least one number.";
-
-      if (values.confirmPassword.length === 0) {
-        next.confirmPassword = "Confirm your password.";
-      } else if (values.password !== values.confirmPassword) {
-        next.confirmPassword = "Passwords do not match.";
-      }
+      if (values.confirmPassword.length === 0) next.confirmPassword = "Confirm your password.";
+      else if (values.password !== values.confirmPassword) next.confirmPassword = "Passwords do not match.";
     }
-
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
+  /* --- Email + password ------------------------------------------------------ */
+
   const handleEmailSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setLocalNotice(null);
     setErrors({});
+    if (pending === "email") return;
     if (!validate()) return;
     setPending("email");
+    const email = values.email.trim().toLowerCase();
 
     try {
       if (!supabase) throw new Error("service_unavailable");
-      const email = values.email.trim().toLowerCase();
 
       if (mode === "sign-in") {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password: values.password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password: values.password });
         if (error) throw error;
-        // Verify the session is actually readable before navigating, so a
-        // storage problem surfaces here instead of a silent bounce loop.
         const { data: check } = await supabase.auth.getUser();
         if (!check?.user) {
           throw new Error(
-            "Signed in, but this browser refused to keep the session. Open this page in its own tab (button top-right) and sign in again."
+            "Signed in, but this browser refused to keep the session. Open this page in its own tab and sign in again."
           );
         }
+        showToast({ tone: "success", title: "You're in", body: "Welcome back to Freeborn." });
         await enterAfterAuth();
         return;
       }
@@ -168,22 +181,23 @@ export function AuthExperience({
         const { data, error } = await supabase.auth.signUp({
           email,
           password: values.password,
-          options: {
-            emailRedirectTo: `${getBaseUrl()}/auth/callback?next=/onboarding`,
-          },
+          options: { emailRedirectTo: `${getBaseUrl()}/auth/callback?next=/onboarding` },
         });
         if (error) throw error;
         if (data.session) {
-          // Email confirmation disabled on the project — straight in.
+          showToast({ tone: "success", title: "Account created", body: "Welcome to Freeborn — let's build your profile." });
           await enterAfterAuth();
           return;
         }
-        setLocalNotice({
+        // Email confirmation is required on this project before first sign-in.
+        showToast({
           tone: "success",
-          title: "Check your inbox",
-          body: "We sent a secure confirmation link. Open it in this same browser to activate your Freeborn account — it lands you right back here, signed in. (Check spam if it hides; Supabase limits emails to a few per hour.)",
+          title: "One last step",
+          body: `We sent a confirmation email to ${email}. Open it once, then come back and sign in with your password.`,
         });
         setValues((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setMode("sign-in");
+        setPending(null);
         return;
       }
 
@@ -192,56 +206,56 @@ export function AuthExperience({
           redirectTo: `${getBaseUrl()}/auth/callback?next=/auth%3Fmode%3Dupdate-password`,
         });
         if (error) throw error;
-        setLocalNotice({
+        showToast({
           tone: "success",
-          title: "Recovery link sent",
+          title: "Recovery email sent",
           body: "Open the link from your inbox to choose a new password.",
         });
+        setPending(null);
         return;
       }
 
       // update-password (arrived via the recovery email link)
       const { error } = await supabase.auth.updateUser({ password: values.password });
       if (error) throw error;
-      setLocalNotice({
+      showToast({
         tone: "success",
         title: "Password updated",
         body: "Your account is secured again. Taking you inside.",
       });
       await enterAfterAuth();
     } catch (error) {
-      setLocalNotice({
-        tone: "error",
-        title: "We couldn't finish that",
-        body: getAuthErrorMessage(error),
-      });
+      showToast({ tone: "error", title: "We couldn't finish that", body: friendlyError(error) });
       setPending(null);
     }
   };
 
+  /* --- Google --------------------------------------------------------------------- */
+
   const handleGoogle = async () => {
-    setLocalNotice(null);
+    if (pending === "google") return;
     setPending("google");
     try {
       if (!supabase) throw new Error("service_unavailable");
+      const origin = typeof window !== "undefined" ? window.location.origin : getBaseUrl();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${getBaseUrl()}/auth/callback?next=/onboarding`,
-          queryParams: { access_type: "offline", prompt: "consent" },
+          redirectTo: `${origin}/auth/callback?next=/onboarding`,
+          queryParams: { prompt: "select_account" },
         },
       });
       if (error) throw error;
-      // On success Supabase redirects the browser to Google.
+      // On success Supabase redirects the browser to Google. If you come back
+      // here (cancel, back button), the pageshow/visibility listeners above
+      // clear the "Connecting…" state so nothing is stuck.
     } catch (error) {
-      setLocalNotice({
-        tone: "error",
-        title: "Google sign-in failed",
-        body: getAuthErrorMessage(error),
-      });
+      showToast({ tone: "error", title: "Google sign-in failed", body: friendlyError(error) });
       setPending(null);
     }
   };
+
+  /* --- Copy ------------------------------------------------------------------------- */
 
   const copy = {
     eyebrow:
@@ -262,7 +276,7 @@ export function AuthExperience({
             : "Welcome back",
     description:
       mode === "sign-up"
-        ? "Start with email, confirm it's really you via the secure link we send, and step into a relationship platform built for health autonomy, natural living, and long-term intention."
+        ? "Choose an email and a strong password — then step into a relationship platform built for health autonomy, natural living, and long-term intention."
         : mode === "reset-password"
           ? "We'll send a secure link so you can set a new password — no stress."
           : mode === "update-password"
@@ -270,6 +284,7 @@ export function AuthExperience({
             : "Sign in to pick up where you left off. Your values-forward profile is right where you left it.",
   };
 
+  const isAuth = mode === "sign-in" || mode === "sign-up";
   const submitLabel =
     pending === "email"
       ? mode === "sign-in"
@@ -289,29 +304,30 @@ export function AuthExperience({
 
   return (
     <div className="w-full max-w-[480px]">
-      <div className="surface magic-border relative overflow-hidden rounded-[40px] p-8 shadow-[var(--shadow-card-lg)] sm:p-10">
+      <div className="surface magic-border relative overflow-hidden rounded-[40px] p-7 shadow-[var(--shadow-card-lg)] sm:p-10">
         <div key={mode} className="animate-fade-in">
           <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--color-sand)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
             {copy.eyebrow}
           </div>
           <h1
-            className="mt-6 text-[clamp(2.25rem,6vw,3rem)] leading-[0.95] tracking-tight text-[var(--color-pearl)]"
+            className="mt-6 text-[clamp(2.1rem,5.5vw,2.9rem)] leading-[1.02] tracking-tight text-[var(--color-pearl)]"
             style={{ fontFamily: "var(--font-display-stack)", fontVariationSettings: "'opsz' 144, 'wght' 450" }}
           >
             {copy.title}
           </h1>
-          <p className="mt-4 max-w-[40ch] text-[16px] leading-relaxed text-[var(--color-mist)]">
+          <p className="mt-4 max-w-[40ch] text-[15.5px] leading-relaxed text-[var(--color-mist)]">
             {copy.description}
           </p>
         </div>
 
-        {localNotice ? (
-          <div className="mt-6">
-            <AuthNotice {...localNotice} />
-          </div>
+        {notice ? (
+          <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12.5px] font-semibold leading-relaxed text-[var(--color-mist)]">
+            <span className="text-[var(--color-pearl)]">{notice.title}.</span> {notice.body}
+          </p>
         ) : null}
 
+        {/* Tabs: Sign in / Create account */}
         {isAuth ? (
           <div className="relative mt-8 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
             <span
@@ -340,8 +356,8 @@ export function AuthExperience({
         {isAuth ? (
           <button
             type="button"
-            onClick={handleGoogle}
-            disabled={pending !== null}
+            onClick={() => void handleGoogle()}
+            disabled={pending === "google"}
             className="group mt-6 flex h-[56px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <GoogleGlyph size={20} />
@@ -357,7 +373,7 @@ export function AuthExperience({
           </div>
         ) : null}
 
-        <form className="space-y-6" onSubmit={handleEmailSubmit} noValidate>
+        <form className="space-y-6" onSubmit={(e) => void handleEmailSubmit(e)} noValidate>
           {mode !== "update-password" ? (
             <AuthInput
               id="email"
@@ -366,6 +382,8 @@ export function AuthExperience({
               inputMode="email"
               autoComplete="email"
               autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
               placeholder="you@example.com"
               value={values.email}
               error={errors.email}
@@ -380,6 +398,7 @@ export function AuthExperience({
                 label={mode === "update-password" ? "New password" : "Password"}
                 type="password"
                 autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                enterKeyHint={mode === "sign-in" ? "done" : "next"}
                 placeholder={mode === "sign-in" ? "Enter your password" : "Choose a strong password"}
                 value={values.password}
                 error={errors.password}
@@ -407,6 +426,7 @@ export function AuthExperience({
                 label={mode === "update-password" ? "Confirm new password" : "Confirm password"}
                 type="password"
                 autoComplete="new-password"
+                enterKeyHint="done"
                 placeholder="Repeat your password"
                 value={values.confirmPassword}
                 error={errors.confirmPassword}
@@ -417,7 +437,7 @@ export function AuthExperience({
 
           <button
             type="submit"
-            disabled={pending !== null}
+            disabled={pending === "email"}
             className="magic-button btn-shine group relative mt-2 flex h-[60px] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-5 text-[16px] font-bold text-[var(--color-ink)] shadow-[0_20px_40px_-12px_rgba(251,247,242,0.2)] transition-all hover:-translate-y-px hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           >
             {pending === "email" ? <Spinner /> : null}

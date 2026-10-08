@@ -1,13 +1,15 @@
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   matches,
   messages,
   profilePhotos,
   userProfiles,
+  userSwipes,
   verificationRequests,
 } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 
 /**
  * Alerts for the signed-in member: matches, unread messages (deep-linking
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
 
   const items: Array<{
     id: string;
-    type: "match" | "message" | "verification" | "tip";
+    type: "match" | "message" | "like" | "verification" | "tip";
     title: string;
     body: string;
     photo?: string;
@@ -55,7 +57,7 @@ export async function GET(request: Request) {
       type: "match",
       title: `New match: ${name}`,
       body: "You liked each other — the conversation is open. Say hello.",
-      photo: photo?.storagePath,
+      photo: resolvePhotoUrl(photo?.storagePath ?? ""),
       at: m.createdAt,
       unread: false,
       href,
@@ -84,12 +86,45 @@ export async function GET(request: Request) {
         type: "message",
         title: `${name} sent you a message`,
         body: last?.body ?? "",
-        photo: photo?.storagePath,
+        photo: resolvePhotoUrl(photo?.storagePath ?? ""),
         at: last?.createdAt ?? m.createdAt,
         unread: true,
         href,
       });
     }
+  }
+
+  /* "Someone liked you — and you can see WHO." The most-demanded feature
+     the competitors never built. */
+  const incomingLikes = await db
+    .select({ likerId: userSwipes.likerId, action: userSwipes.action, createdAt: userSwipes.createdAt })
+    .from(userSwipes)
+    .where(and(eq(userSwipes.likedId, member.id), inArray(userSwipes.action, ["like", "superlike"])))
+    .orderBy(desc(userSwipes.createdAt))
+    .limit(20);
+  for (const like of incomingLikes) {
+    const [liker] = await db
+      .select({ id: userProfiles.id, displayName: userProfiles.displayName })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, like.likerId))
+      .limit(1);
+    if (!liker) continue;
+    const [likerPhoto] = await db
+      .select()
+      .from(profilePhotos)
+      .where(eq(profilePhotos.userId, like.likerId))
+      .orderBy(desc(profilePhotos.isPrimary), profilePhotos.position)
+      .limit(1);
+    items.push({
+      id: `like-${liker.id}-${like.createdAt.getTime()}`,
+      type: "like",
+      title: `${liker.displayName ?? "Someone"} liked you${like.action === "superlike" ? " (Super Like)" : ""}`,
+      body: "Open the Likes tab to see who and like them back.",
+      photo: resolvePhotoUrl(likerPhoto?.storagePath ?? ""),
+      at: like.createdAt,
+      unread: false,
+      href: "/app/likes",
+    });
   }
 
   // Verification engine alerts

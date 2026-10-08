@@ -24,14 +24,14 @@ const trustPoints = [
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--color-night)]">
+    <main className="relative min-h-[100dvh] overflow-x-clip bg-[var(--color-night)]">
       {/* Background elements */}
       <div className="aurora-field" />
       <div className="grid-lines pointer-events-none absolute inset-0 opacity-20" />
       <div className="orb drift absolute -left-24 -top-24 h-[600px] w-[600px] rounded-full bg-[rgba(239,94,94,0.12)] blur-[80px]" />
       <div className="orb drift-alt absolute -right-24 top-20 h-[700px] w-[700px] rounded-full bg-[rgba(138,110,242,0.1)] blur-[100px]" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-6 py-6 sm:px-8 lg:px-10">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1400px] flex-col px-6 py-6 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-3 py-4">
           <Link href="/" className="transition hover:opacity-80">
             <Wordmark size="md" />
@@ -48,7 +48,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <section className="grid flex-1 items-center gap-16 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
+        <section className="grid flex-1 items-start gap-10 py-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
           <div className="hidden lg:block">
             <div className="surface magic-border relative overflow-hidden rounded-[48px] p-10 shadow-[var(--shadow-card-lg)] xl:p-14">
               <div

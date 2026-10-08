@@ -1,8 +1,8 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messages, userProfiles } from "@/db/schema";
-import { getMember, getLocalProfile } from "@/lib/app-auth";
-import { pickReply } from "@/lib/chat-personas";
+import { matches, messageReactions, messages, userProfiles } from "@/db/schema";
+import { getMember } from "@/lib/app-auth";
+import { looksLikeScam } from "@/lib/scam-guard";
 
 async function ownsMatch(matchId: string, memberId: string) {
   const [row] = await db
@@ -44,6 +44,34 @@ export async function GET(request: Request) {
     .where(eq(messages.matchId, matchId))
     .orderBy(asc(messages.createdAt));
 
+  /* Aggregate reactions per message (hold-to-react, double-tap to love). */
+  const ids = rows.map((m) => m.id);
+  const reactionsByMessage = new Map<
+    string,
+    Array<{ emoji: string; mine: boolean; count: number }>
+  >();
+  if (ids.length > 0) {
+    const reactionRows = await db
+      .select({
+        messageId: messageReactions.messageId,
+        userId: messageReactions.userId,
+        emoji: messageReactions.emoji,
+      })
+      .from(messageReactions)
+      .where(inArray(messageReactions.messageId, ids));
+    for (const r of reactionRows) {
+      const list = reactionsByMessage.get(r.messageId) ?? [];
+      const existing = list.find((x) => x.emoji === r.emoji);
+      if (existing) {
+        existing.count += 1;
+        existing.mine = existing.mine || r.userId === member.id;
+      } else {
+        list.push({ emoji: r.emoji, mine: r.userId === member.id, count: 1 });
+      }
+      reactionsByMessage.set(r.messageId, list);
+    }
+  }
+
   return Response.json({
     messages: rows.map((m) => ({
       id: m.id,
@@ -51,6 +79,8 @@ export async function GET(request: Request) {
       mine: m.senderId === member.id,
       at: m.createdAt,
       read: Boolean(m.readAt),
+      flagged: Boolean(m.flagged),
+      reactions: reactionsByMessage.get(m.id) ?? [],
     })),
   });
 }
@@ -77,7 +107,10 @@ export async function POST(request: Request) {
   const match = await ownsMatch(matchId, member.id);
   if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
 
-  await db.insert(messages).values({ matchId, senderId: member.id, body: clean });
+  /* Scam guard: flag recognizable scam patterns so the recipient is warned. */
+  await db
+    .insert(messages)
+    .values({ matchId, senderId: member.id, body: clean, flagged: looksLikeScam(clean) });
   await db.update(matches).set({ lastMessageAt: new Date() }).where(eq(matches.id, matchId));
 
   // Read receipts: the other member reads everything you've sent before they
@@ -93,27 +126,28 @@ export async function POST(request: Request) {
       )
     );
 
-  // Persona reply, stamped a couple of seconds ahead so it arrives naturally.
-  const otherId = match.userA === member.id ? match.userB : match.userA;
-  const other = await getLocalProfile(otherId);
-  const [{ sent }] = await db
-    .select({ sent: sql<number>`count(*)::int` })
-    .from(messages)
-    .where(and(eq(messages.matchId, matchId), eq(messages.senderId, member.id)));
-
-  if (other) {
-    const replyAt = new Date(Date.now() + 2500);
-    await db.insert(messages).values({
-      matchId,
-      senderId: otherId,
-      body: pickReply(other.displayName ?? "", sent),
-      createdAt: replyAt,
-    });
-    await db
-      .update(matches)
-      .set({ lastMessageAt: replyAt })
-      .where(eq(matches.id, matchId));
-  }
+  // No scripted replies. Every message in Freeborn is written by a real
+  // member — fake activity is exactly what destroyed the platforms we're
+  // here to beat.
 
   return Response.json({ ok: true });
+}
+
+/**
+ * DELETE /api/chat/messages?match=<id> — delete the whole conversation.
+ * Every message on both sides is removed; the match itself stays open.
+ */
+export async function DELETE(request: Request) {
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+
+  const url = new URL(request.url);
+  const matchId = url.searchParams.get("match");
+  if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
+
+  const match = await ownsMatch(matchId, member.id);
+  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+
+  const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
+  return Response.json({ ok: true, deleted: removed.length });
 }

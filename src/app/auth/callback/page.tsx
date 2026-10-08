@@ -13,6 +13,7 @@ import { Wordmark } from "@/components/wordmark";
 export default function CallbackPage() {
   const ran = useRef(false);
   const [status, setStatus] = useState<"working" | "failed">("working");
+  const [reason, setReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (ran.current) return;
@@ -22,6 +23,20 @@ export default function CallbackPage() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
       const next = params.get("next") || "/onboarding";
+
+      // Google / Supabase bounce back with ?error=… when something blocked
+      // the flow (cancelled popup, unregistered redirect URL, denied scope).
+      const errorParam = params.get("error");
+      if (errorParam) {
+        const desc = params.get("error_description") || params.get("error_message") || "";
+        setReason(
+          errorParam === "access_denied"
+            ? "The Google sign-in was cancelled or blocked before it could finish."
+            : desc || `Google sign-in stopped (${errorParam}).`
+        );
+        setStatus("failed");
+        return;
+      }
 
       const supabase = createSupabaseBrowserClient();
 
@@ -78,11 +93,10 @@ export default function CallbackPage() {
         </div>
       ) : (
         <div className="max-w-md rounded-[28px] border border-white/10 bg-white/[0.03] p-8 text-center">
-          <h1 className="text-xl font-black">That link couldn't finish</h1>
+          <h1 className="text-xl font-black">That sign-in couldn't finish</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--color-mist)]">
-            Secure links are one-time and expire. Request a fresh one from the
-            sign-in screen (Create account or Forgot password), and open it in
-            the same browser you used to sign up.
+            {reason ??
+              "Secure links and codes are one-time and expire. Go back and request a fresh code — it signs you in the moment you enter it."}
           </p>
           <a
             href="/auth?mode=sign-in&status=link-invalid"

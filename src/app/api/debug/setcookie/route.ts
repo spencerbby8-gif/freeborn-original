@@ -6,6 +6,10 @@ import { NextResponse } from "next/server";
  * and send them back on the next request.
  */
 export async function GET() {
+  // Security: diagnostics must never ship live (see /api/debug/auth note).
+  if (process.env.NODE_ENV === "production") {
+    return new Response("Not found", { status: 404 });
+  }
   const res = NextResponse.json({ ok: true });
   res.cookies.set("probe-none", "none-value", {
     sameSite: "none",

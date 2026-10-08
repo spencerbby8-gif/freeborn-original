@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { VerifyBadge } from "@/components/verify-badge";
+import { showToast } from "@/components/toast-host";
 
 type VerifyStatus = "none" | "pending" | "approved" | "rejected";
 type Step =
@@ -10,14 +11,14 @@ type Step =
   | "pose"
   | "camera"
   | "review"
-  | "submitting"
+  | "checking"
   | "pending"
   | "approved"
   | "rejected"
   | "error";
 
-const POPUP_DELAY_MS = 20_000; // show 20 seconds after sign-up / entering the app
-const SESSION_FLAG = "fb-verify-popup-shown";
+const POPUP_DELAY_MS = 20_000; // one gentle invite, 20 seconds after entering the app
+const INVITE_FLAG = "fb-verify-invite-shown"; // persisted: the invite happens ONCE per browser, never nags
 
 /** Open the verification flow from anywhere (profile tab, settings, etc). */
 export function openVerifyFlow() {
@@ -31,34 +32,42 @@ export function openVerifyFlow() {
  */
 type Pose = { label: string; demo: string };
 /**
- * Every pose below was machine-audited by the same vision model that judges
- * member selfies — the instruction text comes straight from the model's own
- * reading of the reference photo, so prompt and judge always agree.
+ * Every pose is one a member can comfortably perform with a front camera at
+ * arm's length. Guides are Freeborn's own uniform illustration set
+ * (public/images/verify) — one consistent character, mature and calm.
  */
 const POSES: Pose[] = [
   {
     label: "Show a peace sign beside your eye",
-    demo: "https://images.pexels.com/photos/6958620/pexels-photo-6958620.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    demo: "/images/verify/pose-1.jpg",
   },
   {
     label: "Touch your cheek with your index finger",
-    demo: "https://images.pexels.com/photos/7298637/pexels-photo-7298637.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    demo: "/images/verify/pose-2.jpg",
   },
   {
     label: "Place one hand under your chin",
-    demo: "https://images.pexels.com/photos/8498418/pexels-photo-8498418.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
-  },
-  {
-    label: "Look straight into the camera",
-    demo: "https://images.pexels.com/photos/7479696/pexels-photo-7479696.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
-  },
-  {
-    label: "Face the camera and smile",
-    demo: "https://images.pexels.com/photos/13026084/pexels-photo-13026084.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    demo: "/images/verify/pose-3.jpg",
   },
   {
     label: "Touch your cheek and smile at the camera",
-    demo: "https://images.pexels.com/photos/8374247/pexels-photo-8374247.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
+    demo: "/images/verify/pose-6.jpg",
+  },
+  {
+    label: "Make an OK sign beside your chin",
+    demo: "/images/verify/pose-7.jpg",
+  },
+  {
+    label: "Raise an open palm beside your face",
+    demo: "/images/verify/pose-8.jpg",
+  },
+  {
+    label: "Give a thumbs-up next to your face",
+    demo: "/images/verify/pose-9.jpg",
+  },
+  {
+    label: "Place one hand over your heart",
+    demo: "/images/verify/pose-10.jpg",
   },
 ];
 
@@ -85,8 +94,9 @@ export function VerifyGate() {
   const [status, setStatus] = useState<VerifyStatus>("none");
   const [selfie, setSelfie] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  /** Raw diagnostics shown when the camera refuses — facts, not guesses. */
+  const [cameraFacts, setCameraFacts] = useState<string | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
-  const [checkStage, setCheckStage] = useState("Checking your pose…");
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
   /** Sample a different pose than the current one (every retry re-samples). */
@@ -102,23 +112,22 @@ export function VerifyGate() {
     return () => window.removeEventListener("freeborn:open-verify", open);
   }, []);
 
-  /* While unverified, gently re-prompt every few minutes (Discovery etc.). */
+  /* Verification is an invitation, never a demand. The old repeating nag is
+     gone on purpose — forced face-scanning is exactly what members revolted
+     against on the other platforms. The button in Settings/Profile always
+     works for whoever wants it. */
   const dismissedAtRef = useRef(0);
   useEffect(() => {
-    const iv = setInterval(async () => {
-      if (open) return;
-      if (Date.now() - dismissedAtRef.current < 150_000) return;
+    void (async () => {
       try {
         const res = await fetch("/api/verification", { headers: await authHeaders() });
         if (!res.ok) return;
         const json = await res.json();
         setStatus(json.status ?? "none");
-        if (json.required && json.status === "none") setOpen(true);
       } catch {
-        /* offline — skip this cycle */
+        /* offline — status stays as-is */
       }
-    }, 30_000);
-    return () => clearInterval(iv);
+    })();
   }, [open]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -135,17 +144,17 @@ export function VerifyGate() {
         if (!res.ok || cancelled) return;
         const json = await res.json();
         setStatus(json.status ?? "none");
-        if (json.required && json.status === "none") {
+        if (json.status === "none") {
           let alreadyShown = false;
           try {
-            alreadyShown = window.sessionStorage.getItem(SESSION_FLAG) === "1";
+            alreadyShown = window.localStorage.getItem(INVITE_FLAG) === "1";
           } catch {
             alreadyShown = false;
           }
           if (alreadyShown) return;
           timer = setTimeout(() => {
             try {
-              window.sessionStorage.setItem(SESSION_FLAG, "1");
+              window.localStorage.setItem(INVITE_FLAG, "1");
             } catch {
               /* ignore */
             }
@@ -171,11 +180,16 @@ export function VerifyGate() {
 
   const startCamera = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 960 } },
-        audio: false,
-      });
-      streamRef.current = stream;
+      // Reuse the stream granted by the permission preflight when it's live,
+      // so the member is never prompted twice and the view opens instantly.
+      let stream = streamRef.current;
+      if (!stream || !stream.getTracks().some((t) => t.readyState === "live")) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 960 } },
+          audio: false,
+        });
+        streamRef.current = stream;
+      }
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
@@ -185,6 +199,74 @@ export function VerifyGate() {
       setStep("error");
     }
   }, []);
+
+  /**
+   * Permission-first camera entry. The permission prompt can ONLY fire from a
+   * real user gesture, so it happens right here on this tap. When the browser
+   * refuses WITHOUT prompting, there are exactly three causes — and we read
+   * the actual permission state to tell the member which one it is:
+   *   1. the site was blocked before (remembered per-address),
+   *   2. the DEVICE's camera privacy switch is off for this browser,
+   *   3. the camera is busy in another app.
+   * The exact state is shown on screen — facts, not guesses.
+   */
+  const continueToCamera = async () => {
+    setErrorMsg(null);
+    setCameraFacts(null);
+
+    if (!window.isSecureContext) {
+      setErrorMsg("Camera access only works over a secure (https) connection. Open Freeborn via its https address and try again.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorMsg("This browser doesn't support camera access. Update your browser or try Chrome/Edge/Safari.");
+      return;
+    }
+
+    // Ask the browser what it actually knows about our camera permission.
+    let permState = "unknown";
+    try {
+      const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+      permState = status.state;
+    } catch {
+      /* this browser can't report permission state — we'll learn from the error */
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 960 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setStep("camera");
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "unknown";
+      const facts = `permission: ${permState} · https: ${window.isSecureContext ? "yes" : "no"} · embedded: ${window.self !== window.top ? "yes" : "no"} · browser error: ${name}`;
+      setCameraFacts(facts);
+
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        setErrorMsg("No camera was found on this device. Connect one (or switch devices) and try again.");
+      } else if (name === "NotReadableError" || name === "TrackStartError") {
+        setErrorMsg("Your camera is busy in another app (video call, camera app). Close it, then tap Continue to camera again.");
+      } else if (name === "NotAllowedError" || name === "SecurityError") {
+        if (window.self !== window.top) {
+          setErrorMsg(
+            "Embedded preview panels can't show camera prompts. Open Freeborn in its own browser tab (open-in-new-tab button, top right) and tap Continue to camera there."
+          );
+        } else if (permState === "denied") {
+          setErrorMsg(
+            "Camera was blocked for this site before, so the browser won't ask again until you reset it: tap the lock/camera icon in the address bar → Site settings → Camera → set to Allow, then tap Continue to camera. If it's still blocked, your DEVICE is blocking cameras: Windows → Settings → Privacy & security → Camera; Mac → System Settings → Privacy & Security → Camera; phone → Settings → app permissions → Camera."
+          );
+        } else {
+          setErrorMsg(
+            "The browser refused to even ask for permission. This almost always means your DEVICE's camera privacy switch is off for this browser: Windows → Settings → Privacy & security → Camera → turn on; Mac → System Settings → Privacy & Security → Camera → enable for your browser; phone → Settings → app permissions → Camera. Turn it on, then tap Continue to camera again."
+          );
+        }
+      } else {
+        setErrorMsg("The camera couldn't start. Close anything else using it, then try again.");
+      }
+    }
+  };
 
   useEffect(() => {
     if (step === "camera") void startCamera();
@@ -206,62 +288,70 @@ export function VerifyGate() {
     setStep("review");
   };
 
-  /* --- Submit + review queue ---------------------------------------------- */
+  /* --- Submit: thorough two-engine check (~10–20s), then the verdict ------- */
 
-  /**
-   * Two-stage AI verification:
-   * 1) the model checks the pose (one face, correct gesture, good light)
-   * 2) only on pass, it compares the face against the member's profile photos
-   */
+  const [checkingProgress, setCheckingProgress] = useState(0);
+
+  useEffect(() => {
+    if (step !== "checking") return;
+    setCheckingProgress(0);
+    const started = Date.now();
+    const iv = setInterval(() => {
+      // Ease toward 94% across ~16 seconds; the verdict completes the bar.
+      const pct = Math.min(94, ((Date.now() - started) / 16_000) * 100);
+      setCheckingProgress(pct);
+    }, 150);
+    return () => clearInterval(iv);
+  }, [step]);
+
   const submit = async () => {
     if (!selfie) return;
-    setStep("submitting");
-    setCheckStage("Checking your pose…");
-    const stageTimer = setTimeout(
-      () => setCheckStage("Pose passed — comparing your face with your photos…"),
-      9000
-    );
+    setErrorMsg(null);
+    setStep("checking");
     try {
       const res = await fetch("/api/verification/check", {
         method: "POST",
         headers: await authHeaders(),
         body: JSON.stringify({ selfie, poseLabel: pose.label }),
       });
-      clearTimeout(stageTimer);
+      setCheckingProgress(100);
       const json = await res.json().catch(() => ({}));
 
       if (res.status === 429) {
-        setErrorMsg(json.error ?? "Too many attempts — take a breath and try later.");
+        const msg = json.error ?? "Too many attempts — take a breath and try later.";
+        setErrorMsg(msg);
         setStep("error");
+        showToast({ tone: "error", title: "Verification paused", body: msg });
         return;
       }
-      if (!res.ok) {
-        setErrorMsg(json.error ?? "Verification failed — try again.");
-        setStep("error");
-        return;
-      }
-
-      if (json.status === "approved") {
+      if (res.ok && json.status === "approved") {
         setStatus("approved");
         setStep("approved");
+        showToast({
+          tone: "success",
+          title: "Identity verified",
+          body: "Both checks passed — your profile is confirmed.",
+        });
         return;
       }
-      if (json.status === "pending-fallback" || json.status === "review") {
-        // Clean AI pass wasn't possible → it sits in the review queue
-        // (Bumble-style: AI decides the obvious cases, review handles the rest).
-        setStatus("pending");
-        setStep("pending");
+      if (res.ok && json.status === "rejected") {
+        setRejectReason(json.reason ?? "The check didn't pass — try again.");
+        setSelfie(null);
+        setStep("rejected");
+        showToast({ tone: "error", title: "Verification didn't pass", body: json.reason ?? "Try again with a fresh selfie." });
         return;
       }
-      // Rejected at some stage — show why, re-sample a pose on retry.
-      setRejectReason(json.reason ?? "The check didn't pass — try again.");
-      setSelfie(null);
-      setStep("rejected");
-      return;
+      // review / pending / fallback → the queue decides, we poll for it.
+      setStatus("pending");
+      setStep("pending");
+      showToast({
+        tone: "info",
+        title: "Verification submitted",
+        body: "Your selfie is being reviewed. We'll confirm it shortly.",
+      });
     } catch {
-      clearTimeout(stageTimer);
-      setErrorMsg("Network error — try again.");
-      setStep("error");
+      setStatus("pending");
+      setStep("pending");
     }
   };
 
@@ -325,7 +415,7 @@ export function VerifyGate() {
           {step === "intro" ? (
             <>
               <h2 className="font-display text-[24px] font-semibold leading-tight text-[var(--color-pearl)]">
-                Verify it's really you.
+                Verify your identity
               </h2>
               <p className="mt-2.5 text-[13.5px] leading-6 text-[var(--color-mist)]">
                 Freeborn keeps the room safe with a quick live selfie check — the same
@@ -335,7 +425,7 @@ export function VerifyGate() {
                 {[
                   ["Live selfie only", "Your camera confirms you're a real person. No documents needed to start."],
                   ["In-app, always", "Freeborn never verifies through links in DMs, texts, or email — those are scams."],
-                  ["Real review", "Submissions pass a moderation check. In this preview build it completes in about a minute."],
+                  ["Reviewed before it counts", "Every submission is checked before your profile carries the confirmation. Usually within minutes."],
                 ].map(([title, body]) => (
                   <li key={title} className="flex gap-3">
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]">
@@ -376,8 +466,8 @@ export function VerifyGate() {
                 Copy this pose
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
-                You'll mimic this exact pose in your selfie — the same check Bumble-style
-                platforms use to prove a live person is behind the profile.
+                Copy this exact pose in your selfie. It's how Freeborn proves a real,
+                live person stands behind every confirmed profile.
               </p>
               <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--color-gold-500)]/30">
                 <img
@@ -389,9 +479,19 @@ export function VerifyGate() {
                   {pose.label}
                 </span>
               </div>
+              {errorMsg ? (
+                <div className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-3.5 py-2.5">
+                  <p className="text-[12.5px] font-bold leading-4 text-red-300">{errorMsg}</p>
+                  {cameraFacts ? (
+                    <p className="mt-2 border-t border-red-400/20 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-red-300/70">
+                      {cameraFacts}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <button
                 type="button"
-                onClick={() => setStep("camera")}
+                onClick={() => void continueToCamera()}
                 className="btn-ember btn-shine relative mt-5 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
               >
                 Continue to camera
@@ -413,7 +513,8 @@ export function VerifyGate() {
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
                 Bright, even lighting · face fully visible · no glasses or hats. The
-                camera shows exactly what is captured — nothing is mirrored or altered.
+                preview behaves like your phone's selfie camera — the photo you submit
+                is captured true-to-life.
               </p>
               <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] px-3 py-2.5">
                 <img
@@ -426,7 +527,9 @@ export function VerifyGate() {
                 </p>
               </div>
               <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                <video ref={videoRef} playsInline muted className="aspect-[4/5] w-full object-cover" />
+                {/* Mirrored like every selfie camera you've ever used — the
+                    submitted photo itself is captured true-to-life. */}
+                <video ref={videoRef} playsInline muted className="aspect-[4/5] w-full -scale-x-100 object-cover" />
                 <span className="pointer-events-none absolute inset-6 rounded-full border-2 border-dashed border-white/30" />
               </div>
               <button
@@ -474,12 +577,26 @@ export function VerifyGate() {
             </>
           ) : null}
 
-          {step === "submitting" ? (
-            <div className="flex flex-col items-center py-10">
-              <span className="h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
-              <p className="mt-4 text-center text-[13px] font-bold text-[var(--color-mist)]">{checkStage}</p>
-              <p className="mt-1.5 text-center text-[11.5px] text-[var(--color-ash)]">
-                Checked by AI, recorded in your verification history.
+          {step === "checking" ? (
+            <div className="py-8">
+              <div className="flex flex-col items-center">
+                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+              </div>
+              <h2 className="mt-5 text-center font-display text-[20px] font-semibold text-[var(--color-pearl)]">
+                Freeborn is verifying your identity
+              </h2>
+              <p className="mx-auto mt-2 max-w-[34ch] text-center text-[12.5px] leading-5 text-[var(--color-mist)]">
+                Your selfie is passing through two independent checks. Thorough
+                verification takes about 10–20 seconds — hold tight.
+              </p>
+              <div className="mx-auto mt-5 h-2 w-full max-w-[300px] overflow-hidden rounded-full bg-white/[0.07]">
+                <div
+                  className="h-full rounded-full bg-[var(--gradient-ember-warm)] transition-[width] duration-200 ease-linear"
+                  style={{ width: `${checkingProgress}%` }}
+                />
+              </div>
+              <p className="mt-2.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">
+                Running the checks…
               </p>
             </div>
           ) : null}
@@ -528,17 +645,17 @@ export function VerifyGate() {
                 </svg>
               </span>
               <h2 className="mt-4 font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                In review
+                Freeborn is verifying your identity
               </h2>
-              <p className="mx-auto mt-2 max-w-[34ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                Your selfie is in the moderation queue. In this preview build the check
-                completes automatically in about a minute — keep this page open or check
-                back shortly.
+              <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
+                Your selfie has been submitted. The check usually takes a few minutes —
+                keep this page open or come back shortly. You'll be confirmed the moment
+                it's done.
               </p>
               <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
                 <span className="rec-pulse h-2.5 w-2.5 rounded-full bg-[var(--color-gold-500)]" />
                 <p className="text-[12px] font-bold text-[var(--color-sand)]">
-                  Checking every few seconds…
+                  Waiting for confirmation…
                 </p>
               </div>
               <button

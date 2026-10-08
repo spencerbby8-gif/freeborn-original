@@ -7,6 +7,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * server see a live session?
  */
 export async function GET() {
+  // Security: diagnostics must never ship live. A comparable niche platform
+  // (Unjected) leaked its entire user base through exposed debug tooling.
+  if (process.env.NODE_ENV === "production") {
+    return new Response("Not found", { status: 404 });
+  }
   const cookieStore = await cookies();
   const headerStore = await headers();
   const allCookies = cookieStore.getAll();

@@ -1,8 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messages, userProfiles } from "@/db/schema";
+import { matches, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
-import { pickOpener } from "@/lib/chat-personas";
 
 /**
  * Start (or reopen) a conversation with another member.
@@ -48,11 +47,7 @@ export async function POST(request: Request) {
     .values({ userA, userB, initiatedBy: member.id, lastMessageAt: new Date() })
     .returning({ id: matches.id });
 
-  await db.insert(messages).values({
-    matchId: match.id,
-    senderId: otherId,
-    body: pickOpener(other.displayName ?? ""),
-  });
+  // No scripted greeting — the conversation starts empty, honestly.
 
   return Response.json({ matchId: match.id });
 }

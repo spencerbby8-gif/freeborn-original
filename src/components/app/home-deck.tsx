@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
-import { VerifyBadge } from "@/components/verify-badge";
 import { UnvaxBadge } from "@/components/unvax-badge";
 import { UnvaxTip } from "@/components/unvax-tip";
 import { Wordmark } from "@/components/wordmark";
@@ -36,6 +35,7 @@ type Profile = {
   vaccinationStatus: string;
   distanceKm: number | null;
   joinedAt: string | null;
+  isNew?: boolean;
 };
 
 function joinedShort(iso: string | null) {
@@ -159,7 +159,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
   const loadProfiles = useCallback(async () => {
     const params = buildProfileParams(filters, origin);
-    const res = await fetch(`/api/profiles?${params.toString()}`);
+    // Bearer token lets the API exclude the viewer's own card from the deck.
+    const token = await getAccessToken().catch(() => null);
+    const res = await fetch(`/api/profiles?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (res.ok) {
       const json = await res.json();
       setProfiles(json.profiles);
@@ -186,6 +190,27 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           /* ignore */
         }
         setOrigin(o);
+        // Persist it so member-to-member distances stay accurate across
+        // sessions (the deck and full profiles both read this row).
+        void (async () => {
+          try {
+            const token = await getAccessToken().catch(() => null);
+            await fetch("/api/location", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                lat: o.lat,
+                lng: o.lng,
+                accuracyM: pos.coords.accuracy ?? null,
+              }),
+            });
+          } catch {
+            /* distances still work for this session via sessionStorage */
+          }
+        })();
       },
       () => undefined,
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
@@ -511,6 +536,41 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           >
             {profiles.length === 0 && hasActiveFilters(filters) ? "Clear filters" : "Meet them again"}
           </button>
+          {profiles.length === 0 && filters.distance < 500 ? (
+            <button
+              type="button"
+              onClick={() => {
+                const wider = { ...filters, distance: 500 };
+                setFilters(wider);
+                saveFilters(wider);
+              }}
+              className="btn-ember mt-3 rounded-full px-7 py-3 text-sm font-bold"
+            >
+              Search everywhere (remove distance cap)
+            </button>
+          ) : null}
+          {profiles.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                void (async () => {
+                  const token = await getAccessToken().catch(() => null);
+                  await fetch("/api/likes", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ action: "reset-passes" }),
+                  }).catch(() => undefined);
+                  void loadProfiles();
+                })();
+              }}
+              className="btn-ghost mt-3 rounded-full px-7 py-3 text-sm font-bold"
+            >
+              See people you passed again
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="relative">
@@ -568,16 +628,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-black/10" />
 
-                  {/* Top-right badges: unvaccinated + verified (+ one-time tip) */}
+                  {/* Top-right badges: unvaccinated stance (+ one-time tip) */}
                   <div className="absolute right-4 top-8 z-10 flex flex-col items-end gap-2">
                     <div className="relative flex items-center gap-2">
                       {profile.vaccinationStatus === "unvaccinated" ? (
                         <UnvaxBadge size={20} />
-                      ) : null}
-                      {profile.verified ? (
-                        <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
-                          <VerifyBadge size={20} />
-                        </span>
                       ) : null}
                       {isTop && profile.vaccinationStatus === "unvaccinated" ? (
                         <UnvaxTip key={profile.id} />
@@ -614,6 +669,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                         <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-teal-300)]">
                           <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-teal-300)]" />
                           Online
+                        </span>
+                      ) : null}
+                      {profile.isNew ? (
+                        <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
+                          New here
                         </span>
                       ) : null}
                       <svg className="ml-auto h-4 w-4 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

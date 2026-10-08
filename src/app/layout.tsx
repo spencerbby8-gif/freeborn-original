@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Fraunces, Inter } from "next/font/google";
+import { ToastHost } from "@/components/toast-host";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="bg-[var(--color-night)]">
       <body className="min-h-screen bg-[var(--color-night)] font-body text-[var(--color-pearl)] antialiased">
+        <ToastHost />
         {children}
       </body>
     </html>

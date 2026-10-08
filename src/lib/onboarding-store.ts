@@ -360,6 +360,11 @@ export async function applyStepPatch(
   }
 
   if (has("photos")) {
+    // Security rule: any new face photo invalidates the identity check until
+    // the member re-verifies — mirrors /api/profile/photos exactly, so the
+    // reminder comes back no matter which upload path was used.
+    await supabase.from("user_profiles").update({ is_verified: false }).eq("id", userId);
+
     // Photos must never block onboarding: storage hiccup → local mirror.
     try {
       await savePhotos(supabase, userId, email, patch.photos ?? []);

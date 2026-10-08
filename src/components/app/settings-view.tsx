@@ -3,7 +3,176 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
-import { VerifyBadge } from "@/components/verify-badge";
+import { showToast } from "@/components/toast-host";
+
+/**
+ * Freeborn mixers — real people in real places. Members register interest in
+ * a city; the numbers shown are real counts, never inflated.
+ */
+function MixerCard({ defaultCity }: { defaultCity: string }) {
+  const [city, setCity] = useState(defaultCity);
+  const [sameCity, setSameCity] = useState<number | null>(null);
+  const [interested, setInterested] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const token = await getAccessToken().catch(() => null);
+      if (!token) return;
+      try {
+        const res = await fetch("/api/events/interest", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setInterested(Boolean(json.interested));
+          if (json.myCity) setCity(json.myCity);
+          setSameCity(json.sameCity ?? 0);
+        }
+      } catch {
+        /* card stays interactive */
+      }
+    })();
+  }, []);
+
+  const register = async () => {
+    if (busy || city.trim().length < 2) return;
+    setBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/events/interest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ city: city.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setInterested(true);
+        setSameCity(json.sameCity ?? 0);
+        showToast({
+          tone: "success",
+          title: "You're on the mixer list",
+          body: `We'll announce the first Freeborn mixer in ${city.trim()} the moment it's real.`,
+        });
+      } else {
+        showToast({ tone: "error", title: "Couldn't register interest", body: json.error ?? "Try again." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't register interest", body: "Check your connection." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
+      <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[var(--color-gold-300)]">
+        Freeborn mixers · real people, real places
+      </p>
+      <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
+        No swiping forever — we're building in-person mixers city by city. Register your
+        city and we'll announce one the moment enough members are ready.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          placeholder="Your city"
+          className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+        />
+        <button
+          type="button"
+          disabled={busy || city.trim().length < 2}
+          onClick={() => void register()}
+          className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+        >
+          {interested ? "Update city" : busy ? "Saving…" : "Count me in"}
+        </button>
+      </div>
+      {interested && sameCity !== null ? (
+        <p className="mt-2.5 text-[12px] font-bold text-[var(--color-teal-300)]">
+          ✓ You're in — {sameCity} {sameCity === 1 ? "member wants" : "members want"} a mixer in {city.trim() || "your city"}.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Talk to a real human — messages land in the support queue, no bots.
+ */
+function SupportCard() {
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const send = async () => {
+    if (busy || message.trim().length < 5) return;
+    setBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/support", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: message.trim(), email: email.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setMessage("");
+        showToast({
+          tone: "success",
+          title: "Message received",
+          body: "A real person reads these — no bots, no canned replies.",
+        });
+      } else {
+        showToast({ tone: "error", title: "Couldn't send your message", body: json.error ?? "Try again." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't send your message", body: "Check your connection." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
+      <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[var(--color-sand)]">
+        Talk to a real human
+      </p>
+      <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
+        Something broken, something unsafe, or just a question? Write it here — a real
+        person reads every message.
+      </p>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="What's going on?"
+        className="mt-3 min-h-[88px] w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] leading-5 text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+      />
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Reply-to email (optional)"
+        type="email"
+        className="mt-2 min-h-[44px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+      />
+      <button
+        type="button"
+        disabled={busy || message.trim().length < 5}
+        onClick={() => void send()}
+        className="mt-2.5 rounded-xl bg-[var(--gradient-ember-warm)] px-5 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+      >
+        {busy ? "Sending…" : "Send message"}
+      </button>
+    </div>
+  );
+}
 
 type Settings = {
   account: { email: string };
@@ -295,11 +464,16 @@ export function SettingsView() {
       <div className="mt-5 flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
         {settings?.profile.isVerified ? (
           <>
-            <VerifyBadge size={26} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-teal-300)]">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+                <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+              </svg>
+            </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13.5px] font-black text-[var(--color-teal-300)]">Identity verified</p>
+              <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Identity check complete</p>
               <p className="mt-0.5 text-[11.5px] leading-4 text-[var(--color-mist)]">
-                Your selfie check passed. The teal seal protects your account and builds trust.
+                Your selfie check passed — your profile is confirmed as the real you.
               </p>
             </div>
           </>
@@ -682,10 +856,13 @@ export function SettingsView() {
               )}
             </div>
 
+            <MixerCard defaultCity={settings?.profile.city ?? ""} />
+            <SupportCard />
+
             <form method="POST" action="/auth/signout">
               <button
                 type="submit"
-                className="rounded-full border border-white/10 bg-white/[0.03] px-7 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:text-[var(--color-pearl)]"
+                className="mt-5 rounded-full border border-white/10 bg-white/[0.03] px-7 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:text-[var(--color-pearl)]"
               >
                 Sign out
               </button>

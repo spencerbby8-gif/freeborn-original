@@ -1,11 +1,21 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messages, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, matches, messages, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+
+  // Blocked in either direction → the conversation disappears from the list.
+  const blockRows = await db
+    .select({ blockerId: blockedUsers.blockerId, blockedId: blockedUsers.blockedId })
+    .from(blockedUsers)
+    .where(or(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, member.id)));
+  const blockedSet = new Set(
+    blockRows.map((b) => (b.blockerId === member.id ? b.blockedId : b.blockerId))
+  );
 
   const rows = await db
     .select({
@@ -22,6 +32,7 @@ export async function GET(request: Request) {
   const out = [];
   for (const row of rows) {
     const otherId = row.userA === member.id ? row.userB : row.userA;
+    if (blockedSet.has(otherId)) continue;
     const [other] = await db
       .select()
       .from(userProfiles)
@@ -62,7 +73,7 @@ export async function GET(request: Request) {
         id: otherId,
         name: other.displayName ?? "Member",
         city: other.city ?? "",
-        photo: photo?.storagePath ?? "",
+        photo: resolvePhotoUrl(photo?.storagePath ?? ""),
       },
       lastMessage: last
         ? {

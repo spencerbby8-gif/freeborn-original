@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
-import { VerifyBadge } from "@/components/verify-badge";
 
 export type SessionAccount = { email: string; displayName: string };
 
@@ -217,11 +216,7 @@ export function DiscoverExperience({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-transparent" />
                 <div className="absolute left-5 top-5 flex items-center gap-2">
-                  {current.verified && (
-                    <span className="rounded-full bg-night/60 p-1.5 backdrop-blur-sm">
-                      <VerifyBadge size={22} />
-                    </span>
-                  )}
+
                   <span className="inline-flex items-center gap-1.5 rounded-full border hairline bg-night/60 px-2.5 py-1 text-[11px] font-semibold text-sand backdrop-blur-sm">
                     <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M8 13.6S2.1 9.9 2.1 5.9a3 3 0 015.9-.7A3 3 0 0113.9 5.9c0 4-5.9 7.7-5.9 7.7z" fill="#ef5e5e" />

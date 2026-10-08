@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { VerifyBadge } from "@/components/verify-badge";
 import { UnvaxBadge } from "@/components/unvax-badge";
+import { VerifyBadge } from "@/components/verify-badge";
 import { PhotoLightbox } from "./photo-lightbox";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { showToast } from "@/components/toast-host";
+
+const REPORT_REASONS: Array<{ value: string; label: string }> = [
+  { value: "fake_profile", label: "Fake profile" },
+  { value: "scam", label: "Scam or asking for money" },
+  { value: "harassment", label: "Harassment" },
+  { value: "safety", label: "Safety concern" },
+  { value: "underage", label: "Underage" },
+  { value: "inappropriate_media", label: "Inappropriate photos" },
+  { value: "other", label: "Something else" },
+];
 
 type FullProfile = {
   id: string;
@@ -137,6 +148,143 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
   const vax = profile ? VAX_LABELS[profile.vaccinationStatus] ?? VAX_LABELS.prefer_not_to_say : null;
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
+  /* --- Member actions menu (3 dots) ------------------------------------------- */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  /** undefined = not loaded yet · null = no match · string = match id */
+  const [theirMatchId, setTheirMatchId] = useState<string | null | undefined>(undefined);
+
+  const ensureMatchId = async () => {
+    if (theirMatchId !== undefined || !profile) return;
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/chat/matches", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const found = (json.matches ?? []).find((m: { with: { id: string } }) => m.with.id === profile.id);
+        setTheirMatchId(found ? found.id : null);
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    setTheirMatchId(null);
+  };
+
+  const openMenu = () => {
+    setMenuOpen(true);
+    void ensureMatchId();
+  };
+
+  const runUnmatch = async () => {
+    if (!profile || actionBusy) return;
+    setActionBusy("unmatch");
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/chat/unmatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ with: profile.id }),
+      });
+      if (res.ok) {
+        showToast({ tone: "success", title: "Unmatched", body: `${profile.name} has been removed from your matches.` });
+        setMenuOpen(false);
+        onClose();
+      } else {
+        showToast({ tone: "error", title: "Couldn't unmatch", body: "Try again in a moment." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't unmatch", body: "Check your connection and try again." });
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const runDeleteConversation = async () => {
+    if (!profile || actionBusy || !theirMatchId) return;
+    setActionBusy("delete");
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch(`/api/chat/messages?match=${encodeURIComponent(theirMatchId)}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        showToast({ tone: "success", title: "Conversation deleted", body: "Every message in this chat was removed." });
+        setMenuOpen(false);
+      } else {
+        showToast({ tone: "error", title: "Couldn't delete the conversation", body: "Try again in a moment." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't delete the conversation", body: "Check your connection and try again." });
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const runBlock = async () => {
+    if (!profile || actionBusy) return;
+    setActionBusy("block");
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/blocks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ profileId: profile.id }),
+      });
+      if (res.ok) {
+        showToast({ tone: "success", title: "Member blocked", body: `${profile.name} can no longer see you or contact you.` });
+        setMenuOpen(false);
+        onClose();
+      } else {
+        showToast({ tone: "error", title: "Couldn't block this member", body: "Try again in a moment." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't block this member", body: "Check your connection and try again." });
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  /* --- Report this member ---------------------------------------------------- */
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+
+  const submitReport = async () => {
+    if (!reportReason || reportBusy || !profile) return;
+    setReportBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ profileId: profile.id, reason: reportReason }),
+      });
+      if (res.ok) {
+        showToast({
+          tone: "success",
+          title: "Report received",
+          body: "Thank you — Freeborn's moderation reviews every report.",
+        });
+        setReportOpen(false);
+        setReportReason("");
+      } else {
+        const json = await res.json().catch(() => ({}));
+        showToast({ tone: "error", title: "Couldn't file the report", body: json.error ?? "Try again shortly." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't file the report", body: "Check your connection and try again." });
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
   const [msgBusy, setMsgBusy] = useState(false);
   const handleMessage = async () => {
     if (!profile || msgBusy) return;
@@ -181,7 +329,81 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
           <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
             Full profile
           </span>
-          <span className="h-10 w-10" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
+              aria-label="Profile actions"
+              title="Report, unmatch, block…"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-mist)] transition hover:bg-white/[0.1] hover:text-[var(--color-pearl)]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
+
+            {menuOpen ? (
+              <>
+                <div className="fixed inset-0 z-[155]" onClick={() => setMenuOpen(false)} />
+                <div className="animate-scale-in absolute right-0 top-12 z-[160] w-[240px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setReportOpen(true);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M5 21V4a1 1 0 011-1h11l-2.5 4L17 11H6" />
+                    </svg>
+                    Report {profile?.name ?? "member"}
+                  </button>
+                  {theirMatchId ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={actionBusy !== null}
+                        onClick={() => void runDeleteConversation()}
+                        className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a2 2 0 002 1.8h6A2 2 0 0017 20l1-13M9 7V5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 5v2" />
+                        </svg>
+                        {actionBusy === "delete" ? "Deleting…" : "Delete conversation"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionBusy !== null}
+                        onClick={() => void runUnmatch()}
+                        className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M18.6 6.6a5 5 0 010 7.1L12 20.3l-6.6-6.6a5 5 0 117.1-7.1l-.7.7" />
+                          <path d="M4 4l16 16" />
+                        </svg>
+                        {actionBusy === "unmatch" ? "Unmatching…" : "Unmatch"}
+                      </button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={actionBusy !== null}
+                    onClick={() => void runBlock()}
+                    className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M5.7 5.7l12.6 12.6" />
+                    </svg>
+                    {actionBusy === "block" ? "Blocking…" : "Block"}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
 
         {!profile && !failed ? (
@@ -244,14 +466,9 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                   </>
                 ) : null}
 
-                {/* Top-right badges: unvaccinated + verified */}
+                {/* Top-right badge: unvaccinated stance */}
                 <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
                   {profile.vaccinationStatus === "unvaccinated" ? <UnvaxBadge size={20} /> : null}
-                  {profile.verified ? (
-                    <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
-                      <VerifyBadge size={20} />
-                    </span>
-                  ) : null}
                 </div>
 
                 {/* Tap-to-enlarge hint */}
@@ -295,7 +512,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
             ) : null}
 
             {/* Trust row */}
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2.5">
               <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
                 <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
                   {profile.replyRate === null ? "New" : `${profile.replyRate}%`}
@@ -307,12 +524,6 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                   {profile.matchRate === null ? "New" : `${profile.matchRate}%`}
                 </p>
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Match rate</p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                  {profile.verified ? "Yes" : "Not yet"}
-                </p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Verified</p>
               </div>
               <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
                 <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
@@ -412,6 +623,62 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
           </div>
         )}
       </div>
+
+      {/* Report dialog */}
+      {reportOpen && profile ? (
+        <div
+          className="fixed inset-0 z-[170] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setReportOpen(false)}
+        >
+          <div
+            className="animate-scale-in w-full max-w-[400px] rounded-[24px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-[18px] font-semibold text-[var(--color-pearl)]">
+              Report {profile.name}
+            </p>
+            <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
+              Reports are confidential — they never see this. What's wrong?
+            </p>
+            <div className="mt-4 space-y-1.5">
+              {REPORT_REASONS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => setReportReason(r.value)}
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left text-[13px] font-bold transition ${
+                    reportReason === r.value
+                      ? "border-[var(--color-ember-500)]/60 bg-[var(--color-ember-500)]/10 text-[var(--color-pearl)]"
+                      : "border-white/[0.08] bg-white/[0.03] text-[var(--color-mist)] hover:text-[var(--color-pearl)]"
+                  }`}
+                >
+                  {r.label}
+                  {reportReason === r.value ? <span className="text-[var(--color-ember-300)]">●</span> : null}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                disabled={!reportReason || reportBusy}
+                onClick={() => void submitReport()}
+                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98] disabled:opacity-50"
+              >
+                {reportBusy ? "Sending…" : "Submit report"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {lightboxIdx !== null && profile && photos.length > 0 ? (
         <PhotoLightbox

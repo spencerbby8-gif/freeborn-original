@@ -1,4 +1,6 @@
-# Freeborn — Netlify deployment config (Next.js App Router)
+# Freeborn — Netlify deployment (Next.js App Router)
+# The Next.js runtime plugin is applied automatically by Netlify at build
+# time — nothing needs to be installed locally.
 [build]
   command = "next build"
   publish = ".next"

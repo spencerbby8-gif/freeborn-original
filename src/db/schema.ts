@@ -531,11 +531,34 @@ export const messages = pgTable(
       .references(() => userProfiles.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
     readAt: timestamp("read_at", { withTimezone: true }),
+    /** Scam-guard tripped on this message → the recipient sees a safety warning. */
+    flagged: boolean("flagged").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [
     check("messages_body_length", sql`char_length(${t.body}) between 1 and 2000`),
     index("messages_match_created_idx").on(t.matchId, t.createdAt),
+  ]
+);
+
+/* --- Message reactions (hold-to-react, double-tap to love) ---------------- */
+
+export const messageReactions = pgTable(
+  "message_reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    unique("message_reactions_unique").on(t.messageId, t.userId, t.emoji),
+    index("message_reactions_message_idx").on(t.messageId),
   ]
 );
 
@@ -614,3 +637,31 @@ export const chatMedia = pgTable(
   },
   (t) => [check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice')`)]
 );
+
+/* --- Real-life mixer interest (the growth engine Unjected never built) ----- */
+
+export const eventInterests = pgTable(
+  "event_interests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    city: text("city").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [unique("event_interests_user_unique").on(t.userId), index("event_interests_city_idx").on(t.city)]
+);
+
+/* --- Support messages (real humans, no canned replies) --------------------- */
+
+export const supportRequests = pgTable("support_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => userProfiles.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  email: text("email"),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+});

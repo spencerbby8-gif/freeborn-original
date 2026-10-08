@@ -627,3 +627,80 @@ button:active, .btn:active { transform: scale(0.975); }
   100% { transform: scale(1.38); opacity: 0; }
 }
 .call-ring { animation: call-ring 1.4s ease-out infinite; }
+
+/* ==========================================================================
+   FREEBORN — global interaction polish
+   ========================================================================== */
+
+/* Kill the rectangular browser focus ring everywhere. Inputs already switch
+   to the Freeborn gold border on focus; interactive elements get a soft
+   rounded brand glow instead of a hard rectangle. */
+:focus {
+  outline: none;
+}
+:where(a, button, select, [role="button"]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(217, 167, 82, 0.55);
+  border-radius: 14px;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Popup toast entrance (auth errors, saves, reactions) */
+@keyframes fb-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.fb-toast-in {
+  animation: fb-toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Reaction picker pop */
+@keyframes fb-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.fb-pop-in {
+  animation: fb-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Double-tap heart burst */
+@keyframes fb-heart-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+.fb-heart-burst {
+  animation: fb-heart-burst 0.9s ease-out both;
+}

@@ -335,8 +335,10 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
 
   const handleContinue = (e?: FormEvent) => {
     e?.preventDefault();
-    if (photos.length === 0) {
-      setError("Add at least one photo so people can recognize you.");
+    if (photos.length < 3) {
+      setError(
+        `Add at least 3 photos before continuing — ${photos.length}/3 so far. Real, recent photos are how members trust each other.`
+      );
       return;
     }
     setError(null);
@@ -348,7 +350,7 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
       stepIndex={stepIndex}
       totalSteps={totalSteps}
       title="Your photo foundation."
-      subtitle="Add up to six recent photos — then you're in. They're cropped to 4:5 automatically."
+      subtitle="Add at least 3 recent photos (up to 6) — then you're in. They're cropped to 4:5 automatically."
       onBack={onBack}
       onContinue={handleContinue}
       continueLabel="Finish & enter Freeborn"
@@ -363,10 +365,10 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
         </span>
         <span
           className={`text-[11px] font-black uppercase tracking-widest ${
-            photos.length > 0 ? "text-[var(--color-teal-300)]" : "text-[var(--color-ash)]"
+            photos.length >= 3 ? "text-[var(--color-teal-300)]" : "text-[var(--color-ash)]"
           }`}
         >
-          {photos.length > 0 ? `${photos.length} of 6 ready` : "Add at least 1"}
+          {photos.length >= 3 ? `${photos.length} of 6 ready` : `${photos.length}/3 minimum`}
         </span>
       </div>
 
