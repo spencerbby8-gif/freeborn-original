@@ -248,7 +248,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <CallListener />
 
       {/* Alert banners + chime + unread dots, live */}
-      <NotificationCenter />
+      <NotificationCenter pathname={pathname} />
     </div>
   );
 }

@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { callChannel, publish, type RingPayload } from "@/lib/call-bus";
+import { callChannel, destroyChannel, publish, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
 
@@ -38,12 +38,16 @@ export function CallListener() {
 
       ring.on("broadcast", { event: "ring" }, (msg) => {
         const payload = msg.payload as RingPayload;
-        if (!payload?.matchId || cancelled) return;
+        if (!payload?.callId || cancelled) return;
         if (busyRef.current) {
-          // Already ringing or on a call — tell the caller we're busy.
-          const busyChan = callChannel(payload.matchId);
+          // Already ringing or on a call — tell the caller we're busy,
+          // on THIS call's own channel.
+          const busyChan = callChannel(payload.callId);
           busyChan.subscribe((s) => {
-            if (s === "SUBSCRIBED") publish(busyChan, "control", { t: "busy" });
+            if (s === "SUBSCRIBED") {
+              publish(busyChan, "control", { t: "busy" });
+              setTimeout(() => destroyChannel(busyChan), 2000);
+            }
           });
           return;
         }
@@ -85,9 +89,12 @@ export function CallListener() {
   const decline = useCallback(() => {
     if (!incoming) return;
     stopRingtone();
-    const chan = callChannel(incoming.matchId);
+    const chan = callChannel(incoming.callId);
     chan.subscribe((s) => {
-      if (s === "SUBSCRIBED") publish(chan, "control", { t: "declined" });
+      if (s === "SUBSCRIBED") {
+        publish(chan, "control", { t: "declined" });
+        setTimeout(() => destroyChannel(chan), 2000);
+      }
     });
     setIncoming(null);
   }, [incoming]);
@@ -148,6 +155,7 @@ export function CallListener() {
           kind={active.payload.kind}
           role="callee"
           matchId={active.payload.matchId}
+          callId={active.payload.callId}
           peer={active.payload.from}
           onClose={() => setActive(null)}
         />

@@ -704,3 +704,14 @@ select:focus {
 .fb-heart-burst {
   animation: fb-heart-burst 0.9s ease-out both;
 }
+
+/* Long-press on chat bubbles / mic must never trigger text selection,
+   Google popups, or callouts — holds belong to Freeborn gestures. */
+.fb-no-callout,
+.fb-no-callout *,
+.fb-no-callout img,
+.fb-no-callout video {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}

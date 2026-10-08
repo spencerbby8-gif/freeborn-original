@@ -598,7 +598,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   touchAction: isTop ? "pan-y" : undefined,
                   willChange: "transform",
                 }}
-                className="deck-card overflow-hidden rounded-[28px] border border-white/[0.09] bg-abyss shadow-[0_44px_100px_-26px_rgba(0,0,0,0.8),0_1px_0_rgba(255,255,255,0.08)_inset]"
+                className="deck-card overflow-hidden rounded-[26px] border hairline bg-abyss shadow-[0_44px_100px_-26px_rgba(0,0,0,0.8),0_1px_0_rgba(255,255,255,0.08)_inset]"
               >
                 {/* Drag / action stamps (top card only) */}
                 {isTop ? (
@@ -620,14 +620,14 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   </>
                 ) : null}
 
-                <div className="relative aspect-[3/3.4]">
+                <div className="relative aspect-[3/3.2] w-full overflow-hidden">
                   <img
                     src={profile.photos[0] ?? profile.photo}
                     alt={`${profile.name}, ${profile.age}`}
                     draggable={false}
                     className="h-full w-full select-none object-cover"
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-black/10" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
 
                   {/* Top-right badges: verification + unvaccinated stance.
                       The verified badge disappears automatically when the member

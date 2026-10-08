@@ -20,6 +20,7 @@ export const ICE_SERVERS: RTCConfiguration = {
 };
 
 export type RingPayload = {
+  callId: string;
   matchId: string;
   kind: "voice" | "video";
   from: { id: string; name: string; photo: string };
@@ -33,12 +34,33 @@ export type CallSignal =
   | { t: "sdp"; sdp: RTCSessionDescriptionInit }
   | { t: "ice"; cand: RTCIceCandidateInit };
 
+export function newCallId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function ringChannel(userId: string): RealtimeChannel {
   return createSupabaseBrowserClient().channel(`fb-ring:${userId}`);
 }
 
-export function callChannel(matchId: string): RealtimeChannel {
-  return createSupabaseBrowserClient().channel(`fb-call:${matchId}`);
+/** One channel PER CALL (unique callId) — reusing channels between calls is
+    what made second attempts never ring. */
+export function callChannel(callId: string): RealtimeChannel {
+  return createSupabaseBrowserClient().channel(`fb-call:${callId}`);
+}
+
+/** Full teardown: unsubscribes AND removes every listener + the cached
+    channel, so no stale handlers leak into the next call. */
+export function destroyChannel(channel: RealtimeChannel | null) {
+  if (!channel) return;
+  try {
+    createSupabaseBrowserClient().removeChannel(channel);
+  } catch {
+    try {
+      channel.unsubscribe();
+    } catch {
+      /* already gone */
+    }
+  }
 }
 
 /** Send a broadcast payload once the channel is subscribed (with retries). */

@@ -173,9 +173,11 @@ function Receipt({ read }: { read: boolean }) {
 function MediaPacket({
   items,
   onImage,
+  onVideo,
 }: {
   items: { kind: string; url: string; dur?: number }[];
   onImage: (url: string) => void;
+  onVideo: (url: string) => void;
 }) {
   const visuals = items.filter((i) => i.kind === "image" || i.kind === "video");
   const voices = items.filter((i) => i.kind === "voice");
@@ -196,7 +198,23 @@ function MediaPacket({
                 <img src={item.url} alt="Shared photo" className="max-h-[300px] w-full object-cover" />
               </button>
             ) : (
-              <video key={i} src={item.url} controls className="max-h-[300px] w-full rounded-xl" />
+              <button
+                key={i}
+                type="button"
+                onClick={() => onVideo(item.url)}
+                onPointerDown={(e) => e.stopPropagation()}
+                aria-label="Open video full size"
+                className="relative block overflow-hidden rounded-xl transition active:scale-[0.98]"
+              >
+                <video src={item.url} muted playsInline preload="metadata" className="max-h-[300px] w-full rounded-xl object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
+                    </svg>
+                  </span>
+                </span>
+              </button>
             )
           )}
         </div>
@@ -208,7 +226,47 @@ function MediaPacket({
   );
 }
 
-function MessageContent({ body, onImage }: { body: string; onImage: (url: string) => void }) {
+/** Quote text with media chips — a requote of a photo/video/voice note shows
+    exactly what it quoted, with an icon. */
+function QuoteBody({ text }: { text: string }) {
+  const tokens = [
+    { tag: "[Photo]", label: "Photo", icon: <><rect x="3" y="5" width="18" height="14" rx="2.5" /><circle cx="9" cy="10" r="1.6" /><path d="M21 16l-4.5-4.5L9 18" /></> },
+    { tag: "[Video]", label: "Video", icon: <><rect x="3" y="6" width="13" height="12" rx="2.5" /><path d="M16 10.5l5-3v9l-5-3" /></> },
+    { tag: "[Voice note]", label: "Voice note", icon: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0014 0M12 18v3" /></> },
+  ];
+  let rest = text;
+  const found: Array<{ label: string; icon: React.ReactNode }> = [];
+  for (const t of tokens) {
+    while (rest.includes(t.tag)) {
+      found.push({ label: t.label, icon: t.icon });
+      rest = rest.replace(t.tag, "");
+    }
+  }
+  rest = rest.trim();
+  return (
+    <div className="mt-0.5 space-y-1">
+      {rest ? <p className="line-clamp-2 text-[12.5px] leading-4 opacity-90">{rest}</p> : null}
+      {found.map((f, i) => (
+        <span key={i} className="flex items-center gap-1.5 rounded-md bg-white/10 px-2 py-1 text-[11px] font-black uppercase tracking-wide opacity-90">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            {f.icon}
+          </svg>
+          Quoted {f.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MessageContent({
+  body,
+  onImage,
+  onVideo,
+}: {
+  body: string;
+  onImage: (url: string) => void;
+  onVideo: (url: string) => void;
+}) {
   const segs = useMemo(() => parseSegments(body), [body]);
   return (
     <>
@@ -219,10 +277,10 @@ function MessageContent({ body, onImage }: { body: string; onImage: (url: string
             className="mb-1.5 rounded-lg border-l-[3px] border-white/60 bg-black/20 px-2.5 py-1.5"
           >
             <p className="text-[11px] font-black uppercase tracking-wide opacity-80">{seg.name}</p>
-            <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-4 opacity-90">{seg.text}</p>
+            <QuoteBody text={seg.text} />
           </div>
         ) : seg.type === "media" ? (
-          <MediaPacket key={i} items={seg.items} onImage={onImage} />
+          <MediaPacket key={i} items={seg.items} onImage={onImage} onVideo={onVideo} />
         ) : (
           <p key={i} className={i > 0 ? "mt-1.5" : undefined}>
             {seg.text}
@@ -284,6 +342,7 @@ function Thread({
   const [sending, setSending] = useState(false);
   const [call, setCall] = useState<"voice" | "video" | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [sheetFor, setSheetFor] = useState<MessageRow | null>(null);
   const [quoteArmedId, setQuoteArmedId] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ name: string; text: string } | null>(null);
@@ -291,6 +350,26 @@ function Thread({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   /** My own identity — carried in the ring so the callee sees who's calling. */
   const [self, setSelf] = useState<{ id: string; name: string; photo: string } | undefined>(undefined);
+
+  /** Adaptive chat height — measured from the real viewport (visualViewport
+      tracks browser chrome + keyboard on every phone), never a guess. */
+  const [heightPx, setHeightPx] = useState<number | null>(null);
+  useEffect(() => {
+    const measure = () => {
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const chrome = window.innerWidth >= 1024 ? 118 : 206;
+      setHeightPx(Math.max(380, Math.round(vh - chrome)));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+    };
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -536,7 +615,8 @@ function Thread({
       if (h.timer) clearTimeout(h.timer);
       h.moved = true;
     }
-    if (h.moved) setQuoteArmedId(dx > 64 && Math.abs(dx) > Math.abs(dy) * 1.4 ? h.id : null);
+    // Slide LEFT to quote (the direction members expect).
+    if (h.moved) setQuoteArmedId(dx < -64 && Math.abs(dx) > Math.abs(dy) * 1.4 ? h.id : null);
   };
 
   const onBubbleUp = (m: MessageRow) => () => {
@@ -602,9 +682,9 @@ function Thread({
       <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
           {quoteArmedId === m.id ? (
-            <span className="text-[var(--color-gold-300)]">
+            <span className="order-last text-[var(--color-gold-300)]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M9 17l5-5-5-5" />
+                <path d="M15 17l-5-5 5-5" />
               </svg>
             </span>
           ) : null}
@@ -617,10 +697,11 @@ function Thread({
               setQuoteArmedId(null);
             }}
             style={{
-              transform: quoteArmedId === m.id ? "translateX(34px)" : undefined,
+              transform: quoteArmedId === m.id ? "translateX(-34px)" : undefined,
               transition: "transform 160ms ease",
             }}
-            className={`relative select-none rounded-[20px] text-[14px] leading-6 ${
+            onContextMenu={(e) => e.preventDefault()}
+            className={`fb-no-callout relative select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
@@ -641,7 +722,7 @@ function Thread({
                 </p>
               </div>
             ) : null}
-            <MessageContent body={m.body} onImage={setLightboxUrl} />
+            <MessageContent body={m.body} onImage={setLightboxUrl} onVideo={setVideoUrl} />
             <span
               className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
                 m.mine ? "text-white/70" : "text-[var(--color-ash)]"
@@ -697,7 +778,7 @@ function Thread({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-212px)] min-h-[380px] flex-col sm:h-[calc(100dvh-168px)] lg:h-[calc(100dvh-118px)]">
+    <div className="flex min-h-[380px] flex-col" style={{ height: heightPx ?? undefined }}>
       <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
         <button
           type="button"
@@ -1067,6 +1148,31 @@ function Thread({
           name={match.with.name}
           onClose={() => setLightboxUrl(null)}
         />
+      ) : null}
+
+      {/* Full-size video viewer with a real close button */}
+      {videoUrl ? (
+        <div className="fixed inset-0 z-[190] flex flex-col bg-black">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setVideoUrl(null)}
+              aria-label="Close video"
+              className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-[12px] font-black uppercase tracking-wider text-white transition hover:bg-white/[0.12]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Close
+            </button>
+            <p className="text-[12px] font-bold uppercase tracking-wider text-white/60">
+              Video from {match.with.name}
+            </p>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+            <video src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
+          </div>
+        </div>
       ) : null}
 
       {call ? (

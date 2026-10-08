@@ -1,21 +1,14 @@
 "use client";
 
 /**
- * FREEBORN VOICE NOTES — rebuilt Telegram-style.
+ * FREEBORN VOICE NOTES — rebuilt around one rule: nothing sends by accident.
  *
- * Playback (VoiceBubble):
- *  - tap = play / pause
- *  - drag across the waveform = scrub
- *  - swipe the bubble LEFT = stop and reset (Telegram's cancel gesture)
- *  - 1x → 1.5x → 2x speed chip
- *  - only ONE voice note plays at a time across the whole app
- *
- * Recording (VoiceRecorder):
- *  - press & hold the mic = record, release = send (instant UI, permission
- *    latency handled — a lift while the mic is still warming up still sends)
- *  - quick tap = locks into hands-free mode with pause / discard / send
- *  - drag LEFT while holding = discard on release
- *  - drag UP while holding = lock into hands-free mode
+ *  - Press & hold the mic → recording (pause button + slide LEFT to discard)
+ *  - RELEASE → preview mode: play/pause your recording, scrub to skip through
+ *    it, discard it, or hit the SEND button on the right. Nothing is sent
+ *    until you press send.
+ *  - Playback: tap = play/pause · drag waveform = scrub · swipe left = stop
+ *  - Long-press can never trigger text selection or Google popups.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -52,18 +45,6 @@ function announcePlay(id: string) {
   playListeners.forEach((fn) => fn());
 }
 
-function useOnlyOnePlayinging(selfId: string, playing: boolean, pause: () => void) {
-  useEffect(() => {
-    const check = () => {
-      if (playing && currentPlayingId !== selfId) pause();
-    };
-    playListeners.add(check);
-    return () => {
-      playListeners.delete(check);
-    };
-  }, [selfId, playing, pause]);
-}
-
 /* --- Playback bubble -------------------------------------------------------- */
 
 export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean; seconds?: number }) {
@@ -84,9 +65,15 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     if (a) a.playbackRate = rate;
   }, [rate]);
 
-  const pause = () => audioRef.current?.pause();
-
-  useOnlyOnePlayinging(idRef.current, playing, pause);
+  useEffect(() => {
+    const check = () => {
+      if (playing && currentPlayingId !== idRef.current) audioRef.current?.pause();
+    };
+    playListeners.add(check);
+    return () => {
+      playListeners.delete(check);
+    };
+  }, [playing]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -137,7 +124,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     else void a.play().catch(() => setFailed(true));
   };
 
-  /** Telegram gesture: swipe the bubble left → stop and reset to the start. */
+  /** Telegram gesture: swipe the bubble left → stop and reset. */
   const stopAndReset = () => {
     const a = audioRef.current;
     if (!a) return;
@@ -145,7 +132,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     try {
       a.currentTime = 0;
     } catch {
-      /* metadata not ready yet */
+      /* metadata not ready */
     }
     setProgress(0);
     setPlaying(false);
@@ -172,7 +159,8 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
 
   return (
     <div
-      className="flex w-[262px] max-w-full touch-pan-y items-center gap-2.5 py-1"
+      className="fb-no-callout flex w-[262px] max-w-full touch-pan-y items-center gap-2.5 py-1"
+      onContextMenu={(e) => e.preventDefault()}
       onPointerDown={(e) => {
         swipeRef.current = { x: e.clientX, y: e.clientY };
       }}
@@ -262,9 +250,9 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
   );
 }
 
-/* --- Recording -------------------------------------------------------------- */
+/* --- Recorder ---------------------------------------------------------------- */
 
-type RecPhase = "idle" | "hold" | "locked";
+type RecPhase = "idle" | "hold" | "locked" | "preview";
 
 export function VoiceRecorder({
   onSend,
@@ -281,6 +269,13 @@ export function VoiceRecorder({
   const [seconds, setSeconds] = useState(0);
   const [liveBars, setLiveBars] = useState<number[]>([]);
 
+  /* Preview state */
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewSecs, setPreviewSecs] = useState(0);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewPos, setPreviewPos] = useState(0);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const phaseRef = useRef<RecPhase>("idle");
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -296,17 +291,6 @@ export function VoiceRecorder({
   const streamReadyRef = useRef(false);
   const busyRef = useRef(false);
 
-  const safeStop = () => {
-    const r = recRef.current;
-    if (r && r.state !== "inactive") {
-      try {
-        r.stop();
-      } catch {
-        /* already stopped */
-      }
-    }
-  };
-
   const cleanupInternals = () => {
     if (levelTimerRef.current) clearInterval(levelTimerRef.current);
     if (clockTimerRef.current) clearInterval(clockTimerRef.current);
@@ -320,29 +304,40 @@ export function VoiceRecorder({
     streamRef.current = null;
   };
 
+  /** Recording finished: discard → idle · otherwise → PREVIEW (never auto-send). */
   const finish = () => {
     cleanupInternals();
     const rec = recRef.current;
     recRef.current = null;
-    phaseRef.current = "idle";
     streamReadyRef.current = false;
     busyRef.current = false;
-    setPhase("idle");
     setCancelArmed(false);
     cancelArmedRef.current = false;
     setPaused(false);
     setLiveBars([]);
+
     if (discardRef.current) {
       discardRef.current = false;
+      phaseRef.current = "idle";
+      setPhase("idle");
       onError?.("Voice note discarded.");
       return;
     }
     if (!rec) return;
     const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
-    if (blob.size < 400) return;
     const secs = Math.max(1, Math.round(secondsRef.current));
-    // Hand the raw blob straight over — multipart upload, no base64 bloat.
-    onSend(blob, secs);
+    if (blob.size < 400 || secs < 1) {
+      phaseRef.current = "idle";
+      setPhase("idle");
+      onError?.("Too short — hold the mic a little longer.");
+      return;
+    }
+    setPreviewBlob(blob);
+    setPreviewSecs(secs);
+    setPreviewPos(0);
+    setPreviewPlaying(false);
+    phaseRef.current = "preview";
+    setPhase("preview");
   };
 
   const start = async () => {
@@ -359,12 +354,7 @@ export function VoiceRecorder({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
       streamRef.current = stream;
-      const candidates = [
-        "audio/webm;codecs=opus",
-        "audio/webm",
-        "audio/mp4",
-        "audio/ogg;codecs=opus",
-      ];
+      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
       const mimeType = candidates.find((c) => MediaRecorder.isTypeSupported(c));
       const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recRef.current = rec;
@@ -388,12 +378,11 @@ export function VoiceRecorder({
       setSeconds(0);
       setLiveBars([]);
 
-      // Finger lifted while the permission prompt was still open: finish
-      // cleanly instead of hanging in "hold" forever.
       if (pendingUpRef.current) {
+        // Finger lifted while the permission prompt was open → straight to preview.
         pendingUpRef.current = false;
         if (cancelArmedRef.current) discardRef.current = true;
-        safeStop();
+        rec.stop();
         return;
       }
 
@@ -433,6 +422,17 @@ export function VoiceRecorder({
     }
   };
 
+  const safeStop = () => {
+    const r = recRef.current;
+    if (r && r.state !== "inactive") {
+      try {
+        r.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+  };
+
   const lock = () => {
     if (phaseRef.current !== "hold") return;
     phaseRef.current = "locked";
@@ -453,7 +453,8 @@ export function VoiceRecorder({
     }
   };
 
-  /* Pointer capture on the mic button itself — no lost window events. */
+  /* --- Mic button gestures --------------------------------------------------- */
+
   const onMicDown = (e: React.PointerEvent) => {
     if (phaseRef.current !== "idle" || disabled) return;
     e.preventDefault();
@@ -492,16 +493,14 @@ export function VoiceRecorder({
     }
     if (cancelArmedRef.current) {
       discardRef.current = true;
-      safeStop();
+      safeStop(); // → finish() → discarded
       return;
     }
-    const heldMs = s ? Date.now() - s.t : 1000;
-    // Quick tap → hands-free locked mode (Telegram behavior).
-    if (heldMs < 350) {
-      lock();
+    if (s && Date.now() - s.t < 320) {
+      lock(); // quick tap → hands-free locked mode
       return;
     }
-    safeStop(); // release → send
+    safeStop(); // release → PREVIEW (never auto-send)
   };
 
   const onMicCancel = () => {
@@ -509,6 +508,77 @@ export function VoiceRecorder({
     startRef.current = null;
     discardRef.current = true;
     safeStop();
+  };
+
+  /* --- Preview playback -------------------------------------------------------- */
+
+  useEffect(() => {
+    const a = previewAudioRef.current;
+    if (!a) return;
+    const onTime = () => {
+      const d = isFinite(a.duration) && a.duration > 0 ? a.duration : previewSecs;
+      setPreviewPos(Math.min(1, a.currentTime / d));
+    };
+    const onPlay = () => setPreviewPlaying(true);
+    const onPause = () => setPreviewPlaying(false);
+    const onEnd = () => {
+      setPreviewPlaying(false);
+      setPreviewPos(0);
+    };
+    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("play", onPlay);
+    a.addEventListener("pause", onPause);
+    a.addEventListener("ended", onEnd);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("play", onPlay);
+      a.removeEventListener("pause", onPause);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, [previewBlob, previewSecs]);
+
+  const previewUrl = useMemo(
+    () => (previewBlob ? URL.createObjectURL(previewBlob) : null),
+    [previewBlob]
+  );
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const togglePreview = () => {
+    const a = previewAudioRef.current;
+    if (!a) return;
+    if (previewPlaying) a.pause();
+    else void a.play().catch(() => undefined);
+  };
+
+  const seekPreview = (clientX: number, el: HTMLElement) => {
+    const a = previewAudioRef.current;
+    if (!a) return;
+    const rect = el.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const d = isFinite(a.duration) && a.duration > 0 ? a.duration : previewSecs;
+    a.currentTime = frac * d;
+    setPreviewPos(frac);
+  };
+
+  const sendPreview = () => {
+    if (!previewBlob) return;
+    const blob = previewBlob;
+    const secs = previewSecs;
+    setPreviewBlob(null);
+    phaseRef.current = "idle";
+    setPhase("idle");
+    onSend(blob, secs);
+  };
+
+  const discardPreview = () => {
+    setPreviewBlob(null);
+    phaseRef.current = "idle";
+    setPhase("idle");
+    onError?.("Voice note discarded.");
   };
 
   useEffect(() => {
@@ -525,6 +595,8 @@ export function VoiceRecorder({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* --- Idle: the mic button ------------------------------------------------------ */
 
   if (phase === "idle") {
     return (
@@ -543,8 +615,8 @@ export function VoiceRecorder({
         }}
         disabled={disabled}
         aria-label="Hold to record a voice note"
-        title="Hold to record · slide left to discard · tap to lock hands-free"
-        className="flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] active:scale-95 disabled:opacity-40"
+        title="Hold to record · release to preview"
+        className="fb-no-callout flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] active:scale-95 disabled:opacity-40"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
           <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -554,7 +626,98 @@ export function VoiceRecorder({
     );
   }
 
-  /* Recording bar — pinned over the composer, Telegram-style. */
+  /* --- Preview: listen before you send --------------------------------------------- */
+
+  if (phase === "preview" && previewUrl) {
+    return (
+      <>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] opacity-40">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0014 0M12 18v3" />
+          </svg>
+        </span>
+
+        <div className="absolute inset-0 z-20 flex items-center gap-3 rounded-full border border-white/[0.08] bg-[#0c101d] px-3 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.9)]">
+          {previewBlob ? <audio ref={previewAudioRef} src={previewUrl} preload="auto" /> : null}
+
+          <button
+            type="button"
+            onClick={togglePreview}
+            aria-label={previewPlaying ? "Pause preview" : "Play preview"}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25 active:scale-95"
+          >
+            {previewPlaying ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <rect x="6" y="4.5" width="4" height="15" rx="1.4" />
+                <rect x="14" y="4.5" width="4" height="15" rx="1.4" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
+              </svg>
+            )}
+          </button>
+
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+            <div
+              className="relative h-6 w-full cursor-pointer touch-none"
+              onPointerDown={(e) => {
+                const el = e.currentTarget;
+                seekPreview(e.clientX, el);
+                const move = (ev: PointerEvent) => seekPreview(ev.clientX, el);
+                const up = () => {
+                  window.removeEventListener("pointermove", move);
+                  window.removeEventListener("pointerup", up);
+                };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", up);
+              }}
+            >
+              <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[var(--color-gold-300)]"
+                  style={{ width: `${previewPos * 100}%` }}
+                />
+              </div>
+              <div
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-[var(--color-gold-300)] shadow"
+                style={{ left: `calc(${previewPos * 100}% - 7px)` }}
+              />
+            </div>
+            <p className="truncate text-[10px] font-bold uppercase tracking-wider text-[var(--color-ash)]">
+              Preview · {fmtClock(Math.round(previewPos * previewSecs))} / {fmtClock(previewSecs)} · listen, then send
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={discardPreview}
+            aria-label="Discard voice note"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-400/40 bg-red-500/15 text-red-300 transition hover:bg-red-500/25"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a2 2 0 002 1.8h6A2 2 0 0017 20l1-13M9 7V5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 5v2" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={sendPreview}
+            aria-label="Send voice note"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+            </svg>
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  /* --- hold / locked: the recording bar --------------------------------------------- */
+
   return (
     <>
       <button
@@ -563,9 +726,10 @@ export function VoiceRecorder({
         onPointerMove={phase === "hold" ? onMicMove : undefined}
         onPointerUp={phase === "hold" ? onMicUp : undefined}
         onPointerCancel={phase === "hold" ? onMicCancel : undefined}
+        onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
         aria-label="Hold to record a voice note"
-        className="flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] opacity-40"
+        className="fb-no-callout flex h-12 w-12 shrink-0 touch-none select-none items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] opacity-40"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
           <rect x="9" y="3" width="6" height="11" rx="3" />
@@ -595,7 +759,7 @@ export function VoiceRecorder({
 
         {phase === "hold" ? (
           <p className={`shrink-0 text-[11px] font-bold ${cancelArmed ? "text-red-300" : "text-[var(--color-ash)]"}`}>
-            {cancelArmed ? "Release to discard" : "← slide to discard"}
+            {cancelArmed ? "Release to discard" : "Release to preview · ← slide to discard"}
           </p>
         ) : (
           <>
@@ -632,11 +796,11 @@ export function VoiceRecorder({
             <button
               type="button"
               onClick={() => safeStop()}
-              aria-label="Send voice note"
+              aria-label="Stop and preview voice note"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             </button>
           </>

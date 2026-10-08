@@ -31,12 +31,23 @@ type Alert = {
 
 type Banner = Alert & { key: number };
 
-export function NotificationCenter() {
+export function NotificationCenter({ pathname }: { pathname?: string }) {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [askOpen, setAskOpen] = useState(false);
   const seq = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
   const firstRun = useRef(true);
+
+  /* Opening the Alerts tab counts as viewing them — the dot clears. */
+  useEffect(() => {
+    if (pathname?.startsWith("/app/notifications")) {
+      window.dispatchEvent(
+        new CustomEvent("freeborn:unread", { detail: { alerts: 0, chat: 0, likes: 0 } })
+      );
+      // Let the next poll recount naturally; keep chat's real number.
+      window.dispatchEvent(new CustomEvent("freeborn:alerts-viewed"));
+    }
+  }, [pathname]);
 
   /* One polite ask for browser notifications + sounds. */
   useEffect(() => {
