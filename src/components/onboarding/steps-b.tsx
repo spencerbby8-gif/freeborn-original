@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { StepShell } from "./step-shell";
 import { ComboField, OnboardingTextarea } from "./fields";
 import { ChipSelect } from "./chip-select";
+import { CameraCapture } from "@/components/camera-capture";
 import {
   detectUnsafeContactDetails,
   educationOptions,
@@ -283,6 +284,23 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0);
+  const [cameraOpen, setCameraOpen] = useState(false);
+
+  /** Live capture lands as an already 4:5-cropped JPEG — straight into the grid. */
+  const handleCapture = (dataUrl: string) => {
+    setCameraOpen(false);
+    setPhotos((prev) => {
+      if (prev.length >= MAX_PHOTOS) return prev;
+      let next = [
+        ...prev,
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, src: dataUrl, isCover: false },
+      ];
+      if (!next.some((p) => p.isCover) && next.length) {
+        next = next.map((p, i) => ({ ...p, isCover: i === 0 }));
+      }
+      return next;
+    });
+  };
 
   const addFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
@@ -462,7 +480,27 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
             <span className="text-[10px] text-[var(--color-ash)]">{photos.length}/{MAX_PHOTOS}</span>
           </button>
         ) : null}
+
+        {photos.length < MAX_PHOTOS ? (
+          <button
+            type="button"
+            onClick={() => setCameraOpen(true)}
+            disabled={busy}
+            className="flex aspect-[4/5] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/[0.04] text-[var(--color-gold-300)] transition hover:border-[var(--color-gold-500)]/60 hover:bg-[var(--color-gold-500)]/[0.08] disabled:opacity-50"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />
+                <circle cx="12" cy="13.6" r="3.4" />
+              </svg>
+            </span>
+            <span className="text-xs font-bold">Take with camera</span>
+            <span className="text-[10px] text-[var(--color-ash)]">Snap a live selfie</span>
+          </button>
+        ) : null}
       </div>
+
+      {cameraOpen ? <CameraCapture onCapture={handleCapture} onClose={() => setCameraOpen(false)} /> : null}
     </StepShell>
   );
 }

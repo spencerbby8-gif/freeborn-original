@@ -26,6 +26,28 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
+  /* Reorder branch: { action: "reorder", order: [urls...] } — persists the
+     member's chosen photo order (drag or arrows in the manager). */
+  const maybe = (body ?? {}) as { action?: string; order?: string[] };
+  if (maybe.action === "reorder") {
+    const order = Array.isArray(maybe.order) ? maybe.order : [];
+    if (order.length === 0) return Response.json({ error: "order is required." }, { status: 400 });
+    const rows = await db
+      .select()
+      .from(profilePhotos)
+      .where(eq(profilePhotos.userId, member.id));
+    for (let pos = 0; pos < order.length; pos++) {
+      const url = order[pos];
+      const row = rows.find((r) => r.storagePath === url || url.endsWith(r.storagePath));
+      if (!row) continue;
+      await db
+        .update(profilePhotos)
+        .set({ position: pos, isPrimary: pos === 0 })
+        .where(eq(profilePhotos.id, row.id));
+    }
+    return Response.json({ ok: true });
+  }
+
   const { data } = (body ?? {}) as { data?: string };
   const mimeMatch = data ? /^data:([^;]+);base64,(.+)$/.exec(data) : null;
   if (!mimeMatch || !MIMES.has(mimeMatch[1])) {
@@ -103,11 +125,13 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "path is required." }, { status: 400 });
   }
 
-  const [row] = await db
+  /* Robust match: the client may pass the resolved URL (full storage URL or
+     /api/chat/media/…), so match either exactly or by suffix. */
+  const rows = await db
     .select()
     .from(profilePhotos)
-    .where(and(eq(profilePhotos.userId, member.id), eq(profilePhotos.storagePath, path)))
-    .limit(1);
+    .where(eq(profilePhotos.userId, member.id));
+  const row = rows.find((r) => r.storagePath === path || path.endsWith(r.storagePath));
   if (!row) {
     return Response.json(
       { ok: false, error: "That photo lives in your original upload store — it can't be removed from this preview room." },

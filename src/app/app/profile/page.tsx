@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
 import { ProfileView } from "@/components/app/profile-view";
+import { CameraCapture } from "@/components/camera-capture";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 type MeProfile = {
@@ -161,6 +162,32 @@ function ProfileInner() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoManagerOpen, setPhotoManagerOpen] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const dragIdx = useRef<number | null>(null);
+
+  /** Drag (or arrows) to reorder — optimistic UI, then persisted. */
+  const reorderPhotos = async (from: number, to: number) => {
+    if (!profile || from === to || to < 0 || to >= profile.photos.length) return;
+    const newOrder = [...profile.photos];
+    const [moved] = newOrder.splice(from, 1);
+    newOrder.splice(to, 0, moved);
+    setProfile({ ...profile, photos: newOrder });
+    const token = await getAccessToken().catch(() => null);
+    await fetch("/api/profile/photos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ action: "reorder", order: newOrder }),
+    }).catch(() => undefined);
+  };
+
+  /** Live camera capture → straight into the upload pipeline. */
+  const handleCameraCapture = (dataUrl: string) => {
+    setCameraOpen(false);
+    void uploadPhoto(dataUrl);
+  };
 
   const uploadPhoto = useCallback(
     async (dataUrl: string) => {
@@ -508,10 +535,33 @@ function ProfileInner() {
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2.5">
+            <p className="mt-3 text-[11px] font-bold text-[var(--color-ash)]">
+              Drag a photo to move it · ✕ deletes · first one is your card photo
+            </p>
+            <div className="mt-2.5 grid grid-cols-3 gap-2.5">
               {profile.photos.map((src, i) => (
-                <div key={`${src}-${i}`} className="relative">
-                  <img src={src} alt={`Profile photo ${i + 1}`} className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover" />
+                <div
+                  key={`${src}-${i}`}
+                  draggable
+                  onDragStart={() => {
+                    dragIdx.current = i;
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIdx.current !== null) {
+                      void reorderPhotos(dragIdx.current, i);
+                      dragIdx.current = null;
+                    }
+                  }}
+                  className="relative cursor-grab active:cursor-grabbing"
+                >
+                  <img
+                    src={src}
+                    alt={`Profile photo ${i + 1}`}
+                    draggable={false}
+                    className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover"
+                  />
                   {i === 0 ? (
                     <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">
                       Card
@@ -527,6 +577,31 @@ function ProfileInner() {
                       <path d="M6 6l12 12M18 6L6 18" />
                     </svg>
                   </button>
+                  {/* Move arrows — work on touch where drag doesn't */}
+                  <div className="absolute inset-x-1.5 bottom-1.5 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => void reorderPhotos(i, i - 1)}
+                      disabled={i === 0}
+                      aria-label="Move photo earlier"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black disabled:opacity-30"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
+                        <path d="M8 1.5L3.5 6 8 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void reorderPhotos(i, i + 1)}
+                      disabled={i === profile.photos.length - 1}
+                      aria-label="Move photo later"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black disabled:opacity-30"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
+                        <path d="M4 1.5L8.5 6 4 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
               {profile.photos.length < 6 ? (
@@ -534,14 +609,28 @@ function ProfileInner() {
                   type="button"
                   disabled={photoBusy}
                   onClick={() => photoInputRef.current?.click()}
-                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.05] text-[var(--color-gold-300)] transition hover:bg-[var(--color-gold-500)]/[0.1] disabled:opacity-50"
+                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] text-[var(--color-mist)] transition hover:border-white/30 hover:bg-white/[0.05] disabled:opacity-50"
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                     <path d="M12 5v14M5 12h14" />
                   </svg>
                   <span className="text-[10.5px] font-black uppercase tracking-wider">
-                    {photoBusy ? "Adding…" : "Add"}
+                    {photoBusy ? "Adding…" : "Gallery"}
                   </span>
+                </button>
+              ) : null}
+              {profile.photos.length < 6 ? (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={() => setCameraOpen(true)}
+                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.05] text-[var(--color-gold-300)] transition hover:bg-[var(--color-gold-500)]/[0.1] disabled:opacity-50"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />
+                    <circle cx="12" cy="13.6" r="3.4" />
+                  </svg>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider">Camera</span>
                 </button>
               ) : null}
             </div>
@@ -607,6 +696,10 @@ function ProfileInner() {
       ) : null}
 
       {viewAs ? <ProfileView profileId={viewAs} onClose={() => setViewAs(null)} /> : null}
+
+      {cameraOpen ? (
+        <CameraCapture onCapture={handleCameraCapture} onClose={() => setCameraOpen(false)} />
+      ) : null}
 
       {!editing ? (
         <div className="mt-6 space-y-4">
