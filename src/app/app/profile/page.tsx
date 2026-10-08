@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
 import { ProfileView } from "@/components/app/profile-view";
-import { VerifyBadge } from "@/components/verify-badge";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 type MeProfile = {
@@ -422,11 +421,6 @@ function ProfileInner() {
               {(profile.displayName || "You").charAt(0)}
             </span>
           )}
-          {profile.isVerified ? (
-            <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[#0c101d] p-0.5 ring-1 ring-white/15">
-              <VerifyBadge size={22} />
-            </span>
-          ) : null}
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-display text-xl font-semibold text-[var(--color-pearl)]">

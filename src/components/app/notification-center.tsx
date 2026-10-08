@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
-import { playChime, pushBrowserNotification, requestNotifyPermission } from "@/lib/notify";
+import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
 
 const POLL_MS = 8_000;
 const SEEN_KEY = "fb-seen-alerts";
@@ -48,6 +48,18 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
       window.dispatchEvent(new CustomEvent("freeborn:alerts-viewed"));
     }
   }, [pathname]);
+
+  /* Unlock the sound engine on the member's first interaction — after this,
+     every alert can ring immediately, even before focus. */
+  useEffect(() => {
+    const unlock = () => warmAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   /* One polite ask for browser notifications + sounds. */
   useEffect(() => {

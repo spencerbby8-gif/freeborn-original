@@ -59,8 +59,10 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
   const [failed, setFailed] = useState(false);
   const [dur, setDur] = useState<number | null>(seconds ?? null);
   const bars = useMemo(() => seededBars(url, 30), [url]);
+  const rateRef = useRef(1);
 
   useEffect(() => {
+    rateRef.current = rate;
     const a = audioRef.current;
     if (a) a.playbackRate = rate;
   }, [rate]);
@@ -82,6 +84,13 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
       if (isFinite(a.duration) && a.duration > 0) setDur(a.duration);
     };
     const onPlay = () => {
+      // Some mobiles reset playbackRate on every play — re-assert it so the
+      // speed chip ALWAYS takes effect.
+      try {
+        a.playbackRate = rateRef.current;
+      } catch {
+        /* not yet ready */
+      }
       announcePlay(idRef.current);
       setPlaying(true);
     };
@@ -138,7 +147,13 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     setPlaying(false);
   };
 
-  const cycleRate = () => setRate((r) => (r === 1 ? 1.5 : r === 1.5 ? 2 : 1));
+  const cycleRate = () =>
+    setRate((r) => {
+      const next = r === 1 ? 1.5 : r === 1.5 ? 2 : 1;
+      const a = audioRef.current;
+      if (a) a.playbackRate = next; // apply instantly, even mid-play
+      return next;
+    });
 
   const seekFromX = (clientX: number) => {
     const el = waveRef.current;
@@ -226,8 +241,11 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
         ))}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
+        {/* Countdown while playing: time LEFT until the note finishes. */}
         <span className={`text-[11px] font-bold tabular-nums ${mine ? "text-white/85" : "text-[var(--color-mist)]"}`}>
-          {fmtClock(dur ?? 0)}
+          {playing && dur
+            ? fmtClock(Math.max(0, Math.round(dur * (1 - progress))))
+            : fmtClock(Math.max(0, Math.round(dur ?? 0)))}
         </span>
         <button
           type="button"
@@ -235,7 +253,8 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
           aria-label={`Playback speed ${rate}x`}
-          className={`rounded-full px-1.5 py-px text-[9.5px] font-black tabular-nums transition ${
+          title="Change speed: 1x → 1.5x → 2x"
+          className={`rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums transition ${
             rate > 1
               ? "bg-white/25 text-white"
               : mine

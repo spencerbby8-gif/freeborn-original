@@ -487,7 +487,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                     <h1 className="font-display text-[32px] font-semibold leading-none text-[var(--color-pearl)]">
                       {profile.name}{profile.age ? `, ${profile.age}` : ""}
                     </h1>
-                    {profile.verified ? <VerifyBadge size={22} /> : null}
+                    {/* Badge lives ONLY at the top-right of the photo (see above) */}
                   </div>
                   <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
                     {profile.occupation ? `${profile.occupation} · ` : ""}{profile.city}{profile.region ? `, ${profile.region}` : ""}

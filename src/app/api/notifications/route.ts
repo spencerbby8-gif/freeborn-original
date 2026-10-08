@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   matches,
   messages,
+  notificationPreferences,
   profilePhotos,
   userProfiles,
   userSwipes,
@@ -155,6 +156,25 @@ export async function GET(request: Request) {
         unread: false,
         href: "/app/profile",
       });
+    }
+  }
+
+  /* Respect the member's own alert settings (Settings → Alerts) — the engine
+     now honors the toggles the UI has been showing all along. */
+  const [np] = await db
+    .select()
+    .from(notificationPreferences)
+    .where(eq(notificationPreferences.userId, member.id))
+    .limit(1);
+  if (np) {
+    const allowed = (t: string) => {
+      if (t === "match") return np.matchAlerts;
+      if (t === "message") return np.messageAlerts;
+      if (t === "like") return np.likeAlerts;
+      return true;
+    };
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (!allowed(items[i].type)) items.splice(i, 1);
     }
   }
 

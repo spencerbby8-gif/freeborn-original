@@ -69,6 +69,10 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const closedRef = useRef(false);
   const madeOfferRef = useRef(false);
   const stateRef = useRef<CallState>("preparing");
+  /** Self-heal: one automatic ICE restart before declaring the call dead. */
+  const restartedRef = useRef(false);
+  const healTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const negWatchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setStateBoth = (s: CallState, d?: string) => {
     stateRef.current = s;
@@ -76,9 +80,21 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     if (d) setDetail(d);
   };
 
+  const clearTimers = () => {
+    if (healTimerRef.current) {
+      clearTimeout(healTimerRef.current);
+      healTimerRef.current = null;
+    }
+    if (negWatchRef.current) {
+      clearTimeout(negWatchRef.current);
+      negWatchRef.current = null;
+    }
+  };
+
   const cleanup = useCallback((sendHangup: boolean) => {
     if (closedRef.current) return;
     closedRef.current = true;
+    clearTimers();
     if (sendHangup && chanRef.current) {
       publish(chanRef.current, "control", { t: "hangup" } satisfies CallSignal);
     }
@@ -151,7 +167,18 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   useEffect(() => {
     closedRef.current = false;
     madeOfferRef.current = false;
+    restartedRef.current = false;
     let cancelled = false;
+
+    /* Watchdog: a handshake stuck in "negotiating" for 25s is a dead path —
+       fail fast with a clean "Call again" instead of spinning forever. */
+    negWatchRef.current = setTimeout(() => {
+      if (closedRef.current) return;
+      if (stateRef.current === "negotiating") {
+        cleanup(false);
+        setStateBoth("failed", "Couldn't find a stable path — call again.");
+      }
+    }, 25_000);
 
     (async () => {
       setStateBoth("preparing", "Preparing your media…");
@@ -185,10 +212,36 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         };
         pc.onconnectionstatechange = () => {
           if (closedRef.current) return;
-          if (pc.connectionState === "connected") setStateBoth("live", "Connected");
+          if (pc.connectionState === "connected") {
+            restartedRef.current = false;
+            if (healTimerRef.current) {
+              clearTimeout(healTimerRef.current);
+              healTimerRef.current = null;
+            }
+            setStateBoth("live", "Connected");
+            return;
+          }
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            /* SELF-HEAL: one automatic ICE restart before giving up. */
+            if (!restartedRef.current) {
+              restartedRef.current = true;
+              setStateBoth("negotiating", "Connection wobbled — healing it…");
+              try {
+                pc.restartIce();
+              } catch {
+                /* unsupported — the watchdog below decides */
+              }
+              healTimerRef.current = setTimeout(() => {
+                if (closedRef.current) return;
+                if (pcRef.current?.connectionState !== "connected") {
+                  cleanup(false);
+                  setStateBoth("failed", "The connection dropped — call again.");
+                }
+              }, 8_000);
+              return;
+            }
             cleanup(false);
-            setStateBoth("failed", "The connection dropped — try again.");
+            setStateBoth("failed", "The connection dropped — call again.");
           }
         };
 
@@ -291,6 +344,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
 
   const callAgain = () => {
     callIdRef.current = newCallId();
+    restartedRef.current = false;
     setSeconds(0);
     setAttempt((a) => a + 1);
   };

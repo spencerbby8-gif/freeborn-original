@@ -778,7 +778,7 @@ function Thread({
   }
 
   return (
-    <div className="flex min-h-[380px] flex-col" style={{ height: heightPx ?? undefined }}>
+    <div className="flex w-full max-w-full min-h-[380px] flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
       <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
         <button
           type="button"
@@ -965,7 +965,7 @@ function Thread({
 
 
       {/* Composer — voice recording overlays it Telegram-style */}
-      <div className="relative flex items-center gap-2 border-t border-white/[0.06] pt-4">
+      <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
@@ -1008,7 +1008,7 @@ function Thread({
           maxLength={1800}
           autoComplete="off"
           enterKeyHint="send"
-          className="min-h-[48px] flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-[14px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+          className="min-h-[48px] min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-[14px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
         />
 
         <VoiceRecorder

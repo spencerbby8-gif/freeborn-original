@@ -35,6 +35,13 @@ function tone(ac: AudioContext, freq: number, at: number, dur: number, gainPeak 
   osc.stop(at + dur + 0.05);
 }
 
+/** Warm the audio engine on a user gesture so later chimes always play
+    (browsers block sound until the page has been interacted with once). */
+export function warmAudio() {
+  const ac = audio();
+  if (ac && ac.state === "suspended") void ac.resume().catch(() => undefined);
+}
+
 /** The Freeborn notification chime — short, warm, unmistakable. */
 export function playChime() {
   const ac = audio();
