@@ -83,6 +83,10 @@ export function NotificationCenter() {
           const items = (json.notifications ?? []) as Alert[];
           const fresh = items.filter((i) => i.type !== "tip" && !seenRef.current.has(i.id));
 
+          // Count fresh likes BEFORE marking anything seen, or the dot
+          // would always read zero.
+          const newLikes = fresh.filter((i) => i.type === "like").length;
+
           if (firstRun.current) {
             // Don't blast the member with history on first open.
             items.forEach((i) => seenRef.current.add(i.id));
@@ -100,11 +104,9 @@ export function NotificationCenter() {
             /* ignore */
           }
 
-          const alertsUnread = Math.max(0, items.filter((i) => i.type !== "tip").length - Number(window.localStorage.getItem(SEEN_KEY) ?? "0"));
-          const likesUnread = items.filter((i) => i.type === "like" && !seenRef.current.has(i.id)).length;
           window.dispatchEvent(
             new CustomEvent("freeborn:unread", {
-              detail: { alerts: Math.max(alertsUnread, fresh.length), chat: chatUnread, likes: likesUnread },
+              detail: { alerts: fresh.length, chat: chatUnread, likes: newLikes },
             })
           );
         }
