@@ -15,48 +15,22 @@ successfully before):
    Netlify packages are needed.
 
 ## Environment variables to set in Netlify
-
-### Required
+(the code has safe fallbacks for Supabase, but set these explicitly)
 
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_TRANSACTION_POOLER` *(preferred)* or `DATABASE_URL` | your Supabase **transaction pooler** connection string. Needed at runtime for every database query — profiles, discovery, matches, messages, likes. Get it from Supabase → Project Settings → Database → Connection string → **Transaction pooler**. |
-| `SUPABASE_URL` | your Supabase project URL (`https://<ref>.supabase.co`) |
+| `DATABASE_URL` or `SUPABASE_TRANSACTION_POOLER` | your Supabase pooler connection (the app prefers the pooler var) |
+| `SUPABASE_URL` | your Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | your Supabase publishable/anon key (public by design) |
-
-### Optional
-
-| Variable | Purpose |
-|---|---|
 | `ANTIGRAVITY_BASE_URL` | stage-1 verification engine (required for verification) |
 | `ANTIGRAVITY_FREE_API_KEY` | stage-1 verification engine key |
 | `VOID_AI_BASE_URL` | stage-2 verification engine (falls back to single-engine without it) |
 | `VOID_AI_API_KEY` | stage-2 verification engine key |
 
-> **`SUPABASE_URL` is not a substitute for `SUPABASE_TRANSACTION_POOLER`.**
-> They are two different things. `SUPABASE_URL` is the HTTPS API endpoint the
-> Supabase JS client uses for auth/storage/realtime. `SUPABASE_TRANSACTION_POOLER`
-> is the raw Postgres connection string that Drizzle ORM uses for SQL queries.
-> Setting one does not provide the other — the app needs **both**.
-
-> **Build vs runtime:** `next build` does **not** need a database. The connection
-> is created lazily on the first query, so the build succeeds even with no
-> database variable set. You only need the pooler string for the app to serve
-> real traffic. If it is missing at runtime you will get
-> *"No database connection configured..."* on the first request that queries.
-
 ## What was cleaned before zipping
 - `.env` and `.env.local` (all secrets) — excluded
 - `node_modules`, `.next`, `.git`, archives — excluded
-
-## Security notes
-- The hardcoded pooler password that used to live in `src/db/index.ts` has been
-  removed (this repository is public). The connection string is now read only
-  from `SUPABASE_TRANSACTION_POOLER` / `DATABASE_URL`.
-- The Supabase **publishable/anon** key in `src/lib/supabase/*` is intentionally
-  committed — it is public by design and safe to ship to the browser.
-- Test-account passwords in `scripts/*.mjs` are read from the `E2E_PASSWORD`
-  environment variable rather than hardcoded.
-- The `postgres:postgres@127.0.0.1:5432/app_db` string in `drizzle.config.json`
-  is the stock local Docker Postgres default, used as a sentinel to detect an
-  unconfigured sandbox — not a credential.
+- No other file in the project contains those secrets, except the intentional
+  fallback constants in `src/db/index.ts` and `src/lib/supabase/*` (same pattern
+  the app shipped with). If you ever make the repo PUBLIC, move the pooler
+  password out of `src/db/index.ts` into an env var first.
