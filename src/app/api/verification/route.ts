@@ -54,9 +54,12 @@ export async function GET(request: Request) {
   let status = latest?.status ?? "none";
   let submittedAt = latest?.submittedAt ?? null;
 
-  // Preview-room auto-review: approve stale pending requests and light up
-  // the teal seal on the member's profile.
+  // Preview-room auto-review (LOCAL DEV ONLY): approve stale pending requests
+  // and light up the teal seal. Never in production — there, "pending" means a
+  // human reviews it. This gate closes the bypass where any pending request
+  // was auto-approved after 60s in production.
   if (
+    process.env.NODE_ENV !== "production" &&
     latest &&
     latest.status === "pending" &&
     Date.now() - latest.submittedAt.getTime() > PREVIEW_AUTO_REVIEW_MS

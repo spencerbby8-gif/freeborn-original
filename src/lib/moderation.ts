@@ -26,7 +26,11 @@ const V_BASE = (process.env.VOID_AI_BASE_URL ?? "").replace(/\/$/, "");
 const V_KEY = process.env.VOID_AI_API_KEY ?? "";
 
 export const MODERATION_MODEL = "gemini-3.6-flash-medium";
-export const MODERATION_MODEL_2 = "claude-sonnet-5";
+/* Engine 2 model: verified live on 2026-10-09 — "claude-sonnet-5" returns HTTP 400
+   ("Your plan does not have access to model 'claude-sonnet-5'") on the VoidAI
+   account, which silently degraded moderation to single-engine. "gpt-4o" was
+   verified HTTP 200 with clean JSON discipline on the same account. */
+export const MODERATION_MODEL_2 = "gpt-4o";
 
 export type FactVerdict = {
   severity: "low" | "medium" | "high" | "critical";
@@ -50,7 +54,13 @@ async function ask(base: string, key: string, model: string, prompt: string): Pr
     const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
       signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        /* voidai sits behind Cloudflare and rejects the default Node fetch
+           user-agent (error 1010) — same requirement as lm7. */
+        "User-Agent": "freeborn-verify/1.0",
+      },
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
