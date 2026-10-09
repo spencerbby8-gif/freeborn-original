@@ -228,7 +228,7 @@ export async function POST(request: Request) {
       reason: "The verification service couldn't read the photo — try again.",
     });
   }
-  if (pose.faceCount !== 1) {
+  if (pose.faceCount !== undefined && pose.faceCount !== 1) {
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "rejected",
