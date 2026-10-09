@@ -1,0 +1,64 @@
+name: Deploy to Netlify
+
+# Manual-only by default: your live site currently deploys through Netlify's
+# git import. If you want GitHub Actions to be the deployer instead, uncomment
+# the push trigger below AND disconnect the site's git integration in the
+# Netlify dashboard — otherwise every push to main deploys twice.
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+
+concurrency:
+  group: deploy-netlify
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & deploy to Netlify (production)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `netlify deploy --build` runs `next build` (from netlify.toml) in this
+      # runner, applies @netlify/plugin-nextjs, then publishes to production.
+      # Secrets are injected by GitHub at runtime — values never appear in
+      # this file or in logs.
+      - name: Deploy to Netlify (production)
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --build --prod
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          # Inlined into the client bundle at build time:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://freeborn.netlify.app' }}
+          # Server-only values, available to the build process (the deployed
+          # app reads these at runtime from Netlify site env vars):
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_TRANSACTION_POOLER: ${{ secrets.SUPABASE_TRANSACTION_POOLER }}
+          ANTIGRAVITY_BASE_URL: ${{ secrets.ANTIGRAVITY_BASE_URL }}
+          ANTIGRAVITY_FREE_API_KEY: ${{ secrets.ANTIGRAVITY_FREE_API_KEY }}
+          VOID_AI_BASE_URL: ${{ secrets.VOID_AI_BASE_URL }}
+          VOID_AI_API_KEY: ${{ secrets.VOID_AI_API_KEY }}
+          # Not yet stored as secrets — add them if you use these features:
+          # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          # FREEBORN_TURN_URL: ${{ secrets.FREEBORN_TURN_URL }}
+          # FREEBORN_TURN_USER: ${{ secrets.FREEBORN_TURN_USER }}
+          # FREEBORN_TURN_CRED: ${{ secrets.FREEBORN_TURN_CRED }}
