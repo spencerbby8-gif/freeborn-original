@@ -521,8 +521,9 @@ export function SettingsView() {
         )}
       </div>
 
-      {/* Area navigation */}
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+      {/* Area navigation — sticks while long panels scroll */}
+      <div className="sticky top-0 z-10 -mx-4 mt-5 bg-[#0a0d18]/95 px-4 py-3 backdrop-blur-lg sm:-mx-6 sm:px-6">
+        <div className="flex gap-2 overflow-x-auto">
         {AREAS.map((a) => {
           const active = area === a.id;
           return (
@@ -541,6 +542,7 @@ export function SettingsView() {
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Fixed area panel */}
@@ -826,7 +828,7 @@ export function SettingsView() {
                   type="button"
                   disabled={busy || !emailNew.trim()}
                   onClick={() => void accountAction({ action: "change-email", newEmail: emailNew.trim() }).then((ok) => ok && setEmailNew(""))}
-                  className="rounded-xl border border-white/10 bg-white/[0.05] px-4 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1] disabled:opacity-40"
+                  className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
                 >
                   Update
                 </button>
@@ -860,7 +862,7 @@ export function SettingsView() {
                   type="button"
                   disabled={busy || pwdNew.length < 8 || pwdNew !== pwdConfirm}
                   onClick={() => void changePassword()}
-                  className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1] disabled:opacity-40"
+                  className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
                 >
                   Save new password
                 </button>
@@ -923,8 +925,12 @@ export function SettingsView() {
             <form method="POST" action="/auth/signout">
               <button
                 type="submit"
-                className="mt-5 rounded-full border border-white/10 bg-white/[0.03] px-7 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:text-[var(--color-pearl)]"
+                className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-7 py-3.5 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <path d="M16 17l5-5-5-5M21 12H9" />
+                </svg>
                 Sign out
               </button>
             </form>

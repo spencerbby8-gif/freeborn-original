@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { StepShell } from "./step-shell";
 import { ComboField, OnboardingTextarea } from "./fields";
+import { CheckIcon } from "@/components/icons";
 import { ChipSelect } from "./chip-select";
 import { CameraCapture } from "@/components/camera-capture";
 import {
@@ -145,16 +146,25 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
                 type="button"
                 onClick={() => setVaccinationStatus(o.value)}
                 aria-pressed={active}
-                className={`rounded-2xl border p-4 text-left transition ${
+                className={`relative rounded-2xl border p-4 pr-11 text-left transition-all active:scale-[0.98] ${
                   active
-                    ? "border-[var(--color-gold-500)]/60 bg-[var(--color-gold-500)]/[0.09]"
-                    : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+                    ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
+                    : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
                 }`}
               >
                 <span className={`block text-[14px] font-black ${active ? "text-[var(--color-pearl)]" : "text-[var(--color-sand)]"}`}>
                   {o.label}
                 </span>
                 <span className="mt-1 block text-[12px] leading-4 text-[var(--color-mist)]">{o.caption}</span>
+                <span
+                  className={`absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+                    active
+                      ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]"
+                      : "border-white/10 bg-black/20 text-transparent"
+                  }`}
+                >
+                  <CheckIcon size={13} strokeWidth={3} />
+                </span>
               </button>
             );
           })}
