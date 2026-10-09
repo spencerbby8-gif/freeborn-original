@@ -291,10 +291,10 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
   };
 
   const sourceButton = (active: boolean) =>
-    `rounded-2xl border p-4 text-left transition-all active:scale-[0.98] ${
+    `relative rounded-2xl border p-4 text-left transition-all active:scale-[0.98] ${
       active
-        ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 text-[var(--color-pearl)]"
-        : "border-white/10 bg-white/[0.03] text-[var(--color-mist)] hover:bg-white/[0.06]"
+        ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 text-[var(--color-pearl)] shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
+        : "border-white/10 bg-white/[0.03] text-[var(--color-mist)] hover:border-white/20 hover:bg-white/[0.06]"
     }`;
 
   return (
@@ -336,6 +336,11 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
             </span>
           </div>
           <p className="mt-1.5 text-xs leading-4 opacity-80">One tap — we fill in your city for you.</p>
+          {locationSource === "gps" ? (
+            <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
+              <CheckIcon size={13} strokeWidth={3} />
+            </span>
+          ) : null}
         </button>
 
         <button
@@ -355,6 +360,11 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
             <span className="text-sm font-black">Type it myself</span>
           </div>
           <p className="mt-1.5 text-xs leading-4 opacity-80">Enter your city and region below.</p>
+          {locationSource === "manual" ? (
+            <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
+              <CheckIcon size={13} strokeWidth={3} />
+            </span>
+          ) : null}
         </button>
       </div>
 

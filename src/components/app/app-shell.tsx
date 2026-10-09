@@ -73,6 +73,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  /** True while a chat conversation is open — the bottom tab bar hides. */
+  const [threadOpen, setThreadOpen] = useState(false);
   /** Unread dots — fed live by the NotificationCenter. */
   const [unread, setUnread] = useState<{ alerts: number; chat: number; likes: number }>({
     alerts: 0,
@@ -98,6 +100,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener("freeborn:unread", onUnread);
       window.removeEventListener("freeborn:viewing", onUnread);
     };
+  }, []);
+
+  /* The chat screen hides the bottom tabs while a conversation is open and
+     brings them back when you return to the message list. */
+  useEffect(() => {
+    const onThread = (e: Event) => {
+      const d = (e as CustomEvent<{ open?: boolean }>).detail;
+      if (d) setThreadOpen(Boolean(d.open));
+    };
+    window.addEventListener("freeborn:chat-thread", onThread);
+    return () => window.removeEventListener("freeborn:chat-thread", onThread);
   }, []);
 
   const dotFor = (href: string): number =>
@@ -247,11 +260,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </header>
 
-          <main className="flex-1 px-4 pb-28 pt-6 sm:px-6">{children}</main>
+          <main className={`flex-1 px-4 pt-6 sm:px-6 ${threadOpen ? "pb-4" : "pb-28"}`}>{children}</main>
         </div>
       </div>
 
-      {/* Bottom tab bar — visible on every screen size */}
+      {/* Bottom tab bar — hidden while a chat conversation is open */}
+      {!threadOpen ? (
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0d18]/95 backdrop-blur-lg">
         <div className="mx-auto flex max-w-[560px] items-stretch justify-around">
           {tabs.map((tab) => {
@@ -279,6 +293,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
+      ) : null}
 
       <FilterPanel open={filtersOpen} onClose={() => setFiltersOpen(false)} />
 

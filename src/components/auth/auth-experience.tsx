@@ -520,6 +520,14 @@ export function AuthExperience({
           ) : null}
         </div>
 
+        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-ash)]">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+            <path d="M8 10.5V7a4 4 0 018 0v3.5" />
+          </svg>
+          Encrypted · private · yours alone
+        </div>
+
         <p className="mt-6 text-center text-[11px] font-medium leading-relaxed text-[var(--color-ash)]">
           By continuing you agree to keep Freeborn respectful: real photos, honest
           details, and health autonomy honored.{" "}

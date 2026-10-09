@@ -6,6 +6,7 @@ import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import { CallOverlay } from "./call-overlay";
 import { VoiceBubble, VoiceRecorder } from "./voice-note";
+import { CameraCapture } from "@/components/camera-capture";
 
 type MatchRow = {
   id: string;
@@ -386,7 +387,9 @@ function Thread({
   useEffect(() => {
     const measure = () => {
       const vh = window.visualViewport?.height ?? window.innerHeight;
-      const chrome = window.innerWidth >= 1024 ? 118 : 206;
+      /* The bottom tab bar hides while a conversation is open (and the shell's
+         bottom padding shrinks), so the chrome allowance is smaller here. */
+      const chrome = window.innerWidth >= 1024 ? 58 : 110;
       setHeightPx(Math.max(380, Math.round(vh - chrome)));
     };
     measure();
@@ -466,7 +469,7 @@ function Thread({
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
     firstScroll.current = false;
-  }, [messages.length]);
+  }, [messages.length, heightPx]);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -570,6 +573,19 @@ function Thread({
     }
   };
 
+  /** Live camera shot → straight into the conversation, no staging. */
+  const handleCameraShot = async (dataUrl: string) => {
+    setCameraOpen(false);
+    setUploading(true);
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const url = await uploadMedia(blob, "image");
+      if (url) await postMessage(buildBody(`[[image:${url}]]`));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const send = async () => {
     const clean = text.trim();
     if (!clean || sending || staged.length > 0) return;
@@ -593,6 +609,9 @@ function Thread({
   const videoRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<StagedItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  /** "+" attach menu (photo / video / live camera) + camera overlay state. */
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
     const files = Array.from(e.target.files ?? []);
@@ -1058,33 +1077,75 @@ function Thread({
 
       {/* Composer — voice recording overlays it Telegram-style */}
       <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          aria-label="Add photos to the packet"
-          title="Add photos"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="5" width="18" height="14" rx="2.5" />
-            <circle cx="9" cy="10" r="1.6" />
-            <path d="M21 16l-4.5-4.5L9 18" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => videoRef.current?.click()}
-          disabled={uploading}
-          aria-label="Add videos to the packet"
-          title="Add videos"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:bg-white/[0.08] hover:text-[var(--color-pearl)] disabled:opacity-40"
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="6" width="13" height="12" rx="2.5" />
-            <path d="M16 10.5l5-3v9l-5-3" />
-          </svg>
-        </button>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setAttachOpen((o) => !o)}
+            disabled={uploading}
+            aria-label="Attach — photos, videos or a live picture"
+            aria-expanded={attachOpen}
+            title="Attach"
+            className={`flex h-11 w-11 items-center justify-center rounded-full border transition active:scale-95 disabled:opacity-40 ${
+              attachOpen
+                ? "border-[var(--color-gold-500)]/60 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]"
+                : "border-white/10 bg-white/[0.04] text-[var(--color-sand)] hover:bg-white/[0.08] hover:text-[var(--color-pearl)]"
+            }`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+          {attachOpen ? (
+            <>
+              <div className="fixed inset-0 z-[55]" onClick={() => setAttachOpen(false)} />
+              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachOpen(false);
+                    fileRef.current?.click();
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+                    <circle cx="9" cy="10" r="1.6" />
+                    <path d="M21 16l-4.5-4.5L9 18" />
+                  </svg>
+                  Photo from gallery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachOpen(false);
+                    videoRef.current?.click();
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="6" width="13" height="12" rx="2.5" />
+                    <path d="M16 10.5l5-3v9l-5-3" />
+                  </svg>
+                  Video from gallery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttachOpen(false);
+                    setCameraOpen(true);
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-gold-300)] transition hover:bg-white/[0.05]"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />
+                    <circle cx="12" cy="13.6" r="3.4" />
+                  </svg>
+                  Take a live picture
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
 
         <input
           value={text}
@@ -1267,6 +1328,13 @@ function Thread({
         </div>
       ) : null}
 
+      {cameraOpen ? (
+        <CameraCapture
+          onCapture={(dataUrl) => void handleCameraShot(dataUrl)}
+          onClose={() => setCameraOpen(false)}
+        />
+      ) : null}
+
       {call ? (
         <CallOverlay
           kind={call}
@@ -1307,6 +1375,12 @@ export function ChatView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  /* Tell the app shell when a conversation is open, so the bottom tab bar
+     hides — and returns when you go back to the message list. */
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("freeborn:chat-thread", { detail: { open: Boolean(openMatch) } }));
+  }, [openMatch]);
 
   useEffect(() => {
     if (loading) return;

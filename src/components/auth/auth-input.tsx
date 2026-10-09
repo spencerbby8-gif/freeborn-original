@@ -36,9 +36,11 @@ export function AuthInput({
   id,
   className = "",
   type,
+  onKeyDown,
   ...props
 }: AuthInputProps) {
   const [revealed, setRevealed] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const isPassword = type === "password";
   const inputId = id ?? props.name ?? label;
   const hintId = hint ? `${inputId}-hint` : undefined;
@@ -61,6 +63,13 @@ export function AuthInput({
         <input
           id={inputId}
           type={isPassword && revealed ? "text" : type}
+          onKeyDown={(e) => {
+            if (isPassword && e.getModifierState) setCapsLock(e.getModifierState("CapsLock"));
+            onKeyDown?.(e);
+          }}
+          onKeyUp={(e) => {
+            if (isPassword && e.getModifierState) setCapsLock(e.getModifierState("CapsLock"));
+          }}
           className={`min-h-[52px] w-full rounded-2xl border bg-white/[0.03] px-5 py-3.5 ${
             isPassword ? "pr-14" : ""
           } text-[15px] font-medium text-[var(--color-pearl)] outline-none transition-all placeholder:text-[var(--color-ash)] focus:bg-white/[0.06] ${
@@ -93,6 +102,11 @@ export function AuthInput({
       {error ? (
         <p id={errorId} role="alert" className="animate-scale-in px-1 text-[13px] font-bold text-[var(--color-danger)]">
           {error}
+        </p>
+      ) : null}
+      {isPassword && capsLock && !error ? (
+        <p className="animate-scale-in px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--color-gold-300)]">
+          Caps Lock is on
         </p>
       ) : null}
     </div>
