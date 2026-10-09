@@ -1,0 +1,62 @@
+name: CI — typecheck & build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: typecheck / lint / build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 # matches NODE_VERSION in netlify.toml
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      # Advisory only: the codebase currently has lint errors, so this must
+      # not block merges. Remove `continue-on-error` once the code is clean.
+      - name: Lint (advisory)
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Production build
+        env:
+          # Only NEXT_PUBLIC_* values are inlined into the client bundle, so
+          # only these are needed at build time. Server-only secrets are a
+          # runtime concern (Netlify site env vars) and are deliberately not
+          # passed to this job. Values are injected by GitHub at runtime —
+          # they never appear in this file or in logs.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://freeborn.netlify.app' }}
+          # Add this secret to enable Turnstile in CI builds:
+          # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build-${{ github.sha }}
+          path: .next
+          retention-days: 7
