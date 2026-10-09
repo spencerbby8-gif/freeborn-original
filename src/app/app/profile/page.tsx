@@ -161,6 +161,7 @@ function ProfileInner() {
   }, []);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoManagerOpen, setPhotoManagerOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const dragIdx = useRef<number | null>(null);
@@ -233,6 +234,9 @@ function ProfileInner() {
     const json = await res.json().catch(() => ({}));
     setPhotoMsg(res.ok ? "Photo removed." : json.error ?? "Couldn't remove that photo here.");
     setTimeout(() => setPhotoMsg(null), 5000);
+    if (res.ok) {
+      setProfile((prev) => (prev ? { ...prev, photos: prev.photos.filter((p) => p !== path) } : prev));
+    }
   }, []);
 
   /**
@@ -347,30 +351,63 @@ function ProfileInner() {
         </div>
         {!editing ? (
           <div className="flex items-center gap-2">
-            {profile?.id ? (
-              <button
-                type="button"
-                onClick={() => setViewAs(profile.id ?? null)}
-                className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold"
-                title="See exactly what other members see"
-              >
-                View as others
-              </button>
-            ) : null}
-            <button type="button" onClick={startEdit} className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold">
+            <button
+              type="button"
+              onClick={startEdit}
+              className="btn-ember btn-shine relative overflow-hidden rounded-full px-5 py-2.5 text-[13px] font-bold"
+            >
               Edit profile
             </button>
-            <a
-              href="/app/settings"
-              className="btn-ghost flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
-              title="Settings — privacy, alerts, preferences, account"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z" />
-              </svg>
-              Settings
-            </a>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setActionsOpen((o) => !o)}
+                aria-label="More profile actions"
+                aria-expanded={actionsOpen}
+                title="More actions"
+                className="btn-ghost flex h-[42px] w-[42px] items-center justify-center rounded-full px-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
+              </button>
+              {actionsOpen ? (
+                <>
+                  <div className="fixed inset-0 z-[90]" onClick={() => setActionsOpen(false)} />
+                  <div className="animate-scale-in absolute right-0 top-[50px] z-[95] w-[230px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                    {profile?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsOpen(false);
+                          setViewAs(profile.id ?? null);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        View as others
+                      </button>
+                    ) : null}
+                    <a
+                      href="/app/settings"
+                      onClick={() => setActionsOpen(false)}
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] ${profile?.id ? "border-t border-white/[0.06]" : ""}`}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z" />
+                      </svg>
+                      Settings
+                    </a>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -508,7 +545,7 @@ function ProfileInner() {
           onClick={() => setPhotoManagerOpen(true)}
           className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] font-bold text-[var(--color-sand)] transition hover:bg-white/[0.09] hover:text-[var(--color-pearl)] disabled:opacity-50"
         >
-          Add more photos
+          Manage photos
         </button>
       </div>
 
@@ -854,6 +891,103 @@ function ProfileInner() {
         </div>
       ) : (
         <div className="mt-6 space-y-5">
+          {/* Photos — change, delete, re-upload or snap directly from the edit screen */}
+          <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Your photos</p>
+                <p className="mt-0.5 text-[12px] text-[var(--color-mist)]">
+                  {profile.photos.length}/6 slots · first photo is your card photo
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10.5px] font-black uppercase tracking-wider text-[var(--color-ash)]">
+                Edit mode
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2.5">
+              {profile.photos.map((src, i) => (
+                <div key={`${src}-${i}`} className="relative">
+                  <img
+                    src={src}
+                    alt={`Profile photo ${i + 1}`}
+                    className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover"
+                  />
+                  {i === 0 ? (
+                    <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">
+                      Card
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void deletePhoto(src)}
+                    aria-label={`Remove photo ${i + 1}`}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                  <div className="absolute inset-x-1.5 bottom-1.5 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => void reorderPhotos(i, i - 1)}
+                      disabled={i === 0}
+                      aria-label="Move photo earlier"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black disabled:opacity-30"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
+                        <path d="M8 1.5L3.5 6 8 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void reorderPhotos(i, i + 1)}
+                      disabled={i === profile.photos.length - 1}
+                      aria-label="Move photo later"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-black/75 text-white ring-1 ring-white/25 transition hover:bg-black disabled:opacity-30"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden>
+                        <path d="M4 1.5L8.5 6 4 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {profile.photos.length < 6 ? (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={() => photoInputRef.current?.click()}
+                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] text-[var(--color-mist)] transition hover:border-white/30 hover:bg-white/[0.05] disabled:opacity-50"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider">
+                    {photoBusy ? "Adding…" : "Gallery"}
+                  </span>
+                </button>
+              ) : null}
+              {profile.photos.length < 6 ? (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={() => setCameraOpen(true)}
+                  className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.05] text-[var(--color-gold-300)] transition hover:bg-[var(--color-gold-500)]/[0.1] disabled:opacity-50"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />
+                    <circle cx="12" cy="13.6" r="3.4" />
+                  </svg>
+                  <span className="text-[10.5px] font-black uppercase tracking-wider">Camera</span>
+                </button>
+              ) : null}
+            </div>
+            <p className="mt-3 rounded-xl border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--color-gold-300)]">
+              Delete, reorder, re-upload from your gallery, or snap a fresh photo — adding a
+              new photo may trigger a quick identity re-check.
+            </p>
+          </div>
           <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-5">
             <p className="mb-4 text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Basics</p>
             <div className="grid gap-4 sm:grid-cols-2">
