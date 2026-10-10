@@ -7,6 +7,7 @@ import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
 import { UnvaxTip } from "@/components/unvax-tip";
 import { Wordmark } from "@/components/wordmark";
+import { MixerCard } from "./settings-view";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import {
@@ -572,6 +573,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               See people you passed again
             </button>
           ) : null}
+          <div className="mt-8 text-left">
+            <MixerCard defaultCity="" />
+          </div>
         </div>
       ) : (
         <div className="relative">

@@ -45,7 +45,7 @@ const jsonLd = [
         name: "Is Freeborn free?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes — matching, chatting, photos, and voice notes are free. No paywall hides the basics.",
+          text: "Yes — matching, chatting, photos, and voice notes are free, and you can see exactly who liked you without paying. No paywall hides the basics.",
         },
       },
       {

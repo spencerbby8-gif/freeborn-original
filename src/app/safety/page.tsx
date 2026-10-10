@@ -1,0 +1,164 @@
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { Wordmark } from "@/components/wordmark";
+
+export const metadata: Metadata = {
+  title: "Safety & trust",
+  description:
+    "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
+  robots: { index: true, follow: true },
+};
+
+const iconProps = {
+  width: 26,
+  height: 26,
+  viewBox: "0 0 26 26",
+  fill: "none",
+  "aria-hidden": true as const,
+};
+
+const icons: Record<string, ReactNode> = {
+  shield: (
+    <svg {...iconProps}>
+      <path d="M13 2.8l7.6 3v6c0 5.4-3.4 9.3-7.6 11-4.2-1.7-7.6-5.6-7.6-11v-6l7.6-3z" stroke="#4fb8a7" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M9.6 12.6l2.4 2.4 4.6-5" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  eye: (
+    <svg {...iconProps}>
+      <path d="M2.5 13S6.5 6.5 13 6.5 23.5 13 23.5 13 19.5 19.5 13 19.5 2.5 13 2.5 13z" stroke="#d9a752" strokeWidth="1.4" strokeLinejoin="round" />
+      <circle cx="13" cy="13" r="3" stroke="#4fb8a7" strokeWidth="1.4" />
+    </svg>
+  ),
+  gate: (
+    <svg {...iconProps}>
+      <rect x="3" y="5" width="20" height="16" rx="3" stroke="#d9a752" strokeWidth="1.4" />
+      <circle cx="9.2" cy="12" r="2.4" stroke="#4fb8a7" strokeWidth="1.4" />
+      <path d="M5.6 18.2c.7-1.7 2-2.6 3.6-2.6s2.9.9 3.6 2.6M15.5 10h4.8M15.5 13.5h4.8M15.5 17h3" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  ),
+  lock: (
+    <svg {...iconProps}>
+      <rect x="5" y="11" width="16" height="11" rx="3" stroke="#d9a752" strokeWidth="1.4" />
+      <path d="M8.5 11V8.4a4.5 4.5 0 019 0V11" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="13" cy="16" r="1.6" fill="#4fb8a7" />
+      <path d="M13 17.4v1.8" stroke="#4fb8a7" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  ),
+  sliders: (
+    <svg {...iconProps}>
+      <path d="M4 8h18M4 13h18M4 18h18" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="9" cy="8" r="2.2" fill="#0a0d18" stroke="#4fb8a7" strokeWidth="1.4" />
+      <circle cx="17" cy="13" r="2.2" fill="#0a0d18" stroke="#4fb8a7" strokeWidth="1.4" />
+      <circle cx="11" cy="18" r="2.2" fill="#0a0d18" stroke="#4fb8a7" strokeWidth="1.4" />
+    </svg>
+  ),
+  scale: (
+    <svg {...iconProps}>
+      <path d="M13 3v20M6 23h14M13 6l-6 3 2.5 5a3 3 0 01-5 0L7 9M13 6l6 3-2.5 5a3 3 0 005 0L19 9" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
+
+const sections = [
+  {
+    icon: "shield",
+    title: "Identity verification, without the surveillance",
+    body: "A quick pose-mimic selfie: you mimic a pose, two independent engines confirm it's a live person matching your photos. No ID, no documents, no biometric templates — nothing is stored but the verdict. Uploading a new face photo revokes the seal until you re-verify, so the teal badge always matches the face.",
+  },
+  {
+    icon: "eye",
+    title: "Moderation that never auto-punishes",
+    body: "Every report is cross-checked by two independent models from different providers, judging observable evidence only — never private chats. Reports alone never ban anyone. Only hard evidence suspends an account, and every doubtful case lands in a human review queue.",
+  },
+  {
+    icon: "gate",
+    title: "The door stays closed to server farms",
+    body: "Sign-in from datacenter and hosting IPs is blocked on the spot. VPN and proxy traffic is allowed and only recorded — privacy-minded members are Freeborn's own people, and a VPN is not proof of abuse.",
+  },
+  {
+    icon: "lock",
+    title: "Private by default",
+    body: "Email, full birth date, last names, and exact coordinates never appear publicly. Chat media is stored privately per member — never sold, never handed to advertisers. No ads, no data selling.",
+  },
+  {
+    icon: "sliders",
+    title: "Controls in your hands",
+    body: "Block, report, hide, or deactivate — one tap, no dark patterns, no 'are you sure?' maze. Hiding removes you from Discover instantly; matches and history stay saved.",
+  },
+  {
+    icon: "scale",
+    title: "Rate limits on reports",
+    body: "Report tools are rate-limited per account, so one person can't weaponize them with mass reports. Reports open investigations — they never punish on their own.",
+  },
+];
+
+export default function SafetyPage() {
+  return (
+    <main className="night-field min-h-[100dvh]">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
+        <Link href="/" className="transition hover:opacity-80">
+          <Wordmark size="md" />
+        </Link>
+        <Link href="/" className="btn-ghost rounded-full px-5 py-2.5 text-[13px] font-bold">
+          Back to home
+        </Link>
+      </header>
+
+      <section className="mx-auto max-w-6xl px-5 pb-10 pt-10 sm:px-8 lg:pt-16">
+        <p className="eyebrow">Safety &amp; trust</p>
+        <h1 className="mt-5 font-display text-[clamp(2.2rem,4.5vw,3.6rem)] font-semibold leading-[1.06] tracking-[-0.02em] text-pearl">
+          Real people.{" "}
+          <em className="font-medium italic text-gold-soft">Verified, moderated, and yours to control.</em>
+        </h1>
+        <p className="mt-6 max-w-2xl text-[16px] leading-[1.8] text-mist">
+          This is exactly how Freeborn keeps the room real — not a promise, but the
+          working system behind it. Every claim below is enforced in the product.
+        </p>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {sections.map((s) => (
+            <div
+              key={s.title}
+              className="group rounded-[22px] border hairline bg-abyss/60 p-7 transition-all duration-500 hover:border-ember/30 hover:bg-abyss"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border hairline bg-night transition-transform duration-500 group-hover:-translate-y-1">
+                {icons[s.icon]}
+              </div>
+              <h2 className="mt-5 font-display text-[19px] font-semibold tracking-tight text-pearl">{s.title}</h2>
+              <p className="mt-2.5 text-[14px] leading-[1.75] text-mist">{s.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-16 rounded-[28px] border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-8 sm:p-10">
+          <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[var(--color-teal-300)]">
+            The Freeborn safety promise
+          </p>
+          <ul className="mt-4 grid gap-3 text-[14px] leading-[1.7] text-mist sm:grid-cols-2">
+            <li>· Identity checks use pose-mimic selfies with a moderation queue — never links sent in DMs.</li>
+            <li>· Reports land in a moderation queue with rate limits — one person cannot weaponize them.</li>
+            <li>· Chat media is stored privately per member — never sold, never handed to advertisers.</li>
+            <li>· New profile photos require re-verification, so the seal always matches the face.</li>
+            <li>· You can hide or deactivate your account at any time — one tap, no dark patterns.</li>
+            <li>· No paywall hides who liked you — every like is visible, exactly as it happened.</li>
+          </ul>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/auth?mode=sign-up"
+              className="btn-ember btn-shine relative overflow-hidden rounded-full px-8 py-3.5 text-[15px] font-bold"
+            >
+              Create your profile
+            </Link>
+            <Link href="/" className="btn-ghost rounded-full px-7 py-3.5 text-[15px] font-semibold">
+              Back to the room
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

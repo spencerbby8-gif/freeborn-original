@@ -424,6 +424,7 @@ export function VerifyGate() {
               <ul className="mt-5 space-y-3">
                 {[
                   ["Live selfie only", "Your camera confirms you're a real person. No documents needed to start."],
+                  ["Nothing stored but the verdict", "No ID, no documents, no biometric templates — a quick pose selfie proves you're you, and only the result is kept."],
                   ["In-app, always", "Freeborn never verifies through links in DMs, texts, or email — those are scams."],
                   ["Reviewed before it counts", "Every submission is checked before your profile carries the confirmation. Usually within minutes."],
                 ].map(([title, body]) => (

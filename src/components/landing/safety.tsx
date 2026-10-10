@@ -44,6 +44,17 @@ const icons: Record<string, ReactNode> = {
       <circle cx="11" cy="18" r="2.2" fill="#0a0d18" stroke="#4fb8a7" strokeWidth="1.4" />
     </svg>
   ),
+  heart: (
+    <svg {...iconProps}>
+      <path d="M13 21.5S4.4 16.6 4.4 10.4a4.6 4.6 0 018.6-1.7 4.6 4.6 0 018.6 1.7c0 6.2-8.6 11.1-8.6 11.1z" stroke="#d9a752" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  ),
+  badge: (
+    <svg {...iconProps}>
+      <path d="M13 2.8l7.6 3v6c0 5.4-3.4 9.3-7.6 11-4.2-1.7-7.6-5.6-7.6-11v-6l7.6-3z" stroke="#4fb8a7" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M9.6 12.6l2.4 2.4 4.6-5" stroke="#d9a752" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };
 
 const features = [
@@ -69,6 +80,18 @@ const features = [
     icon: "sliders",
     title: "Discovery controls",
     body: "Tune age range, distance, shown genders, intentions, verified-only discovery — and whether you are discoverable at all.",
+    wide: false,
+  },
+  {
+    icon: "heart",
+    title: "See who liked you — free",
+    body: "Every like is visible, exactly as it happened. No mystery notifications, no paywall to peek at who's interested.",
+    wide: false,
+  },
+  {
+    icon: "badge",
+    title: "Verified-only discovery",
+    body: "Turn it on and the room shows just trust-checked profiles — the teal seal always matches the face.",
     wide: false,
   },
 ];
@@ -104,9 +127,14 @@ export function Safety() {
               Every safety choice below is visible, editable, and enforced in the
               product, not just on this page.
             </p>
-            <a href="/auth?mode=sign-up" className="btn-ghost mt-8 inline-flex rounded-full px-6 py-3 text-[14px] font-bold">
-              Create your account
-            </a>
+            <div className="mt-8 flex flex-col items-start gap-4">
+              <a href="/auth?mode=sign-up" className="btn-ghost inline-flex rounded-full px-6 py-3 text-[14px] font-bold">
+                Create your account
+              </a>
+              <a href="/safety" className="text-[13px] font-bold text-gold-soft underline decoration-gold/30 underline-offset-4 transition hover:decoration-gold/70">
+                Read the full safety &amp; trust standard →
+              </a>
+            </div>
           </Reveal>
 
           <div className="grid gap-4 sm:grid-cols-2">
