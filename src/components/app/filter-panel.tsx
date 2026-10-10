@@ -32,12 +32,17 @@ function Chip({
       type="button"
       onClick={onToggle}
       aria-pressed={active}
-      className={`h-[38px] rounded-full border px-4 text-[13px] font-bold transition ${
+      className={`inline-flex h-[38px] items-center gap-1.5 rounded-full border px-4 text-[13px] font-bold transition ${
         active
-          ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)]"
+          ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)] shadow-[0_0_12px_rgba(217,167,82,0.18)]"
           : "border-white/10 bg-white/[0.02] text-[var(--color-sand)] hover:border-white/25"
       }`}
     >
+      {active ? (
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path d="M2.2 6.4l2.4 2.4 5.2-5.4" stroke="var(--color-gold-300)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : null}
       {label}
     </button>
   );
@@ -140,6 +145,10 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
     });
   };
 
+  const activeCount = Object.keys(f).filter(
+    (k) => JSON.stringify(f[k as keyof HomeFilters]) !== JSON.stringify((DEFAULT_FILTERS as Record<string, unknown>)[k])
+  ).length;
+
   const apply = () => {
     saveFilters(f);
     setSaved(true);
@@ -155,7 +164,14 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
-          <h2 className="font-display text-xl font-semibold">Filters</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="font-display text-xl font-semibold">Filters</h2>
+            {activeCount > 0 ? (
+              <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/12 px-2.5 py-0.5 text-[10.5px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
+                {activeCount} active
+              </span>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -327,7 +343,8 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
           <button
             type="button"
             onClick={clear}
-            className="rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+            disabled={activeCount === 0}
+            className="rounded-full border border-white/10 bg-white/[0.03] px-6 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)] disabled:opacity-40"
           >
             Clear all
           </button>

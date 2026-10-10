@@ -560,10 +560,12 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
-          {kind === "video" ? "Freeborn video call" : "Freeborn voice call"}
+          {state === "live" ? peer.name : kind === "video" ? "Freeborn video call" : "Freeborn voice call"}
         </p>
+        {/* No connecting chatter top-right — silence while connecting, the
+            timer once live, the outcome only when the call is finished. */}
         <p className="max-w-[55%] truncate text-right text-[12px] font-bold text-[var(--color-gold-300)]">
-          {state === "live" ? fmt : detail}
+          {state === "live" ? fmt : finished ? detail : null}
         </p>
       </div>
 
@@ -583,6 +585,9 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           />
         ) : null}
 
+        {/* The center avatar yields to the remote video the moment the call
+            is live — both users see each other, full screen. */}
+        {!(kind === "video" && state === "live") ? (
         <div className="relative z-10 flex flex-col items-center gap-4">
           {peer.photo ? (
             <img
@@ -613,6 +618,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             </button>
           ) : null}
         </div>
+        ) : null}
 
         {kind === "video" ? (
           <div className="absolute bottom-6 right-4 z-20">
