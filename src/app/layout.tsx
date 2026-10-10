@@ -64,6 +64,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="bg-[var(--color-night)]">
       <head>
+        {/* Installable web app (PWA) — web-first, no app-store dependency. */}
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Freeborn" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); }); }',
+          }}
+        />
         {/* Speed layer: warm the connections before the first request needs
             them — auth calls, images, and the captcha start instantly. */}
         <link rel="preconnect" href="https://ihwtpwlszegrjgakqsxx.supabase.co" crossOrigin="anonymous" />

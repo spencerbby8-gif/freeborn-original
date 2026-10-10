@@ -253,7 +253,7 @@ export function Hero() {
                   ))}
                 </ul>
                 <p className="mt-6 text-[12px] tracking-wide text-ash">
-                  Free to join · Full profiles · Clear intentions from the first screen.
+                  Free to join · See who liked you — free · Verified-only discovery · Clear intentions from the first screen.
                 </p>
               </span>
             </div>

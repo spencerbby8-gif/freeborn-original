@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
 import { ProfileView } from "@/components/app/profile-view";
 import { CameraCapture } from "@/components/camera-capture";
+import { FreebornSelect } from "@/components/select-menu";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 type MeProfile = {
@@ -62,26 +63,13 @@ function SelectField({
   labels?: Record<string, string>;
 }) {
   return (
-    <div className="space-y-2">
-      <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-h-[48px] w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 text-[14px] font-medium text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)]"
-        >
-          <option value="" className="bg-[var(--color-midnight)]">Select…</option>
-          {options.map((o) => (
-            <option key={o} value={o} className="bg-[var(--color-midnight)]">
-              {labels?.[o] ?? o}
-            </option>
-          ))}
-        </select>
-        <svg className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-mist)]" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-          <path d="M2.5 5l4.5 4.5L11.5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-    </div>
+    <FreebornSelect
+      label={label}
+      value={value}
+      options={options.map((o) => ({ value: o, label: labels?.[o] ?? o }))}
+      onChange={onChange}
+      placeholder="Select…"
+    />
   );
 }
 
