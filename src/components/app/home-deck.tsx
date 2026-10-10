@@ -640,7 +640,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                         </span>
                       ) : null}
                       {profile.vaccinationStatus === "unvaccinated" ? (
-                        <UnvaxBadge size={20} />
+                        <UnvaxBadge size={17} withLabel />
                       ) : null}
                       {isTop && profile.vaccinationStatus === "unvaccinated" ? (
                         <UnvaxTip key={profile.id} />
@@ -730,7 +730,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     ))}
                   </div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                    Swipe left to skip · tap photo to view · double-tap to Super Like
+                    Swipe to skip · tap for photos · double-tap to Super Like
                   </p>
                 </button>
               </article>

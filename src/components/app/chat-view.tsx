@@ -378,6 +378,7 @@ function Thread({
   const [replyTo, setReplyTo] = useState<{ name: string; text: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   /** My own identity — carried in the ring so the callee sees who's calling. */
   const [self, setSelf] = useState<{ id: string; name: string; photo: string } | undefined>(undefined);
 
@@ -470,6 +471,15 @@ function Thread({
     }
     firstScroll.current = false;
   }, [messages.length, heightPx]);
+
+  /* The composer grows with the text (up to ~5 lines) instead of scrolling
+     long messages out of view — every word stays visible while typing. */
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [text]);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -1147,7 +1157,8 @@ function Thread({
           ) : null}
         </div>
 
-        <input
+        <textarea
+          ref={composerRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -1161,7 +1172,8 @@ function Thread({
           maxLength={1800}
           autoComplete="off"
           enterKeyHint="send"
-          className="min-h-[48px] min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.04] px-5 text-[14px] text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
+          rows={1}
+          className="max-h-[160px] min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-[14px] leading-5 text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
         />
 
         <VoiceRecorder

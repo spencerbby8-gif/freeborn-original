@@ -583,7 +583,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               </Block>
             ) : null}
 
-            {/* The details */}
+            {/* The details — a clean, editorial register */}
             {(() => {
               const details = [
                 { label: "Born", value: profile.birthMonthYear },
@@ -600,11 +600,14 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               if (!details.length) return null;
               return (
                 <Block title="The details">
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    {details.map((d) => (
-                      <div key={d.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-ash)]">{d.label}</p>
-                        <p className="mt-1 text-[13px] font-semibold text-[var(--color-ivory)]">{d.value}</p>
+                  <div className="overflow-hidden rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-5 py-1.5">
+                    {details.map((d, i) => (
+                      <div
+                        key={d.label}
+                        className={`flex items-baseline justify-between gap-4 py-3 ${i < details.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                      >
+                        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">{d.label}</p>
+                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{d.value}</p>
                       </div>
                     ))}
                   </div>
