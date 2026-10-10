@@ -346,9 +346,26 @@ function ProfileInner() {
     <div className="mx-auto max-w-[720px] pb-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Your profile</h1>
-          <p className="mt-1.5 text-sm text-[var(--color-mist)]">How others see you in the room.</p>
+          <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+            {editing ? "Edit profile" : "Your profile"}
+          </h1>
+          <p className="mt-1.5 text-sm text-[var(--color-mist)]">
+            {editing ? "Fine-tune how others see you." : "How others see you in the room."}
+          </p>
         </div>
+        {editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            aria-label="Back to profile"
+            title="Back to profile"
+            className="btn-ghost flex h-[42px] w-[42px] items-center justify-center rounded-full px-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+        ) : null}
         {!editing ? (
           <div className="flex items-center gap-2">
             <button
@@ -754,11 +771,10 @@ function ProfileInner() {
                 </div>
                 <button
                   type="button"
-                  disabled={photoBusy || profile.photos.length >= 6}
-                  onClick={() => photoInputRef.current?.click()}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-sand)] transition hover:bg-white/[0.09] hover:text-[var(--color-pearl)] disabled:opacity-50"
+                  onClick={() => setPhotoManagerOpen(true)}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-sand)] transition hover:bg-white/[0.09] hover:text-[var(--color-pearl)]"
                 >
-                  {photoBusy ? "Adding…" : "Add more"}
+                  Manage
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-2.5 p-4">
@@ -822,7 +838,7 @@ function ProfileInner() {
           </div>
 
           {profile.values.length || profile.interests.length || profile.lifestyle.length ? (
-            <div className="space-y-3">
+            <div className="space-y-4 rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-5 py-4">
               {profile.values.length ? (
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-gold-500)]">Values</p>

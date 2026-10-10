@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { showToast } from "@/components/toast-host";
+import { VerifyBadge } from "@/components/verify-badge";
 
 type LikedProfile = {
   id: string;
@@ -21,16 +22,21 @@ type IncomingLike = LikedProfile & {
 
 function Card({ p, badge, action }: { p: LikedProfile; badge: string; action?: React.ReactNode }) {
   return (
-    <article className="overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] transition hover:border-white/[0.14]">
+    <article className="group overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] transition hover:-translate-y-0.5 hover:border-white/[0.16] hover:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)]">
       <div className="relative aspect-[4/5]">
         {p.photo ? (
-          <img src={p.photo} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
+          <img src={p.photo} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
         ) : (
           <span className="flex h-full w-full items-center justify-center bg-[var(--gradient-ember-warm)] font-display text-3xl font-bold text-white">
             {p.name.charAt(0)}
           </span>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b1022] via-transparent to-transparent" />
+        {p.verified ? (
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-night/55 p-1 backdrop-blur-sm">
+            <VerifyBadge size={18} />
+          </span>
+        ) : null}
         <div className="absolute inset-x-3 bottom-2.5">
           <p className="text-[15px] font-black text-[var(--color-pearl)]">{p.name}</p>
           <p className="text-[11px] text-[var(--color-sand)]">{p.city}</p>
@@ -148,8 +154,11 @@ export function LikesView() {
       </p>
 
       {/* --- Who liked YOU (the feature the competitors never built) ---------- */}
-      <h2 className="mt-8 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-gold-300)]">
-        Liked you {likedYou.length > 0 ? `· ${likedYou.length}` : ""}
+      <h2 className="mt-8 flex items-center gap-2.5 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-gold-300)]">
+        Liked you
+        {likedYou.length > 0 ? (
+          <span className="rounded-full bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10.5px] tabular-nums text-[var(--color-gold-300)]">{likedYou.length}</span>
+        ) : null}
       </h2>
       {likedYou.length === 0 ? (
         <div className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-7 text-center">
@@ -179,9 +188,18 @@ export function LikesView() {
                     type="button"
                     disabled={busyId === p.id}
                     onClick={() => void likeBack(p)}
-                    className="rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1.5 text-[11px] font-black text-white transition active:scale-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-white shadow-[0_8px_20px_-8px_rgba(239,94,94,0.7)] transition hover:brightness-110 active:scale-95 disabled:opacity-50"
                   >
-                    {busyId === p.id ? "…" : "Like back"}
+                    {busyId === p.id ? (
+                      "…"
+                    ) : (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                          <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
+                        </svg>
+                        Like back
+                      </>
+                    )}
                   </button>
                 )
               }
@@ -191,8 +209,11 @@ export function LikesView() {
       )}
 
       {/* --- Who YOU liked ------------------------------------------------------ */}
-      <h2 className="mt-9 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-sand)]">
-        You liked {liked.length > 0 ? `· ${liked.length}` : ""}
+      <h2 className="mt-9 flex items-center gap-2.5 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-sand)]">
+        You liked
+        {liked.length > 0 ? (
+          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] tabular-nums text-[var(--color-sand)]">{liked.length}</span>
+        ) : null}
       </h2>
       {liked.length === 0 ? (
         <div className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-7 text-center">
