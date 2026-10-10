@@ -1,0 +1,16 @@
+{
+  "name": "Freeborn — Date Like You Mean It",
+  "short_name": "Freeborn",
+  "description": "The relationship platform for health autonomy, natural living, and intentional long-term commitment.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0d18",
+  "theme_color": "#d9a752",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

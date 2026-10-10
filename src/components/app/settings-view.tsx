@@ -3,13 +3,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
+import { FreebornSelect } from "@/components/select-menu";
 import { showToast } from "@/components/toast-host";
 
 /**
  * Freeborn mixers — real people in real places. Members register interest in
  * a city; the numbers shown are real counts, never inflated.
  */
-function MixerCard({ defaultCity }: { defaultCity: string }) {
+export function MixerCard({ defaultCity }: { defaultCity: string }) {
   const [city, setCity] = useState(defaultCity);
   const [sameCity, setSameCity] = useState<number | null>(null);
   const [interested, setInterested] = useState(false);
@@ -721,19 +722,20 @@ export function SettingsView() {
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
                 Control who your card can appear to.
               </p>
-              <select
-                value={p.discoverPrivacy ?? "everyone"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setP({ discoverPrivacy: v });
-                  void post({ profile: { discoverPrivacy: v } });
-                }}
-                className="mt-2.5 min-h-[46px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] font-bold text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)]"
-              >
-                <option value="everyone" className="bg-[#0c101d]">Everyone</option>
-                <option value="verified" className="bg-[#0c101d]">Only verified members</option>
-                <option value="unvaccinated" className="bg-[#0c101d]">Only unvaccinated members</option>
-              </select>
+              <div className="mt-2.5">
+                <FreebornSelect
+                  value={p.discoverPrivacy ?? "everyone"}
+                  options={[
+                    { value: "everyone", label: "Everyone" },
+                    { value: "verified", label: "Only verified members" },
+                    { value: "unvaccinated", label: "Only unvaccinated members" },
+                  ]}
+                  onChange={(v) => {
+                    setP({ discoverPrivacy: v });
+                    void post({ profile: { discoverPrivacy: v } });
+                  }}
+                />
+              </div>
             </div>
 
             {/* Who can message you */}
@@ -742,19 +744,20 @@ export function SettingsView() {
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
                 Applies when starting a conversation — and to every message after.
               </p>
-              <select
-                value={p.messagePrivacy ?? "everyone"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setP({ messagePrivacy: v });
-                  void post({ profile: { messagePrivacy: v } });
-                }}
-                className="mt-2.5 min-h-[46px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[13px] font-bold text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)]"
-              >
-                <option value="everyone" className="bg-[#0c101d]">Everyone</option>
-                <option value="verified" className="bg-[#0c101d]">Only verified members</option>
-                <option value="unvaccinated" className="bg-[#0c101d]">Only unvaccinated members</option>
-              </select>
+              <div className="mt-2.5">
+                <FreebornSelect
+                  value={p.messagePrivacy ?? "everyone"}
+                  options={[
+                    { value: "everyone", label: "Everyone" },
+                    { value: "verified", label: "Only verified members" },
+                    { value: "unvaccinated", label: "Only unvaccinated members" },
+                  ]}
+                  onChange={(v) => {
+                    setP({ messagePrivacy: v });
+                    void post({ profile: { messagePrivacy: v } });
+                  }}
+                />
+              </div>
             </div>
             <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-[12px] leading-5 text-[var(--color-ash)]">
               Email, full birth date, and exact coordinates are never shown publicly — that's fixed, not a setting.
