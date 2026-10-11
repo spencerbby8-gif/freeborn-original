@@ -5,6 +5,7 @@ import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
 import { PhotoLightbox } from "./photo-lightbox";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { prettyText } from "@/lib/pretty-text";
 import { showToast } from "@/components/toast-host";
 
 const REPORT_REASONS: Array<{ value: string; label: string }> = [
@@ -546,7 +547,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               ) : null}
               {profile.relationshipGoals.map((g) => (
                 <span key={g} className="rounded-full border border-[var(--color-ember-500)]/30 bg-[var(--color-ember-500)]/[0.07] px-3.5 py-1.5 text-[12px] font-bold text-[#ffb4a6]">
-                  {GOAL_LABELS[g] ?? g}
+                  {GOAL_LABELS[g] ?? prettyText(g)}
                 </span>
               ))}
             </div>
@@ -607,7 +608,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                         className={`flex items-baseline justify-between gap-4 py-3 ${i < details.length - 1 ? "border-b border-white/[0.05]" : ""}`}
                       >
                         <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">{d.label}</p>
-                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{d.value}</p>
+                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(d.value)}</p>
                       </div>
                     ))}
                   </div>

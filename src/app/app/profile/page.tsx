@@ -7,6 +7,7 @@ import { ProfileView } from "@/components/app/profile-view";
 import { CameraCapture } from "@/components/camera-capture";
 import { FreebornSelect } from "@/components/select-menu";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { prettyText } from "@/lib/pretty-text";
 
 type MeProfile = {
   displayName: string;
@@ -419,7 +420,7 @@ function ProfileInner() {
 
       {/* Identity check status */}
       {profile.isVerified ? (
-        <div className="mt-6 flex items-center gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-4">
+        <div className="mt-6 flex items-center gap-3 rounded-[22px] border border-l-4 border-white/[0.08] border-l-[var(--color-teal-500)] bg-white/[0.025] p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-teal-300)]">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
@@ -436,7 +437,7 @@ function ProfileInner() {
           </div>
         </div>
       ) : verifyStatus === "rejected" ? (
-        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-red-400/35 bg-red-500/[0.07] p-4">
+        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-l-4 border-red-400/35 border-l-red-400 bg-red-500/[0.07] p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-red-400/40 bg-red-500/10 text-red-300">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <circle cx="12" cy="12" r="9" />
@@ -460,7 +461,7 @@ function ProfileInner() {
           </button>
         </div>
       ) : verifyStatus === "pending" ? (
-        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.025] p-4">
+        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-l-4 border-white/[0.08] border-l-[var(--color-gold-500)] bg-white/[0.025] p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <circle cx="12" cy="12" r="9" />
@@ -475,7 +476,7 @@ function ProfileInner() {
           </div>
         </div>
       ) : (
-        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/[0.06] p-4">
+        <div className="mt-6 flex items-center gap-4 rounded-[22px] border border-l-4 border-[var(--color-gold-500)]/35 border-l-[var(--color-gold-500)] bg-[var(--color-gold-500)]/[0.06] p-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
@@ -819,7 +820,7 @@ function ProfileInner() {
                     <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">
                       {f.label}
                     </p>
-                    <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{f.value}</p>
+                    <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(f.value)}</p>
                   </div>
                 ))}
             </div>
@@ -862,7 +863,7 @@ function ProfileInner() {
                   <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-gold-500)]">Looking for</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {profile.relationshipGoals.map((v) => (
-                      <span key={v} className="rounded-full border border-[var(--color-ember-500)]/30 bg-[var(--color-ember-500)]/[0.07] px-3 py-1 text-[11px] font-semibold text-[#ffb4a6]">{v.replace(/_/g, " ")}</span>
+                      <span key={v} className="rounded-full border border-[var(--color-ember-500)]/30 bg-[var(--color-ember-500)]/[0.07] px-3 py-1 text-[11px] font-semibold text-[#ffb4a6]">{prettyText(v)}</span>
                     ))}
                   </div>
                 </div>
