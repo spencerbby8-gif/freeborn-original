@@ -61,6 +61,9 @@ async function askGemini(content: Array<Record<string, unknown>>): Promise<strin
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${KEY}`,
+          /* The Antigravity gateway documents x-api-key as its client header —
+             send both so either contract keeps working. */
+          "x-api-key": KEY,
         },
         body: JSON.stringify({
           model: MODEL,
