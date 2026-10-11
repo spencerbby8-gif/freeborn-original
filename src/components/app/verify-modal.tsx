@@ -430,7 +430,12 @@ export function VerifyGate() {
         showToast({
           tone: "success",
           title: "Identity verified",
-          body: "Both checks passed — your profile is confirmed.",
+          /* Truthful copy: "dual" only when the second engine actually ran —
+             never claim two checks when one did. */
+          body:
+            json.engine === "dual"
+              ? "Both independent checks passed — your profile is confirmed."
+              : "Your identity check passed — your profile is confirmed.",
         });
         return;
       }

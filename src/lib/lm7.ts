@@ -37,9 +37,12 @@ export function lm7Configured(): boolean {
 
 export type Lm7Reply =
   | { ok: true; text: string }
-  | { ok: false; reason: "unconfigured" | "invalid-key" | "unreachable" };
+  | { ok: false; reason: "unconfigured" | "invalid-key" | "vision-disabled" | "unreachable" };
 
 const INVALID_KEY_RE = /invalid|expired|revoked|does not have access/i;
+/* VoidAI free plans disable vision/OCR outright — a plan state, not a
+   transient failure: fail fast instead of walking the whole model chain. */
+const VISION_DISABLED_RE = /vision[^\n]{0,60}disabled|vision_disabled/i;
 
 async function callOnce(model: string, content: Array<Record<string, unknown>>): Promise<Lm7Reply> {
   const ctrl = new AbortController();
@@ -68,6 +71,7 @@ async function callOnce(model: string, content: Array<Record<string, unknown>>):
     const text = json?.choices?.[0]?.message?.content ?? "";
     if (text) return { ok: true, text };
     const errMsg = json?.error?.message ?? "";
+    if (VISION_DISABLED_RE.test(errMsg)) return { ok: false, reason: "vision-disabled" };
     if (INVALID_KEY_RE.test(errMsg)) return { ok: false, reason: "invalid-key" };
     return { ok: false, reason: "unreachable" };
   } catch {
@@ -92,7 +96,7 @@ export async function askLm7(content: Array<Record<string, unknown>>): Promise<L
     const reply = await callOnce(model, content);
     if (reply.ok) return reply;
     last = reply;
-    if (reply.reason === "invalid-key") return reply; // whole key rejected — stop early
+    if (reply.reason === "invalid-key" || reply.reason === "vision-disabled") return reply; // plan-wide state — stop early
   }
   return last;
 }

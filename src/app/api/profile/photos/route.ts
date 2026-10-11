@@ -1,9 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { chatMedia, profilePhotos, userProfiles } from "@/db/schema";
+import { chatMedia, profilePhotos, reports, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import {
+  logIdentityCheck,
+  matchRateLimited,
+  runIdentityMatch,
+} from "@/lib/identity-match";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const MIMES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -11,9 +17,21 @@ const MAX_PHOTOS = 6;
 
 /**
  * POST /api/profile/photos
- * Adds a new profile photo. Security rule: a new face-photo invalidates the
- * teal seal, so any approved verification is revoked (is_verified=false) and
- * the member must re-verify. The client warns about this before uploading.
+ * Adds a new profile photo.
+ *
+ * IDENTITY MATCH GATE: a member who already passed live verification gets
+ * their new photo checked against their verified references (the
+ * live-verified selfie + existing profile photos) by up to two independent
+ * vision engines.
+ *   - confident SAME person → photo added, verification seal STAYS (no
+ *     re-verification);
+ *   - confident DIFFERENT person → upload rejected (409) and flagged to the
+ *     moderation queue;
+ *   - anything doubtful (disagreement / unclear / engines down / rate
+ *     limited) → photo added but the seal is revoked — exactly the pre-gate
+ *     behavior. Doubt never locks a member out, and doubt never keeps an
+ *     unchecked photo sealed.
+ * Unverified members are unaffected.
  */
 export async function POST(request: Request) {
   const member = await getMember(request);
@@ -61,6 +79,8 @@ export async function POST(request: Request) {
   if (bytes.length > MAX_BYTES) {
     return Response.json({ error: "Photo too large (max 8 MB)." }, { status: 400 });
   }
+  /* Validated above: a base64 image data URL of an allowed MIME type. */
+  const photoData = data as string;
 
   const existing = await db
     .select({ id: profilePhotos.id })
@@ -70,6 +90,66 @@ export async function POST(request: Request) {
     return Response.json(
       { error: `Profile photos are capped at ${MAX_PHOTOS}. Remove one first.` },
       { status: 400 }
+    );
+  }
+
+  /* --- Identity match gate (verified members only) -------------------------
+     Runs BEFORE anything is stored: a confident mismatch rejects the upload
+     outright; a confident match keeps the seal; doubt falls back to the
+     pre-gate behavior (add + revoke). -------------------------------------- */
+  const [me] = await db
+    .select({ isVerified: userProfiles.isVerified })
+    .from(userProfiles)
+    .where(eq(userProfiles.id, member.id))
+    .limit(1);
+  const verified = Boolean(me?.isVerified);
+
+  let identityMatch: {
+    decision: "match" | "mismatch" | "unclear";
+    engine: string;
+    confidence: string;
+  } | null = null;
+
+  if (verified) {
+    if (matchRateLimited(member.id)) {
+      identityMatch = { decision: "unclear", engine: "rate-limited", confidence: "unknown" };
+    } else {
+      try {
+        const origin = new URL(request.url).origin;
+        const outcome = await runIdentityMatch(member.id, photoData, origin);
+        identityMatch = {
+          decision: outcome.decision,
+          engine: outcome.engine,
+          confidence: outcome.confidence,
+        };
+        await logIdentityCheck(member.id, outcome);
+      } catch {
+        identityMatch = { decision: "unclear", engine: "error", confidence: "unknown" };
+      }
+    }
+  }
+
+  if (identityMatch?.decision === "mismatch") {
+    /* Flag to the moderation queue — a human can review and clear it. */
+    try {
+      await db.insert(reports).values({
+        reporterId: member.id,
+        subjectId: member.id,
+        reason: "fake_profile",
+        details: `Identity match gate rejected a new photo upload (engine=${identityMatch.engine}, confidence=${identityMatch.confidence}). The photo did not match the member's verified identity references. Member may re-verify with a fresh selfie.`,
+        status: "open",
+      });
+    } catch {
+      /* queue flag is best-effort */
+    }
+    return Response.json(
+      {
+        error: "identity-mismatch",
+        message:
+          "This photo doesn't appear to match your verified identity, so it wasn't added. Verify your identity again with a fresh selfie, then add the photo.",
+        canReverify: true,
+      },
+      { status: 409 }
     );
   }
 
@@ -87,14 +167,11 @@ export async function POST(request: Request) {
     position: existing.length,
   });
 
-  // New photo → seal revoked until re-verification.
-  const [me] = await db
-    .select({ isVerified: userProfiles.isVerified })
-    .from(userProfiles)
-    .where(eq(userProfiles.id, member.id))
-    .limit(1);
+  /* Seal handling: a confirmed identity match keeps the verification; any
+     other outcome for a verified member revokes it until re-verification
+     (the pre-gate behavior). */
   let revoked = false;
-  if (me?.isVerified) {
+  if (verified && identityMatch?.decision !== "match") {
     await db
       .update(userProfiles)
       .set({ isVerified: false })
@@ -102,7 +179,7 @@ export async function POST(request: Request) {
     revoked = true;
   }
 
-  return Response.json({ ok: true, revoked });
+  return Response.json({ ok: true, revoked, ...(identityMatch ? { identityMatch } : {}) });
 }
 
 /**

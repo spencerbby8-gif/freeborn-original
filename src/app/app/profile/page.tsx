@@ -176,12 +176,18 @@ function ProfileInner() {
   /** Live camera capture → straight into the upload pipeline. */
   const handleCameraCapture = (dataUrl: string) => {
     setCameraOpen(false);
-    void uploadPhoto(dataUrl);
+    void uploadPhoto(dataUrl, { verified: Boolean(profile?.isVerified) });
   };
 
   const uploadPhoto = useCallback(
-    async (dataUrl: string) => {
+    async (dataUrl: string, opts?: { verified?: boolean }) => {
+      const wasVerified = opts?.verified ?? false;
       setPhotoBusy(true);
+      setPhotoMsg(
+        wasVerified
+          ? "Checking this photo against your verified identity…"
+          : "Adding photo…"
+      );
       try {
         const token = await getAccessToken().catch(() => null);
         const res = await fetch("/api/profile/photos", {
@@ -194,14 +200,23 @@ function ProfileInner() {
         });
         const json = await res.json().catch(() => ({}));
         if (res.ok) {
-          setPhotoMsg("Photo saved to your profile.");
-          // A new face photo invalidates the identity check — flip the banner
-          // to the "Verify your identity" reminder immediately, no reload.
-          setProfile((prev) => (prev ? { ...prev, isVerified: false } : prev));
+          if (json.identityMatch?.decision === "match" && !json.revoked) {
+            // Identity confirmed by the AI check — the seal stays.
+            setPhotoMsg("Photo saved — identity confirmed, your verification stays.");
+          } else if (json.revoked) {
+            // Doubt or fallback — the identity check restarts with the new photos.
+            setPhotoMsg("Photo saved — your identity check restarts with your new photos.");
+            setProfile((prev) => (prev ? { ...prev, isVerified: false } : prev));
+          } else {
+            setPhotoMsg("Photo saved to your profile.");
+          }
+        } else if (res.status === 409 && json.error === "identity-mismatch") {
+          setPhotoMsg("That photo doesn't match your verified identity — it wasn't added.");
+          openVerifyFlow();
         } else {
           setPhotoMsg(json.error ?? "Couldn't add that photo.");
         }
-        setTimeout(() => setPhotoMsg(null), 5000);
+        setTimeout(() => setPhotoMsg(null), 6000);
       } finally {
         setPhotoBusy(false);
         void load(); // refresh the verified/re-verify banner immediately
@@ -267,9 +282,9 @@ function ProfileInner() {
     if (!file) return;
     const useDataUrl = (dataUrl: string) => {
       if (profile?.isVerified) {
-        setPendingPhoto(dataUrl); // heads-up before the identity re-check
+        setPendingPhoto(dataUrl); // heads-up before the identity check
       } else {
-        void uploadPhoto(dataUrl);
+        void uploadPhoto(dataUrl, { verified: false });
       }
     };
     void downscaleImage(file).then(useDataUrl).catch(() => {
@@ -692,7 +707,7 @@ function ProfileInner() {
         </p>
       ) : null}
 
-      {/* New-photo warning: the teal seal is tied to your current photos */}
+      {/* New-photo heads-up: verified members get an AI identity check */}
       {pendingPhoto ? (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
           <div className="animate-scale-in w-full max-w-[400px] rounded-[24px] border border-[var(--color-gold-500)]/30 bg-[#0c101d] p-6 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)]">
@@ -705,12 +720,13 @@ function ProfileInner() {
               </span>
               <div>
                 <p className="font-display text-[18px] font-semibold text-[var(--color-pearl)]">
-                  New photo, fresh check
+                  New photo, identity check
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
-                  Your identity check covers the photos currently on your profile. Adding a
-                  new photo may ask for a quick re-check afterward — that's how members know
-                  every profile still matches the real person.
+                  Your verification is active — before adding this photo, we check it
+                  against your verified identity. A matching photo keeps your verification
+                  exactly as it is; a photo that does not match is rejected, and you can
+                  verify again in minutes.
                 </p>
               </div>
             </div>
@@ -720,11 +736,11 @@ function ProfileInner() {
                 onClick={() => {
                   const data = pendingPhoto;
                   setPendingPhoto(null);
-                  if (data) void uploadPhoto(data);
+                  if (data) void uploadPhoto(data, { verified: true });
                 }}
                 className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98]"
               >
-                Add it & re-check after
+                Check & add
               </button>
               <button
                 type="button"
