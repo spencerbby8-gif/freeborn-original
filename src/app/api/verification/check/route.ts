@@ -177,6 +177,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  const blinkTag = liveness?.blink === true ? "+blink" : "";
   if (rateLimited(member.id, 6, 60 * 60 * 1000)) {
     return Response.json(
       { error: "Too many verification attempts — try again in an hour." },
@@ -309,6 +310,11 @@ export async function POST(request: Request) {
       type: "text",
       text:
         "You are the SECOND, independent checker in a two-step identity verification. " +
+        (liveness
+          ? `The member's own device ran an on-device live check during capture — blink ${
+              liveness.blink === true ? "captured" : "not captured"
+            }, single face ${liveness.singleFace === true ? "confirmed" : "unconfirmed"}. Treat this as supporting evidence, never proof. `
+          : "") +
         `A first inspector watched the same selfie and reported: gesture seen = "${pose.observedPose ?? "unknown"}", ` +
         `roughly matches the asked pose = ${pose.matchesAsked === true}. ` +
         `The member was asked to roughly perform: "${poseLabel}". ` +
@@ -336,7 +342,7 @@ export async function POST(request: Request) {
         db.insert(verificationRequests).values({
           accountId: member.id,
           status,
-          method: `dual_model:${LM7_MODEL}`,
+          method: `dual_model:${LM7_MODEL}${blinkTag}`,
           selfieMedia: selfie,
           rejectReason: reason,
           reviewedAt: status === "pending" ? null : new Date(),
@@ -410,7 +416,7 @@ export async function POST(request: Request) {
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
-    method: `single_model:${MODEL}`,
+    method: `single_model:${MODEL}${blinkTag}`,
     selfieMedia: selfie,
     rejectReason: sameEnough ? null : `stage1 only, gesture uncertain: ${lm7.reason}`,
     reviewedAt: sameEnough ? new Date() : null,

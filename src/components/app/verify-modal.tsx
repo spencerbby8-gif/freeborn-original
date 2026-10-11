@@ -72,6 +72,8 @@ const POSES: Pose[] = [
   },
 ];
 
+const VERIFY_STEPS = ["Details", "Pose", "Camera", "Review"] as const;
+
 async function authHeaders() {
   const token = await getAccessToken().catch(() => null);
   return {
@@ -479,6 +481,9 @@ export function VerifyGate() {
     setOpen(false);
   };
 
+  const verifyStepIdx =
+    step === "intro" ? 0 : step === "pose" ? 1 : step === "camera" ? 2 : step === "review" ? 3 : -1;
+
   if (!open) return null;
 
   return (
@@ -510,6 +515,25 @@ export function VerifyGate() {
         </div>
 
         <div className="px-6 py-6">
+          {verifyStepIdx >= 0 ? (
+            <div
+              className="mb-5 flex items-center justify-center gap-2"
+              aria-label={`Step ${verifyStepIdx + 1} of ${VERIFY_STEPS.length}`}
+            >
+              {VERIFY_STEPS.map((s, i) => (
+                <span
+                  key={s}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === verifyStepIdx
+                      ? "w-7 bg-[var(--color-gold-500)]"
+                      : i < verifyStepIdx
+                        ? "w-2.5 bg-[var(--color-gold-500)]/45"
+                        : "w-2.5 bg-white/15"
+                  }`}
+                />
+              ))}
+            </div>
+          ) : null}
           {step === "intro" ? (
             <>
               <h2 className="font-display text-[24px] font-semibold leading-tight text-[var(--color-pearl)]">
