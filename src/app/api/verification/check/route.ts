@@ -157,12 +157,25 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
-  const { selfie, poseLabel } = (body ?? {}) as { selfie?: string; poseLabel?: string };
+  const { selfie, poseLabel, liveness } = (body ?? {}) as {
+    selfie?: string;
+    poseLabel?: string;
+    liveness?: { gate?: string; blink?: boolean; singleFace?: boolean };
+  };
   if (!selfie || !/^data:image\/(jpeg|png|webp);base64,/.test(selfie)) {
     return Response.json({ error: "A live selfie is required." }, { status: 400 });
   }
   if (!poseLabel || poseLabel.length > 120) {
     return Response.json({ error: "A pose prompt is required." }, { status: 400 });
+  }
+  /* On-device liveness evidence: when the face gate ran client-side, a
+     captured blink is required. The request is client-controlled, so this
+     is evidence layered UNDER the dual-engine review — never a substitute. */
+  if (liveness?.gate === "ok" && liveness.blink !== true) {
+    return Response.json(
+      { error: "Blink challenge not completed — blink once when prompted, then take the selfie." },
+      { status: 400 }
+    );
   }
   if (rateLimited(member.id, 6, 60 * 60 * 1000)) {
     return Response.json(

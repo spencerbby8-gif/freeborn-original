@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { VerifyBadge } from "@/components/verify-badge";
 import { showToast } from "@/components/toast-host";
+import type { FaceGate, FaceGateState } from "@/lib/face-gate";
 
 type VerifyStatus = "none" | "pending" | "approved" | "rejected";
 type Step =
@@ -96,6 +97,13 @@ export function VerifyGate() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   /** Raw diagnostics shown when the camera refuses — facts, not guesses. */
   const [cameraFacts, setCameraFacts] = useState<string | null>(null);
+  /** On-device face gate (MediaPipe): liveness + quality while the camera is up. */
+  const gateRef = useRef<FaceGate | null>(null);
+  const [gate, setGate] = useState<FaceGateState | null>(null);
+  const [gateSkipped, setGateSkipped] = useState(false);
+  const challengeTriesRef = useRef(0);
+  const [challengeTries, setChallengeTries] = useState(0);
+  const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
@@ -274,6 +282,78 @@ export function VerifyGate() {
     return stopCamera;
   }, [step, startCamera, stopCamera]);
 
+  /* On-device face gate: load MediaPipe (dynamically, so it never weighs
+     down the main bundle) when the camera opens, poll its verdict for the
+     UI, and arm the blink challenge once the face is framed. No frames
+     leave the device — only the verdict is submitted. */
+  useEffect(() => {
+    if (step !== "camera") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const mod = await import("@/lib/face-gate");
+        if (cancelled || !videoRef.current) return;
+        const g = await mod.createFaceGate(videoRef.current);
+        if (cancelled) {
+          g.stop();
+          return;
+        }
+        gateRef.current = g;
+      } catch {
+        /* gate unavailable — the UI falls back to AI-only review */
+      }
+    })();
+    const iv = setInterval(() => {
+      const g = gateRef.current;
+      if (!g) return;
+      const s = g.state();
+      setGate((prev) =>
+        prev &&
+        prev.ready === s.ready &&
+        prev.unavailable === s.unavailable &&
+        prev.faceCount === s.faceCount &&
+        prev.faceRatio === s.faceRatio &&
+        prev.centered === s.centered &&
+        prev.framed === s.framed &&
+        prev.blinked === s.blinked &&
+        prev.challenging === s.challenging
+          ? prev
+          : s
+      );
+      /* Arm the blink challenge once the face is framed (max 3 attempts). */
+      if (
+        s.ready &&
+        !s.unavailable &&
+        s.framed &&
+        !s.blinked &&
+        !s.challenging &&
+        challengeTriesRef.current < 3 &&
+        !armTimerRef.current
+      ) {
+        armTimerRef.current = setTimeout(() => {
+          armTimerRef.current = null;
+          challengeTriesRef.current += 1;
+          setChallengeTries(challengeTriesRef.current);
+          gateRef.current?.startChallenge();
+        }, 1200);
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+      if (armTimerRef.current) {
+        clearTimeout(armTimerRef.current);
+        armTimerRef.current = null;
+      }
+      gateRef.current?.stop();
+      gateRef.current = null;
+      setGate(null);
+      setGateSkipped(false);
+      challengeTriesRef.current = 0;
+      setChallengeTries(0);
+    };
+  }, [step]);
+
   const capture = () => {
     const video = videoRef.current;
     if (!video || video.videoWidth === 0) return;
@@ -304,6 +384,24 @@ export function VerifyGate() {
     return () => clearInterval(iv);
   }, [step]);
 
+  /* Capture unlocks once the on-device gate passes (blink captured), is
+     explicitly skipped, or is unavailable — the engines still review the
+     selfie either way. */
+  const captureAllowed = Boolean(gate && (gate.unavailable || gate.blinked || gateSkipped));
+
+  /** The on-device verdict that travels with the request — evidence for the
+      review, never a substitute for it. */
+  const livenessEvidence = () => {
+    const s = gateRef.current?.state();
+    if (!s || s.unavailable) return { gate: "unavailable", blink: false, singleFace: true };
+    if (s.blinked) return { gate: "ok", blink: true, singleFace: s.faceCount === 1 };
+    return {
+      gate: gateSkipped ? "skipped" : "unavailable",
+      blink: false,
+      singleFace: s.faceCount === 1,
+    };
+  };
+
   const submit = async () => {
     if (!selfie) return;
     setErrorMsg(null);
@@ -312,7 +410,7 @@ export function VerifyGate() {
       const res = await fetch("/api/verification/check", {
         method: "POST",
         headers: await authHeaders(),
-        body: JSON.stringify({ selfie, poseLabel: pose.label }),
+        body: JSON.stringify({ selfie, poseLabel: pose.label, liveness: livenessEvidence() }),
       });
       setCheckingProgress(100);
       const json = await res.json().catch(() => ({}));
@@ -533,14 +631,63 @@ export function VerifyGate() {
                 <video ref={videoRef} playsInline muted className="aspect-[4/5] w-full -scale-x-100 object-cover" />
                 <span className="pointer-events-none absolute inset-6 rounded-full border-2 border-dashed border-white/30" />
               </div>
+              {/* On-device live checks — no frames leave this device */}
+              {gate ? (
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
+                  {gate.unavailable ? (
+                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
+                      Live checks unavailable — AI review covers this
+                    </span>
+                  ) : !gate.ready ? (
+                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">Warming up live checks…</span>
+                  ) : gate.faceCount !== 1 ? (
+                    <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
+                      {gate.faceCount === 0 ? "Center your face in the frame" : "One face only — step back a little"}
+                    </span>
+                  ) : !gate.framed ? (
+                    <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
+                      Move closer and center your face
+                    </span>
+                  ) : gate.challenging ? (
+                    <span className="animate-pulse text-[11.5px] font-black uppercase tracking-[0.18em] text-[var(--color-ember-300)]">
+                      Blink now
+                    </span>
+                  ) : gate.blinked ? (
+                    <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--color-teal-300)]">
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+                        <path d="M2.2 6.4l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Live blink captured
+                    </span>
+                  ) : gateSkipped ? (
+                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
+                      Live check skipped — AI review covers this
+                    </span>
+                  ) : (
+                    <span className="text-[11.5px] font-bold text-[var(--color-sand)]">
+                      Face ready — blink when prompted
+                    </span>
+                  )}
+                </div>
+              ) : null}
               <button
                 type="button"
                 onClick={capture}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98]"
+                disabled={!captureAllowed}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
               >
                 <span className="h-3.5 w-3.5 rounded-full border-2 border-white" />
-                Take selfie
+                {captureAllowed ? "Take selfie" : "Blink when prompted to take the selfie"}
               </button>
+              {challengeTries >= 3 && gate && !gate.blinked && !gateSkipped ? (
+                <button
+                  type="button"
+                  onClick={() => setGateSkipped(true)}
+                  className="mt-2.5 w-full rounded-full py-2.5 text-[12.5px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
+                >
+                  Continue without the live check
+                </button>
+              ) : null}
             </>
           ) : null}
 
