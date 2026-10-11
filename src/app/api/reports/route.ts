@@ -3,8 +3,10 @@ import { db } from "@/db";
 import { reports, userProfiles, warnings } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
 import { factCheckReport } from "@/lib/moderation";
+import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const REASONS = new Set([
   "fake_profile",
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
      the outcome is dismiss / warn / escalate-for-hard-evidence. */
   let severity: string | null = null;
   let outcome: string | null = null;
+  let triage: "complete" | "pending" = "pending";
   try {
     const [{ count: priorReports }] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -97,15 +100,22 @@ export async function POST(request: Request) {
       target.isVerified ? "IDENTITY VERIFIED" : "not identity-verified",
     ].join(" · ");
 
-    const verdict = await factCheckReport(
-      safeReason,
-      safeDetails ?? "",
-      targetSummary,
-      priorReports,
-      Boolean(target.isVerified)
+    /* Engine budget: a hanging gateway must never 502 a filed report —
+       the report row is already stored; triage degrades to human review. */
+    const verdict = await withBudget(
+      factCheckReport(
+        safeReason,
+        safeDetails ?? "",
+        targetSummary,
+        priorReports,
+        Boolean(target.isVerified)
+      ),
+      ENGINE_BUDGET_MS,
+      () => null
     );
 
     if (verdict) {
+      triage = "complete";
       severity = verdict.severity;
       outcome = verdict.action;
       await db
@@ -127,5 +137,5 @@ export async function POST(request: Request) {
     /* justice-engine outage never stops a report */
   }
 
-  return Response.json({ ok: true, severity, outcome });
+  return Response.json({ ok: true, severity, outcome, triage });
 }
