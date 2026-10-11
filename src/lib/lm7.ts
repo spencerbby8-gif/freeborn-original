@@ -80,6 +80,13 @@ async function callOnce(model: string, content: Array<Record<string, unknown>>):
 /** Walk the vision chain. Honest about why nothing worked. */
 export async function askLm7(content: Array<Record<string, unknown>>): Promise<Lm7Reply> {
   if (!lm7Configured()) return { ok: false, reason: "unconfigured" };
+  /* VoidAI documents its key format as sk-voidai-… (docs.voidai.app/authentication).
+     A key that doesn't match can never authenticate — fail fast with a clear
+     reason instead of surfacing an opaque gateway 500. Legacy LM7_* keys are
+     exempt (their format predates this convention). */
+  if (VOID_KEY && !VOID_KEY.startsWith("sk-voidai-")) {
+    return { ok: false, reason: "invalid-key" };
+  }
   let last: Lm7Reply = { ok: false, reason: "unreachable" };
   for (const model of LM7_VISION_CHAIN) {
     const reply = await callOnce(model, content);
