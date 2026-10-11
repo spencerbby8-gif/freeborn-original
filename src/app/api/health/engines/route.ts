@@ -38,7 +38,9 @@ type Probe = { status: number; ms: number };
 async function probe(url: string, headers: Record<string, string>, body: unknown): Promise<Probe> {
   const t0 = Date.now();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30_000);
+  /* 12s probe budget: 4 parallel probes keep this route under ~15s even
+     when an engine hangs — Netlify caps functions at 26s on paid plans. */
+  const timer = setTimeout(() => ctrl.abort(), 12_000);
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -57,7 +59,7 @@ async function probe(url: string, headers: Record<string, string>, body: unknown
 /* Soft rate limit: one full check per 10s per instance. */
 let lastCall = 0;
 
-export async function GET() {
+async function handleGet() {
   if (Date.now() - lastCall < 10_000) {
     return Response.json(
       { error: "Engine checks are rate-limited — retry in a few seconds." },
@@ -146,4 +148,16 @@ export async function GET() {
             : "Engine 2 vision unreachable — verification stage 2 degrades to single-engine.",
     },
   });
+}
+
+export async function GET() {
+  try {
+    return await handleGet();
+  } catch (err) {
+    /* A crash must be diagnosable JSON, not an HTML error page. */
+    return Response.json(
+      { error: "Engine check failed.", detail: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }

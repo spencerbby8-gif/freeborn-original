@@ -46,7 +46,9 @@ const VISION_DISABLED_RE = /vision[^\n]{0,60}disabled|vision_disabled/i;
 
 async function callOnce(model: string, content: Array<Record<string, unknown>>): Promise<Lm7Reply> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 90_000);
+  /* 20s: Netlify caps functions at 26s — a hanging gateway must fail
+     fast so the caller can degrade instead of being killed mid-flight. */
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
   try {
     const res = await fetch(`${BASE}/chat/completions`, {
       method: "POST",

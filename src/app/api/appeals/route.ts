@@ -3,8 +3,10 @@ import { db } from "@/db";
 import { appeals, securityEvents, suspensions } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { investigateAppeal } from "@/lib/moderation";
+import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // results in 2 days
 
@@ -98,8 +100,16 @@ export async function POST(request: Request) {
       `suspension ip: ${suspension.ip ?? "unknown"}`,
       ...events.slice(0, 12).map((e) => `${e.kind}${e.detail ? ` — ${e.detail}` : ""} (${e.ip ?? "no ip"})`),
     ].join("; ");
-    const result = await investigateAppeal(plea, record);
-    investigation = result ? `botRisk=${result.botRisk} :: ${result.summary}` : "engines unavailable — human review only";
+    /* Engine budget: the appeal is already stored — a hanging gateway
+       degrades the investigation to human review, never a 502. */
+    const result = await withBudget(
+      investigateAppeal(plea, record),
+      ENGINE_BUDGET_MS,
+      () => null
+    );
+    investigation = result
+      ? `botRisk=${result.botRisk} :: ${result.summary}`
+      : "investigation pending — human review (engine budget)";
     await db
       .update(appeals)
       .set({ investigation: investigation.slice(0, 900) })

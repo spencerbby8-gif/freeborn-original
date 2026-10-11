@@ -33,6 +33,7 @@ import {
   verificationAuditLogs,
   verificationRequests,
 } from "@/db/schema";
+import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 
 const A_BASE = (process.env.ANTIGRAVITY_BASE_URL ?? "").replace(/\/$/, "");
 const A_KEY = process.env.ANTIGRAVITY_FREE_API_KEY ?? "";
@@ -61,7 +62,9 @@ export type MatchDecision = "match" | "mismatch" | "unclear";
 
 export type MatchOutcome = {
   decision: MatchDecision;
-  engine: "dual" | "single" | "none";
+  /** "error" = engines configured but no verdict inside the budget (the
+      route's exception path reports it too). */
+  engine: "dual" | "single" | "none" | "error";
   confidence: "high" | "medium" | "low" | "unknown";
   verdicts: { engine1: MatchVerdict | null; engine2: MatchVerdict | null };
   engineReasons: { engine1: string | null; engine2: string | null };
@@ -267,7 +270,7 @@ async function askEngine1(images: string[]): Promise<EngineReply> {
   if (!A_BASE || !A_KEY) return { ok: false, reason: "unconfigured" };
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 40_000);
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
     try {
       const res = await fetch(`${A_BASE}/chat/completions`, {
         method: "POST",
@@ -311,7 +314,7 @@ async function askEngine2(images: string[]): Promise<EngineReply> {
   /* VoidAI documents its key format as sk-voidai-… — fail fast otherwise. */
   if (!V_KEY.startsWith("sk-voidai-")) return { ok: false, reason: "invalid-key" };
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 40_000);
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
   try {
     const res = await fetch(`${V_BASE}/chat/completions`, {
       method: "POST",
@@ -366,12 +369,12 @@ export function matchRateLimited(accountId: string, max = 8, windowMs = 60 * 60 
 
 /* --- Orchestration ---------------------------------------------------------- */
 
-export async function runIdentityMatch(
+async function runIdentityMatchInner(
   memberId: string,
   newPhotoDataUrl: string,
-  origin: string
+  origin: string,
+  started: number
 ): Promise<MatchOutcome> {
-  const started = Date.now();
   const baselines = await collectBaselines(memberId, origin);
   if (baselines.length === 0) {
     return {
@@ -417,6 +420,32 @@ export async function runIdentityMatch(
     baselines: refs.length,
     ms: Date.now() - started,
   };
+}
+
+/**
+ * Budgeted entry point. Netlify caps functions at 26s; a hanging engine must
+ * degrade to the gate's designed fallback (photo added, seal revoked, audit
+ * row written) — never to a platform-killed 502 that skips the fallback.
+ */
+export async function runIdentityMatch(
+  memberId: string,
+  newPhotoDataUrl: string,
+  origin: string
+): Promise<MatchOutcome> {
+  const started = Date.now();
+  return withBudget(
+    runIdentityMatchInner(memberId, newPhotoDataUrl, origin, started),
+    ENGINE_BUDGET_MS,
+    (): MatchOutcome => ({
+      decision: "unclear",
+      engine: "error",
+      confidence: "unknown",
+      verdicts: { engine1: null, engine2: null },
+      engineReasons: { engine1: "budget-exceeded", engine2: "budget-exceeded" },
+      baselines: 0,
+      ms: Date.now() - started,
+    })
+  );
 }
 
 /** Audit trail — verification_audit_logs, no schema change. Never throws. */

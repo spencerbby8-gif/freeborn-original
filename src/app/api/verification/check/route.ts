@@ -53,7 +53,7 @@ const IMAGE_DROPPED_RE =
 async function askGemini(content: Array<Record<string, unknown>>): Promise<string | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 60_000);
+    const timer = setTimeout(() => ctrl.abort(), 20_000);
     try {
       const res = await fetch(`${BASE}/v1/chat/completions`, {
         method: "POST",
