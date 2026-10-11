@@ -57,6 +57,9 @@ async function ask(base: string, key: string, model: string, prompt: string): Pr
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
+        /* The Antigravity gateway documents x-api-key as its client header —
+           send both so either contract keeps working. */
+        "x-api-key": key,
         /* voidai sits behind Cloudflare and rejects the default Node fetch
            user-agent (error 1010) — same requirement as lm7. */
         "User-Agent": "freeborn-verify/1.0",
