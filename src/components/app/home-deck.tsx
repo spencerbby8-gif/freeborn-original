@@ -34,6 +34,8 @@ type Profile = {
   photo: string;
   photos: string[];
   hasPhoto?: boolean;
+  hideDistance?: boolean;
+  hideActiveStatus?: boolean;
   verified: boolean;
   isOnline: boolean;
   vaccinationStatus: string;
@@ -728,7 +730,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     <div className="flex items-baseline gap-2">
                       <h2 className="font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
                       <span className="font-display text-[22px] text-gold-300">{profile.age}</span>
-                      {profile.isOnline ? (
+                      {profile.isOnline && !profile.hideActiveStatus ? (
                         <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-teal-300)]">
                           <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-teal-300)]" />
                           Online
@@ -746,7 +748,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     </div>
                     <p className="text-[12px] tracking-wide text-sand">
                       {profile.occupation} · {profile.city}
-                      {profile.distanceKm != null ? ` · ${profile.distanceKm} km` : ""}
+                      {profile.distanceKm != null && !profile.hideDistance ? ` · ${profile.distanceKm} km` : ""}
                     </p>
                     {profile.joinedAt ? (
                       <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white/45">

@@ -1,9 +1,51 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches } from "@/db/schema";
+import { blockedUsers, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/blocks — the member's blocked list (for the privacy manager).
+ * Only the blocked member's public card info is returned — never the
+ * blocker's own private data, and blocked members are not notified.
+ */
+export async function GET(request: Request) {
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+
+  const rows = await db
+    .select({
+      blockedId: blockedUsers.blockedId,
+      blockedAt: blockedUsers.createdAt,
+      displayName: userProfiles.displayName,
+      city: userProfiles.city,
+    })
+    .from(blockedUsers)
+    .innerJoin(userProfiles, eq(userProfiles.id, blockedUsers.blockedId))
+    .where(eq(blockedUsers.blockerId, member.id))
+    .orderBy(desc(blockedUsers.createdAt));
+
+  const out = [];
+  for (const row of rows) {
+    const [photo] = await db
+      .select({ storagePath: profilePhotos.storagePath })
+      .from(profilePhotos)
+      .where(eq(profilePhotos.userId, row.blockedId))
+      .orderBy(profilePhotos.position)
+      .limit(1);
+    out.push({
+      id: row.blockedId,
+      name: row.displayName ?? "Member",
+      city: row.city ?? "",
+      photo: photo ? resolvePhotoUrl(photo.storagePath) : "",
+      blockedAt: row.blockedAt,
+    });
+  }
+
+  return Response.json({ blocked: out });
+}
 
 /**
  * POST /api/blocks — block a member.

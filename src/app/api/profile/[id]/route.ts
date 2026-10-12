@@ -7,6 +7,7 @@ import {
   messages,
   profilePhotos,
   userPrivateLocations,
+  userPrivateSettings,
   userProfiles,
   userSwipes,
 } from "@/db/schema";
@@ -160,6 +161,20 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     }
   }
 
+  /* Privacy display flags — the card honors the owner's choices: when they
+     hide their distance, only the city is shown; the real distance is never
+     sent to the client at all. */
+  const [priv] = await db
+    .select({
+      hideDistance: userPrivateSettings.hideDistance,
+      hideActiveStatus: userPrivateSettings.hideActiveStatus,
+    })
+    .from(userPrivateSettings)
+    .where(eq(userPrivateSettings.userId, id))
+    .limit(1);
+  const hideDistance = priv?.hideDistance ?? false;
+  const hideActiveStatus = priv?.hideActiveStatus ?? false;
+
   return Response.json({
     profile: {
       id: row.id,
@@ -196,9 +211,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       memberSince: row.createdAt,
       birthMonthYear: birthLabel(row.birthDate),
       distanceKm:
-        haveOrigin && loc?.latitude != null && loc?.longitude != null
+        !hideDistance && haveOrigin && loc?.latitude != null && loc?.longitude != null
           ? Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude))
           : null,
+      hideActiveStatus,
     },
   });
 }

@@ -205,6 +205,13 @@ type Settings = {
     likeAlerts: boolean;
     profileActivity: boolean;
   };
+  privacy: {
+    discoveryPaused: boolean;
+    incognito: boolean;
+    hideDistance: boolean;
+    hideActiveStatus: boolean;
+    readReceipts: boolean;
+  };
 };
 
 const AREAS = [
@@ -322,6 +329,103 @@ function PanelTitle({ title, blurb }: { title: string; blurb: string }) {
     <div className="fb-section-head" data-search={`${title} ${blurb}`}>
       <h2 className="fb-h-title">{title}</h2>
       <p className="fb-meta">{blurb}</p>
+    </div>
+  );
+}
+
+/**
+ * Blocked members manager — list + unblock. Blocked members are never
+ * notified; unblocking simply removes the block.
+ */
+function BlockedList() {
+  const [blocked, setBlocked] = useState<Array<{ id: string; name: string; city: string; photo: string; blockedAt: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/blocks", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (res.ok) {
+        const json = await res.json();
+        setBlocked(Array.isArray(json.blocked) ? json.blocked : []);
+      }
+    } catch {
+      /* list stays empty */
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const unblock = async (id: string) => {
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/blocks", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ profileId: id }),
+      });
+      if (res.ok) {
+        setBlocked((prev) => prev.filter((b) => b.id !== id));
+        showToast({ tone: "success", title: "Member unblocked", body: "They can see you in the room again." });
+      } else {
+        showToast({ tone: "error", title: "Couldn't unblock", body: "Try again in a moment." });
+      }
+    } catch {
+      showToast({ tone: "error", title: "Couldn't unblock", body: "Check your connection." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) {
+    return <p className="fb-caption">Loading your blocked list…</p>;
+  }
+
+  if (blocked.length === 0) {
+    return (
+      <p className="fb-caption">
+        No blocked members. When you block someone, they appear here — and you can unblock them anytime.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {blocked.map((b) => (
+        <div key={b.id} className="fb-row">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-abyss)]">
+            {b.photo ? (
+              <img src={b.photo} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="font-display text-sm font-bold text-[var(--color-pearl)]">
+                {b.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </span>
+          <span className="fb-row-body">
+            <span className="fb-row-title">{b.name}</span>
+            <span className="fb-row-desc">{b.city || "Blocked member"}</span>
+          </span>
+          <button
+            type="button"
+            disabled={busyId !== null}
+            onClick={() => void unblock(b.id)}
+            className="fb-btn fb-btn-ghost fb-btn-sm shrink-0"
+          >
+            {busyId === b.id ? "Unblocking…" : "Unblock"}
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -560,12 +664,20 @@ export function SettingsView() {
   const p = settings.profile;
   const d = settings.discovery;
   const n = settings.notifications;
+  const v = settings.privacy;
 
   const setP = (patch: Partial<typeof p>) => setSettings({ ...settings, profile: { ...p, ...patch } });
   const setD = (patch: Partial<typeof d>) => setSettings({ ...settings, discovery: { ...d, ...patch } });
   const setN = async (key: keyof typeof n, value: boolean) => {
     setSettings({ ...settings, notifications: { ...n, [key]: value } });
     await post({ notifications: { [key]: value } });
+  };
+
+  /* Privacy controls save the moment they flip — they are safety controls,
+     so there is no Save button to forget. */
+  const setV = async (patch: Partial<Settings["privacy"]>) => {
+    setSettings({ ...settings, privacy: { ...v, ...patch } });
+    await post({ privacy: patch });
   };
 
   return (
@@ -868,23 +980,57 @@ export function SettingsView() {
 
         {area === "privacy" ? (
           <div className="space-y-3.5">
-            <PanelTitle title="Privacy" blurb="You decide when you're visible. Nothing else changes while you're hidden." />
+            <PanelTitle title="Privacy" blurb="You decide when you're visible. Every control saves as you flip it." />
+
+            <p className="fb-eyebrow pt-1" data-search="visibility section">Visibility</p>
             <ToggleRow
               label="Discoverable"
               body="Off means you won't appear in anyone's Discover — matches and chats keep working."
               value={p.discoverable}
-              onChange={async (v) => {
-                setP({ discoverable: v });
-                await post({ profile: { discoverable: v } });
+              onChange={async (val) => {
+                setP({ discoverable: val });
+                await post({ profile: { discoverable: val } });
               }}
+            />
+            <ToggleRow
+              label="Pause discovery"
+              body="Snooze — you leave the room but keep every match and conversation. Flip it off to come back."
+              value={v.discoveryPaused}
+              onChange={(val) => void setV({ discoveryPaused: val })}
+            />
+            <ToggleRow
+              label="Incognito mode"
+              body="Only members you've liked or matched with can see your profile. You still see everyone."
+              value={v.incognito}
+              onChange={(val) => void setV({ incognito: val })}
+            />
+
+            <p className="fb-eyebrow pt-1" data-search="location presence section">Location & presence</p>
+            <ToggleRow
+              label="Hide my distance"
+              body="Others see your city, never how far away you are — exact location stays private."
+              value={v.hideDistance}
+              onChange={(val) => void setV({ hideDistance: val })}
+            />
+            <ToggleRow
+              label="Hide my active status"
+              body="No online indicator on your card or profile."
+              value={v.hideActiveStatus}
+              onChange={(val) => void setV({ hideActiveStatus: val })}
+            />
+
+            <p className="fb-eyebrow pt-1" data-search="messages section">Messages</p>
+            <ToggleRow
+              label="Read receipts"
+              body="Let others see when you've read their messages. Turn off for full privacy."
+              value={v.readReceipts}
+              onChange={(val) => void setV({ readReceipts: val })}
             />
 
             {/* Who can see you in discovery */}
             <div className="fb-row !block" data-search="who can see you discover visible audience everyone verified unvaccinated">
               <p className="fb-row-title">Who can see you in Discover</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
-                Control who your card can appear to.
-              </p>
+              <p className="fb-row-desc">Control who your card can appear to.</p>
               <div className="mt-2.5">
                 <FreebornSelect
                   value={p.discoverPrivacy ?? "everyone"}
@@ -893,9 +1039,9 @@ export function SettingsView() {
                     { value: "verified", label: "Only verified members" },
                     { value: "unvaccinated", label: "Only unvaccinated members" },
                   ]}
-                  onChange={(v) => {
-                    setP({ discoverPrivacy: v });
-                    void post({ profile: { discoverPrivacy: v } });
+                  onChange={(val) => {
+                    setP({ discoverPrivacy: val });
+                    void post({ profile: { discoverPrivacy: val } });
                   }}
                 />
               </div>
@@ -904,9 +1050,7 @@ export function SettingsView() {
             {/* Who can message you */}
             <div className="fb-row !block" data-search="who can message you contact start conversation everyone verified unvaccinated">
               <p className="fb-row-title">Who can message you</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
-                Applies when starting a conversation — and to every message after.
-              </p>
+              <p className="fb-row-desc">Applies when starting a conversation — and to every message after.</p>
               <div className="mt-2.5">
                 <FreebornSelect
                   value={p.messagePrivacy ?? "everyone"}
@@ -915,18 +1059,22 @@ export function SettingsView() {
                     { value: "verified", label: "Only verified members" },
                     { value: "unvaccinated", label: "Only unvaccinated members" },
                   ]}
-                  onChange={(v) => {
-                    setP({ messagePrivacy: v });
-                    void post({ profile: { messagePrivacy: v } });
+                  onChange={(val) => {
+                    setP({ messagePrivacy: val });
+                    void post({ profile: { messagePrivacy: val } });
                   }}
                 />
               </div>
             </div>
+
+            <p className="fb-eyebrow pt-1" data-search="blocked members list unblock">Blocked members</p>
+            <BlockedList />
+
             <p className="fb-caption" data-search="never shown publicly private email birth date coordinates fixed">
               Email, full birth date, and exact coordinates are never shown publicly — that&apos;s fixed, not a setting.
             </p>
 
-            <div className="rounded-2xl border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-4">
+            <div className="rounded-2xl border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-4" data-search="safety promise guarantee moderation">
               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[var(--color-teal-300)]">
                 Freeborn&apos;s safety promise
               </p>

@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageReactions, messages, userProfiles } from "@/db/schema";
+import { matches, messageReactions, messages, userPrivateSettings, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { looksLikeScam } from "@/lib/scam-guard";
 
@@ -44,6 +44,18 @@ export async function GET(request: Request) {
     .where(eq(messages.matchId, matchId))
     .orderBy(asc(messages.createdAt));
 
+  /* Read receipts are the READER's choice: when the other member turned
+     receipts off, your own messages report read=false — the read event is
+     still recorded (their unread badge works), it is simply not shown to
+     you. Their messages report your own read state normally. */
+  const otherId = match.userA === member.id ? match.userB : match.userA;
+  const [otherPriv] = await db
+    .select({ readReceipts: userPrivateSettings.readReceipts })
+    .from(userPrivateSettings)
+    .where(eq(userPrivateSettings.userId, otherId))
+    .limit(1);
+  const receiptsAllowed = otherPriv?.readReceipts ?? true;
+
   /* Aggregate reactions per message (hold-to-react, double-tap to love). */
   const ids = rows.map((m) => m.id);
   const reactionsByMessage = new Map<
@@ -78,7 +90,7 @@ export async function GET(request: Request) {
       body: m.body,
       mine: m.senderId === member.id,
       at: m.createdAt,
-      read: Boolean(m.readAt),
+      read: m.senderId === member.id ? Boolean(m.readAt) && receiptsAllowed : Boolean(m.readAt),
       flagged: Boolean(m.flagged),
       reactions: reactionsByMessage.get(m.id) ?? [],
     })),
