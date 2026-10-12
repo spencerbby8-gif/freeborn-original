@@ -1,6 +1,6 @@
-import { eq, or, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, discoveryPreferences, profilePhotos, userPrivateLocations, userProfiles, userSwipes } from "@/db/schema";
+import { blockedUsers, discoveryPreferences, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
 
@@ -162,6 +162,38 @@ export async function GET(request: Request) {
     .groupBy(userSwipes.likedId);
   const countByProfile = new Map(likeRows.map((r) => [r.likedId, r.likeCount]));
 
+  /* Privacy controls per candidate: snooze (discovery_paused), incognito,
+     and the display flags the card should honor (hide distance / active). */
+  const privRows = await db
+    .select({
+      userId: userPrivateSettings.userId,
+      discoveryPaused: userPrivateSettings.discoveryPaused,
+      incognito: userPrivateSettings.incognito,
+      hideDistance: userPrivateSettings.hideDistance,
+      hideActiveStatus: userPrivateSettings.hideActiveStatus,
+    })
+    .from(userPrivateSettings);
+  const privByUser = new Map(privRows.map((r) => [r.userId, r]));
+
+  /* Incognito members are visible only to members they liked or matched
+     with (Bumble semantics) — everyone else never sees their card. */
+  const admirerIds = new Set<string>();
+  const mutualIds = new Set<string>();
+  if (viewerId) {
+    const admirerRows = await db
+      .select({ likerId: userSwipes.likerId })
+      .from(userSwipes)
+      .where(and(eq(userSwipes.likedId, viewerId), eq(userSwipes.action, "like")));
+    for (const r of admirerRows) admirerIds.add(r.likerId);
+    const myMatches = await db
+      .select({ userA: matches.userA, userB: matches.userB })
+      .from(matches)
+      .where(or(eq(matches.userA, viewerId), eq(matches.userB, viewerId)));
+    for (const m of myMatches) {
+      mutualIds.add(m.userA === viewerId ? m.userB : m.userA);
+    }
+  }
+
   const photos = await db.select().from(profilePhotos);
   const photoByUser = new Map<string, { storagePath: string; isPrimary: boolean }>();
   const photosByUser = new Map<string, string[]>();
@@ -268,6 +300,12 @@ export async function GET(request: Request) {
     if (dp === "verified" && !viewerVerified) continue;
     if (dp === "unvaccinated" && viewerVax !== "unvaccinated") continue;
 
+    // Their snooze choice: a paused member is out of the room (matches/chat unaffected).
+    const priv = privByUser.get(row.id);
+    if (priv?.discoveryPaused) continue;
+    // Incognito: visible only to members they liked or matched with.
+    if (priv?.incognito && !(viewerId && (admirerIds.has(row.id) || mutualIds.has(row.id)))) continue;
+
     const age = ageFromBirthDate(row.birthDate);
     const isOnline =
       row.lastActiveAt != null && nowMs - row.lastActiveAt.getTime() < ONLINE_WINDOW_MS;
@@ -321,6 +359,8 @@ export async function GET(request: Request) {
       photo: resolvePhotoUrl(photoByUser.get(row.id)?.storagePath ?? ""),
       photos: (photosByUser.get(row.id) ?? []).map(resolvePhotoUrl),
       hasPhoto: photoByUser.has(row.id),
+      hideDistance: priv?.hideDistance ?? false,
+      hideActiveStatus: priv?.hideActiveStatus ?? false,
       verified: row.isVerified,
       isOnline,
       vaccinationStatus: row.vaccinationStatus,

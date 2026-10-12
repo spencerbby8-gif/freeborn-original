@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user?.email) return Response.json({ error: "Not signed in." }, { status: 401 });
 
-  const [profileRes, prefsRes, notifRes] = await Promise.all([
+  const [profileRes, prefsRes, notifRes, privRes] = await Promise.all([
     supabase
       .from("user_profiles")
       .select(
@@ -17,11 +17,13 @@ export async function GET(request: Request) {
       .maybeSingle(),
     supabase.from("discovery_preferences").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("notification_preferences").select("*").eq("user_id", user.id).maybeSingle(),
+    supabase.from("user_private_settings").select("*").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const profile = (profileRes.data ?? {}) as Record<string, unknown>;
   const prefs = (prefsRes.data ?? {}) as Record<string, unknown>;
   const notif = (notifRes.data ?? {}) as Record<string, unknown>;
+  const priv = (privRes.data ?? {}) as Record<string, unknown>;
 
   return Response.json({
     account: { email: user.email },
@@ -53,6 +55,13 @@ export async function GET(request: Request) {
       likeAlerts: notif.like_alerts ?? true,
       profileActivity: notif.profile_activity ?? true,
     },
+    privacy: {
+      discoveryPaused: priv.discovery_paused ?? false,
+      incognito: priv.incognito ?? false,
+      hideDistance: priv.hide_distance ?? false,
+      hideActiveStatus: priv.hide_active_status ?? false,
+      readReceipts: priv.read_receipts ?? true,
+    },
   });
 }
 
@@ -70,10 +79,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { profile, discovery, notifications } = (body ?? {}) as {
+  const { profile, discovery, notifications, privacy } = (body ?? {}) as {
     profile?: Record<string, unknown>;
     discovery?: Record<string, unknown>;
     notifications?: Record<string, unknown>;
+    privacy?: Record<string, unknown>;
   };
 
   try {
@@ -126,6 +136,21 @@ export async function POST(request: Request) {
       if (typeof notifications.profileActivity === "boolean") patch.profile_activity = notifications.profileActivity;
       const { error } = await supabase
         .from("notification_preferences")
+        .upsert(patch, { onConflict: "user_id" });
+      if (error) throw error;
+    }
+
+    /* Privacy controls — booleans only, upserted into user_private_settings.
+       discovery_paused lives in the same row (the deck skips paused members). */
+    if (privacy) {
+      const patch: Record<string, unknown> = { user_id: user.id };
+      if (typeof privacy.discoveryPaused === "boolean") patch.discovery_paused = privacy.discoveryPaused;
+      if (typeof privacy.incognito === "boolean") patch.incognito = privacy.incognito;
+      if (typeof privacy.hideDistance === "boolean") patch.hide_distance = privacy.hideDistance;
+      if (typeof privacy.hideActiveStatus === "boolean") patch.hide_active_status = privacy.hideActiveStatus;
+      if (typeof privacy.readReceipts === "boolean") patch.read_receipts = privacy.readReceipts;
+      const { error } = await supabase
+        .from("user_private_settings")
         .upsert(patch, { onConflict: "user_id" });
       if (error) throw error;
     }

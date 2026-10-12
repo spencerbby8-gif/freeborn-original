@@ -173,6 +173,14 @@ export const userPrivateSettings = pgTable("user_private_settings", {
     .primaryKey()
     .references(() => userProfiles.id, { onDelete: "cascade" }),
   discoveryPaused: boolean("discovery_paused").notNull().default(false),
+  /** Incognito mode: only members the owner liked / matched with can see them. */
+  incognito: boolean("incognito").notNull().default(false),
+  /** Hide exact distance from others; city is still shown. */
+  hideDistance: boolean("hide_distance").notNull().default(false),
+  /** Hide the online/active presence indicator from others. */
+  hideActiveStatus: boolean("hide_active_status").notNull().default(false),
+  /** When false, senders do not see that this member read their messages. */
+  readReceipts: boolean("read_receipts").notNull().default(true),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
