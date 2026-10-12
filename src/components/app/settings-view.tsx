@@ -506,6 +506,162 @@ function NotificationPermissionRow() {
   );
 }
 
+/**
+ * "Your data" — self-serve export (GDPR/CCPA pattern). Downloads a JSON of
+ * everything that is the member's own data; other members appear only as
+ * ids/timestamps, and verification selfies are excluded (they are evidence,
+ * not profile data — the note says so).
+ */
+function DataCard() {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const download = async () => {
+    if (busy) return;
+    setBusy(true);
+    setDone(false);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/account/export", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `freeborn-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setDone(true);
+      showToast({ tone: "success", title: "Export downloaded", body: "Your data is in the JSON file — keep it somewhere safe." });
+    } catch {
+      showToast({ tone: "error", title: "Couldn't build your export", body: "Try again in a moment." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fb-card" data-search="download my data export gdpr privacy json backup">
+      <p className="fb-eyebrow">Your data</p>
+      <p className="fb-meta mt-1.5">
+        Download everything that is yours — profile, photos list, preferences, activity,
+        verification history. Other members appear only as ids; verification selfies are
+        not part of the export.
+      </p>
+      <button
+        type="button"
+        onClick={() => void download()}
+        disabled={busy}
+        className="fb-btn fb-btn-ghost fb-btn-sm mt-3"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 3v12M7 10l5 5 5-5M4 21h16" />
+        </svg>
+        {busy ? "Building your export…" : done ? "Downloaded ✓" : "Download my data"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Permanent deletion — deliberately harder than deactivate (which is
+ * reversible): the member must type DELETE. Distinct, honest, no dark
+ * patterns in either direction.
+ */
+function DeleteAccount() {
+  const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const runDelete = async () => {
+    if (typed !== "DELETE" || busy) return;
+    setBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: "delete" }),
+      });
+      if (res.ok) {
+        try {
+          const supabase = createSupabaseBrowserClient();
+          await supabase.auth.signOut();
+        } catch {
+          /* the auth row is already gone */
+        }
+        window.location.href = "/?status=account-deleted";
+        return;
+      }
+      const json = await res.json().catch(() => ({}));
+      showToast({ tone: "error", title: "Couldn't delete the account", body: json.error ?? "Try again." });
+    } catch {
+      showToast({ tone: "error", title: "Couldn't delete the account", body: "Check your connection." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-red-400/30 bg-red-500/[0.06] p-4" data-search="delete account permanently erase remove destroy">
+      <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Delete account — permanent</p>
+      <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+        Deletion is forever: your profile, photos, messages, matches, and sign-in are removed.
+        This cannot be undone. (Pausing above is the reversible option.)
+      </p>
+      {!confirming ? (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="mt-3 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
+        >
+          Delete my account permanently
+        </button>
+      ) : (
+        <div className="mt-3 space-y-2">
+          <p className="text-[12px] font-bold text-red-200">
+            Type <span className="font-black">DELETE</span> to confirm — this cannot be undone.
+          </p>
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder="DELETE"
+            aria-label="Type DELETE to confirm account deletion"
+            className="min-h-[44px] w-full rounded-xl border border-red-400/30 bg-white/[0.03] px-4 text-[13.5px] font-bold tracking-widest text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-red-400"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy || typed !== "DELETE"}
+              onClick={() => void runDelete()}
+              className="rounded-xl bg-red-500 px-4 py-2.5 text-[12.5px] font-black text-white transition hover:bg-red-400 disabled:opacity-50"
+            >
+              {busy ? "Deleting…" : "Delete forever"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                setTyped("");
+              }}
+              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+            >
+              Keep my account
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [area, setArea] = useState<AreaId>("profile");
@@ -617,6 +773,7 @@ export function SettingsView() {
       window.location.href = "/";
     }
   };
+  const [accountFacts, setAccountFacts] = useState<{ email: string; createdAt: string | null; activeSignIns: number } | null>(null);
   const [profileState, setProfileState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [discoveryState, setDiscoveryState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [prefs, setPrefs] = useState<Prefs>({ ...DEFAULT_PREFS });
@@ -628,6 +785,17 @@ export function SettingsView() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) setSettings(await res.json());
+    })();
+    (async () => {
+      try {
+        const token = await getAccessToken().catch(() => null);
+        const res = await fetch("/api/account", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) setAccountFacts(await res.json());
+      } catch {
+        /* sessions card falls back to its generic copy */
+      }
     })();
     setPrefs(loadPrefs());
   }, []);
@@ -1204,22 +1372,26 @@ export function SettingsView() {
             </div>
 
             {/* Sessions */}
-            <div className="fb-card" data-search="sessions devices sign out everywhere log out">
+            <div className="fb-card" data-search="sessions devices sign out everywhere log out active sign ins">
               <p className="fb-eyebrow">Sessions</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                Ends this session and every other device signed into your account.
+                {accountFacts
+                  ? `${accountFacts.activeSignIns} active ${accountFacts.activeSignIns === 1 ? "sign-in" : "sign-ins"} on file. Signing out everywhere ends this session and every other device.`
+                  : "Ends this session and every other device signed into your account."}
               </p>
               <button
                 type="button"
                 onClick={() => void signOutEverywhere()}
-                className="mt-3 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
+                className="fb-btn fb-btn-ghost fb-btn-sm mt-3"
               >
                 Sign out of all devices
               </button>
             </div>
 
+            <DataCard />
+
             {/* Danger zone */}
-            <div className="fb-card border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide delete account">
+            <div className="fb-card border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide pause account">
               <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Danger zone</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
                 Deactivating hides you from Discover immediately. Matches and history stay saved.
@@ -1252,6 +1424,8 @@ export function SettingsView() {
                 </div>
               )}
             </div>
+
+            <DeleteAccount />
 
             <MixerCard defaultCity={settings?.profile.city ?? ""} />
             <SupportCard />

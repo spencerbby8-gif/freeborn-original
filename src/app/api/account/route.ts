@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { userProfiles } from "@/db/schema";
+import { accounts, userProfiles } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 
 export const dynamic = "force-dynamic";
@@ -8,10 +8,39 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
+ * GET /api/account — account facts for the Account tab: email, when the
+ * account was created, and how many active sign-ins (refresh tokens) exist.
+ */
+export async function GET(request: Request) {
+  const supabase = await createSupabaseClientForApi(request);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return Response.json({ error: "Not signed in." }, { status: 401 });
+
+  const [account] = await db
+    .select({ createdAt: accounts.createdAt })
+    .from(accounts)
+    .where(eq(accounts.id, user.id))
+    .limit(1);
+
+  const signIns = await db.execute<{ n: number }>(
+    sql`select count(*)::int as n from auth.refresh_tokens where user_id = ${user.id}::uuid and revoked is not true`
+  );
+
+  return Response.json({
+    email: user.email,
+    createdAt: account?.createdAt ?? null,
+    activeSignIns: signIns.rows[0]?.n ?? 0,
+  });
+}
+
+/**
  * POST /api/account — account security actions:
  *  - change-password (min 8 chars, enforced by Supabase Auth)
  *  - change-email (sends confirmation to the new address)
- *  - deactivate (hides the profile from the room immediately)
+ *  - deactivate (hides the profile from the room immediately — reversible)
+ *  - delete (permanent — removes the member's data and auth account)
  */
 export async function POST(request: Request) {
   const supabase = await createSupabaseClientForApi(request);
@@ -65,6 +94,51 @@ export async function POST(request: Request) {
     return Response.json({
       ok: true,
       message: "Your profile is now hidden from the room.",
+    });
+  }
+
+  if (action === "delete") {
+    /* Permanent deletion — distinct from deactivate (which is reversible).
+       Children first, then the profile, the account mirror, and finally the
+       auth rows. The member's session is invalidated by removing refresh
+       tokens; the client signs out on success. All queries parameterized. */
+    const id = user.id;
+    const email = user.email;
+    const del = (q: ReturnType<typeof sql>) => db.execute(q);
+    await del(sql`delete from public.verification_audit_logs where user_id = ${id}`);
+    await del(sql`delete from public.profile_photos where user_id = ${id}`);
+    await del(sql`delete from public.event_interests where user_id = ${id}`);
+    await del(sql`delete from public.user_private_settings where user_id = ${id}`);
+    await del(sql`delete from public.notification_preferences where user_id = ${id}`);
+    await del(sql`delete from public.user_private_locations where user_id = ${id}`);
+    await del(sql`delete from public.discovery_preferences where user_id = ${id}`);
+    await del(sql`delete from public.user_trust_history where user_id = ${id}`);
+    await del(sql`delete from public.verification_rate_limits where user_id = ${id}`);
+    await del(sql`delete from public.verification_selfie_checks where user_id = ${id}`);
+    await del(sql`delete from public.verification_challenges where user_id = ${id}`);
+    await del(sql`delete from public.support_requests where account_id = ${id}`);
+    await del(sql`delete from public.verification_requests where account_id = ${id}`);
+    await del(sql`delete from public.sessions where account_id = ${id}`);
+    await del(sql`delete from public.user_swipes where liker_id = ${id} or liked_id = ${id}`);
+    await del(sql`delete from public.user_matches where user_a = ${id} or user_b = ${id}`);
+    await del(sql`delete from public.blocked_users where blocker_id = ${id} or blocked_id = ${id}`);
+    await del(sql`delete from public.reports where subject_id = ${id} or reporter_id = ${id}`);
+    await del(sql`delete from public.warnings where email = ${email}`);
+    await del(sql`delete from public.appeals where email = ${email}`);
+    await del(sql`delete from public.suspensions where email = ${email}`);
+    await del(sql`delete from public.security_events where email = ${email}`);
+    await del(sql`delete from public.chat_media where sender_id = ${id}`);
+    await del(sql`delete from public.message_reactions where message_id in (select id from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id}))`);
+    await del(sql`delete from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id})`);
+    await del(sql`delete from public.matches where user_a = ${id} or user_b = ${id}`);
+    await del(sql`delete from public.user_profiles where id = ${id}`);
+    await del(sql`delete from public.accounts where id = ${id}`);
+    await del(sql`delete from auth.refresh_tokens where user_id = ${id}::uuid`);
+    await del(sql`delete from auth.identities where user_id = ${id}::uuid`);
+    await del(sql`delete from auth.users where id = ${id}::uuid`);
+    return Response.json({
+      ok: true,
+      message: "Your account and data have been permanently deleted.",
     });
   }
 
