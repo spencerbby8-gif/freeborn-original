@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
 import { FreebornSelect } from "@/components/select-menu";
@@ -74,8 +74,8 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
         Freeborn mixers · real people, real places
       </p>
       <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
-        No swiping forever — we're building in-person mixers city by city. Register your
-        city and we'll announce one the moment enough members are ready.
+        No swiping forever — we&apos;re building in-person mixers city by city. Register your
+        city and we&apos;ll announce one the moment enough members are ready.
       </p>
       <div className="mt-3 flex gap-2">
         <input
@@ -95,7 +95,7 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
       </div>
       {interested && sameCity !== null ? (
         <p className="mt-2.5 text-[12px] font-bold text-[var(--color-teal-300)]">
-          ✓ You're in — {sameCity} {sameCity === 1 ? "member wants" : "members want"} a mixer in {city.trim() || "your city"}.
+          ✓ You&apos;re in — {sameCity} {sameCity === 1 ? "member wants" : "members want"} a mixer in {city.trim() || "your city"}.
         </p>
       ) : null}
     </div>
@@ -255,9 +255,9 @@ const DISTANCES = [
 const inputClass =
   "min-h-[48px] w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[14px] font-medium text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)] focus:bg-white/[0.05]";
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, search }: { label: string; children: ReactNode; search?: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-search={search ?? label}>
       <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</span>
       {children}
     </div>
@@ -269,32 +269,29 @@ function ToggleRow({
   body,
   value,
   onChange,
+  search,
 }: {
   label: string;
   body: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  search?: string;
 }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!value)}
       aria-pressed={value}
-      className={`flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition ${
-        value
-          ? "border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.06]"
-          : "border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.04]"
+      data-search={search ?? `${label} ${body}`}
+      className={`fb-row transition ${
+        value ? "border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.06]" : "hover:bg-white/[0.045]"
       }`}
     >
-      <span className="min-w-0">
-        <span className="block text-[14px] font-black">{label}</span>
-        <span className="mt-0.5 block text-[12px] leading-4 text-[var(--color-mist)]">{body}</span>
+      <span className="fb-row-body">
+        <span className="fb-row-title">{label}</span>
+        <span className="fb-row-desc">{body}</span>
       </span>
-      <span
-        className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${value ? "bg-[var(--color-gold-500)]" : "bg-white/10"}`}
-      >
-        <span className={`block h-5 w-5 rounded-full bg-white shadow transition ${value ? "translate-x-5" : ""}`} />
-      </span>
+      <span className="fb-toggle" data-on={value} aria-hidden />
     </button>
   );
 }
@@ -314,7 +311,7 @@ function SaveRow({ state, onSave }: { state: "idle" | "saving" | "saved" | "erro
         <span className="animate-scale-in text-[12px] font-bold text-[var(--color-teal-300)]">✓ Saved</span>
       ) : null}
       {state === "error" ? (
-        <span className="animate-scale-in text-[12px] font-bold text-[var(--color-danger)]">Couldn't save — try again</span>
+        <span className="animate-scale-in text-[12px] font-bold text-[var(--color-danger)]">Couldn&apos;t save — try again</span>
       ) : null}
     </div>
   );
@@ -322,9 +319,85 @@ function SaveRow({ state, onSave }: { state: "idle" | "saving" | "saved" | "erro
 
 function PanelTitle({ title, blurb }: { title: string; blurb: string }) {
   return (
-    <div>
-      <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="mt-1 text-[13px] text-[var(--color-mist)]">{blurb}</p>
+    <div className="fb-section-head" data-search={`${title} ${blurb}`}>
+      <h2 className="fb-h-title">{title}</h2>
+      <p className="fb-meta">{blurb}</p>
+    </div>
+  );
+}
+
+/**
+ * Browser notification permission status — honest, using the real
+ * Notification API. "default" means the browser will ask when we request;
+ * "denied" means the OS-level block must be lifted in browser settings.
+ */
+function NotificationPermissionRow() {
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() =>
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
+  );
+  const [busy, setBusy] = useState(false);
+
+  const request = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+    } catch {
+      setPermission("unsupported");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (permission === "unsupported") {
+    return (
+      <p className="fb-caption" data-search="browser notifications permission alerts device">
+        This browser doesn&apos;t support notification permissions — alerts still show inside Freeborn.
+      </p>
+    );
+  }
+
+  return (
+    <div className="fb-row" data-search="browser notifications permission allow alerts device">
+      <span className={`fb-row-icon ${
+        permission === "granted"
+          ? "!text-[var(--color-teal-300)]"
+          : permission === "denied"
+            ? "!text-[var(--color-danger)]"
+            : ""
+      }`}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M18 8.4a6 6 0 10-12 0c0 6.6-2.7 8.4-2.7 8.4h17.4S18 15 18 8.4z" />
+          <path d="M13.7 20a2 2 0 01-3.4 0" />
+        </svg>
+      </span>
+      <span className="fb-row-body">
+        <span className="fb-row-title">
+          {permission === "granted"
+            ? "Browser notifications allowed"
+            : permission === "denied"
+              ? "Browser notifications blocked"
+              : "Allow browser notifications"}
+        </span>
+        <span className="fb-row-desc">
+          {permission === "granted"
+            ? "You'll get alerts even when Freeborn is in another tab."
+            : permission === "denied"
+              ? "Blocked in this browser's settings — allow freeborn.netlify.app to change it."
+              : "Get alerts even when Freeborn is in another tab."}
+        </span>
+      </span>
+      {permission === "default" ? (
+        <button
+          type="button"
+          onClick={() => void request()}
+          disabled={busy}
+          className="fb-btn fb-btn-ghost fb-btn-sm shrink-0"
+        >
+          {busy ? "Asking…" : "Allow"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -332,6 +405,26 @@ function PanelTitle({ title, blurb }: { title: string; blurb: string }) {
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [area, setArea] = useState<AreaId>("profile");
+  /** Settings search — filters the rows of the active tab (Instagram/Android pattern). */
+  const [query, setQuery] = useState("");
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  /* Hide rows that don't match the query; matching rows reveal their
+     section context so the result still makes sense. */
+  useEffect(() => {
+    const root = panelRef.current;
+    if (!root) return;
+    const q = query.trim().toLowerCase();
+    const rows = Array.from(root.querySelectorAll<HTMLElement>("[data-search]"));
+    if (!q) {
+      rows.forEach((r) => (r.style.display = ""));
+      return;
+    }
+    rows.forEach((r) => {
+      const hay = (r.getAttribute("data-search") ?? "").toLowerCase();
+      r.style.display = hay.includes(q) ? "" : "none";
+    });
+  }, [query, area]);
 
   /* Account security state */
   const [pwdNew, setPwdNew] = useState("");
@@ -476,12 +569,30 @@ export function SettingsView() {
   };
 
   return (
-    <div className="mx-auto max-w-[720px]">
-      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Settings</h1>
-      <p className="mt-1.5 text-sm text-[var(--color-mist)]">Pick an area — everything lives in its place.</p>
+    <div className="fb-container pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="fb-h-hero">Settings</h1>
+          <p className="fb-meta mt-1.5">Pick an area — everything lives in its place.</p>
+        </div>
+        <div className="fb-search w-full sm:w-72">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search settings"
+            aria-label="Search settings"
+            className="fb-input"
+          />
+        </div>
+      </div>
 
       {/* Identity verification */}
-      <div className="mt-5 flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4">
+      <div className="fb-row mt-5" data-search="identity verification verified seal selfie">
         {settings?.profile.isVerified ? (
           <>
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-teal-300)]">
@@ -552,32 +663,57 @@ export function SettingsView() {
       </div>
 
       {/* Fixed area panel */}
-      <div className="animate-scale-in mt-5 rounded-[26px] border border-white/[0.07] bg-white/[0.025] p-6 sm:p-7" key={area}>
+      <div ref={panelRef} className="fb-card-lg animate-scale-in mt-5" key={area}>
         {area === "profile" ? (
           <div className="space-y-5">
             <PanelTitle title="Profile" blurb="The essentials people see. Honest works better." />
+            <a
+              href="/app/profile"
+              data-search="full profile view preview photos prompts"
+              className="fb-row transition hover:border-[var(--color-gold-500)]/40 hover:bg-[var(--color-gold-500)]/[0.05]"
+            >
+              <span className="fb-row-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+              <span className="fb-row-body">
+                <span className="fb-row-title">See your full profile</span>
+                <span className="fb-row-desc">Photos, prompts, and how others read you — exactly as it appears.</span>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--color-ash)]" aria-hidden>
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </a>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Display name">
+              <Field label="Display name" search="display name what people call you">
                 <input className={inputClass} value={p.displayName} maxLength={40} onChange={(e) => setP({ displayName: e.target.value })} />
+                <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.displayName.length}/40</span>
               </Field>
-              <Field label="Occupation">
+              <Field label="Occupation" search="occupation job work">
                 <input className={inputClass} value={p.occupation} maxLength={80} placeholder="Optional" onChange={(e) => setP({ occupation: e.target.value })} />
+                <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.occupation.length}/80</span>
               </Field>
-              <Field label="City">
+              <Field label="Education" search="education school degree study">
+                <input className={inputClass} value={p.education} maxLength={80} placeholder="Optional" onChange={(e) => setP({ education: e.target.value })} />
+                <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.education.length}/80</span>
+              </Field>
+              <Field label="City" search="city town where you live location">
                 <input className={inputClass} value={p.city} maxLength={60} onChange={(e) => setP({ city: e.target.value })} />
               </Field>
-              <Field label="Region / state">
+              <Field label="Region / state" search="region state province area">
                 <input className={inputClass} value={p.region} maxLength={60} placeholder="Optional" onChange={(e) => setP({ region: e.target.value })} />
               </Field>
             </div>
-            <Field label="Bio">
+            <Field label="Bio" search="bio about you story introduction">
               <textarea
                 className={`${inputClass} min-h-[110px] resize-none leading-relaxed`}
                 value={p.bio}
                 maxLength={500}
                 onChange={(e) => setP({ bio: e.target.value })}
               />
-              <span className="block text-right text-[11px] text-[var(--color-ash)]">{p.bio.length}/500</span>
+              <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.bio.length}/500</span>
             </Field>
             <SaveRow
               state={profileState}
@@ -593,7 +729,16 @@ export function SettingsView() {
 
         {area === "discovery" ? (
           <div className="space-y-5">
-            <PanelTitle title="Discovery" blurb="Who you see, and how far the room reaches." />
+            <PanelTitle
+              title="Discovery"
+              blurb="Your standing preferences — the Filters panel fine-tunes a single session on top of these."
+            />
+            <p
+              data-search="standing preferences filters session defaults note"
+              className="fb-chip w-fit"
+            >
+              These apply to every session · the Filters panel can narrow one session further
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
                 { label: "Minimum age", value: d.ageMin, set: (v: number) => setD({ ageMin: Math.min(v, d.ageMax) }) },
@@ -619,7 +764,7 @@ export function SettingsView() {
                 );
               })}
             </div>
-            <Field label="Maximum distance">
+            <Field label="Maximum distance" search="maximum distance how far radius km anywhere range">
               <div className="flex flex-wrap gap-2">
                 {DISTANCES.map((o) => {
                   const active = d.distanceKm === o.value;
@@ -646,7 +791,7 @@ export function SettingsView() {
                 })}
               </div>
             </Field>
-            <Field label="Show me">
+            <Field label="Show me" search="show me genders who can see me women men non-binary gender preference">
               <div className="flex flex-wrap gap-2">
                 {Object.entries(GENDER_LABELS).map(([value, label]) => {
                   const active = d.showGenders.includes(value);
@@ -681,6 +826,23 @@ export function SettingsView() {
               <ToggleRow label="Verified members only" body="Only profiles with trust verification." value={d.verifiedOnly} onChange={(v) => setD({ verifiedOnly: v })} />
               <ToggleRow label="Require photos" body="Hide profiles without at least one photo." value={d.photosRequired} onChange={(v) => setD({ photosRequired: v })} />
             </div>
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4" data-search="vaccination vaccine vax status preference filter">
+              <p className="text-[13px] font-black text-[var(--color-pearl)]">Vaccination preference</p>
+              <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
+                Who you see in the room — this is the one filter the whole platform is built around.
+              </p>
+              <div className="mt-2.5">
+                <FreebornSelect
+                  value={d.vaccinationPreference ?? "any"}
+                  options={[
+                    { value: "any", label: "Everyone" },
+                    { value: "unvaccinated", label: "Only unvaccinated members" },
+                    { value: "vaccinated", label: "Only vaccinated members" },
+                  ]}
+                  onChange={(v) => setD({ vaccinationPreference: v })}
+                />
+              </div>
+            </div>
             <SaveRow
               state={discoveryState}
               onSave={async () => {
@@ -696,6 +858,7 @@ export function SettingsView() {
         {area === "notifications" ? (
           <div className="space-y-3.5">
             <PanelTitle title="Alerts" blurb="Choose what reaches you. Saves as you flip them." />
+            <NotificationPermissionRow />
             <ToggleRow label="New matches" body="When someone likes you back." value={n.matchAlerts} onChange={(v) => void setN("matchAlerts", v)} />
             <ToggleRow label="Messages" body="When a conversation gets a new message." value={n.messageAlerts} onChange={(v) => void setN("messageAlerts", v)} />
             <ToggleRow label="Likes" body="When someone likes your profile." value={n.likeAlerts} onChange={(v) => void setN("likeAlerts", v)} />
@@ -717,8 +880,8 @@ export function SettingsView() {
             />
 
             {/* Who can see you in discovery */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <p className="text-[13px] font-black text-[var(--color-pearl)]">Who can see you in Discover</p>
+            <div className="fb-row !block" data-search="who can see you discover visible audience everyone verified unvaccinated">
+              <p className="fb-row-title">Who can see you in Discover</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
                 Control who your card can appear to.
               </p>
@@ -739,8 +902,8 @@ export function SettingsView() {
             </div>
 
             {/* Who can message you */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <p className="text-[13px] font-black text-[var(--color-pearl)]">Who can message you</p>
+            <div className="fb-row !block" data-search="who can message you contact start conversation everyone verified unvaccinated">
+              <p className="fb-row-title">Who can message you</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
                 Applies when starting a conversation — and to every message after.
               </p>
@@ -759,17 +922,17 @@ export function SettingsView() {
                 />
               </div>
             </div>
-            <p className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-[12px] leading-5 text-[var(--color-ash)]">
-              Email, full birth date, and exact coordinates are never shown publicly — that's fixed, not a setting.
+            <p className="fb-caption" data-search="never shown publicly private email birth date coordinates fixed">
+              Email, full birth date, and exact coordinates are never shown publicly — that&apos;s fixed, not a setting.
             </p>
 
             <div className="rounded-2xl border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-4">
               <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[var(--color-teal-300)]">
-                Freeborn's safety promise
+                Freeborn&apos;s safety promise
               </p>
               <ul className="mt-3 space-y-2 text-[12px] leading-5 text-[var(--color-mist)]">
                 <li>· Identity checks use pose-mimic selfies with a moderation queue — never links sent in DMs.</li>
-                <li>· Reports land in a moderation queue with rate limits, so one person can't weaponize them.</li>
+                <li>· Reports land in a moderation queue with rate limits, so one person can&apos;t weaponize them.</li>
                 <li>· Chat media is stored privately per member — never sold, never handed to advertisers.</li>
                 <li>· New profile photos require re-verification, so the teal seal always matches the face.</li>
                 <li>· You can hide or deactivate your account at any time — one tap, no dark patterns.</li>
@@ -781,8 +944,8 @@ export function SettingsView() {
         {area === "preferences" ? (
           <div className="space-y-4">
             <PanelTitle title="Preferences" blurb="How Freeborn feels for you. Saved on this device." />
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Distance units</p>
+            <div className="fb-card" data-search="distance units kilometers miles measurement">
+              <p className="fb-eyebrow">Distance units</p>
               <div className="mt-3 flex gap-2">
                 {(["km", "mi"] as const).map((u) => (
                   <button
@@ -828,16 +991,16 @@ export function SettingsView() {
               </p>
             ) : null}
 
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Email (private)</p>
+            <div className="fb-card" data-search="email address private account sign in login">
+              <p className="fb-eyebrow">Email (private)</p>
               <p className="mt-1 truncate text-[14px] font-medium text-[var(--color-mist)]">{settings.account.email}</p>
             </div>
 
             {/* Change email */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Change email</p>
+            <div className="fb-card" data-search="change email new email address confirmation">
+              <p className="fb-eyebrow">Change email</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                We'll send a confirmation link to the new address before it takes effect.
+                We&apos;ll send a confirmation link to the new address before it takes effect.
               </p>
               <div className="mt-3 flex gap-2">
                 <input
@@ -859,10 +1022,10 @@ export function SettingsView() {
             </div>
 
             {/* Change password */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Change password</p>
+            <div className="fb-card" data-search="change password new password credentials security">
+              <p className="fb-eyebrow">Change password</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                At least 8 characters. Use one you don't reuse anywhere else.
+                At least 8 characters. Use one you don&apos;t reuse anywhere else.
               </p>
               <div className="mt-3 grid gap-2">
                 <input
@@ -893,8 +1056,8 @@ export function SettingsView() {
             </div>
 
             {/* Sessions */}
-            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Sessions</p>
+            <div className="fb-card" data-search="sessions devices sign out everywhere log out">
+              <p className="fb-eyebrow">Sessions</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
                 Ends this session and every other device signed into your account.
               </p>
@@ -908,7 +1071,7 @@ export function SettingsView() {
             </div>
 
             {/* Danger zone */}
-            <div className="rounded-2xl border border-red-400/20 bg-red-500/[0.04] p-4">
+            <div className="fb-card border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide delete account">
               <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Danger zone</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
                 Deactivating hides you from Discover immediately. Matches and history stay saved.

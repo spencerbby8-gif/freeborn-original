@@ -15,6 +15,7 @@ import {
   DEFAULT_FILTERS,
   FILTERS_EVENT,
   hasActiveFilters,
+  hasSavedFilters,
   loadFilters,
   saveFilters,
   type HomeFilters,
@@ -32,6 +33,7 @@ type Profile = {
   traits: string[];
   photo: string;
   photos: string[];
+  hasPhoto?: boolean;
   verified: boolean;
   isOnline: boolean;
   vaccinationStatus: string;
@@ -93,8 +95,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const profileTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDoubleAt = useRef(0);
 
-  const openProfileTap = (id: string) => {
-    if (Date.now() - lastDoubleAt.current < 500) return; // it was a super-like
+  const openProfileTap = (id: string, now: number) => {
+    if (now - lastDoubleAt.current < 500) return; // it was a super-like
     if (profileTapTimer.current) {
       clearTimeout(profileTapTimer.current);
       profileTapTimer.current = null;
@@ -122,6 +124,43 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         return;
       }
       setFilters(loadFilters());
+      /* Seed the panel with the member's standing preferences (Settings →
+         Discovery) when they haven't saved session filters on this device —
+         the panel then displays exactly what the deck applies. Saving any
+         panel filter afterwards persists it as the session override. */
+      if (token && !hasSavedFilters()) {
+        try {
+          const res = await fetch("/api/settings", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const json = (await res.json()) as {
+              discovery?: {
+                ageMin?: number;
+                ageMax?: number;
+                distanceKm?: number;
+                showGenders?: string[];
+                verifiedOnly?: boolean;
+                vaccinationPreference?: string;
+              };
+            };
+            const d = json.discovery;
+            if (d) {
+              setFilters((prev) => ({
+                ...prev,
+                ageMin: d.ageMin ?? prev.ageMin,
+                ageMax: d.ageMax ?? prev.ageMax,
+                distance: d.distanceKm ?? prev.distance,
+                genders: Array.isArray(d.showGenders) ? d.showGenders : prev.genders,
+                verifiedOnly: d.verifiedOnly ?? prev.verifiedOnly,
+                vax: d.vaccinationPreference ?? prev.vax,
+              }));
+            }
+          }
+        } catch {
+          /* panel keeps its defaults */
+        }
+      }
       // Cached browser location (permission already granted earlier).
       try {
         const cached = window.sessionStorage.getItem("freeborn.origin");
@@ -494,7 +533,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {matchToast ? (
         <div className="animate-scale-in mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/[0.08] px-4 py-3">
           <p className="text-[13px] font-bold text-[var(--color-teal-300)]">
-            It's mutual — {matchToast} liked you back.
+            It&apos;s mutual — {matchToast} liked you back.
           </p>
           <Link href="/app/chat" className="shrink-0 text-[12px] font-black text-[var(--color-pearl)] underline underline-offset-2">
             Say hello
@@ -505,7 +544,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {superToast ? (
         <div className="animate-scale-in mb-4 rounded-2xl border border-[var(--color-violet-500)]/35 bg-[var(--color-violet-500)]/[0.09] px-4 py-3">
           <p className="text-[13px] font-bold text-[var(--color-violet-300)]">
-            Super like sent — you'll stand out in their stack.
+            Super like sent — you&apos;ll stand out in their stack.
           </p>
         </div>
       ) : null}
@@ -625,12 +664,24 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 ) : null}
 
                 <div className="relative aspect-[3/3.2] w-full overflow-hidden">
-                  <img
-                    src={profile.photos[0] ?? profile.photo}
-                    alt={`${profile.name}, ${profile.age}`}
-                    draggable={false}
-                    className="h-full w-full select-none object-cover"
-                  />
+                  {profile.photos[0] ?? profile.photo ? (
+                    <img
+                      src={profile.photos[0] ?? profile.photo}
+                      alt={`${profile.name}, ${profile.age}`}
+                      draggable={false}
+                      className="h-full w-full select-none object-cover"
+                    />
+                  ) : (
+                    /* Placeholder card for a photoless profile (viewer allows them) */
+                    <div
+                      aria-hidden
+                      className="flex h-full w-full select-none items-center justify-center bg-[var(--gradient-ember-warm)]"
+                    >
+                      <span className="font-display text-7xl font-bold text-white/90">
+                        {(profile.name || "M").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
 
                   {/* Top-right badges: verification + unvaccinated stance.
@@ -669,7 +720,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                         clearTimeout(singleTapTimer.current);
                         singleTapTimer.current = null;
                       }
-                      openProfileTap(profile.id);
+                      openProfileTap(profile.id, Date.now());
                     }}
                     className="absolute inset-x-0 bottom-0 z-10 px-5 pb-3.5 pt-10 text-left"
                     aria-label={`View ${profile.name}'s full profile`}
@@ -715,7 +766,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       clearTimeout(singleTapTimer.current);
                       singleTapTimer.current = null;
                     }
-                    openProfileTap(profile.id);
+                    openProfileTap(profile.id, Date.now());
                   }}
                   className="block w-full space-y-3 p-5 text-left"
                 >

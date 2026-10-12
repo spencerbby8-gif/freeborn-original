@@ -1,6 +1,6 @@
 import { eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, profilePhotos, userPrivateLocations, userProfiles, userSwipes } from "@/db/schema";
+import { blockedUsers, discoveryPreferences, profilePhotos, userPrivateLocations, userProfiles, userSwipes } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
 
@@ -80,11 +80,41 @@ export async function GET(request: Request) {
     }
   }
 
+  /* Standing preferences (Settings → Discovery) are the BASE filter for a
+     signed-in viewer; the filter panel's query params refine a session on
+     top. The settings screen has always displayed these values — the deck
+     now honors them. No stored row → no base restriction (old behavior). */
+  let baseAgeMin = NaN;
+  let baseAgeMax = NaN;
+  let baseGenders: string[] = [];
+  let baseVerifiedOnly = false;
+  let basePhotosRequired = true;
+  let baseVax = "any";
+  let baseDistance = NaN;
+  if (viewerId) {
+    const [prefs] = await db
+      .select()
+      .from(discoveryPreferences)
+      .where(eq(discoveryPreferences.userId, viewerId))
+      .limit(1);
+    if (prefs) {
+      baseAgeMin = prefs.ageMin;
+      baseAgeMax = prefs.ageMax;
+      baseGenders = prefs.showGenders ?? [];
+      baseVerifiedOnly = prefs.verifiedOnly;
+      basePhotosRequired = prefs.photosRequired;
+      baseVax = prefs.vaccinationPreference ?? "any";
+      baseDistance = prefs.distanceKm;
+    }
+  }
+
   const url = new URL(request.url);
-  const vax = url.searchParams.get("vax"); // any | vaccinated | unvaccinated
-  const verifiedOnly = url.searchParams.get("verified") === "1";
+  const vaxParam = url.searchParams.get("vax"); // any | vaccinated | unvaccinated
+  const vax = vaxParam && vaxParam !== "any" ? vaxParam : baseVax;
+  const verifiedOnly = url.searchParams.get("verified") === "1" ? true : baseVerifiedOnly;
   const onlineOnly = url.searchParams.get("online") === "1";
-  const genders = list(url.searchParams.get("gender"));
+  const genderParam = list(url.searchParams.get("gender"));
+  const genders = genderParam.length ? genderParam : baseGenders;
   const lifestyle = list(url.searchParams.get("lifestyle"));
   const interests = list(url.searchParams.get("interests"));
   const intents = list(url.searchParams.get("intent"));
@@ -96,14 +126,18 @@ export async function GET(request: Request) {
   const languages = list(url.searchParams.get("language"));
   const ageMinParam = url.searchParams.get("ageMin");
   const ageMaxParam = url.searchParams.get("ageMax");
-  const ageMin = ageMinParam !== null ? Number(ageMinParam) : NaN;
-  const ageMax = ageMaxParam !== null ? Number(ageMaxParam) : NaN;
+  const ageMin = ageMinParam !== null ? Number(ageMinParam) : baseAgeMin;
+  const ageMax = ageMaxParam !== null ? Number(ageMaxParam) : baseAgeMax;
   const distanceParam = url.searchParams.get("distance");
   const latParam = url.searchParams.get("lat");
   const lngParam = url.searchParams.get("lng");
   // 500 means "Anywhere" — treat it (and anything above) as no cap at all.
   const distance =
-    distanceParam !== null && Number(distanceParam) < 500 ? Number(distanceParam) : NaN;
+    distanceParam !== null && Number(distanceParam) < 500
+      ? Number(distanceParam)
+      : Number.isFinite(baseDistance) && baseDistance < 500
+        ? baseDistance
+        : NaN;
   const fromLat = latParam !== null ? Number(latParam) : NaN;
   const fromLng = lngParam !== null ? Number(lngParam) : NaN;
   const haveOrigin = Number.isFinite(fromLat) && Number.isFinite(fromLng) && Number.isFinite(distance);
@@ -226,8 +260,9 @@ export async function GET(request: Request) {
     if (viewerId && row.id === viewerId) continue;
     // Blocked in either direction — gone from both decks.
     if (hiddenIds.has(row.id)) continue;
-    // A card without a photo renders blank — photoless profiles stay out.
-    if (!photoByUser.has(row.id)) continue;
+    // Photoless profiles stay out only while the viewer requires photos
+    // (their standing preference); otherwise they render with a placeholder.
+    if (!photoByUser.has(row.id) && basePhotosRequired) continue;
     // Their privacy choice: who is allowed to see them in discovery.
     const dp = (row as { discoverPrivacy?: string }).discoverPrivacy ?? "everyone";
     if (dp === "verified" && !viewerVerified) continue;
@@ -285,6 +320,7 @@ export async function GET(request: Request) {
       relationshipGoals: row.relationshipGoals ?? [],
       photo: resolvePhotoUrl(photoByUser.get(row.id)?.storagePath ?? ""),
       photos: (photosByUser.get(row.id) ?? []).map(resolvePhotoUrl),
+      hasPhoto: photoByUser.has(row.id),
       verified: row.isVerified,
       isOnline,
       vaccinationStatus: row.vaccinationStatus,
