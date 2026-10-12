@@ -50,6 +50,17 @@ export function loadFilters(): HomeFilters {
   }
 }
 
+/** True when the member has explicitly saved panel filters on this device.
+ *  Standing preferences (Settings → Discovery) seed the panel only when no
+ *  saved filters exist, so the panel always displays the effective values. */
+export function hasSavedFilters(): boolean {
+  try {
+    return localStorage.getItem(FILTERS_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function saveFilters(filters: HomeFilters) {
   localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
   window.dispatchEvent(new Event(FILTERS_EVENT));
