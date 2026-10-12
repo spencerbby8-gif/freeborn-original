@@ -1,3 +1,6 @@
+import { and, eq, ne, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { matches, messages, userSwipes } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 
@@ -85,20 +88,97 @@ export async function GET(request: Request) {
     messagePrivacy: row.message_privacy ?? "everyone",
     discoverPrivacy: row.discover_privacy ?? "everyone",
     memberSince: row.created_at,
+    promptAnswers: Array.isArray(row.prompt_answers)
+      ? (row.prompt_answers as Array<{ prompt?: string; answer?: string }>)
+      : [],
   };
 
+  /* --- Live stats (mirror /api/profile/[id] — same tables, same math) ------ */
+  const myMatchRows = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(sql`${matches.userA} = ${user.id} or ${matches.userB} = ${user.id}`);
+  const myMatchIds = new Set(myMatchRows.map((m) => m.id));
+
+  const incomingThreads = await db
+    .select({ matchId: messages.matchId })
+    .from(messages)
+    .where(ne(messages.senderId, user.id))
+    .groupBy(messages.matchId);
+  const outgoingThreads = await db
+    .select({ matchId: messages.matchId })
+    .from(messages)
+    .where(eq(messages.senderId, user.id))
+    .groupBy(messages.matchId);
+
+  const receivedThreads = new Set(
+    incomingThreads.map((r) => r.matchId).filter((matchId) => myMatchIds.has(matchId))
+  );
+  const answeredThreads = new Set(outgoingThreads.map((r) => r.matchId));
+  const repliedCount = [...receivedThreads].filter((matchId) => answeredThreads.has(matchId)).length;
+  const replyRate =
+    receivedThreads.size > 0
+      ? Math.min(100, Math.round((repliedCount / receivedThreads.size) * 100))
+      : null;
+
+  const [likesReceived] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userSwipes)
+    .where(and(eq(userSwipes.likedId, user.id), eq(userSwipes.action, "like")));
+  const likesIn = likesReceived?.count ?? 0;
+  const matchesN = myMatchRows.length;
+  const matchRate = likesIn > 0 ? Math.min(100, Math.round((matchesN / likesIn) * 100)) : null;
+
+  /* --- Completeness v2: every counted item is listed for the checklist ------
+     15 profile fields + prompts answered + at least one photo + a photo
+     foundation (3+). The UI shows exactly these — nothing hidden. */
   const source = { ...profile, birthDate: row.birth_date };
-  let filled = 0;
-  for (const f of COMPLETENESS_FIELDS) {
-    const v = (source as Record<string, unknown>)[f];
-    if (v != null && String(v).trim() !== "") filled++;
-  }
-  if (photoUrls.length > 0) filled++;
-  const total = COMPLETENESS_FIELDS.length + 1;
+  const promptsAnswered = (profile.promptAnswers ?? []).filter((p) => p.answer?.trim()).length;
+  const hasPhoto = photoUrls.length > 0;
+  const hasPhotoFoundation = photoUrls.length >= 3;
+
+  const items: Array<{ id: string; label: string; done: boolean; target: string }> = [
+    ...COMPLETENESS_FIELDS.map((f) => ({
+      id: f,
+      label: FIELD_LABELS[f],
+      done: (source as Record<string, unknown>)[f] != null && String((source as Record<string, unknown>)[f]).trim() !== "",
+      target: f === "birthDate" || f === "gender" ? "onboarding" : `edit:${f}`,
+    })),
+    { id: "prompts", label: "Answer one profile prompt", done: promptsAnswered > 0, target: "prompts" },
+    { id: "photo", label: "Add a profile photo", done: hasPhoto, target: "photos" },
+    { id: "photoFoundation", label: "Reach a 3-photo foundation", done: hasPhotoFoundation, target: "photos" },
+  ];
+  const filled = items.filter((i) => i.done).length;
+  const total = items.length;
   const completeness = Math.round((filled / total) * 100);
 
-  return Response.json({ profile, completeness, filled, total });
+  return Response.json({
+    profile,
+    completeness,
+    filled,
+    total,
+    items,
+    stats: { replyRate, matchRate, conversationCount: receivedThreads.size },
+  });
 }
+
+const FIELD_LABELS: Record<string, string> = {
+  displayName: "Add your display name",
+  birthDate: "Confirm your birth date",
+  gender: "Set your gender",
+  city: "Add your city",
+  bio: "Write a short bio",
+  occupation: "Add your occupation",
+  language: "Add your language",
+  religion: "Add your religion or stance",
+  maritalStatus: "Add your marital status",
+  hasKids: "Say whether you have kids",
+  wantsKids: "Say whether you want kids",
+  drinking: "Add your drinking stance",
+  smoking: "Add your smoking stance",
+  educationLevel: "Add your education level",
+  heightCmProfile: "Add your height",
+};
 
 const COLUMN: Record<string, string> = {
   displayName: "display_name",
@@ -153,6 +233,26 @@ export async function POST(request: Request) {
   }
   if (typeof bodyObj.discoverPrivacy === "string" && PRIVACY_VALUES.has(bodyObj.discoverPrivacy)) {
     patch.discover_privacy = bodyObj.discoverPrivacy;
+  }
+
+  /* Prompt answers — strict shape: array of {prompt, answer}, answer capped,
+     list capped. Stored as jsonb; malformed input is rejected, not coerced. */
+  if (bodyObj.promptAnswers !== undefined) {
+    if (!Array.isArray(bodyObj.promptAnswers)) {
+      return Response.json({ error: "promptAnswers must be an array." }, { status: 400 });
+    }
+    const cleaned = bodyObj.promptAnswers
+      .slice(0, 6)
+      .filter((p): p is { prompt: string; answer: string } => {
+        if (typeof p !== "object" || p === null) return false;
+        const { prompt, answer } = p as Record<string, unknown>;
+        return typeof prompt === "string" && typeof answer === "string" && answer.trim().length > 0;
+      })
+      .map((p) => ({
+        prompt: p.prompt.slice(0, 120),
+        answer: p.answer.trim().slice(0, 500),
+      }));
+    patch.prompt_answers = cleaned;
   }
 
   if (Object.keys(patch).length === 0) {
