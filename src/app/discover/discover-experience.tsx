@@ -164,7 +164,7 @@ export function DiscoverExperience({
         {!loading && !error && !current && (
           <div className="fb-card-lg magic-border mt-10 rounded-[28px] px-8 py-14 text-center">
             <p className="font-display text-2xl font-semibold text-pearl">
-              You've met everyone in the room today.
+              You&apos;ve met everyone in the room today.
             </p>
             <p className="mt-3 text-[14px] leading-relaxed text-mist">
               You gave {heartsGiven} {heartsGiven === 1 ? "heart" : "hearts"}. New members
@@ -288,7 +288,7 @@ export function DiscoverExperience({
               </button>
             </div>
             <p className="mt-4 text-center text-[12px] tracking-wide text-ash">
-              {index + 1} of {profiles.length} in today's room
+              {index + 1} of {profiles.length} in today&apos;s room
             </p>
           </div>
         )}
