@@ -33,7 +33,7 @@ export function OptionCardRow({ options, value, onChange, max }: OptionCardRowPr
             onClick={() => toggle(option.value)}
             disabled={disabled}
             aria-pressed={active}
-            className={`group relative flex items-start gap-4 rounded-3xl border p-5 text-left transition-all active:scale-[0.98] ${
+            className={`group relative flex min-h-[56px] items-start gap-4 rounded-3xl border p-5 text-left transition-all active:scale-[0.98] ${
               active
                 ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
                 : disabled
