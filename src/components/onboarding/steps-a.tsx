@@ -318,10 +318,10 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
   };
 
   const sourceButton = (active: boolean) =>
-    `relative rounded-2xl border p-4 text-left transition-all active:scale-[0.98] ${
+    `fb-card relative !p-4 text-left transition-all active:scale-[0.98] ${
       active
-        ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 text-[var(--color-pearl)] shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
-        : "border-white/10 bg-white/[0.03] text-[var(--color-mist)] hover:border-white/20 hover:bg-white/[0.06]"
+        ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
+        : "hover:border-white/20 hover:bg-white/[0.045]"
     }`;
 
   return (
@@ -336,6 +336,19 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
       saveStatus={saveStatus}
       footerTip="Only your city and region are public. Exact coordinates stay private."
     >
+      {/* Permission priming — why we ask, BEFORE the OS prompt (2026 onboarding research) */}
+      <div className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
+          <PinIcon size={16} />
+        </span>
+        <p className="text-[12.5px] leading-5 text-[var(--color-mist)]">
+          <span className="font-black text-[var(--color-pearl)]">Why we ask:</span> precise
+          location means true distances — real people near you see you first, and you see
+          them. Your exact coordinates stay private; only your city and region are ever shown.
+          You can always type your city instead.
+        </p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
@@ -352,7 +365,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
                 <span className="absolute inset-0 animate-ping rounded-xl bg-[var(--color-gold-500)]/20" />
               ) : null}
             </span>
-            <span className="text-sm font-black">
+            <span className="text-sm font-black text-[var(--color-pearl)]">
               {geoState === "locating"
                 ? "Finding you…"
                 : geoState === "resolving"
@@ -362,7 +375,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
                     : "Use my location"}
             </span>
           </div>
-          <p className="mt-1.5 text-xs leading-4 opacity-80">One tap — we fill in your city for you.</p>
+          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">One tap — we fill in your city for you.</p>
           {locationSource === "gps" ? (
             <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
               <CheckIcon size={13} strokeWidth={3} />
@@ -384,28 +397,15 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
                 <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
             </span>
-            <span className="text-sm font-black">Type it myself</span>
+            <span className="text-sm font-black text-[var(--color-pearl)]">Type it myself</span>
           </div>
-          <p className="mt-1.5 text-xs leading-4 opacity-80">Enter your city and region below.</p>
+          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">Enter your city and region below.</p>
           {locationSource === "manual" ? (
             <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
               <CheckIcon size={13} strokeWidth={3} />
             </span>
           ) : null}
         </button>
-      </div>
-
-      {/* GPS-first tip: precise location = real visibility */}
-      <div className="mt-3 flex items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] p-4">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-          <PinIcon size={16} />
-        </span>
-        <p className="text-[12.5px] leading-5 text-[var(--color-mist)]">
-          <span className="font-black text-[var(--color-gold-300)]">Tip — use your device GPS.</span>{" "}
-          Precise location measures true distances, so real people near you see you first and
-          you see them. Manually typing a different city makes your distances unreliable and
-          quietly reduces your visibility.
-        </p>
       </div>
 
       {detected ? (
@@ -485,10 +485,8 @@ export function IntentionsStep({ stepIndex, totalSteps, draft, onBack, onSave, p
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
-          <span className="text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">
-            Relationship intentions
-          </span>
-          <span className="text-[11px] font-black uppercase tracking-widest text-[var(--color-ash)]">
+          <span className="fb-eyebrow !text-[12px]">Relationship intentions</span>
+          <span className="text-[11px] font-black uppercase tracking-widest tabular-nums text-[var(--color-ash)]">
             {goals.length}/3
           </span>
         </div>
