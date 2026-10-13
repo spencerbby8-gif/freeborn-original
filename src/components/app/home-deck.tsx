@@ -36,6 +36,7 @@ type Profile = {
   hasPhoto?: boolean;
   hideDistance?: boolean;
   hideActiveStatus?: boolean;
+  inCommon?: { values: string[]; interests: string[]; goals: string[] };
   verified: boolean;
   isOnline: boolean;
   vaccinationStatus: string;
@@ -74,6 +75,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const [lightbox, setLightbox] = useState<{ photos: string[]; name: string; start: number } | null>(null);
   const [filters, setFilters] = useState<HomeFilters>({ ...DEFAULT_FILTERS });
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  /** Undo the last swipe — free everywhere else, free here too. */
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [lastUndone, setLastUndone] = useState<string | null>(null);
 
   /* --- Gesture state lives in refs: zero React re-renders per frame ------- */
 
@@ -218,6 +222,35 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   useEffect(() => {
     void loadProfiles();
   }, [loadProfiles]);
+
+  /** Undo the last swipe: deletes it (and any match it created), then the
+     profile re-enters the deck — explicit recourse, never silent. */
+  const undoLastSwipe = async () => {
+    if (undoBusy) return;
+    setUndoBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: "undo" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setLastUndone(json.undone ?? "swipe");
+        window.setTimeout(() => setLastUndone(null), 2600);
+        if (json.unmatched) setMatchToast(null);
+        void loadProfiles();
+      }
+    } catch {
+      /* deck stays as-is */
+    } finally {
+      setUndoBusy(false);
+    }
+  };
 
   const current = profiles[index];
 
@@ -775,6 +808,26 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
                     <p className="mt-1.5 text-[14px] leading-relaxed text-ivory/90">{profile.promptAnswer}</p>
+                    {profile.inCommon &&
+                    (profile.inCommon.values.length > 0 ||
+                      profile.inCommon.interests.length > 0 ||
+                      profile.inCommon.goals.length > 0) ? (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="What you have in common">
+                        {profile.inCommon.values.slice(0, 2).map((v) => (
+                          <span key={`v-${v}`} className="fb-chip fb-chip-gold !text-[11px] !py-1">
+                            {v}
+                          </span>
+                        ))}
+                        {profile.inCommon.interests.slice(0, 2).map((i) => (
+                          <span key={`i-${i}`} className="fb-chip fb-chip-teal !text-[11px] !py-1">
+                            {i}
+                          </span>
+                        ))}
+                        {profile.inCommon.goals.length > 0 ? (
+                          <span className="fb-chip !text-[11px] !py-1">Same intentions</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {profile.traits.map((trait) => (
@@ -794,8 +847,26 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
             );
           })}
 
-          {/* Actions: Skip · Super Like · Like */}
+          {/* Actions: Undo · Skip · Super Like · Like */}
           <div className="mt-7 flex items-end justify-center gap-7">
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void undoLastSwipe()}
+                disabled={undoBusy}
+                aria-label="Undo last swipe"
+                title="Undo your last swipe"
+                className="btn-ghost flex h-[46px] w-[46px] items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M3 7v6h6" />
+                  <path d="M21 17a9 9 0 00-15-6.7L3 13" />
+                </svg>
+              </button>
+              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
+                {lastUndone ? "Undone ✓" : "Undo"}
+              </span>
+            </div>
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
