@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Wordmark } from "@/components/wordmark";
+import { VerifyBadge } from "@/components/verify-badge";
 import {
   normalizeDraft,
   STEP_ORDER,
@@ -26,6 +28,8 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
   const [pending, setPending] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string>("Ready");
   const [flowError, setFlowError] = useState<string | null>(null);
+  /** Completion celebration — a brief "you're in" moment before the app opens. */
+  const [celebrating, setCelebrating] = useState(false);
 
   const currentStep = STEP_ORDER[stepIndex];
 
@@ -106,7 +110,10 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
           setPending(false);
           return;
         }
-        window.location.assign("/app");
+        /* Milestone moment (2026 onboarding research): celebrate the first
+           meaningful action before the app opens — one breath, then in. */
+        setCelebrating(true);
+        window.setTimeout(() => window.location.assign("/app"), 1500);
         return;
       }
 
@@ -155,6 +162,23 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
         return <PhotosStep {...common} />;
     }
   };
+
+  if (celebrating) {
+    return (
+      <div className="animate-fade-in flex min-h-[60vh] flex-col items-center justify-center gap-5 text-center">
+        <span className="animate-scale-in flex h-20 w-20 items-center justify-center rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/10">
+          <VerifyBadge size={40} />
+        </span>
+        <h1 className="fb-h-display">You&apos;re in.</h1>
+        <p className="fb-meta max-w-[36ch]">
+          Your profile is ready — the room is waiting. Welcome to Freeborn.
+        </p>
+        <div className="mt-2">
+          <Wordmark size="sm" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
