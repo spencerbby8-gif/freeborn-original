@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { CheckIcon, PinIcon } from "@/components/icons";
 import { StepShell } from "./step-shell";
 import { DateOfBirthField, OnboardingTextInput, SelectMenu } from "./fields";
@@ -30,6 +30,24 @@ export type StepProps = {
 
 /* --- 1 · Welcome ---------------------------------------------------------- */
 
+function WelcomeIcon({ name }: { name: "route" | "shield" | "heart" }) {
+  const paths: Record<string, ReactNode> = {
+    route: <path d="M12 21s-7-5.6-7-11a7 7 0 0114 0c0 5.4-7 11-7 11z" />,
+    shield: (
+      <>
+        <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+        <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+      </>
+    ),
+    heart: <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />,
+  };
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {paths[name]}
+    </svg>
+  );
+}
+
 export function WelcomeStep({
   stepIndex,
   totalSteps,
@@ -39,14 +57,17 @@ export function WelcomeStep({
 }: Omit<StepProps, "draft" | "onBack">) {
   const cards = [
     {
+      icon: "route" as const,
       title: "Seven quick screens",
       body: "No giant forms. Identity, location, intentions, your story, your vibe, and photos — then you're in.",
     },
     {
+      icon: "shield" as const,
       title: "Private essentials protected",
       body: "Your exact birth date, coordinates, email, and account details never appear publicly on your profile.",
     },
     {
+      icon: "heart" as const,
       title: "Built for the long term",
       body: "Intentions and values come first, so matches start with context instead of small talk.",
     },
@@ -67,12 +88,17 @@ export function WelcomeStep({
       saveStatus={saveStatus}
       footerTip="Your progress auto-saves after every screen. Fine details live in settings later."
     >
+      <div className="flex flex-wrap justify-center gap-2">
+        <span className="fb-chip fb-chip-gold">7 screens</span>
+        <span className="fb-chip">about 3 minutes</span>
+        <span className="fb-chip">auto-saves every screen</span>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {cards.map((c) => (
-          <div key={c.title} className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div key={c.title} className="fb-card flex flex-col justify-between !p-4">
             <div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-                <CheckIcon size={16} />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
+                <WelcomeIcon name={c.icon} />
               </div>
               <h3 className="mt-3 text-[15px] font-black text-[var(--color-pearl)]">{c.title}</h3>
             </div>
@@ -124,6 +150,7 @@ export function IdentityStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
         hint={onboardingFieldHints.display_name}
         autoComplete="nickname"
         maxLength={30}
+        counter={{ value: displayName.length, max: 30 }}
         onChange={(e) => {
           setDisplayName(e.target.value);
           if (errors.display_name) setErrors((prev) => ({ ...prev, display_name: "" }));
