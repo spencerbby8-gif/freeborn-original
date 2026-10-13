@@ -5,13 +5,32 @@ import { CheckIcon } from "@/components/icons";
 
 /* --- shared field chrome ------------------------------------------------ */
 
-function FieldHeader({ label, optional }: { label: string; optional?: boolean }) {
+function FieldHeader({
+  label,
+  optional,
+  counter,
+}: {
+  label: string;
+  optional?: boolean;
+  counter?: { value: number; max: number };
+}) {
   return (
     <div className="flex items-center justify-between gap-3 px-1">
       <span className="text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</span>
-      {optional ? (
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-mist)]">Optional</span>
-      ) : null}
+      <div className="flex items-center gap-3">
+        {counter ? (
+          <span
+            className={`text-[11px] font-bold tabular-nums tracking-widest ${
+              counter.value > counter.max * 0.9 ? "text-[var(--color-gold-300)]" : "text-[var(--color-ash)]"
+            }`}
+          >
+            {counter.value}/{counter.max}
+          </span>
+        ) : null}
+        {optional ? (
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-mist)]">Optional</span>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -45,13 +64,14 @@ type TextInputProps = InputHTMLAttributes<HTMLInputElement> & {
   error?: string;
   hint?: string;
   optional?: boolean;
+  counter?: { value: number; max: number };
 };
 
-export function OnboardingTextInput({ label, error, hint, optional, id, className = "", name, ...props }: TextInputProps) {
+export function OnboardingTextInput({ label, error, hint, optional, counter, id, className = "", name, ...props }: TextInputProps) {
   const inputId = id ?? name ?? label;
   return (
     <div className="space-y-2.5">
-      <FieldHeader label={label} optional={optional} />
+      <FieldHeader label={label} optional={optional} counter={counter} />
       <input id={inputId} className={`${inputBase} ${inputStates(error)} ${className}`} aria-invalid={Boolean(error)} {...props} />
       <FieldFootnote hint={hint} error={error} />
     </div>
