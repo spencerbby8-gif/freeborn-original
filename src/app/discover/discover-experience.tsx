@@ -162,9 +162,9 @@ export function DiscoverExperience({
         )}
 
         {!loading && !error && !current && (
-          <div className="surface magic-border mt-10 rounded-[28px] px-8 py-14 text-center">
+          <div className="fb-card-lg magic-border mt-10 rounded-[28px] px-8 py-14 text-center">
             <p className="font-display text-2xl font-semibold text-pearl">
-              You've met everyone in the room today.
+              You&apos;ve met everyone in the room today.
             </p>
             <p className="mt-3 text-[14px] leading-relaxed text-mist">
               You gave {heartsGiven} {heartsGiven === 1 ? "heart" : "hearts"}. New members
@@ -200,7 +200,7 @@ export function DiscoverExperience({
             )}
 
             <article
-              className={`luminous-card relative overflow-hidden rounded-[28px] border hairline bg-abyss transition-all duration-300 ${
+              className={`fb-card-lg relative overflow-hidden !p-0 border-white/[0.09] transition-all duration-300 ${
                 leaving === "like"
                   ? "translate-x-24 rotate-6 opacity-0"
                   : leaving === "pass"
@@ -216,7 +216,15 @@ export function DiscoverExperience({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-transparent" />
                 <div className="absolute left-5 top-5 flex items-center gap-2">
-
+                  {current.verified ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-night/60 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-sm">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+                        <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+                      </svg>
+                      Verified
+                    </span>
+                  ) : null}
                   <span className="inline-flex items-center gap-1.5 rounded-full border hairline bg-night/60 px-2.5 py-1 text-[11px] font-semibold text-sand backdrop-blur-sm">
                     <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M8 13.6S2.1 9.9 2.1 5.9a3 3 0 015.9-.7A3 3 0 0113.9 5.9c0 4-5.9 7.7-5.9 7.7z" fill="#ef5e5e" />
@@ -226,8 +234,8 @@ export function DiscoverExperience({
                 </div>
                 <div className="absolute inset-x-5 bottom-4">
                   <div className="flex items-baseline gap-2.5">
-                    <h2 className="font-display text-3xl font-semibold text-pearl">{current.name}</h2>
-                    <span className="font-display text-2xl text-gold-300">{current.age}</span>
+                    <h2 className="fb-h-display !text-[28px]">{current.name}</h2>
+                    <span className="font-display text-[22px] text-gold-300">{current.age}</span>
                   </div>
                   <p className="mt-1 text-[13px] tracking-wide text-sand">
                     {current.occupation} · {current.city}
@@ -239,17 +247,14 @@ export function DiscoverExperience({
                   “{current.headline}”
                 </p>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gold-500">
+                  <p className="fb-eyebrow !text-[10.5px]">
                     {current.promptQuestion}
                   </p>
-                  <p className="mt-2 text-[14px] leading-[1.75] text-mist">{current.promptAnswer}</p>
+                  <p className="fb-meta mt-2">{current.promptAnswer}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {current.traits.map((trait) => (
-                    <span
-                      key={trait}
-                      className="rounded-full border hairline bg-pearl/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-sand"
-                    >
+                    <span key={trait} className="fb-chip !text-[11px] !py-1">
                       {trait}
                     </span>
                   ))}
@@ -283,7 +288,7 @@ export function DiscoverExperience({
               </button>
             </div>
             <p className="mt-4 text-center text-[12px] tracking-wide text-ash">
-              {index + 1} of {profiles.length} in today's room
+              {index + 1} of {profiles.length} in today&apos;s room
             </p>
           </div>
         )}

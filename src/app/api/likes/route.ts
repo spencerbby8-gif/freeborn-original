@@ -118,6 +118,33 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, reset: removed.length });
   }
 
+  /* Undo the last swipe — the free-tier feature members beg for everywhere.
+     Removes the member's most recent swipe; if it was a like/superlike that
+     created a match, the match is removed too (conversation cascades). The
+     profile then re-enters the deck — undo is explicit, never silent. */
+  if (payload.action === "undo") {
+    const [last] = await db
+      .select({ likedId: userSwipes.likedId, action: userSwipes.action })
+      .from(userSwipes)
+      .where(eq(userSwipes.likerId, member.id))
+      .orderBy(desc(userSwipes.createdAt))
+      .limit(1);
+    if (!last) return Response.json({ error: "Nothing to undo yet." }, { status: 409 });
+    await db
+      .delete(userSwipes)
+      .where(and(eq(userSwipes.likerId, member.id), eq(userSwipes.likedId, last.likedId)));
+    let unmatched = false;
+    if (last.action === "like" || last.action === "superlike") {
+      const [userA, userB] = [member.id, last.likedId].sort();
+      const removed = await db
+        .delete(matches)
+        .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
+        .returning({ id: matches.id });
+      unmatched = removed.length > 0;
+    }
+    return Response.json({ ok: true, undone: last.likedId, unmatched });
+  }
+
   /* Unlike — recourse for accidental taps (a trap users raged about on the
      other platforms). */
   if (payload.action === "unlike") {

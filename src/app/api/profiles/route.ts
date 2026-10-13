@@ -46,18 +46,30 @@ export async function GET(request: Request) {
   let viewerId: string | null = null;
   let viewerVax = "prefer_not_to_say";
   let viewerVerified = false;
+  let viewerValues: string[] = [];
+  let viewerInterests: string[] = [];
+  let viewerGoals: string[] = [];
   const hiddenIds = new Set<string>();
   if (request.headers.get("authorization")?.startsWith("Bearer ")) {
     const member = await getMember(request).catch(() => null);
     viewerId = member?.id ?? null;
     if (viewerId) {
       const [viewerRow] = await db
-        .select({ vaccinationStatus: userProfiles.vaccinationStatus, isVerified: userProfiles.isVerified })
+        .select({
+          vaccinationStatus: userProfiles.vaccinationStatus,
+          isVerified: userProfiles.isVerified,
+          values: userProfiles.values,
+          interests: userProfiles.interests,
+          relationshipGoals: userProfiles.relationshipGoals,
+        })
         .from(userProfiles)
         .where(eq(userProfiles.id, viewerId))
         .limit(1);
       if (viewerRow) {
         viewerVax = viewerRow.vaccinationStatus;
+        viewerValues = viewerRow.values ?? [];
+        viewerInterests = viewerRow.interests ?? [];
+        viewerGoals = viewerRow.relationshipGoals ?? [];
         viewerVerified = viewerRow.isVerified;
       }
       const blocks = await db
@@ -361,6 +373,12 @@ export async function GET(request: Request) {
       hasPhoto: photoByUser.has(row.id),
       hideDistance: priv?.hideDistance ?? false,
       hideActiveStatus: priv?.hideActiveStatus ?? false,
+      /* "In common" — honest shared-trait counts, never a compatibility %. */
+      inCommon: {
+        values: (row.values ?? []).filter((v) => viewerValues.includes(v)),
+        interests: (row.interests ?? []).filter((i) => viewerInterests.includes(i)),
+        goals: (row.relationshipGoals ?? []).filter((g) => viewerGoals.includes(g)),
+      },
       verified: row.isVerified,
       isOnline,
       vaccinationStatus: row.vaccinationStatus,
