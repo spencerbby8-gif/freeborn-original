@@ -28,7 +28,7 @@ function SafetyPanel({ values }: { values: string[] }) {
   if (!issues.length) return null;
   const unique = issues.filter((issue, index) => issues.findIndex((item) => item.type === issue.type) === index);
   return (
-    <div className="animate-scale-in rounded-[24px] border border-red-400/20 bg-red-500/[0.06] p-4 text-sm shadow-lg">
+    <div className="animate-scale-in rounded-[24px] border border-red-400/25 bg-red-500/[0.07] p-4 text-sm shadow-lg">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-400/10 text-red-200">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -130,9 +130,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
       {/* Vaccination stance */}
       <div className="space-y-3">
         <div className="px-1">
-          <span className="text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">
-            Vaccination stance
-          </span>
+          <span className="fb-eyebrow !text-[12px]">Vaccination stance</span>
           <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-mist)]">
             Shown as a badge on your profile so you can find people aligned with you. You can keep it private.
           </p>
@@ -146,7 +144,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
                 type="button"
                 onClick={() => setVaccinationStatus(o.value)}
                 aria-pressed={active}
-                className={`relative rounded-2xl border p-4 pr-11 text-left transition-all active:scale-[0.98] ${
+                className={`relative min-h-[56px] rounded-2xl border p-4 pr-11 text-left transition-all active:scale-[0.98] ${
                   active
                     ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
                     : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
@@ -388,9 +386,7 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
       footerTip="Recent, recognizable, and real — like someone a person would want to meet."
     >
       <div className="flex items-center justify-between px-1">
-        <span className="text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">
-          Your photos
-        </span>
+        <span className="fb-eyebrow !text-[12px]">Your photos</span>
         <span
           className={`text-[11px] font-black uppercase tracking-widest ${
             photos.length >= 3 ? "text-[var(--color-teal-300)]" : "text-[var(--color-ash)]"
