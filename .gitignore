@@ -18,3 +18,6 @@ netlify/
 # misc
 .DS_Store
 npm-debug.log*
+
+# typescript build artifact
+tsconfig.tsbuildinfo

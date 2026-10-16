@@ -545,9 +545,9 @@ function DataCard() {
   };
 
   return (
-    <div className="fb-card" data-search="download my data export gdpr privacy json backup">
+    <div className="fb-card fb-stack-sm" data-search="download my data export gdpr privacy json backup">
       <p className="fb-eyebrow">Your data</p>
-      <p className="fb-meta mt-1.5">
+      <p className="fb-meta">
         Download everything that is yours — profile, photos list, preferences, activity,
         verification history. Other members appear only as ids; verification selfies are
         not part of the export.
@@ -556,7 +556,7 @@ function DataCard() {
         type="button"
         onClick={() => void download()}
         disabled={busy}
-        className="fb-btn fb-btn-ghost fb-btn-sm mt-3"
+        className="fb-btn fb-btn-ghost fb-btn-sm"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M12 3v12M7 10l5 5 5-5M4 21h16" />
@@ -945,7 +945,7 @@ export function SettingsView() {
       {/* Fixed area panel */}
       <div ref={panelRef} className="fb-card-lg animate-scale-in mt-5" key={area}>
         {area === "profile" ? (
-          <div className="space-y-5">
+          <div className="fb-stack">
             <PanelTitle title="Profile" blurb="The essentials people see. Honest works better." />
             <a
               href="/app/profile"
@@ -1008,7 +1008,7 @@ export function SettingsView() {
         ) : null}
 
         {area === "discovery" ? (
-          <div className="space-y-5">
+          <div className="fb-stack">
             <PanelTitle
               title="Discovery"
               blurb="Your standing preferences — the Filters panel fine-tunes a single session on top of these."
@@ -1136,7 +1136,7 @@ export function SettingsView() {
         ) : null}
 
         {area === "notifications" ? (
-          <div className="space-y-3.5">
+          <div className="fb-stack">
             <PanelTitle title="Alerts" blurb="Choose what reaches you. Saves as you flip them." />
             <NotificationPermissionRow />
             <ToggleRow label="New matches" body="When someone likes you back." value={n.matchAlerts} onChange={(v) => void setN("matchAlerts", v)} />
@@ -1147,10 +1147,10 @@ export function SettingsView() {
         ) : null}
 
         {area === "privacy" ? (
-          <div className="space-y-3.5">
+          <div className="fb-stack">
             <PanelTitle title="Privacy" blurb="You decide when you're visible. Every control saves as you flip it." />
 
-            <p className="fb-eyebrow pt-1" data-search="visibility section">Visibility</p>
+            <p className="fb-eyebrow" data-search="visibility section">Visibility</p>
             <ToggleRow
               label="Discoverable"
               body="Off means you won't appear in anyone's Discover — matches and chats keep working."
@@ -1173,7 +1173,7 @@ export function SettingsView() {
               onChange={(val) => void setV({ incognito: val })}
             />
 
-            <p className="fb-eyebrow pt-1" data-search="location presence section">Location & presence</p>
+            <p className="fb-eyebrow" data-search="location presence section">Location & presence</p>
             <ToggleRow
               label="Hide my distance"
               body="Others see your city, never how far away you are — exact location stays private."
@@ -1187,7 +1187,7 @@ export function SettingsView() {
               onChange={(val) => void setV({ hideActiveStatus: val })}
             />
 
-            <p className="fb-eyebrow pt-1" data-search="messages section">Messages</p>
+            <p className="fb-eyebrow" data-search="messages section">Messages</p>
             <ToggleRow
               label="Read receipts"
               body="Let others see when you've read their messages. Turn off for full privacy."
@@ -1235,7 +1235,7 @@ export function SettingsView() {
               </div>
             </div>
 
-            <p className="fb-eyebrow pt-1" data-search="blocked members list unblock">Blocked members</p>
+            <p className="fb-eyebrow" data-search="blocked members list unblock">Blocked members</p>
             <BlockedList />
 
             <p className="fb-caption" data-search="never shown publicly private email birth date coordinates fixed">
@@ -1258,11 +1258,11 @@ export function SettingsView() {
         ) : null}
 
         {area === "preferences" ? (
-          <div className="space-y-4">
+          <div className="fb-stack">
             <PanelTitle title="Preferences" blurb="How Freeborn feels for you. Saved on this device." />
-            <div className="fb-card" data-search="distance units kilometers miles measurement">
+            <div className="fb-card fb-stack-xs" data-search="distance units kilometers miles measurement">
               <p className="fb-eyebrow">Distance units</p>
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2">
                 {(["km", "mi"] as const).map((u) => (
                   <button
                     key={u}
@@ -1292,7 +1292,7 @@ export function SettingsView() {
         ) : null}
 
         {area === "account" ? (
-          <div className="space-y-4">
+          <div className="fb-stack">
             <PanelTitle title="Account" blurb="Security, email, and control over your account." />
 
             {accountMsg ? (
@@ -1307,18 +1307,18 @@ export function SettingsView() {
               </p>
             ) : null}
 
-            <div className="fb-card" data-search="email address private account sign in login">
+            <div className="fb-card fb-stack-xs" data-search="email address private account sign in login">
               <p className="fb-eyebrow">Email (private)</p>
-              <p className="mt-1 truncate text-[14px] font-medium text-[var(--color-mist)]">{settings.account.email}</p>
+              <p className="truncate text-[14px] font-medium text-[var(--color-mist)]">{settings.account.email}</p>
             </div>
 
             {/* Change email */}
-            <div className="fb-card" data-search="change email new email address confirmation">
+            <div className="fb-card fb-stack-sm" data-search="change email new email address confirmation">
               <p className="fb-eyebrow">Change email</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+              <p className="text-[12px] leading-4 text-[var(--color-ash)]">
                 We&apos;ll send a confirmation link to the new address before it takes effect.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2">
                 <input
                   value={emailNew}
                   onChange={(e) => setEmailNew(e.target.value)}
@@ -1338,12 +1338,12 @@ export function SettingsView() {
             </div>
 
             {/* Change password */}
-            <div className="fb-card" data-search="change password new password credentials security">
+            <div className="fb-card fb-stack-sm" data-search="change password new password credentials security">
               <p className="fb-eyebrow">Change password</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+              <p className="text-[12px] leading-4 text-[var(--color-ash)]">
                 At least 8 characters. Use one you don&apos;t reuse anywhere else.
               </p>
-              <div className="mt-3 grid gap-2">
+              <div className="grid gap-2">
                 <input
                   value={pwdNew}
                   onChange={(e) => setPwdNew(e.target.value)}
@@ -1372,9 +1372,9 @@ export function SettingsView() {
             </div>
 
             {/* Sessions */}
-            <div className="fb-card" data-search="sessions devices sign out everywhere log out active sign ins">
+            <div className="fb-card fb-stack-sm" data-search="sessions devices sign out everywhere log out active sign ins">
               <p className="fb-eyebrow">Sessions</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+              <p className="text-[12px] leading-4 text-[var(--color-ash)]">
                 {accountFacts
                   ? `${accountFacts.activeSignIns} active ${accountFacts.activeSignIns === 1 ? "sign-in" : "sign-ins"} on file. Signing out everywhere ends this session and every other device.`
                   : "Ends this session and every other device signed into your account."}
@@ -1382,7 +1382,7 @@ export function SettingsView() {
               <button
                 type="button"
                 onClick={() => void signOutEverywhere()}
-                className="fb-btn fb-btn-ghost fb-btn-sm mt-3"
+                className="fb-btn fb-btn-ghost fb-btn-sm"
               >
                 Sign out of all devices
               </button>
@@ -1391,21 +1391,21 @@ export function SettingsView() {
             <DataCard />
 
             {/* Danger zone */}
-            <div className="fb-card border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide pause account">
+            <div className="fb-card fb-stack-sm border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide pause account">
               <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Danger zone</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
+              <p className="text-[12px] leading-4 text-[var(--color-ash)]">
                 Deactivating hides you from Discover immediately. Matches and history stay saved.
               </p>
               {!confirmDeactivate ? (
                 <button
                   type="button"
                   onClick={() => setConfirmDeactivate(true)}
-                  className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
+                  className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
                 >
                   Deactivate my account
                 </button>
               ) : (
-                <div className="mt-3 flex gap-2">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     disabled={busy}
