@@ -124,7 +124,7 @@ function PromptsEditor({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="fb-stack">
       {value.map((p, i) => {
         const options = PROMPT_STARTERS.includes(p.prompt ?? "")
           ? PROMPT_STARTERS
@@ -638,9 +638,9 @@ function ProfileInner() {
       {/* Completion — animated number, inner loading line, actionable checklist */}
       <div className="fb-card-lg mt-6">
         <div className="flex items-end justify-between gap-4">
-          <div>
+          <div className="fb-stack-xs">
             <p className="fb-eyebrow">Profile completion</p>
-            <p className="fb-meta mt-1">
+            <p className="fb-meta">
               {completeness >= 80
                 ? "Looking strong — complete profiles get far more meaningful matches."
                 : "Complete the details below to show up higher in discovery and attract better matches."}
@@ -652,7 +652,7 @@ function ProfileInner() {
           <div className="fb-progress-fill" style={{ width: `${displayPct}%` }} />
         </div>
         {items.length > 0 ? (
-          <div className="mt-5">
+          <div className="mt-4">
             <p className="fb-caption font-bold uppercase tracking-[0.14em]">
               {items.filter((i) => i.done).length}/{items.length} done — tap one to fix it
             </p>
@@ -1000,7 +1000,7 @@ function ProfileInner() {
       ) : null}
 
       {!editing ? (
-        <div className="mt-6 space-y-4">
+        <div className="mt-6 fb-stack">
           {/* Every photo, inline — exactly what appears on your discover cards */}
           {profile.photos.length > 0 ? (
             <div className="fb-card !p-0 overflow-hidden">
@@ -1052,14 +1052,14 @@ function ProfileInner() {
           )}
 
           {profile.bio ? (
-            <div className="fb-card">
+            <div className="fb-card fb-stack-xs">
               <p className="fb-eyebrow">About me</p>
-              <p className="fb-body mt-2 whitespace-pre-line">{profile.bio}</p>
+              <p className="fb-body whitespace-pre-line">{profile.bio}</p>
             </div>
           ) : null}
 
           {/* Prompts — shown exactly as others will read them */}
-          <div className="fb-card" data-edit-section="prompts">
+          <div className="fb-card fb-stack-sm" data-edit-section="prompts">
             <div className="flex items-center justify-between gap-3">
               <p className="fb-eyebrow">Your prompts</p>
               <button
@@ -1074,18 +1074,18 @@ function ProfileInner() {
               </button>
             </div>
             {profile.promptAnswers?.length ? (
-              <div className="mt-3 space-y-3">
+              <div className="space-y-3">
                 {profile.promptAnswers
                   .filter((p) => p.answer?.trim())
                   .map((p, i) => (
-                    <div key={i} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+                    <div key={i} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 fb-stack-xs">
                       <p className="fb-caption font-bold uppercase tracking-[0.14em]">{p.prompt ?? "A prompt"}</p>
-                      <p className="fb-body mt-1.5">“{p.answer}”</p>
+                      <p className="fb-body">“{p.answer}”</p>
                     </div>
                   ))}
               </div>
             ) : (
-              <div className="fb-empty mt-3 !py-8">
+              <div className="fb-empty !py-8">
                 <p className="fb-meta">Prompts start conversations — answer one and show up warmer in the room.</p>
                 <button
                   type="button"
@@ -1102,9 +1102,9 @@ function ProfileInner() {
           </div>
 
           {/* The details — a clean, editorial two-column register */}
-          <div className="fb-card">
+          <div className="fb-card fb-stack-xs">
             <p className="fb-eyebrow">The details</p>
-            <div className="mt-3 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
               {[
                 { label: "Occupation", value: profile.occupation, field: "occupation" },
                 { label: "Education", value: profile.educationLevel || profile.education, field: "educationLevel" },
@@ -1134,11 +1134,11 @@ function ProfileInner() {
           </div>
 
           {profile.values.length || profile.interests.length || profile.lifestyle.length ? (
-            <div className="fb-card space-y-4">
+            <div className="fb-card fb-stack-sm">
               {profile.values.length ? (
-                <div>
+                <div className="fb-stack-xs">
                   <p className="fb-eyebrow">Values</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {profile.values.map((v) => (
                       <span key={v} className="fb-chip">{v}</span>
                     ))}
@@ -1146,9 +1146,9 @@ function ProfileInner() {
                 </div>
               ) : null}
               {profile.interests.length ? (
-                <div>
+                <div className="fb-stack-xs">
                   <p className="fb-eyebrow">Interests</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {profile.interests.map((v) => (
                       <span key={v} className="fb-chip">{v}</span>
                     ))}
@@ -1156,9 +1156,9 @@ function ProfileInner() {
                 </div>
               ) : null}
               {profile.lifestyle.length ? (
-                <div>
+                <div className="fb-stack-xs">
                   <p className="fb-eyebrow">How you live</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {profile.lifestyle.map((v) => (
                       <span key={v} className="fb-chip">{v}</span>
                     ))}
@@ -1166,9 +1166,9 @@ function ProfileInner() {
                 </div>
               ) : null}
               {profile.relationshipGoals.length ? (
-                <div>
+                <div className="fb-stack-xs">
                   <p className="fb-eyebrow">Looking for</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {profile.relationshipGoals.map((v) => (
                       <span key={v} className="fb-chip fb-chip-gold">{prettyText(v)}</span>
                     ))}
@@ -1200,7 +1200,7 @@ function ProfileInner() {
           </div>
         </div>
       ) : (
-        <div className="mt-6 space-y-5">
+        <div className="mt-6 fb-stack">
           {/* Photos — change, delete, re-upload or snap directly from the edit screen */}
           <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-5">
             <div className="flex items-center justify-between gap-3">
