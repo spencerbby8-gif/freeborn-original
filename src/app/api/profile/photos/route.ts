@@ -7,6 +7,7 @@ import {
   matchRateLimited,
   runIdentityMatch,
 } from "@/lib/identity-match";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -36,6 +37,8 @@ const MAX_PHOTOS = 6;
 export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let body: unknown;
   try {
@@ -190,6 +193,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let body: unknown;
   try {

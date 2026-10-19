@@ -209,7 +209,7 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
           <div className="space-y-3">
             <SectionLabel>Maximum distance</SectionLabel>
             <Slider label="Distance" value={f.distance} min={5} max={500} display={f.distance >= 500 ? "Anywhere" : `${f.distance} km`} onChange={(v) => set({ distance: v })} />
-            <p className="text-[11px] leading-4 text-[var(--color-ash)]">"Anywhere" shows everyone regardless of location.</p>
+            <p className="text-[11px] leading-4 text-[var(--color-ash)]">&quot;Anywhere&quot; shows everyone regardless of location.</p>
           </div>
 
           {/* Toggles */}

@@ -123,7 +123,7 @@ export function Safety() {
               <em className="font-medium italic text-gold-soft">design decision.</em>
             </h2>
             <p className="mt-6 text-[16px] leading-[1.8] text-mist">
-              We don't ask you to trust a promise — we show you the controls.
+              We don&apos;t ask you to trust a promise — we show you the controls.
               Every safety choice below is visible, editable, and enforced in the
               product, not just on this page.
             </p>

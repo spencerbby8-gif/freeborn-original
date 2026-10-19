@@ -49,7 +49,7 @@ export function UnvaxTip() {
         <span className="absolute -top-[7px] right-5 h-3.5 w-3.5 rotate-45 border-l border-t border-[var(--color-gold-500)]/45 bg-[#171204]" />
         <p className="text-[12px] leading-5 text-[var(--color-ivory)]">
           <span className="font-black text-[var(--color-gold-300)]">The leaf shield</span> is
-          Freeborn's sign that a member identifies as{" "}
+          Freeborn&apos;s sign that a member identifies as{" "}
           <span className="font-black text-[var(--color-gold-300)]">unvaccinated</span>.
         </p>
         <button

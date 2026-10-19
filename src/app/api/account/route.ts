@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, userProfiles } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.email) return Response.json({ error: "Not signed in." }, { status: 401 });
+  /* CSRF: this POST can deactivate or PERMANENTLY DELETE the account,
+     including auth.users. rejectCrossOrigin() no-ops on the GET above. */
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   const [account] = await db
     .select({ createdAt: accounts.createdAt })
@@ -48,6 +53,10 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.email) return Response.json({ error: "Not signed in." }, { status: 401 });
+  /* CSRF: this POST can deactivate or PERMANENTLY DELETE the account,
+     including auth.users. rejectCrossOrigin() no-ops on the GET above. */
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let body: unknown;
   try {

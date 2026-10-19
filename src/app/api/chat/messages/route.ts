@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { matches, messageReactions, messages, userPrivateSettings, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { looksLikeScam } from "@/lib/scam-guard";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 async function ownsMatch(matchId: string, memberId: string) {
   const [row] = await db
@@ -19,6 +20,8 @@ async function ownsMatch(matchId: string, memberId: string) {
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");
@@ -101,6 +104,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let body: unknown;
   try {
@@ -181,6 +186,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");

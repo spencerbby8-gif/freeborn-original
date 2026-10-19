@@ -93,7 +93,7 @@ export default function CallbackPage() {
         </div>
       ) : (
         <div className="max-w-md rounded-[28px] border border-white/10 bg-white/[0.03] p-8 text-center">
-          <h1 className="text-xl font-black">That sign-in couldn't finish</h1>
+          <h1 className="text-xl font-black">That sign-in couldn&apos;t finish</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--color-mist)]">
             {reason ??
               "Secure links and codes are one-time and expire. Go back and request a fresh code — it signs you in the moment you enter it."}

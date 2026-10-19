@@ -9,6 +9,7 @@ import {
   userSwipes,
 } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 async function profileCard(id: string) {
   const p = await getLocalProfile(id);
@@ -38,6 +39,8 @@ async function profileCard(id: string) {
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   // Blocked either way → invisible in both lists.
   const blockRows = await db

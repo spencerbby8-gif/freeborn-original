@@ -3,21 +3,12 @@ import { db } from "@/db";
 import { matches, messages, userSwipes } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { ageFromBirthDate } from "@/lib/age";
 
 export const dynamic = "force-dynamic";
 
-function ageFromBirthDate(birthDate: string | null): number | null {
-  if (!birthDate) return null;
-  const dob = new Date(`${birthDate}T00:00:00Z`);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getUTCFullYear() - dob.getUTCFullYear();
-  const beforeBirthday =
-    now.getUTCMonth() < dob.getUTCMonth() ||
-    (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
+/* ageFromBirthDate now lives in src/lib/age.ts — this was the fourth verbatim
+   copy (along with /api/profiles, /api/profile/[id] and onboarding-data.ts). */
 
 const COMPLETENESS_FIELDS = [
   "displayName",

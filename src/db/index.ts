@@ -34,6 +34,11 @@ const globalForDb = globalThis as typeof globalThis & {
   __freebornDrizzleDb?: ReturnType<typeof drizzle>;
 };
 
+/** Set once createDb() runs, in EVERY environment. The `pool` export below
+    reads this rather than globalForDb.__freebornPgPool, which is only assigned
+    in development — that mismatch made `pool` throw in production. */
+let activePool: Pool | undefined;
+
 function createDb() {
   const databaseUrl = resolveDatabaseUrl();
   if (!databaseUrl) {
@@ -44,8 +49,34 @@ function createDb() {
     );
   }
 
+  const isLocal =
+    databaseUrl.includes("127.0.0.1") || databaseUrl.includes("localhost");
+
   const pool =
-    globalForDb.__freebornPgPool ?? new Pool({ connectionString: databaseUrl });
+    globalForDb.__freebornPgPool ??
+    new Pool({
+      connectionString: databaseUrl,
+      /* node-postgres defaults to max:10. On Netlify EVERY serverless
+         instance builds its own pool, so 50 concurrent instances means 500
+         connections aimed at the Supabase transaction pooler — which refuses
+         them. The failure mode is sporadic, hard-to-diagnose 500s under load,
+         and it can exhaust the project's connection budget for everyone.
+         Keep per-instance pools tiny; on serverless, few and short-lived wins. */
+      max: Number(process.env.PGPOOL_MAX ?? 2),
+      /* Supabase requires TLS. rejectUnauthorized:false is the standard
+         workaround because the pooler certificate CN does not match the host;
+         the connection is still encrypted. Never enable this for a local
+         sandbox Postgres, which typically has no certificate at all. */
+      ssl: isLocal ? undefined : { rejectUnauthorized: false },
+      /* Bound every statement. Netlify caps functions at 26s on paid plans, so
+         a runaway query must die before the platform kills the invocation and
+         leaves the connection in an unknown state. */
+      statement_timeout: 15_000,
+      connectionTimeoutMillis: 5_000,
+      idleTimeoutMillis: 30_000,
+    });
+
+  activePool = pool;
 
   if (process.env.NODE_ENV !== "production") {
     globalForDb.__freebornPgPool = pool;
@@ -74,15 +105,24 @@ export const db = new Proxy({} as ReturnType<typeof getDb>, {
   },
 });
 
-/** Lazily-created pool, for callers that need raw `pg` access. */
+/**
+ * Lazily-created pool, for callers that need raw `pg` access.
+ *
+ * This used to read `globalForDb.__freebornPgPool!`, which is only assigned
+ * when NODE_ENV !== "production". In production it was therefore `undefined`
+ * and every property access threw a TypeError. Nothing imported it at audit
+ * time, so it was dead code rather than a live outage — but it was a landmine
+ * for whoever reached for it next. It now reads `activePool`, which createDb()
+ * sets in every environment.
+ */
 export const pool = new Proxy({} as Pool, {
   get(_target, prop) {
     getDb();
-    const value = Reflect.get(globalForDb.__freebornPgPool!, prop);
-    return typeof value === "function" ? value.bind(globalForDb.__freebornPgPool) : value;
+    const value = Reflect.get(activePool!, prop);
+    return typeof value === "function" ? value.bind(activePool) : value;
   },
   has(_target, prop) {
     getDb();
-    return Reflect.has(globalForDb.__freebornPgPool!, prop);
+    return Reflect.has(activePool!, prop);
   },
 });

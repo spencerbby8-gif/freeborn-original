@@ -69,7 +69,7 @@ export function Room() {
     <section className="relative border-t hairline">
       <div className="mx-auto max-w-6xl px-5 py-24 sm:px-8 lg:py-32">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow">The room you're walking into</p>
+          <p className="eyebrow">The room you&apos;re walking into</p>
           <h2 className="mt-5 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-pearl">
             Real people. Real prompts.{" "}
             <em className="font-medium italic text-gold-soft">No stack.</em>

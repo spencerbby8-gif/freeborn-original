@@ -12,19 +12,11 @@ import {
   userSwipes,
 } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ageFromBirthDate } from "@/lib/age";
 
-function ageFromBirthDate(birthDate: string | null): number | null {
-  if (!birthDate) return null;
-  const dob = new Date(`${birthDate}T00:00:00Z`);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getUTCFullYear() - dob.getUTCFullYear();
-  const beforeBirthday =
-    now.getUTCMonth() < dob.getUTCMonth() ||
-    (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
+/* ageFromBirthDate now lives in src/lib/age.ts — it was copy-pasted
+   verbatim into this file and /api/profile/[id]. Duplicating the AGE
+   function specifically is how an under-18 member survives a partial fix. */
 
 /** Privacy-friendly date of birth: month + year (age is derived). */
 function birthLabel(birthDate: string | null): string {

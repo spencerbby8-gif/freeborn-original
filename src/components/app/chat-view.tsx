@@ -565,6 +565,10 @@ function Thread({
       const form = new FormData();
       form.append("file", blob, `upload.${ext}`);
       form.append("kind", kind);
+      // Required: the server records which conversation this attachment
+      // belongs to so that GET /api/chat/media/:id can verify the fetcher is
+      // one of the two participants. Uploads without it are rejected.
+      form.append("match", match.id);
       const res = await fetch("/api/chat/media", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -826,7 +830,7 @@ function Thread({
                 </svg>
                 <p className="text-[10.5px] font-bold leading-4 text-amber-300">
                   Freeborn safety: this message matches patterns commonly used by scammers.
-                  Never send money, gift cards, or crypto to someone you haven't met — and
+                  Never send money, gift cards, or crypto to someone you haven&apos;t met — and
                   report them from their profile.
                 </p>
               </div>
@@ -1444,7 +1448,7 @@ export function ChatView() {
         <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
           <p className="font-display text-xl font-semibold">No conversations yet</p>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--color-mist)]">
-            When you like someone in Discover and it's mutual, the conversation opens here.
+            When you like someone in Discover and it&apos;s mutual, the conversation opens here.
           </p>
           <a
             href="/app"

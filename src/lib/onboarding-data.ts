@@ -260,19 +260,21 @@ export const onboardingFieldHints: Record<string, string> = {
 
 /* --- Validation (mirrors shared/src/auth/validation.ts zod schemas) ----- */
 
-export function ageFromBirthDate(birthDate: string): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
-  const [y, m, d] = birthDate.split("-").map(Number);
-  const dob = new Date(y, m - 1, d);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  const beforeBirthday =
-    now.getMonth() < dob.getMonth() ||
-    (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
+/* Re-exported from the single implementation in src/lib/age.ts.
+
+   This file previously had its OWN copy, and it was subtly different from the
+   other three: it computed age in LOCAL time (new Date(y, m-1, d) and
+   now.getFullYear()) while /api/profiles, /api/profile/[id] and
+   /api/profile/me all used UTC. Near a birthday the same member could be
+   reported as two different ages depending on which code path ran. Netlify
+   runs in UTC so production was unaffected, but local dev was not.
+
+   Kept as a re-export so existing importers of this module are unaffected.
+   Imported AND re-exported (not `export ... from`) because validateIdentity
+   below calls it locally, and a bare re-export does not bind the name in this
+   module's scope. */
+import { ageFromBirthDate } from "@/lib/age";
+export { ageFromBirthDate };
 
 export type StepErrors = Record<string, string>;
 

@@ -56,13 +56,22 @@ function extractAsn(asField?: string): number | null {
 
 export async function checkIpReputation(ip: string | null | undefined): Promise<IpVerdict> {
   if (!ip) return NEUTRAL;
-  const clean = ip.split(",")[0].trim();
-  if (!clean || clean === "127.0.0.1" || clean.startsWith("10.") || clean.startsWith("192.168.")) {
+  // clientIp() now returns a single address, but normalise again here so this
+  // function stays correct for any other caller that hands it a raw header.
+  const hops = ip.split(",").map((s) => s.trim()).filter(Boolean);
+  const clean = hops[hops.length - 1] ?? "";
+  if (!clean || clean === "127.0.0.1" || clean === "::1" || clean.startsWith("10.")
+      || clean.startsWith("192.168.") || /^172\.(1[6-9]|2\d|3[01])\./.test(clean)) {
     return NEUTRAL; // local/dev traffic
   }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
+    // NOTE: http:// is not a typo — ip-api.com's free tier is HTTP-only, so
+    // member IP addresses cross the network in cleartext and the free tier is
+    // capped at 45 req/min (this check therefore fails open constantly under
+    // load). Audit finding M7: replace with a local MaxMind GeoIP2 database,
+    // which has no rate limit, no cleartext hop, and no third-party disclosure.
     const res = await fetch(
       `http://ip-api.com/json/${encodeURIComponent(clean)}?fields=status,proxy,hosting,isp,org,as,country,countryCode,lat,lon`,
       { signal: ctrl.signal }
@@ -99,9 +108,32 @@ export async function checkIpReputation(ip: string | null | undefined): Promise<
   }
 }
 
-/** Best-effort client IP from request headers (behind proxies/Netlify). */
+/**
+ * Client IP from request headers (behind proxies / Netlify).
+ *
+ * SECURITY — this function used to return `x-forwarded-for.split(",")[0]`, the
+ * LEFTMOST entry. Proxies APPEND to that header; they never overwrite it. So
+ * the leftmost value is whatever the client wrote, and a caller could set
+ * `X-Forwarded-For: <any residential IP>` to walk past the datacenter block,
+ * or `X-Forwarded-For: <known datacenter IP>` to get an innocent member
+ * written into `suspensions` and bounced off the auth screen on every retry.
+ * It also poisoned `security_events`, which the appeals flow adjudicates on.
+ *
+ * Order below is deliberate:
+ *   1. Netlify's own header, derived from the TCP connection — not client-settable.
+ *   2. The RIGHTMOST X-Forwarded-For entry, which is the one appended by the
+ *      closest trusted hop.
+ *   3. Nothing. We return null rather than trusting `x-real-ip`, which is
+ *      equally client-settable; callers already fail open on null.
+ */
 export function clientIp(request: Request): string | null {
+  const netlify = request.headers.get("x-nf-client-connection-ip");
+  if (netlify?.trim()) return netlify.trim();
+
   const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return request.headers.get("x-real-ip");
+  if (fwd) {
+    const hops = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
+  return null;
 }

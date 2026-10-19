@@ -38,8 +38,8 @@ export function Faq() {
             <em className="font-medium italic text-gold-soft">no fine print.</em>
           </h2>
           <p className="mt-6 max-w-sm text-[15px] leading-[1.8] text-mist">
-            If something isn't answered here, it probably isn't in the product
-            yet — and we'd rather say that plainly than dress it up.
+            If something isn&apos;t answered here, it probably isn&apos;t in the product
+            yet — and we&apos;d rather say that plainly than dress it up.
           </p>
         </Reveal>
 

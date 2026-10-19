@@ -64,6 +64,24 @@ export const sessions = pgTable("sessions", {
 export const userProfiles = pgTable(
   "user_profiles",
   {
+    /* ⚠ SCHEMA DRIFT — read before running any drizzle-kit migration.
+       This declares a FK to `accounts`, but the LIVE database
+       (ihwtpwlszegrjgakqsxx) has:
+           user_profiles_id_fkey -> auth.users
+       not -> accounts. `accounts` is a lazily-populated local mirror that
+       src/lib/app-auth.ts inserts into on each authenticated request, so it
+       only holds members who have actually hit an API route (3 rows vs 8
+       auth.users / 8 profiles at audit time).
+
+       Consequence: `drizzle-kit push` or a generated migration will try to
+       create a second, conflicting FK to `accounts` and FAIL on every profile
+       with no accounts mirror row — or, if forced with cascade semantics,
+       delete real member data. Do not run drizzle-kit against production until
+       this is reconciled. Either point the declaration at auth.users, or
+       backfill `accounts` for all 8 auth.users and migrate the FK deliberately.
+
+       Everything else in this file matched the live schema at audit time
+       (35 FKs, 29 tables, RLS on 29/29). */
     id: uuid("id")
       .primaryKey()
       .references(() => accounts.id, { onDelete: "cascade" }),
@@ -708,12 +726,24 @@ export const chatMedia = pgTable(
     senderId: uuid("sender_id").references(() => userProfiles.id, {
       onDelete: "set null",
     }),
+    /** The conversation this attachment belongs to. REQUIRED to authorise
+        reads — without it there is no way to prove the requester is a
+        participant, which is how /api/chat/media/:id ended up serving private
+        photos and voice notes to anyone who had the id. Nullable only because
+        rows uploaded before the column existed have no value; those fall back
+        to sender-only access. See db/migrations/2026-10-16-rls-and-media-ownership.sql */
+    matchId: uuid("match_id").references(() => matches.id, {
+      onDelete: "cascade",
+    }),
     kind: text("kind").notNull().default("voice"),
     mime: text("mime").notNull().default("application/octet-stream"),
     data: bytea("data").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
-  (t) => [check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice')`)]
+  (t) => [
+    check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice')`),
+    index("chat_media_match_idx").on(t.matchId),
+  ]
 );
 
 /* --- Real-life mixer interest (the growth engine Unjected never built) ----- */

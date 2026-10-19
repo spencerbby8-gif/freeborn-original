@@ -3,21 +3,13 @@ import { db } from "@/db";
 import { blockedUsers, discoveryPreferences, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
+import { ageFromBirthDate } from "@/lib/age";
 
 export const dynamic = "force-dynamic";
 
-function ageFromBirthDate(birthDate: string | null): number | null {
-  if (!birthDate) return null;
-  const dob = new Date(`${birthDate}T00:00:00Z`);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getUTCFullYear() - dob.getUTCFullYear();
-  const beforeBirthday =
-    now.getUTCMonth() < dob.getUTCMonth() ||
-    (now.getUTCMonth() === dob.getUTCMonth() && now.getUTCDate() < dob.getUTCDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
+/* ageFromBirthDate now lives in src/lib/age.ts — it was copy-pasted
+   verbatim into this file and /api/profile/[id]. Duplicating the AGE
+   function specifically is how an under-18 member survives a partial fix. */
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;

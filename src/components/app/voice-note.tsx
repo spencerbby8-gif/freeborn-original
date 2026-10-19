@@ -11,7 +11,7 @@
  *  - Long-press can never trigger text selection or Google popups.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 export function fmtClock(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -48,7 +48,14 @@ function announcePlay(id: string) {
 /* --- Playback bubble -------------------------------------------------------- */
 
 export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean; seconds?: number }) {
-  const idRef = useRef(`vn-${Math.random().toString(36).slice(2)}`);
+  /* useId() instead of `useRef(\`vn-${Math.random()}\`)`.
+     Math.random() in a ref initializer is an impure call — eslint flags it
+     as react-hooks/purity, and under the React 19 compiler it can produce
+     a different value between render passes, breaking the "only one voice
+     note plays at a time" comparison below. useId() is stable and SSR-safe.
+     The value is only ever used as an opaque key (never a DOM id or CSS
+     selector), so useId()'s format is fine here. */
+  const voiceId = useId();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveRef = useRef<HTMLDivElement | null>(null);
   const scrubbingRef = useRef(false);
@@ -69,7 +76,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
 
   useEffect(() => {
     const check = () => {
-      if (playing && currentPlayingId !== idRef.current) audioRef.current?.pause();
+      if (playing && currentPlayingId !== voiceId) audioRef.current?.pause();
     };
     playListeners.add(check);
     return () => {
@@ -91,7 +98,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
       } catch {
         /* not yet ready */
       }
-      announcePlay(idRef.current);
+      announcePlay(voiceId);
       setPlaying(true);
     };
     const onPause = () => setPlaying(false);

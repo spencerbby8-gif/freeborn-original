@@ -150,7 +150,7 @@ export function LikesView() {
     <div className="mx-auto max-w-[880px]">
       <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Likes</h1>
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        See exactly who liked you — and everyone you've liked.
+        See exactly who liked you — and everyone you&apos;ve liked.
       </p>
 
       {/* --- Who liked YOU (the feature the competitors never built) ---------- */}
@@ -164,7 +164,7 @@ export function LikesView() {
         <div className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-7 text-center">
           <p className="text-[14px] font-bold text-[var(--color-pearl)]">No likes yet</p>
           <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[var(--color-mist)]">
-            When someone likes you, you'll see exactly who it is here — no mystery
+            When someone likes you, you&apos;ll see exactly who it is here — no mystery
             notifications, no paywall to peek.
           </p>
         </div>
@@ -222,9 +222,9 @@ export function LikesView() {
               <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
             </svg>
           </span>
-          <p className="mt-3 text-[14px] font-bold text-[var(--color-pearl)]">You haven't liked anyone yet</p>
+          <p className="mt-3 text-[14px] font-bold text-[var(--color-pearl)]">You haven&apos;t liked anyone yet</p>
           <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[var(--color-mist)]">
-            Head to Discover and tap the heart on people who feel right. They'll gather here.
+            Head to Discover and tap the heart on people who feel right. They&apos;ll gather here.
           </p>
           <a
             href="/app"

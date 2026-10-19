@@ -1,6 +1,8 @@
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { chatMedia } from "@/db/schema";
+import { chatMedia, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -48,6 +50,8 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
 export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let form: FormData;
   try {
@@ -61,6 +65,29 @@ export async function POST(request: Request) {
   const rule = RULES[kind];
   if (!(file instanceof File) || !rule) {
     return Response.json({ error: "A valid file and kind are required." }, { status: 400 });
+  }
+
+  /* The conversation this attachment belongs to. Storing it is what makes
+     GET /api/chat/media/:id authorisable — without a match link there is no
+     way to prove the fetcher is a participant, which is why that route was
+     previously wide open. Uploading into someone else's conversation is not a
+     thing a member should be able to do either. */
+  const matchId = String(form.get("match") ?? "");
+  if (!matchId) {
+    return Response.json({ error: "match is required." }, { status: 400 });
+  }
+  const [match] = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(
+      and(
+        eq(matches.id, matchId),
+        or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
+      ),
+    )
+    .limit(1);
+  if (!match) {
+    return Response.json({ error: "Match not found." }, { status: 404 });
   }
 
   const mime = (file.type || "").split(";")[0];
@@ -80,7 +107,7 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer());
   const [row] = await db
     .insert(chatMedia)
-    .values({ senderId: member.id, kind, mime, data: bytes })
+    .values({ senderId: member.id, matchId, kind, mime, data: bytes })
     .returning({ id: chatMedia.id });
 
   return Response.json({ ok: true, id: row.id, kind });

@@ -3,6 +3,7 @@ node_modules/
 
 # next.js
 .next/
+*.tsbuildinfo
 out/
 next-env.d.ts
 
@@ -12,7 +13,14 @@ next-env.d.ts
 .env.*.local
 
 # deploy artifacts
+# NOTE: `.netlify/` (leading dot) is the build-output directory and is NOT the
+# same entry as `netlify/`. Committing it is how a real Netlify PAT, the
+# Supabase pooler password and an AI engine key entered this repo's history
+# (commit 51d5e62, file
+# .netlify/functions-internal/___netlify-server-handler/.env.local).
+# Both spellings are listed on purpose.
 netlify/
+.netlify/
 *.zip
 
 # misc

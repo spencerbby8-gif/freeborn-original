@@ -413,7 +413,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
             <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
           </div>
         ) : failed || !profile ? (
-          <p className="py-28 text-center text-sm text-[var(--color-mist)]">Couldn't load this profile.</p>
+          <p className="py-28 text-center text-sm text-[var(--color-mist)]">Couldn&apos;t load this profile.</p>
         ) : (
           <div className="animate-scale-in space-y-6">
             {/* Photos */}
@@ -660,7 +660,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               Report {profile.name}
             </p>
             <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
-              Reports are confidential — they never see this. What's wrong?
+              Reports are confidential — they never see this. What&apos;s wrong?
             </p>
             <div className="mt-4 space-y-1.5">
               {REPORT_REASONS.map((r) => (

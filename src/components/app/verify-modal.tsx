@@ -594,7 +594,7 @@ export function VerifyGate() {
                 Copy this pose
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
-                Copy this exact pose in your selfie. It's how Freeborn proves a real,
+                Copy this exact pose in your selfie. It&apos;s how Freeborn proves a real,
                 live person stands behind every confirmed profile.
               </p>
               <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--color-gold-500)]/30">
@@ -641,7 +641,7 @@ export function VerifyGate() {
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
                 Bright, even lighting · face fully visible · no glasses or hats. The
-                preview behaves like your phone's selfie camera — the photo you submit
+                preview behaves like your phone&apos;s selfie camera — the photo you submit
                 is captured true-to-life.
               </p>
               <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] px-3 py-2.5">
@@ -787,7 +787,7 @@ export function VerifyGate() {
                 </svg>
               </span>
               <h2 className="mt-4 font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Not quite — let's retry
+                Not quite — let&apos;s retry
               </h2>
               <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
                 {rejectReason}
@@ -826,8 +826,8 @@ export function VerifyGate() {
               </h2>
               <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
                 Your selfie has been submitted. The check usually takes a few minutes —
-                keep this page open or come back shortly. You'll be confirmed the moment
-                it's done.
+                keep this page open or come back shortly. You&apos;ll be confirmed the moment
+                it&apos;s done.
               </p>
               <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
                 <span className="rec-pulse h-2.5 w-2.5 rounded-full bg-[var(--color-gold-500)]" />
@@ -851,10 +851,10 @@ export function VerifyGate() {
                 <VerifyBadge size={34} />
               </span>
               <h2 className="mt-4 font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                You're verified.
+                You&apos;re verified.
               </h2>
               <p className="mx-auto mt-2 max-w-[34ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                The teal seal now sits on your profile so other members know they're
+                The teal seal now sits on your profile so other members know they&apos;re
                 talking to the real you.
               </p>
               <button

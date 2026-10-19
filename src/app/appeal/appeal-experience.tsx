@@ -107,7 +107,7 @@ export function AppealExperience() {
               </span>
               <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under investigation</h1>
               <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-6 text-[var(--color-mist)]">
-                Two independent investigators are studying your account's security record right now.
+                Two independent investigators are studying your account&apos;s security record right now.
                 {appeal?.dueAt ? (
                   <>
                     {" "}
@@ -153,7 +153,7 @@ export function AppealExperience() {
               <h1 className="font-display text-2xl font-semibold">Appeal your suspension</h1>
               <p className="mt-3 text-[13.5px] leading-6 text-[var(--color-mist)]">
                 Suspensions hit automated/datacenter traffic — never opinions, and never reports alone.
-                Tell us your side; two independent investigators review your account's real security
+                Tell us your side; two independent investigators review your account&apos;s real security
                 record before any decision. Results in 2 days.
               </p>
               <textarea
@@ -171,7 +171,7 @@ export function AppealExperience() {
                 {busy ? "Filing…" : "Submit appeal"}
               </button>
               <p className="mt-3 text-center text-[11.5px] text-[var(--color-ash)]">
-                You'll get your result within 2 days — check back here.
+                You&apos;ll get your result within 2 days — check back here.
               </p>
             </div>
           )}
