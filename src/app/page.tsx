@@ -10,55 +10,43 @@ import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
-/** Structured data for Google/Bing — organization + site + FAQ, the
-    search-console-ready layer. */
-const jsonLd = [
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Freeborn",
-    url: "https://freeborn.app",
-    description:
-      "Freeborn is the relationship platform for people who value health autonomy, natural living, and intentional long-term commitment.",
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "Freeborn",
-    url: "https://freeborn.app",
-    slogan: "Date Like You Mean It",
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: [
-      {
-        "@type": "Question",
-        name: "What is Freeborn?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "Freeborn is a values-aligned dating platform for people who prioritize health autonomy, natural living, and intentional relationships — with real identity verification and privacy by default.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "Is Freeborn free?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "Yes — matching, chatting, photos, and voice notes are free, and you can see exactly who liked you without paying. No paywall hides the basics.",
-        },
-      },
-      {
-        "@type": "Question",
-        name: "How does Freeborn keep profiles real?",
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: "Pose-mimic selfie verification, dual-engine moderation, datacenter-IP blocking, and reports reviewed by both AI and humans.",
-        },
-      },
-    ],
-  },
-];
+import type { Metadata } from "next";
+import { faqs } from "@/components/landing/faq";
+
+/**
+ * Landing page metadata.
+ *
+ * Only `alternates` is set here; title, description, keywords and the Open Graph
+ * block are inherited from the root layout. The canonical is declared per page
+ * rather than sitewide so that non-indexable routes do not inherit it and claim to
+ * be duplicates of the homepage. See the comment in src/app/layout.tsx.
+ */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
+
+/**
+ * Structured data for the landing page.
+ *
+ * `WebSite` and `Organization` are emitted sitewide from `src/app/layout.tsx`
+ * against the canonical constant, so they are NOT repeated here. Emitting the same
+ * two entities twice, with two different `url` values, is how the earlier version
+ * ended up attributing the site to https://freeborn.app, a domain Freeborn does not
+ * own.
+ *
+ * The FAQ markup is derived from the exported `faqs` array that renders the visible
+ * FAQ section, because Google requires FAQ structured data to match content on the
+ * page. The previous hand-written copy had drifted entirely out of sync with it.
+ */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
 
 export default function LandingPage() {
   return (

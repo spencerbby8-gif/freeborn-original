@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VerifyBadge } from "@/components/verify-badge";
+import { MemberPortrait } from "@/components/landing/member-portrait";
 
 type HeroProfile = {
   name: string;
@@ -11,7 +12,6 @@ type HeroProfile = {
   prompt: string;
   answer: string;
   traits: string[];
-  photo: string;
   verified: boolean;
 };
 
@@ -24,8 +24,6 @@ const mara: HeroProfile = {
   answer:
     "Informed choice. I want a relationship where we can ask good questions and make health decisions without pressure.",
   traits: ["Long-term", "Natural health", "Health autonomy"],
-  photo:
-    "https://images.pexels.com/photos/32045367/pexels-photo-32045367.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
   verified: true,
 };
 
@@ -38,8 +36,6 @@ const jonah: HeroProfile = {
   answer:
     "Sunrise coffee, farmers market, a long walk, meal prep from scratch, and phones away by dinner.",
   traits: ["Life partner", "Grounded", "Outdoorsy"],
-  photo:
-    "https://images.pexels.com/photos/5029926/pexels-photo-5029926.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
   verified: true,
 };
 
@@ -52,8 +48,6 @@ const elena: HeroProfile = {
   answer:
     "Lives with conviction, cares about natural health, and wants a peaceful home more than a performative life.",
   traits: ["Intentional", "Family-minded", "Wellness"],
-  photo:
-    "https://images.pexels.com/photos/6893713/pexels-photo-6893713.png?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
   verified: false,
 };
 
@@ -76,12 +70,7 @@ function ProfileCard({
       style={{ "--tilt": `${tilt}deg`, "--lift": `${lift}px` } as React.CSSProperties}
     >
       <div className="relative aspect-[3/3.4] w-full overflow-hidden">
-        <img
-          src={profile.photo}
-          alt={`${profile.name}, ${profile.age} — ${profile.job}`}
-          className="h-full w-full object-cover"
-          loading="eager"
-        />
+        <MemberPortrait seed={profile.name} className="h-full w-full" />
         <div className="absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
         {dim && <div className="absolute inset-0 bg-night/45" />}
         <div className="absolute right-4 top-4 rounded-full bg-night/55 p-1.5 backdrop-blur-sm">

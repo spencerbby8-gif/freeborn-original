@@ -26,8 +26,28 @@ const COOKIE_SAME_SITE: "lax" | "none" =
     ? "lax"
     : "none";
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(
+  request: NextRequest,
+  requestHeaders?: Headers,
+) {
+  /* Both NextResponse.next() calls below must carry the same request headers, or
+     the CSP nonce is dropped on whichever path runs second and Next.js renders
+     inline scripts without it. A single helper makes that impossible to get wrong.
+
+     WHY THE NONCE GOES ON THE REQUEST
+     ---------------------------------
+     Next.js extracts the CSP nonce from the REQUEST headers when it renders the
+     page and applies it to the inline scripts it emits (the React Server Component
+     flight payload, which is what boots the app). A header set only on the response
+     arrives after rendering, so the scripts come out without a nonce and an enforced
+     script-src blocks them: a blank page. Verified 2026-10-19 — with the nonce on
+     the response only, 0 of 20 script tags carried it. */
+  const next = () =>
+    NextResponse.next(
+      requestHeaders ? { request: { headers: requestHeaders } } : { request },
+    );
+
+  let response = next();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? FALLBACK_URL;
   const anonKey =
@@ -51,7 +71,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = next();
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });

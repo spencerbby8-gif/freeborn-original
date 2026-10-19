@@ -1,3 +1,5 @@
+import { absolute } from "@/lib/site";
+
 export function getAuthErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   if (message.includes("invalid login credentials"))
@@ -74,7 +76,14 @@ export const authStatusMessages = {
   suspended: {
     tone: "error" as const,
     title: "Account suspended",
-    body: "This account was suspended under Freeborn's Privacy & Safety Policy — our checks found datacenter or automated traffic behind it. Real members connect from real devices. If this is a mistake, file an appeal at freeborn.app/appeal — investigators review every case and results come within 2 days.",
+    /* Two corrections. (1) The appeal link pointed at freeborn.app, a domain
+       Freeborn does not own, so suspended members were being sent to a stranger's
+       website. It now derives from the canonical constant. (2) The old copy asserted
+       a specific cause ("datacenter or automated traffic") to every suspended member
+       regardless of why they were actually suspended, which is a false statement to
+       anyone removed for conduct. The message no longer invents a reason; the real
+       reason is carried on the suspension record and shown by the appeal flow. */
+    body: `This account was suspended under Freeborn's community standard. If you believe this is a mistake, file an appeal at ${absolute("/appeal")}. Every appeal is reviewed by a person, not a model.`, 
   },
 };
 

@@ -1,5 +1,6 @@
 import { Reveal } from "@/components/reveal";
 import { VerifyBadge } from "@/components/verify-badge";
+import { MemberPortrait } from "@/components/landing/member-portrait";
 
 const members = [
   {
@@ -10,8 +11,6 @@ const members = [
     prompt: "A value I will not compromise on…",
     answer: "Informed choice. I want a relationship where we can ask good questions and make health decisions without pressure.",
     traits: ["Long-term", "Natural health"],
-    photo:
-      "https://images.pexels.com/photos/32045367/pexels-photo-32045367.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
     verified: true,
   },
   {
@@ -22,8 +21,6 @@ const members = [
     prompt: "My perfect Sunday…",
     answer: "Sunrise coffee, farmers market, a long walk, meal prep from scratch, and phones away by dinner.",
     traits: ["Life partner", "Outdoorsy"],
-    photo:
-      "https://images.pexels.com/photos/5029926/pexels-photo-5029926.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
     verified: true,
   },
   {
@@ -34,8 +31,6 @@ const members = [
     prompt: "I'm looking for someone who…",
     answer: "Lives with conviction, cares about natural health, and wants a peaceful home more than a performative life.",
     traits: ["Intentional", "Family-minded"],
-    photo:
-      "https://images.pexels.com/photos/6893713/pexels-photo-6893713.png?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
     verified: false,
   },
   {
@@ -46,8 +41,6 @@ const members = [
     prompt: "We will get along if…",
     answer: "You believe the kitchen is a pharmacy, the garden is a teacher, and a relationship should be tended like both.",
     traits: ["Natural wellness", "Plant parent"],
-    photo:
-      "https://images.pexels.com/photos/6962984/pexels-photo-6962984.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
     verified: true,
   },
   {
@@ -58,8 +51,6 @@ const members = [
     prompt: "The way to my heart…",
     answer: "Show up curious. Ask what the animals are saying, help bring in the hay, and stay for the long table dinner.",
     traits: ["Rooted", "Homesteading"],
-    photo:
-      "https://images.pexels.com/photos/8826797/pexels-photo-8826797.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=1200&w=800",
     verified: false,
   },
 ];
@@ -71,27 +62,27 @@ export function Room() {
         <Reveal className="mx-auto max-w-2xl text-center">
           <p className="eyebrow">The room you&apos;re walking into</p>
           <h2 className="mt-5 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-pearl">
-            Real people. Real prompts.{" "}
+            Real prompts. Real intentions.{" "}
             <em className="font-medium italic text-gold-soft">No stack.</em>
           </h2>
           <p className="mt-6 text-[16px] leading-[1.8] text-mist">
-            This is exactly what a profile looks like on Freeborn — a person,
-            their intentions, and a conversation starter, before a single photo
-            gets swiped.
+            This is the anatomy of a profile on Freeborn: intentions, a conversation
+            starter, and the things that decide compatibility, all before a single
+            photo gets swiped.
           </p>
         </Reveal>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <p className="mt-10 inline-flex items-center gap-2.5 rounded-full border hairline bg-abyss/60 px-4 py-2 text-[11.5px] font-semibold tracking-wide text-ash">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold-soft/80" />
+          Illustrative layout. The cards below are a design sample, not members.
+        </p>
+
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((member, i) => (
             <Reveal key={member.name} delay={i * 70}>
               <article className="deck-card group relative overflow-hidden rounded-[26px] border hairline bg-abyss" style={{ "--tilt": "0deg", "--lift": "0px" } as React.CSSProperties}>
                 <div className="relative aspect-[3/3.2] w-full overflow-hidden">
-                  <img
-                    src={member.photo}
-                    alt={`${member.name}, ${member.age} — ${member.job}`}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                    loading="lazy"
-                  />
+                  <MemberPortrait seed={member.name} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.04]" />
                   <div className="absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
                   {member.verified ? (
                     <span className="absolute right-4 top-4 rounded-full bg-night/55 p-1.5 backdrop-blur-sm">

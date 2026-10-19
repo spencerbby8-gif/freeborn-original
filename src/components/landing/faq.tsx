@@ -1,6 +1,20 @@
 import { Reveal } from "@/components/reveal";
 
-const faqs = [
+/**
+ * The FAQ, exported so `src/app/page.tsx` can build its FAQPage structured data
+ * from the same array that renders the visible section.
+ *
+ * WHY THIS MATTERS FOR SEARCH
+ * ---------------------------
+ * Google's FAQ structured data guideline requires the markup to correspond to
+ * content actually visible on the page. The JSON-LD and the rendered FAQ had
+ * drifted apart completely: three questions in the markup, six different questions
+ * on the page, with only "Is Freeborn free?" overlapping and even that carrying a
+ * different answer text. Mismatched FAQ markup is treated as spammy structured
+ * markup and is a manual-action risk. Deriving both from one array makes the two
+ * incapable of diverging again.
+ */
+export const faqs = [
   {
     q: "Who is Freeborn for?",
     a: "Freeborn is for values-aligned singles who care about medical freedom, natural health, informed choice, and intentional long-term relationships. It is for people who want compatibility to include how they live, heal, build family, and make decisions.",

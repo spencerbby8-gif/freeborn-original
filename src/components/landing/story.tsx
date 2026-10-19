@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/reveal";
+import { ScenePanel } from "@/components/landing/member-portrait";
 
 const ribbon = [
   "Date like you mean it",
@@ -39,11 +40,9 @@ export function Manifesto() {
         <Reveal className="order-2 lg:order-1">
           <figure className="relative">
             <div className="overflow-hidden rounded-[28px] border hairline">
-              <img
-                src="https://images.pexels.com/photos/15865451/pexels-photo-15865451.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200"
-                alt="A couple laughing and embracing in a sunlit wheat field"
-                className="kenburns h-[340px] w-full object-cover sm:h-[420px]"
-                loading="lazy"
+              <ScenePanel
+                label="Abstract golden-hour field at dusk"
+                className="kenburns h-[340px] w-full sm:h-[420px]"
               />
             </div>
             <figcaption className="mt-4 flex items-center gap-3 text-[12px] tracking-wide text-ash">
