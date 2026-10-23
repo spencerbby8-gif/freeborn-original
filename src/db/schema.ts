@@ -746,10 +746,14 @@ export const suspensions = pgTable(
    in the same transaction as the act it describes. Never updated, never deleted:
    an audit log the operator can quietly edit is not an audit log.
 
-   No member-facing route reads or writes this table, which is why it carries no
-   RLS policy. That is only safe while no operator route exists. The moment one
-   does, REVIEW-SURFACE-DESIGN.md section 5 lists the seven preconditions it has
-   to satisfy first, every one of which answers a specific Unjected failure. */
+   RLS is enabled on this table and it carries zero policies, so an anon or
+   authenticated role reads no rows through PostgREST and the publishable key in
+   the client bundle cannot reach it. The application reads and writes it as
+   postgres, which bypasses RLS. That is only safe while no operator route
+   exists: the moment one does, its own authentication is the only thing between
+   the internet and a log of every act taken against every member, and
+   REVIEW-SURFACE-DESIGN.md section 5 lists the seven preconditions it must
+   satisfy first, each answering a specific Unjected failure. */
 export const moderationActions = pgTable(
   "moderation_actions",
   {

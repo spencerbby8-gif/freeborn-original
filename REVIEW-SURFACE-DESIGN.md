@@ -77,12 +77,29 @@ running the queue query in section 4 against production and finding that both
 open reports were machine-filed receipts, not complaints. See section 4 for why
 the distinction matters and what it was backfilled on.
 
-All nullable and additive, so nothing that runs today changes behaviour. RLS is
-not enabled on `moderation_actions` for the same reason it is not on the other
-operator tables: the app connects as `postgres` and no member-facing route reads
-or writes it. That is a deliberate choice, not an oversight, and it is only safe
-while no route touches the table. The moment an operator route exists, section 5
-applies.
+All nullable and additive, so nothing that runs today changes behaviour.
+
+On access control, stated precisely because this file is committed to a public
+repository and an imprecise sentence about RLS is worse than none. RLS **is**
+enabled on `moderation_actions`, and it carries **zero policies**. That is the
+same posture as every other operator table here: `reports`, `suspensions` and
+`appeals` are also RLS-on with no policies, while `user_profiles` has four. With
+RLS on and no policy, an `anon` or `authenticated` role reads zero rows through
+PostgREST, so the publishable key that ships in the client bundle cannot reach
+this table at all. The application reads and writes it as `postgres`, which
+bypasses RLS.
+
+Measured rather than assumed, 2026-10-23: `select count(*) from pg_class c join
+pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and
+c.relkind = 'r'` returns 31, and the same query filtered on `c.relrowsecurity`
+also returns 31. A query for public tables with `relrowsecurity = false` returns
+no rows. Both tables added this month, `moderation_actions` and `mixer_venues`,
+are in that 31.
+
+The consequence for section 5 is unchanged and is the reason it exists: the
+moment an operator route reads this table, it does so as `postgres`, and the
+route's own authentication becomes the only thing standing between the internet
+and a log of every moderation act taken against every member.
 
 ## 4. Operator runbook
 
