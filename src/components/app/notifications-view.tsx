@@ -80,7 +80,7 @@ export function NotificationsView() {
         ) : null}
       </div>
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        Matches, messages, and moments worth your attention — tap any alert to open it.
+        Matches, messages, and moments worth your attention. Tap any alert to open it.
       </p>
 
       <div className="mt-6 space-y-2.5">

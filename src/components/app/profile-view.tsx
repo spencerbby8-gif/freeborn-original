@@ -272,7 +272,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
         showToast({
           tone: "success",
           title: "Report received",
-          body: "Thank you — Freeborn's moderation reviews every report.",
+          body: "Thank you. Freeborn's moderation reviews every report.",
         });
         setReportOpen(false);
         setReportReason("");
@@ -450,7 +450,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
                     <img
                       key={i}
                       src={src}
-                      alt={`${profile.name} — photo ${i + 1}`}
+                      alt={`${profile.name}, photo ${i + 1}`}
                       draggable={false}
                       className="aspect-[3/3.6] w-full shrink-0 select-none object-cover"
                     />
@@ -660,7 +660,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
               Report {profile.name}
             </p>
             <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
-              Reports are confidential — they never see this. What&apos;s wrong?
+              Reports are confidential. They never see this. What&apos;s wrong?
             </p>
             <div className="mt-4 space-y-1.5">
               {REPORT_REASONS.map((r) => (

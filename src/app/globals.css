@@ -771,9 +771,14 @@ span {
 .fb-meta { font-size: 13px; line-height: 1.55; color: var(--color-mist); }
 .fb-caption { font-size: 12px; line-height: 1.45; color: var(--color-ash); }
 .fb-eyebrow {
+  /* Block, because an eyebrow is always a standalone section label and it is
+     rendered on a <span> in the onboarding steps. Leaving it inline invites the
+     same run-together failure the settings rows had. */
+  display: block;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.18em;
+  line-height: 1.4;
   text-transform: uppercase;
   color: var(--color-gold-500);
 }
@@ -826,12 +831,19 @@ span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.03);
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 600;
+  /* No line-height was declared, so a chip inherited one sized for body copy
+     and its text sat low inside the 6px vertical padding. `text-align: left`
+     matters because a chip is used for whole sentences in places, and centred
+     multi-line text inside a pill reads as a layout fault. */
+  line-height: 1.45;
+  text-align: left;
   color: var(--color-sand);
 }
 .fb-chip-gold {
@@ -879,9 +891,51 @@ button.fb-row:hover { background: rgba(255,255,255,0.045); }
   border: 1px solid rgba(255,255,255,0.07);
   color: var(--color-gold-300);
 }
-.fb-row-body { min-width: 0; flex: 1; }
-.fb-row-title { font-size: 14px; font-weight: 700; color: var(--color-pearl); }
-.fb-row-desc { margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--color-mist); }
+/* `.fb-row-title` and `.fb-row-desc` are rendered on <span> elements in
+   ToggleRow, BlockedList, NotificationPermissionRow, the Profile "see your full
+   profile" row and the profile completeness checklist. A span is inline, and
+   `.fb-row-body` is not a flex or grid container, so the two spans laid out on
+   ONE line and ran together with no space between them:
+
+     Discoverable + Off means you won't appear...  ->  "DiscoverableOff means..."
+     Spencer      + Abraka                         ->  "SpencerAbraka"
+
+   It also silently voided the `margin-top` below, because vertical margins do
+   not apply to inline non-replaced elements, so the intended 2px gap between a
+   row's title and its description never rendered at all.
+
+   `display: block` on both is the fix, and it repairs every row on every
+   Settings screen at once rather than one call site at a time. The title also
+   had no line-height of its own and inherited one sized for body copy. */
+.fb-row-body { display: block; min-width: 0; flex: 1; }
+.fb-row-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  color: var(--color-pearl);
+}
+.fb-row-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  color: var(--color-mist);
+}
+
+/* Narrow screens: a row carries a 40px icon, a 44px toggle and two 14px gaps,
+   which is 112px of chrome before any text. On a 360px viewport that left the
+   description roughly 200px wide and forced it into tall, ragged columns next
+   to a vertically centred toggle. Tightening the chrome and stepping the type
+   down keeps the title and description readable without the row growing. */
+@media (max-width: 480px) {
+  .fb-row { gap: 10px; padding: 13px; border-radius: 16px; }
+  .fb-row-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .fb-row-title { font-size: 13.5px; }
+  .fb-row-desc { font-size: 11.5px; line-height: 1.5; }
+}
 
 /* --- Toggle switch -------------------------------------------------------- */
 .fb-toggle {
@@ -1029,5 +1083,10 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 }
 
 /* --- Section head (eyebrow + title + blurb) ------------------------------- */
-.fb-section-head { display: grid; gap: 6px; }
+/* 8px rather than 6px: the title is 20px at 1.3 and the blurb 13px, and 6px of
+   separation read as two lines of one paragraph rather than a heading and its
+   helper text. The blurb is capped so a long one does not stretch the full
+   720px container width, which is the Discovery panel's helper block. */
+.fb-section-head { display: grid; gap: 8px; }
 .fb-section-head .fb-h-title { letter-spacing: -0.01em; }
+.fb-section-head .fb-meta { max-width: 62ch; }

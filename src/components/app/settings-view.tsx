@@ -75,7 +75,7 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
         Freeborn mixers · real people, real places
       </p>
       <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
-        No swiping forever — we&apos;re building in-person mixers city by city. Register your
+        No swiping forever. We&apos;re building in-person mixers city by city. Register your
         city and we&apos;ll announce one the moment enough members are ready.
       </p>
       <div className="mt-3 flex gap-2">
@@ -96,7 +96,7 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
       </div>
       {interested && sameCity !== null ? (
         <p className="mt-2.5 text-[12px] font-bold text-[var(--color-teal-300)]">
-          ✓ You&apos;re in — {sameCity} {sameCity === 1 ? "member wants" : "members want"} a mixer in {city.trim() || "your city"}.
+          ✓ You&apos;re in. {sameCity} {sameCity === 1 ? "member wants" : "members want"} a mixer in {city.trim() || "your city"}.
         </p>
       ) : null}
     </div>
@@ -130,7 +130,7 @@ function SupportCard() {
         showToast({
           tone: "success",
           title: "Message received",
-          body: "A real person reads these — no bots, no canned replies.",
+          body: "A real person reads these. No bots, no canned replies.",
         });
       } else {
         showToast({ tone: "error", title: "Couldn't send your message", body: json.error ?? "Try again." });
@@ -148,7 +148,7 @@ function SupportCard() {
         Talk to a real human
       </p>
       <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
-        Something broken, something unsafe, or just a question? Write it here — a real
+        Something broken, something unsafe, or just a question? Write it here and a real
         person reads every message.
       </p>
       <textarea
@@ -319,7 +319,7 @@ function SaveRow({ state, onSave }: { state: "idle" | "saving" | "saved" | "erro
         <span className="animate-scale-in text-[12px] font-bold text-[var(--color-teal-300)]">✓ Saved</span>
       ) : null}
       {state === "error" ? (
-        <span className="animate-scale-in text-[12px] font-bold text-[var(--color-danger)]">Couldn&apos;t save — try again</span>
+        <span className="animate-scale-in text-[12px] font-bold text-[var(--color-danger)]">Couldn&apos;t save. Please try again.</span>
       ) : null}
     </div>
   );
@@ -395,7 +395,7 @@ function BlockedList() {
   if (blocked.length === 0) {
     return (
       <p className="fb-caption">
-        No blocked members. When you block someone, they appear here — and you can unblock them anytime.
+        No blocked members. When you block someone, they appear here, and you can unblock them at any time.
       </p>
     );
   }
@@ -441,6 +441,13 @@ function NotificationPermissionRow() {
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
   );
   const [busy, setBusy] = useState(false);
+  /* Name the host the member is really on. This used to hardcode
+     freeborn.netlify.app, which is wrong on the canonical deployment and sends
+     someone into their browser's site settings hunting for a host that is not
+     the one they are looking at. The "denied" branch only ever renders on the
+     client, because the initializer above falls back to "unsupported" during
+     server rendering, so reading window here is safe. */
+  const host = typeof window !== "undefined" ? window.location.hostname : "this site";
 
   const request = async () => {
     if (busy) return;
@@ -458,7 +465,7 @@ function NotificationPermissionRow() {
   if (permission === "unsupported") {
     return (
       <p className="fb-caption" data-search="browser notifications permission alerts device">
-        This browser doesn&apos;t support notification permissions — alerts still show inside Freeborn.
+        This browser doesn&apos;t support notification permissions. Alerts still show inside Freeborn.
       </p>
     );
   }
@@ -489,7 +496,7 @@ function NotificationPermissionRow() {
           {permission === "granted"
             ? "You'll get alerts even when Freeborn is in another tab."
             : permission === "denied"
-              ? "Blocked in this browser's settings — allow freeborn.netlify.app to change it."
+              ? `Blocked in this browser's settings. Allow ${host} to change it, then come back and refresh.`
               : "Get alerts even when Freeborn is in another tab."}
         </span>
       </span>
@@ -537,7 +544,7 @@ function DataCard() {
       a.remove();
       URL.revokeObjectURL(url);
       setDone(true);
-      showToast({ tone: "success", title: "Export downloaded", body: "Your data is in the JSON file — keep it somewhere safe." });
+      showToast({ tone: "success", title: "Export downloaded", body: "Your data is in the JSON file. Keep it somewhere safe." });
     } catch {
       showToast({ tone: "error", title: "Couldn't build your export", body: "Try again in a moment." });
     } finally {
@@ -549,7 +556,7 @@ function DataCard() {
     <div className="fb-card" data-search="download my data export gdpr privacy json backup">
       <p className="fb-eyebrow">Your data</p>
       <p className="fb-meta mt-1.5">
-        Download everything that is yours — profile, photos list, preferences, activity,
+        Download everything that is yours: profile, photos list, preferences, activity,
         verification history. Other members appear only as ids; verification selfies are
         not part of the export.
       </p>
@@ -612,7 +619,7 @@ function DeleteAccount() {
 
   return (
     <div className="rounded-2xl border border-red-400/30 bg-red-500/[0.06] p-4" data-search="delete account permanently erase remove destroy">
-      <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Delete account — permanent</p>
+      <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Delete account (permanent)</p>
       <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
         Deletion is forever: your profile, photos, messages, matches, and sign-in are removed.
         This cannot be undone. (Pausing above is the reversible option.)
@@ -628,7 +635,7 @@ function DeleteAccount() {
       ) : (
         <div className="mt-3 space-y-2">
           <p className="text-[12px] font-bold text-red-200">
-            Type <span className="font-black">DELETE</span> to confirm — this cannot be undone.
+            Type <span className="font-black">DELETE</span> to confirm. This cannot be undone.
           </p>
           <input
             value={typed}
@@ -734,7 +741,7 @@ export function SettingsView() {
       }
       return res.ok;
     } catch {
-      setAccountMsg({ ok: false, text: "Network error — try again." });
+      setAccountMsg({ ok: false, text: "Network error. Please try again." });
       return false;
     } finally {
       setBusy(false);
@@ -875,7 +882,7 @@ export function SettingsView() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="fb-h-hero">Settings</h1>
-          <p className="fb-meta mt-1.5">Pick an area — everything lives in its place.</p>
+          <p className="fb-meta mt-1.5">Pick an area. Everything lives in its place.</p>
         </div>
         <div className="fb-search w-full sm:w-72">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -906,7 +913,7 @@ export function SettingsView() {
             <div className="min-w-0 flex-1">
               <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Identity check complete</p>
               <p className="mt-0.5 text-[11.5px] leading-4 text-[var(--color-mist)]">
-                Your selfie check passed — your profile is confirmed as the real you.
+                Your selfie check passed. Your profile is confirmed as the real you.
               </p>
             </div>
           </>
@@ -982,7 +989,7 @@ export function SettingsView() {
               </span>
               <span className="fb-row-body">
                 <span className="fb-row-title">See your full profile</span>
-                <span className="fb-row-desc">Photos, prompts, and how others read you — exactly as it appears.</span>
+                <span className="fb-row-desc">Photos, prompts, and how others read you, exactly as it appears.</span>
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--color-ash)]" aria-hidden>
                 <path d="M9 6l6 6-6 6" />
@@ -1033,13 +1040,14 @@ export function SettingsView() {
           <div className="space-y-5">
             <PanelTitle
               title="Discovery"
-              blurb="Your standing preferences — the Filters panel fine-tunes a single session on top of these."
+              blurb="Your standing preferences. The Filters panel fine-tunes a single session on top of these."
             />
             <p
               data-search="standing preferences filters session defaults note"
-              className="fb-chip w-fit"
+              className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-[12px] font-semibold leading-[1.5] text-[var(--color-sand)]"
             >
-              These apply to every session · the Filters panel can narrow one session further
+              These apply to every session. The Filters panel can narrow a single
+              session further.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
@@ -1131,7 +1139,7 @@ export function SettingsView() {
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4" data-search="vaccination vaccine vax status preference filter">
               <p className="text-[13px] font-black text-[var(--color-pearl)]">Vaccination preference</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
-                Who you see in the room — this is the one filter the whole platform is built around.
+                Who you see in the room. This is the one filter the whole platform is built around.
               </p>
               <div className="mt-2.5">
                 <FreebornSelect
@@ -1175,7 +1183,7 @@ export function SettingsView() {
             <p className="fb-eyebrow pt-1" data-search="visibility section">Visibility</p>
             <ToggleRow
               label="Discoverable"
-              body="Off means you won't appear in anyone's Discover — matches and chats keep working."
+              body="Off means you will not appear in anyone's Discover. Matches and chats keep working."
               value={p.discoverable}
               onChange={async (val) => {
                 setP({ discoverable: val });
@@ -1184,7 +1192,7 @@ export function SettingsView() {
             />
             <ToggleRow
               label="Pause discovery"
-              body="Snooze — you leave the room but keep every match and conversation. Flip it off to come back."
+              body="Snooze: you leave the room but keep every match and conversation. Flip it off to come back."
               value={v.discoveryPaused}
               onChange={(val) => void setV({ discoveryPaused: val })}
             />
@@ -1198,7 +1206,7 @@ export function SettingsView() {
             <p className="fb-eyebrow pt-1" data-search="location presence section">Location & presence</p>
             <ToggleRow
               label="Hide my distance"
-              body="Others see your city, never how far away you are — exact location stays private."
+              body="Others see your city, never how far away you are. Your exact location stays private."
               value={v.hideDistance}
               onChange={(val) => void setV({ hideDistance: val })}
             />
@@ -1240,7 +1248,7 @@ export function SettingsView() {
             {/* Who can message you */}
             <div className="fb-row !block" data-search="who can message you contact start conversation everyone verified unvaccinated">
               <p className="fb-row-title">Who can message you</p>
-              <p className="fb-row-desc">Applies when starting a conversation — and to every message after.</p>
+              <p className="fb-row-desc">Applies when starting a conversation, and to every message after.</p>
               <div className="mt-2.5">
                 <FreebornSelect
                   value={p.messagePrivacy ?? "everyone"}
@@ -1261,7 +1269,7 @@ export function SettingsView() {
             <BlockedList />
 
             <p className="fb-caption" data-search="never shown publicly private email birth date coordinates fixed">
-              Email, full birth date, and exact coordinates are never shown publicly — that&apos;s fixed, not a setting.
+              Email, full birth date, and exact coordinates are never shown publicly. That is fixed, not a setting.
             </p>
 
             <div className="rounded-2xl border border-[var(--color-teal-500)]/20 bg-[var(--color-teal-500)]/[0.04] p-4" data-search="safety promise guarantee moderation">
@@ -1331,7 +1339,7 @@ export function SettingsView() {
 
             <div className="fb-card" data-search="email address private account sign in login">
               <p className="fb-eyebrow">Email (private)</p>
-              <p className="mt-1 truncate text-[14px] font-medium text-[var(--color-mist)]">{settings.account.email}</p>
+              <p className="mt-1 text-[14px] font-medium text-[var(--color-mist)] [overflow-wrap:anywhere]">{settings.account.email}</p>
             </div>
 
             {/* Change email */}
