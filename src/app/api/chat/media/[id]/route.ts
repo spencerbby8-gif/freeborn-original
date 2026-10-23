@@ -2,6 +2,7 @@ import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { chatMedia, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { badIdResponse, isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   if (!member) return new Response("Not signed in.", { status: 401 });
 
   const { id } = await ctx.params;
+  if (!isUuid(id)) return badIdResponse();
 
   const [row] = await db
     .select({ mime: chatMedia.mime, data: chatMedia.data, matchId: chatMedia.matchId, senderId: chatMedia.senderId })

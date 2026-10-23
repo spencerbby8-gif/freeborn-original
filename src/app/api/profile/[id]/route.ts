@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ageFromBirthDate } from "@/lib/age";
+import { badIdResponse, isUuid } from "@/lib/uuid";
 
 /* ageFromBirthDate now lives in src/lib/age.ts — it was copy-pasted
    verbatim into this file and /api/profile/[id]. Duplicating the AGE
@@ -42,6 +43,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
+  if (!isUuid(id)) return badIdResponse();
   const url = new URL(request.url);
   const fromLat = Number(url.searchParams.get("lat"));
   const fromLng = Number(url.searchParams.get("lng"));
