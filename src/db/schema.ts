@@ -635,6 +635,13 @@ export const reports = pgTable(
     /** AI triage severity — filled by the moderation engine on arrival. */
     severity: text("severity"),
     triageSummary: text("triage_summary"),
+    /* Human review. `status` records that a report was closed; these record
+       who closed it, when, and on what ground. `resolution` is deliberately
+       separate from `triageSummary`, which is the AI reading and must not be
+       mistaken for a person's judgement. */
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewedBy: text("reviewed_by"),
+    resolution: text("resolution"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [
@@ -690,6 +697,12 @@ export const appeals = pgTable(
     verdict: text("verdict"),
     investigation: text("investigation"),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    /* `verdict` is rendered to the member verbatim by appeal-experience.tsx, so
+       it must read as something a person would say to them. No application code
+       writes it or `reviewedBy`: a decision is an operator act performed through
+       the runbook in REVIEW-SURFACE-DESIGN.md, which records it in
+       moderation_actions in the same transaction. */
+    reviewedBy: text("reviewed_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [index("appeals_email_idx").on(t.email)]
@@ -705,9 +718,51 @@ export const suspensions = pgTable(
     ip: text("ip"),
     reason: text("reason").notNull().default("privacy_policy"),
     active: boolean("active").notNull().default(true),
+    /* Clearing a suspension used to be a bare UPDATE that left no trace of who
+       did it, when, or why. These columns are written by the operator runbook,
+       never by application code: there is still no route that lifts one. Rows
+       inserted by /api/security/check for datacenter sign-in ranges are
+       attributed by their own `reason` and `ip`, which is the machine actor. */
+    liftedAt: timestamp("lifted_at", { withTimezone: true }),
+    liftedBy: text("lifted_by"),
+    liftNote: text("lift_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [index("suspensions_email_idx").on(t.email)]
+);
+
+/* --- Moderation audit log ---------------------------------------------------
+   Append-only record of human moderation acts, written by the operator runbook
+   in the same transaction as the act it describes. Never updated, never deleted:
+   an audit log the operator can quietly edit is not an audit log.
+
+   No member-facing route reads or writes this table, which is why it carries no
+   RLS policy. That is only safe while no operator route exists. The moment one
+   does, REVIEW-SURFACE-DESIGN.md section 5 lists the seven preconditions it has
+   to satisfy first, every one of which answers a specific Unjected failure. */
+export const moderationActions = pgTable(
+  "moderation_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    actor: text("actor").notNull(),
+    /** report_dismissed | report_upheld | appeal_cleared | appeal_rejected |
+        member_suspended | suspension_lifted */
+    action: text("action").notNull(),
+    /** report | appeal | suspension | member */
+    subjectKind: text("subject_kind").notNull(),
+    subjectId: uuid("subject_id"),
+    subjectEmail: text("subject_email"),
+    reason: text("reason"),
+    /** The reasoning a member could be told aloud. If it could not be, the act
+        probably should not have been taken. */
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    // Matches production: created_at DESC, so the newest act is the cheap read.
+    index("moderation_actions_created_idx").on(sql`${t.createdAt} desc`),
+    index("moderation_actions_subject_idx").on(t.subjectId),
+  ]
 );
 
 /* --- Chat media store (voice notes, photos, videos) ------------------------
