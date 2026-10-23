@@ -67,12 +67,35 @@ export type MemberPortraitProps = {
   /** Accessible name for the artwork. Omit for purely decorative use. */
   label?: string;
   className?: string;
+  /**
+   * Path to a generated sample portrait under /images/samples. When present it
+   * replaces the abstract composition. These are AI-generated illustrative
+   * images committed to the repo, so they load same-origin and fall inside the
+   * CSP img-src 'self' allowance. They depict no real person and no account is
+   * ever created for them; the cards that use them are labelled as design
+   * samples. The abstract artwork below stays as the fallback for any seed
+   * without a photo.
+   */
+  photo?: string;
 };
 
-export function MemberPortrait({ seed, label, className }: MemberPortraitProps) {
+export function MemberPortrait({ seed, label, className, photo }: MemberPortraitProps) {
   const h = hash(seed);
   const p = PALETTES[h % PALETTES.length];
   const uid = `mp-${h.toString(36)}`;
+
+  if (photo) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={photo}
+        alt={label ? `${label}: illustrative AI-generated sample portrait` : ""}
+        loading="lazy"
+        decoding="async"
+        className={`h-full w-full object-cover ${className ?? ""}`}
+      />
+    );
+  }
 
   /* Derived geometry, all bounded so the composition never breaks the frame. */
   const cx = 26 + (h % 48);

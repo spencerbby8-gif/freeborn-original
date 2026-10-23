@@ -5,6 +5,7 @@ import { MemberPortrait } from "@/components/landing/member-portrait";
 const members = [
   {
     name: "Mara",
+    photo: "/images/samples/mara.jpg",
     age: 29,
     city: "Austin, TX",
     job: "Functional nutritionist",
@@ -15,6 +16,7 @@ const members = [
   },
   {
     name: "Jonah",
+    photo: "/images/samples/jonah.jpg",
     age: 34,
     city: "Boise, ID",
     job: "Regenerative farmer",
@@ -25,6 +27,7 @@ const members = [
   },
   {
     name: "Elena",
+    photo: "/images/samples/elena.jpg",
     age: 31,
     city: "Franklin, TN",
     job: "Midwife",
@@ -35,6 +38,7 @@ const members = [
   },
   {
     name: "Naomi",
+    photo: "/images/samples/naomi.jpg",
     age: 27,
     city: "Portland, OR",
     job: "Herbalist & tea blender",
@@ -45,6 +49,7 @@ const members = [
   },
   {
     name: "Caleb",
+    photo: "/images/samples/caleb.jpg",
     age: 38,
     city: "Asheville, NC",
     job: "Shepherd & homesteader",
@@ -74,7 +79,7 @@ export function Room() {
 
         <p className="mt-10 inline-flex items-center gap-2.5 rounded-full border hairline bg-abyss/60 px-4 py-2 text-[11.5px] font-semibold tracking-wide text-ash">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold-soft/80" />
-          Illustrative layout. The cards below are a design sample, not members.
+          Illustrative layout. The cards and portraits below are AI-generated design samples. No account exists for anyone shown.
         </p>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -82,7 +87,7 @@ export function Room() {
             <Reveal key={member.name} delay={i * 70}>
               <article className="deck-card group relative overflow-hidden rounded-[26px] border hairline bg-abyss" style={{ "--tilt": "0deg", "--lift": "0px" } as React.CSSProperties}>
                 <div className="relative aspect-[3/3.2] w-full overflow-hidden">
-                  <MemberPortrait seed={member.name} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.04]" />
+                  <MemberPortrait seed={member.name} photo={member.photo} label={`${member.name}, ${member.age}`} className="h-full w-full transition-transform duration-700 group-hover:scale-[1.04]" />
                   <div className="absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
                   {member.verified ? (
                     <span className="absolute right-4 top-4 rounded-full bg-night/55 p-1.5 backdrop-blur-sm">

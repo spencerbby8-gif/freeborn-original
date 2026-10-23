@@ -6,6 +6,8 @@ import { MemberPortrait } from "@/components/landing/member-portrait";
 
 type HeroProfile = {
   name: string;
+  /** AI-generated illustrative portrait. No account exists for any of these. */
+  photo: string;
   age: number;
   city: string;
   job: string;
@@ -17,6 +19,7 @@ type HeroProfile = {
 
 const mara: HeroProfile = {
   name: "Mara",
+  photo: "/images/samples/mara.jpg",
   age: 29,
   city: "Austin, TX",
   job: "Functional nutritionist",
@@ -29,6 +32,7 @@ const mara: HeroProfile = {
 
 const jonah: HeroProfile = {
   name: "Jonah",
+  photo: "/images/samples/jonah.jpg",
   age: 34,
   city: "Boise, ID",
   job: "Regenerative farmer",
@@ -41,6 +45,7 @@ const jonah: HeroProfile = {
 
 const elena: HeroProfile = {
   name: "Elena",
+  photo: "/images/samples/elena.jpg",
   age: 31,
   city: "Franklin, TN",
   job: "Midwife",
@@ -70,7 +75,7 @@ function ProfileCard({
       style={{ "--tilt": `${tilt}deg`, "--lift": `${lift}px` } as React.CSSProperties}
     >
       <div className="relative aspect-[3/3.4] w-full overflow-hidden">
-        <MemberPortrait seed={profile.name} className="h-full w-full" />
+        <MemberPortrait seed={profile.name} photo={profile.photo} label={`${profile.name}, ${profile.age}`} className="h-full w-full" />
         <div className="absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
         {dim && <div className="absolute inset-0 bg-night/45" />}
         <div className="absolute right-4 top-4 rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
@@ -249,6 +254,9 @@ export function Hero() {
           </div>
 
           {/* ---------- profile deck ---------- */}
+          {/* Wrapped so the honesty note below can sit under the deck without
+              becoming a third grid item and breaking the two-column layout. */}
+          <div className="relative">
           <div
             ref={deckRef}
             className="relative mx-auto h-[560px] w-full max-w-[460px] select-none sm:h-[600px]"
@@ -319,6 +327,11 @@ export function Hero() {
                 </div>
               </div>
             </div>
+          </div>
+          <p className="pointer-events-none mt-5 text-center text-[10.5px] tracking-wide text-ash">
+            Sample deck. Every face and profile shown here is AI-generated. No account
+            exists for anyone in it.
+          </p>
           </div>
         </div>
       </div>
