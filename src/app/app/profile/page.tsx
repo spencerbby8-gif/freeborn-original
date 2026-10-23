@@ -564,6 +564,109 @@ function ProfileInner() {
         ) : null}
       </div>
 
+      {/* Hero — cover, avatar, identity strip, badges (X-profile pattern) */}
+      <div className="fb-card-lg mt-6 !p-0 overflow-hidden">
+        <div className="relative h-36 sm:h-44">
+          {profile.photos[0] ? (
+            <img src={profile.photos[0]} alt="" aria-hidden className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-[var(--gradient-ember-warm)]" aria-hidden />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0d18] via-[#0a0d18]/40 to-transparent" />
+          <div className="absolute bottom-3 right-4 flex items-center gap-2">
+            {profile.isVerified ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+                  <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+                </svg>
+                Verified
+              </span>
+            ) : null}
+            {profile.vaccinationStatus === "unvaccinated" ? (
+              <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-gold-300)] backdrop-blur-sm">
+                Unvaccinated
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="relative flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:px-6">
+          <span className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-14 sm:h-28 sm:w-28">
+            {profile.photos[0] ? (
+              <img src={profile.photos[0]} alt={profile.displayName} className="h-full w-full object-cover" />
+            ) : (
+              <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
+                {(profile.displayName || "You").charAt(0)}
+              </span>
+            )}
+          </span>
+          <div className="min-w-0 flex-1 pb-1">
+            <h2 className="fb-h-display">
+              {profile.displayName || "Add your name"}
+              {profile.age ? <span className="text-[var(--color-gold-300)]">{`, ${profile.age}`}</span> : null}
+            </h2>
+            <p className="fb-meta mt-1">
+              {[profile.occupation, [profile.city, profile.region].filter(Boolean).join(", ")]
+                .filter(Boolean)
+                .join(" · ") || "Add your details"}
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {profile.memberSince ? (
+                <span className="fb-chip">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                  {joinedLabel(profile.memberSince)}
+                </span>
+              ) : null}
+              {profile.relationshipGoals.length > 0 ? (
+                <span className="fb-chip fb-chip-gold">{prettyText(profile.relationshipGoals[0])}</span>
+              ) : null}
+              <span className="fb-chip">{profile.photos.length}/6 photos</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2 pb-1">
+            <button
+              type="button"
+              disabled={photoBusy}
+              onClick={() => setPhotoManagerOpen(true)}
+              className="fb-btn fb-btn-ghost fb-btn-sm"
+            >
+              Manage photos
+            </button>
+            {profile.id ? (
+              <button
+                type="button"
+                onClick={() => setViewAs(profile.id ?? null)}
+                className="fb-btn fb-btn-ghost fb-btn-sm"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                Preview
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Live stats — reply rate, match rate, conversations (real counts) */}
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
+        <div className="fb-stat">
+          <p className="fb-stat-num">{stats?.replyRate === null || stats?.replyRate === undefined ? "New" : `${stats.replyRate}%`}</p>
+          <p className="fb-stat-label">Reply rate</p>
+        </div>
+        <div className="fb-stat">
+          <p className="fb-stat-num">{stats?.matchRate === null || stats?.matchRate === undefined ? "New" : `${stats.matchRate}%`}</p>
+          <p className="fb-stat-label">Match rate</p>
+        </div>
+        <div className="fb-stat">
+          <p className="fb-stat-num">{stats ? stats.conversationCount : "—"}</p>
+          <p className="fb-stat-label">Conversations</p>
+        </div>
+      </div>
       {/* Identity check status */}
       {profile.isVerified ? (
         <div className="fb-row mt-6 border-l-4 border-l-[var(--color-teal-500)]">
@@ -697,109 +800,6 @@ function ProfileInner() {
         ) : null}
       </div>
 
-      {/* Hero — cover, avatar, identity strip, badges (X-profile pattern) */}
-      <div className="fb-card-lg mt-6 !p-0 overflow-hidden">
-        <div className="relative h-36 sm:h-44">
-          {profile.photos[0] ? (
-            <img src={profile.photos[0]} alt="" aria-hidden className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-[var(--gradient-ember-warm)]" aria-hidden />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0d18] via-[#0a0d18]/40 to-transparent" />
-          <div className="absolute bottom-3 right-4 flex items-center gap-2">
-            {profile.isVerified ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-sm">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
-                  <path d="M8.8 12l2.2 2.2 4.2-4.6" />
-                </svg>
-                Verified
-              </span>
-            ) : null}
-            {profile.vaccinationStatus === "unvaccinated" ? (
-              <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-gold-300)] backdrop-blur-sm">
-                Unvaccinated
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="relative flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:px-6">
-          <span className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-14 sm:h-28 sm:w-28">
-            {profile.photos[0] ? (
-              <img src={profile.photos[0]} alt={profile.displayName} className="h-full w-full object-cover" />
-            ) : (
-              <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
-                {(profile.displayName || "You").charAt(0)}
-              </span>
-            )}
-          </span>
-          <div className="min-w-0 flex-1 pb-1">
-            <h2 className="fb-h-display">
-              {profile.displayName || "Add your name"}
-              {profile.age ? <span className="text-[var(--color-gold-300)]">{`, ${profile.age}`}</span> : null}
-            </h2>
-            <p className="fb-meta mt-1">
-              {[profile.occupation, [profile.city, profile.region].filter(Boolean).join(", ")]
-                .filter(Boolean)
-                .join(" · ") || "Add your details"}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {profile.memberSince ? (
-                <span className="fb-chip">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                  {joinedLabel(profile.memberSince)}
-                </span>
-              ) : null}
-              {profile.relationshipGoals.length > 0 ? (
-                <span className="fb-chip fb-chip-gold">{prettyText(profile.relationshipGoals[0])}</span>
-              ) : null}
-              <span className="fb-chip">{profile.photos.length}/6 photos</span>
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-2 pb-1">
-            <button
-              type="button"
-              disabled={photoBusy}
-              onClick={() => setPhotoManagerOpen(true)}
-              className="fb-btn fb-btn-ghost fb-btn-sm"
-            >
-              Manage photos
-            </button>
-            {profile.id ? (
-              <button
-                type="button"
-                onClick={() => setViewAs(profile.id ?? null)}
-                className="fb-btn fb-btn-ghost fb-btn-sm"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                Preview
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {/* Live stats — reply rate, match rate, conversations (real counts) */}
-      <div className="mt-4 grid grid-cols-3 gap-2.5">
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats?.replyRate === null || stats?.replyRate === undefined ? "New" : `${stats.replyRate}%`}</p>
-          <p className="fb-stat-label">Reply rate</p>
-        </div>
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats?.matchRate === null || stats?.matchRate === undefined ? "New" : `${stats.matchRate}%`}</p>
-          <p className="fb-stat-label">Match rate</p>
-        </div>
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats ? stats.conversationCount : "—"}</p>
-          <p className="fb-stat-label">Conversations</p>
-        </div>
-      </div>
 
       <input
         ref={photoInputRef}
@@ -1055,15 +1055,16 @@ function ProfileInner() {
             </div>
           )}
 
+          <div className="fb-card-lg divide-y divide-white/[0.06]" data-search="profile about prompts details values lifestyle">
           {profile.bio ? (
-            <div className="fb-card">
+            <div className="py-5 first:pt-0 last:pb-0">
               <p className="fb-eyebrow">About me</p>
               <p className="fb-body mt-2 whitespace-pre-line">{profile.bio}</p>
             </div>
           ) : null}
 
           {/* Prompts — shown exactly as others will read them */}
-          <div className="fb-card" data-edit-section="prompts">
+          <div className="py-5 first:pt-0 last:pb-0" data-edit-section="prompts">
             <div className="flex items-center justify-between gap-3">
               <p className="fb-eyebrow">Your prompts</p>
               <button
@@ -1106,7 +1107,7 @@ function ProfileInner() {
           </div>
 
           {/* The details — a clean, editorial two-column register */}
-          <div className="fb-card">
+          <div className="py-5 first:pt-0 last:pb-0">
             <p className="fb-eyebrow">The details</p>
             <div className="mt-3 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
               {[
@@ -1138,7 +1139,7 @@ function ProfileInner() {
           </div>
 
           {profile.values.length || profile.interests.length || profile.lifestyle.length ? (
-            <div className="fb-card space-y-4">
+            <div className="space-y-4 py-5 first:pt-0 last:pb-0">
               {profile.values.length ? (
                 <div>
                   <p className="fb-eyebrow">Values</p>
@@ -1181,6 +1182,7 @@ function ProfileInner() {
               ) : null}
             </div>
           ) : null}
+          </div>
 
           {/* Growth: niche communities scale one trusted invite at a time */}
           <div className="fb-card-lg border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05]">
