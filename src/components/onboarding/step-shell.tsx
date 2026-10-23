@@ -137,7 +137,7 @@ export function StepShell({
                 href="/app"
                 className="text-[12px] font-bold text-[var(--color-ash)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
               >
-                Save &amp; finish later — you&apos;ll pick up right here
+                Save &amp; finish later, and you&apos;ll pick up right here
               </a>
             </div>
           ) : null}

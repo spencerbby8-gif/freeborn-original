@@ -96,7 +96,7 @@ export default function CallbackPage() {
           <h1 className="text-xl font-black">That sign-in couldn&apos;t finish</h1>
           <p className="mt-3 text-sm leading-6 text-[var(--color-mist)]">
             {reason ??
-              "Secure links and codes are one-time and expire. Go back and request a fresh code — it signs you in the moment you enter it."}
+              "Secure links and codes are one-time and expire. Go back and request a fresh code. It signs you in the moment you enter it."}
           </p>
           <a
             href="/auth?mode=sign-in&status=link-invalid"

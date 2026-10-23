@@ -4,7 +4,7 @@ import { OnboardingGate } from "@/components/onboarding/gate";
 
 export const metadata: Metadata = {
   title: "Build your profile",
-  description: "Freeborn onboarding — one focused step at a time.",
+  description: "Freeborn onboarding: one focused step at a time.",
   robots: { index: false, follow: true },
 };
 

@@ -41,7 +41,7 @@ function Spinner() {
 function friendlyError(error: unknown): string {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
   if (msg.includes("already registered") || msg.includes("already been registered"))
-    return "An account already exists for this email — switch to the Sign in tab.";
+    return "An account already exists for this email. Switch to the Sign in tab.";
   return getAuthErrorMessage(error);
 }
 
@@ -205,7 +205,7 @@ export function AuthExperience({
         });
         if (error) throw error;
         if (data.session) {
-          showToast({ tone: "success", title: "Account created", body: "Welcome to Freeborn — let's build your profile." });
+          showToast({ tone: "success", title: "Account created", body: "Welcome to Freeborn. Let's build your profile." });
           await enterAfterAuth();
           return;
         }
@@ -297,9 +297,9 @@ export function AuthExperience({
             : "Welcome back",
     description:
       mode === "sign-up"
-        ? "Choose an email and a strong password — then step into a relationship platform built for health autonomy, natural living, and long-term intention."
+        ? "Choose an email and a strong password, then step into a relationship platform built for health autonomy, natural living, and long-term intention."
         : mode === "reset-password"
-          ? "We'll send a secure link so you can set a new password — no stress."
+          ? "We'll send a secure link so you can set a new password. No stress."
           : mode === "update-password"
             ? "Set a strong password to finish restoring access to your account."
             : "Sign in to pick up where you left off. Your values-forward profile is right where you left it.",

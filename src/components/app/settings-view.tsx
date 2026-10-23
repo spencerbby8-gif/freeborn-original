@@ -1269,11 +1269,11 @@ export function SettingsView() {
                 Freeborn&apos;s safety promise
               </p>
               <ul className="mt-3 space-y-2 text-[12px] leading-5 text-[var(--color-mist)]">
-                <li>· Identity checks use pose-mimic selfies with a moderation queue — never links sent in DMs.</li>
-                <li>· Reports land in a moderation queue with rate limits, so one person can&apos;t weaponize them.</li>
-                <li>· Chat media is stored privately per member — never sold, never handed to advertisers.</li>
+                <li>· Identity checks use pose-mimic selfies. Freeborn never verifies through links sent in DMs.</li>
+                <li>· Report tools are rate-limited per account, so one person can&apos;t weaponise them with volume. A report never punishes anyone on its own.</li>
+                <li>· Chat media is served only to the two people in the conversation it was sent in, and is never sold or handed to advertisers.</li>
                 <li>· New profile photos require re-verification, so the teal seal always matches the face.</li>
-                <li>· You can hide or deactivate your account at any time — one tap, no dark patterns.</li>
+                <li>· You can hide or deactivate your account at any time, in one tap, with no dark patterns.</li>
               </ul>
             </div>
           </div>

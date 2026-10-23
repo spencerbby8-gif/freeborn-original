@@ -81,12 +81,12 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
       stepIndex={stepIndex}
       totalSteps={totalSteps}
       title="Write your first impression."
-      subtitle="Short, human, grounded — what lights you up and what feels meaningful."
+      subtitle="Short, human, grounded: what lights you up and what feels meaningful."
       onBack={onBack}
       onContinue={handleContinue}
       pending={pending}
       saveStatus={saveStatus}
-      footerTip="No phone numbers, emails, or handles — safety checks keep your contact info private."
+      footerTip="No phone numbers, emails, or handles. Safety checks keep your contact info private."
     >
       <SafetyPanel values={unsafeIssues} />
 
@@ -190,7 +190,7 @@ export function VibeStep({ stepIndex, totalSteps, draft, onBack, onSave, pending
       interests,
       3,
       10,
-      "Pick at least three interests — they start conversations.",
+      "Pick at least three interests, because they start conversations.",
       "Keep it to 10 interests."
     );
     if (interestsError) {
@@ -212,7 +212,7 @@ export function VibeStep({ stepIndex, totalSteps, draft, onBack, onSave, pending
       pending={pending}
       saveStatus={saveStatus}
       error={error}
-      footerTip="Specific beats exhaustive — pick what's really you."
+      footerTip="Specific beats exhaustive. Pick what's really you."
     >
       <ChipSelect
         label="Lifestyle"
@@ -363,7 +363,7 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
     e?.preventDefault();
     if (photos.length < 3) {
       setError(
-        `Add at least 3 photos before continuing — ${photos.length}/3 so far. Real, recent photos are how members trust each other.`
+        `Add at least 3 photos before continuing. ${photos.length}/3 so far. Real, recent photos are how members trust each other.`
       );
       return;
     }
@@ -376,14 +376,14 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
       stepIndex={stepIndex}
       totalSteps={totalSteps}
       title="Your photo foundation."
-      subtitle="Add at least 3 recent photos (up to 6) — then you're in. They're cropped to 4:5 automatically."
+      subtitle="Add at least 3 recent photos (up to 6), then you're in. They're cropped to 4:5 automatically."
       onBack={onBack}
       onContinue={handleContinue}
       continueLabel="Finish & enter Freeborn"
       pending={pending || busy}
       saveStatus={saveStatus}
       error={error}
-      footerTip="Recent, recognizable, and real — like someone a person would want to meet."
+      footerTip="Recent, recognizable, and real, like someone a person would want to meet."
     >
       <div className="flex items-center justify-between px-1">
         <span className="fb-eyebrow !text-[12px]">Your photos</span>

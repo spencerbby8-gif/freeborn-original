@@ -545,15 +545,18 @@ export function VerifyGate() {
                 Verify your identity
               </h2>
               <p className="mt-2.5 text-[13.5px] leading-6 text-[var(--color-mist)]">
-                Freeborn keeps the room safe with a quick live selfie check — the same
+                Freeborn keeps the room safe with a quick live selfie check, the same
                 method mainstream dating platforms use to keep out bots and impostors.
+                One thing to know before you submit: the verification engines are
+                unavailable right now, so a request is recorded and held as pending
+                rather than approved or rejected, and no new seals are being issued.
               </p>
               <ul className="mt-5 space-y-3">
                 {[
                   ["Live selfie only", "Your camera confirms you're a real person. No documents needed to start."],
-                  ["Nothing stored but the verdict", "No ID, no documents, no biometric templates — a quick pose selfie proves you're you, and only the result is kept."],
-                  ["In-app, always", "Freeborn never verifies through links in DMs, texts, or email — those are scams."],
-                  ["Reviewed before it counts", "Every submission is checked before your profile carries the confirmation. Usually within minutes."],
+                  ["No templates, but the photo is kept", "No ID, no documents, and no biometric template is built from your face. The selfie itself is stored: while a request is undecided, and after approval so a new photo can be re-checked against the person who earned the seal. A rejected selfie is never stored at all. The Privacy Policy sets out the detail."],
+                  ["In-app, always", "Freeborn never verifies through links in DMs, texts, or email. Those are scams."],
+                  ["Nothing counts unchecked", "Your profile never carries the confirmation without a check passing. While the engines are unavailable a submission stays pending, and we would rather the seal be slow than the seal be wrong."],
                 ].map(([title, body]) => (
                   <li key={title} className="flex gap-3">
                     <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]">
@@ -665,13 +668,13 @@ export function VerifyGate() {
                 <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
                   {gate.unavailable ? (
                     <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
-                      Live checks unavailable — AI review covers this
+                      Live checks unavailable on this device
                     </span>
                   ) : !gate.ready ? (
                     <span className="text-[11.5px] font-bold text-[var(--color-ash)]">Warming up live checks…</span>
                   ) : gate.faceCount !== 1 ? (
                     <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
-                      {gate.faceCount === 0 ? "Center your face in the frame" : "One face only — step back a little"}
+                      {gate.faceCount === 0 ? "Center your face in the frame" : "One face only. Step back a little"}
                     </span>
                   ) : !gate.framed ? (
                     <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
@@ -690,11 +693,11 @@ export function VerifyGate() {
                     </span>
                   ) : gateSkipped ? (
                     <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
-                      Live check skipped — AI review covers this
+                      Live check skipped on this device
                     </span>
                   ) : (
                     <span className="text-[11.5px] font-bold text-[var(--color-sand)]">
-                      Face ready — blink when prompted
+                      Face ready. Blink when prompted
                     </span>
                   )}
                 </div>

@@ -59,7 +59,7 @@ export function WelcomeStep({
     {
       icon: "route" as const,
       title: "Seven quick screens",
-      body: "No giant forms. Identity, location, intentions, your story, your vibe, and photos — then you're in.",
+      body: "No giant forms. Identity, location, intentions, your story, your vibe, and photos, then you're in.",
     },
     {
       icon: "shield" as const,
@@ -273,7 +273,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
             setGeoState("denied");
             const inIframe = typeof window !== "undefined" && window.self !== window.top;
             const message = inIframe
-              ? "The preview panel blocks precise location even after you allow it. Use 'Open in new tab' at the top of the page — GPS works there — or type your city below."
+              ? "The preview panel blocks precise location even after you allow it. Use 'Open in new tab' at the top of the page, where GPS works, or type your city below."
               : "Precise location was denied in your browser settings. Allow location access for this site and try again, or type your city below.";
             setErrors((prev) => ({ ...prev, location_source: message }));
             return;
@@ -289,7 +289,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
           setErrors((prev) => ({
             ...prev,
             location_source:
-              "We tried four times and couldn't get a precise fix. Make sure GPS/location is on for this site and try again — or type your city below.",
+              "We tried four times and couldn't get a precise fix. Make sure GPS/location is on for this site and try again, or type your city below.",
           }));
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
@@ -329,7 +329,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
       stepIndex={stepIndex}
       totalSteps={totalSteps}
       title="Where are you based?"
-      subtitle="One tap detects your city — or type it yourself."
+      subtitle="One tap detects your city, or type it yourself."
       onBack={onBack}
       onContinue={handleContinue}
       pending={pending}
@@ -343,7 +343,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
         </span>
         <p className="text-[12.5px] leading-5 text-[var(--color-mist)]">
           <span className="font-black text-[var(--color-pearl)]">Why we ask:</span> precise
-          location means true distances — real people near you see you first, and you see
+          location means true distances, so real people near you see you first, and you see
           them. Your exact coordinates stay private; only your city and region are ever shown.
           You can always type your city instead.
         </p>
@@ -375,7 +375,7 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
                     : "Use my location"}
             </span>
           </div>
-          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">One tap — we fill in your city for you.</p>
+          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">One tap, and we fill in your city for you.</p>
           {locationSource === "gps" ? (
             <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
               <CheckIcon size={13} strokeWidth={3} />

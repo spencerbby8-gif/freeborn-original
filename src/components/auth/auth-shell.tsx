@@ -13,7 +13,7 @@ const trustPoints = [
   {
     icon: BadgeIcon,
     title: "Badges have to be earned",
-    body: "Verification status is visible only when a profile has it — never implied by default.",
+    body: "Verification status is visible only when a profile has it, never implied by default.",
   },
   {
     icon: HeartIcon,

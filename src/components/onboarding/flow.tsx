@@ -80,7 +80,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
       const res = await postWithRetry("/api/onboarding", headers, JSON.stringify({ step, patch }));
       if (res.status === 401) {
         setSaveStatus("Session expired");
-        setFlowError("Your session expired mid-onboarding. Sign in again — your progress is saved up to this screen.");
+        setFlowError("Your session expired mid-onboarding. Sign in again. Your progress is saved up to this screen.");
         setPending(false);
         return;
       }
@@ -99,7 +99,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
         const done = await postWithRetry("/api/onboarding/complete", headers, "");
         if (done.status === 401) {
           setSaveStatus("Session expired");
-          setFlowError("Your session expired mid-onboarding. Sign in again — your progress is saved up to this screen.");
+          setFlowError("Your session expired mid-onboarding. Sign in again. Your progress is saved up to this screen.");
           setPending(false);
           return;
         }
@@ -120,7 +120,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
       goToStep(stepIndex + 1);
     } catch {
       setSaveStatus("Save error");
-      setFlowError("The preview server blinked for a moment and the save didn't land. Press Continue once more — nothing was lost.");
+      setFlowError("The preview server blinked for a moment and the save didn't land. Press Continue once more. Nothing was lost.");
     } finally {
       setPending(false);
     }
@@ -171,7 +171,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
         </span>
         <h1 className="fb-h-display">You&apos;re in.</h1>
         <p className="fb-meta max-w-[36ch]">
-          Your profile is ready — the room is waiting. Welcome to Freeborn.
+          Your profile is ready and the room is waiting. Welcome to Freeborn.
         </p>
         <div className="mt-2">
           <Wordmark size="sm" />
