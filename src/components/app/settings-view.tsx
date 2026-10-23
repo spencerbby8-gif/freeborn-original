@@ -1166,13 +1166,36 @@ export function SettingsView() {
         ) : null}
 
         {area === "notifications" ? (
-          <div className="space-y-3.5">
-            <PanelTitle title="Alerts" blurb="Choose what reaches you. Saves as you flip them." />
-            <NotificationPermissionRow />
-            <ToggleRow label="New matches" body="When someone likes you back." value={n.matchAlerts} onChange={(v) => void setN("matchAlerts", v)} />
-            <ToggleRow label="Messages" body="When a conversation gets a new message." value={n.messageAlerts} onChange={(v) => void setN("messageAlerts", v)} />
-            <ToggleRow label="Likes" body="When someone likes your profile." value={n.likeAlerts} onChange={(v) => void setN("likeAlerts", v)} />
-            <ToggleRow label="Profile activity" body="Occasional tips about your profile's reach." value={n.profileActivity} onChange={(v) => void setN("profileActivity", v)} />
+          <div className="space-y-6">
+            <PanelTitle title="Alerts" blurb="Choose what reaches you. Everything saves the moment you flip it." />
+
+            {/* Grouped with the same eyebrow pattern Privacy uses, so the two
+                screens read as one system. The device permission sits on its
+                own because it gates every toggle below it: if the browser
+                blocks notifications, flipping a switch changes what you see
+                inside the app but not what reaches your lock screen. */}
+            <section className="space-y-2.5" data-search="alerts device permission browser">
+              <p className="fb-eyebrow px-1">On this device</p>
+              <NotificationPermissionRow />
+              <p className="fb-caption px-1">
+                Alerts inside Freeborn always work, even when the browser blocks notifications.
+              </p>
+            </section>
+
+            <section className="space-y-2.5" data-search="alerts activity matches messages likes">
+              <p className="fb-eyebrow px-1">Activity</p>
+              <ToggleRow label="New matches" body="When someone likes you back." value={n.matchAlerts} onChange={(v) => void setN("matchAlerts", v)} />
+              <ToggleRow label="Messages" body="When a conversation gets a new message." value={n.messageAlerts} onChange={(v) => void setN("messageAlerts", v)} />
+              <ToggleRow label="Likes" body="When someone likes your profile." value={n.likeAlerts} onChange={(v) => void setN("likeAlerts", v)} />
+            </section>
+
+            {/* Kept apart from activity on purpose. Product updates are
+                low-signal and optional; sitting beside match and message
+                alerts made them read as equally important. */}
+            <section className="space-y-2.5" data-search="alerts product updates tips">
+              <p className="fb-eyebrow px-1">From Freeborn</p>
+              <ToggleRow label="Profile activity" body="Occasional tips about your profile's reach." value={n.profileActivity} onChange={(v) => void setN("profileActivity", v)} />
+            </section>
           </div>
         ) : null}
 

@@ -54,6 +54,35 @@ function Card({ p, badge, action }: { p: LikedProfile; badge: string; action?: R
   );
 }
 
+function SectionHead({ title, count, desc }: { title: string; count: number; desc: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <h2 className="flex items-center gap-2.5 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-gold-300)]">
+        {title}
+        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] tabular-nums text-[var(--color-sand)]">
+          {count}
+        </span>
+      </h2>
+      <p className="text-[12px] leading-4 text-[var(--color-mist)]">{desc}</p>
+    </div>
+  );
+}
+
+function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-6 py-8 text-center">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
+        </svg>
+      </span>
+      <p className="mt-3 text-[14px] font-bold text-[var(--color-pearl)]">{title}</p>
+      <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[var(--color-mist)]">{body}</p>
+      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+    </div>
+  );
+}
+
 export function LikesView() {
   const [liked, setLiked] = useState<LikedProfile[]>([]);
   const [likedYou, setLikedYou] = useState<IncomingLike[]>([]);
@@ -146,116 +175,138 @@ export function LikesView() {
     );
   }
 
+  const mutual = likedYou.filter((p) => p.matched);
+  const pending = likedYou.filter((p) => !p.matched);
+
   return (
     <div className="mx-auto max-w-[880px]">
-      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Likes</h1>
-      <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        See exactly who liked you, and everyone you&apos;ve liked.
-      </p>
+      <div className="fb-section-head">
+        <h1 className="fb-h-title">Likes</h1>
+        <p className="fb-meta">
+          Everyone who liked you, visible for free, and everyone you have liked.
+          No mystery notifications and no paywall to peek.
+        </p>
+      </div>
 
-      {/* --- Who liked YOU (the feature the competitors never built) ---------- */}
-      <h2 className="mt-8 flex items-center gap-2.5 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-gold-300)]">
-        Liked you
-        {likedYou.length > 0 ? (
-          <span className="rounded-full bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10.5px] tabular-nums text-[var(--color-gold-300)]">{likedYou.length}</span>
-        ) : null}
-      </h2>
-      {likedYou.length === 0 ? (
-        <div className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-7 text-center">
-          <p className="text-[14px] font-bold text-[var(--color-pearl)]">No likes yet</p>
-          <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[var(--color-mist)]">
-            When someone likes you, you&apos;ll see exactly who it is here. No mystery
-            notifications, no paywall to peek.
-          </p>
-        </div>
-      ) : (
-        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {likedYou.map((p) => (
-            <Card
-              key={`in-${p.id}`}
-              p={p}
-              badge={p.superlike ? "Super-liked you" : "Liked you"}
-              action={
-                p.matched ? (
+      <div className="mt-4 flex flex-wrap gap-2" data-search="likes summary counts mutual">
+        <span className="fb-chip">
+          Liked you
+          <span className="tabular-nums text-[var(--color-pearl)]">{likedYou.length}</span>
+        </span>
+        <span className="fb-chip fb-chip-gold">
+          Mutual
+          <span className="tabular-nums">{mutual.length}</span>
+        </span>
+        <span className="fb-chip">
+          You liked
+          <span className="tabular-nums text-[var(--color-pearl)]">{liked.length}</span>
+        </span>
+      </div>
+
+      {mutual.length > 0 ? (
+        <section className="fb-card-lg mt-6" data-search="mutual matches open chat">
+          <SectionHead
+            title="Mutual"
+            count={mutual.length}
+            desc="You both said yes. The conversation is already open."
+          />
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {mutual.map((p) => (
+              <Card
+                key={`mutual-${p.id}`}
+                p={p}
+                badge="Matched"
+                action={
                   <a
                     href={p.matchId ? `/app/chat?match=${p.matchId}` : "/app/chat"}
-                    className="rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1.5 text-[11px] font-black text-white transition active:scale-95"
+                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px]"
                   >
                     Open chat
                   </a>
-                ) : (
+                }
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="fb-card-lg mt-6" data-search="people who liked you like back">
+        <SectionHead
+          title="Liked you"
+          count={pending.length}
+          desc="People who liked your profile. Liking back makes it a match."
+        />
+        {pending.length === 0 ? (
+          <Empty
+            title={likedYou.length > 0 ? "No new likes right now" : "No likes yet"}
+            body={
+              likedYou.length > 0
+                ? "Everyone who liked you is already a match. New likes land here the moment they arrive."
+                : "When someone likes you, you will see exactly who it is here, for free."
+            }
+          />
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {pending.map((p) => (
+              <Card
+                key={`in-${p.id}`}
+                p={p}
+                badge={p.superlike ? "Super-liked you" : "Liked you"}
+                action={
                   <button
                     type="button"
                     disabled={busyId === p.id}
                     onClick={() => void likeBack(p)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-white shadow-[0_8px_20px_-8px_rgba(239,94,94,0.7)] transition hover:brightness-110 active:scale-95 disabled:opacity-50"
+                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px] disabled:opacity-50"
                   >
-                    {busyId === p.id ? (
-                      "…"
-                    ) : (
-                      <>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                          <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
-                        </svg>
-                        Like back
-                      </>
-                    )}
+                    {busyId === p.id ? "\u2026" : "Like back"}
                   </button>
-                )
-              }
-            />
-          ))}
-        </div>
-      )}
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
-      {/* --- Who YOU liked ------------------------------------------------------ */}
-      <h2 className="mt-9 flex items-center gap-2.5 text-[12px] font-black uppercase tracking-[0.2em] text-[var(--color-sand)]">
-        You liked
-        {liked.length > 0 ? (
-          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] tabular-nums text-[var(--color-sand)]">{liked.length}</span>
-        ) : null}
-      </h2>
-      {liked.length === 0 ? (
-        <div className="mt-3 rounded-[24px] border border-white/[0.07] bg-white/[0.02] p-7 text-center">
-          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
-            </svg>
-          </span>
-          <p className="mt-3 text-[14px] font-bold text-[var(--color-pearl)]">You haven&apos;t liked anyone yet</p>
-          <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-5 text-[var(--color-mist)]">
-            Head to Discover and tap the heart on people who feel right. They&apos;ll gather here.
-          </p>
-          <a
-            href="/app"
-            className="btn-ember btn-shine relative mt-5 inline-flex overflow-hidden rounded-full px-7 py-3 text-sm font-bold"
-          >
-            Start discovering
-          </a>
-        </div>
-      ) : (
-        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {liked.map((p) => (
-            <Card
-              key={`out-${p.id}`}
-              p={p}
-              badge="Liked"
-              action={
-                <button
-                  type="button"
-                  disabled={busyId === p.id}
-                  onClick={() => void unlike(p)}
-                  aria-label={`Unlike ${p.name}`}
-                  title="Remove your like"
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[10.5px] font-black uppercase tracking-wider text-[var(--color-mist)] transition hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
-                >
-                  {busyId === p.id ? "…" : "Unlike"}
-                </button>
-              }
-            />
-          ))}
-        </div>
-      )}
+      <section className="fb-card-lg mt-6" data-search="likes you sent unlike remove">
+        <SectionHead
+          title="You liked"
+          count={liked.length}
+          desc="Likes you have sent. Remove one any time if it was a mis-tap."
+        />
+        {liked.length === 0 ? (
+          <Empty
+            title="You haven&apos;t liked anyone yet"
+            body="Head to Discover and tap the heart on people who feel right. They gather here."
+            action={
+              <a href="/app" className="fb-btn fb-btn-primary fb-btn-sm">
+                Start discovering
+              </a>
+            }
+          />
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {liked.map((p) => (
+              <Card
+                key={`out-${p.id}`}
+                p={p}
+                badge="Liked"
+                action={
+                  <button
+                    type="button"
+                    disabled={busyId === p.id}
+                    onClick={() => void unlike(p)}
+                    aria-label={`Unlike ${p.name}`}
+                    className="fb-btn fb-btn-ghost fb-btn-sm !min-h-0 !px-3 !py-1.5 !text-[10.5px] disabled:opacity-50"
+                  >
+                    {busyId === p.id ? "\u2026" : "Unlike"}
+                  </button>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
