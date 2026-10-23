@@ -97,9 +97,26 @@ export default function TermsPage() {
           </a>{" "}
           if you believe your account has been compromised.
         </p>
-        {/* DEPENDENCY: B5. Password change requires the current password, and Supabase
-            re-authentication is enabled. Without that, clause 3 shifts risk onto
-            members for a hijack the platform made frictionless. */}
+        {/* Satisfied by code, 2026-10-23. /api/account now requires
+            currentPassword for action=change-password and verifies it with
+            signInWithPassword on a sessionless client before calling updateUser,
+            returning 403 on a mismatch and a generic message instead of the
+            provider's own error text. The sessionless client matters: checking the
+            credential on the request's own client would replace its tokens, and the
+            refresh token minted by the check is revoked afterwards so it does not
+            inflate the "active sign-ins" count that the same route reports.
+            Two provider switches remain OFF and are deliberately not flipped as part
+            of this change: security_update_password_require_current_password and
+            security_update_password_require_reauthentication. Turning either on makes
+            GoTrue impose its own re-authentication requirement on updateUser, which
+            this route's flow (verify on a separate sessionless client, then update on
+            the request's own session) may not satisfy, and there is no way to test
+            that without live account credentials. The promise in this clause is
+            enforced by the route itself, so it does not depend on them. Flipping them
+            is defence in depth for other callers of updateUser and should be trialled
+            on a preview deployment first. See also src/lib/password.ts, which records
+            that the provider's password_min_length is still 6 and can only be raised
+            in the Supabase dashboard. */}
         <p>
           Changing your password requires your current password. Changing your email
           address requires you to confirm a link sent to the new address. Both are
@@ -140,10 +157,16 @@ export default function TermsPage() {
             you verify again, so the seal always corresponds to the face currently
             shown.
           </p>
-          {/* DEPENDENCY: B2. Verification requires two functioning vision engines. As
-              of 2026-10-19 neither was available in production, so no new member
-              could earn the seal. This clause must not be published while the seal
-              is displayed as attainable and is not. */}
+          <p>
+            One thing to know before you rely on it: new seals are not being issued
+            at the moment. Verification depends on two vision engines reached through
+            a free third-party relay, and that relay currently strips the image out of
+            the request before it reaches a model, so no selfie can be assessed.
+            Requests are held as pending rather than approved or rejected, and a
+            pending request never grants the seal. If you try to verify today you will
+            be told your request is pending, and it will stay pending until the relay
+            is repaired. Seals already issued stay in place.
+          </p>
         </Callout>
       </Clause>
 
@@ -230,10 +253,10 @@ export default function TermsPage() {
           rows={[
             ["A report is filed", "Report tools are rate limited per account so one person cannot weaponise them with volume. A report opens an investigation; it never punishes anyone on its own."],
             ["Evidence is assessed", "Two AI models from different providers assess reported content independently, judging observable evidence only. They do not read your private conversations."],
-            ["Disagreement escalates", "If the models do not agree, or the severity is high, the case goes to human review. Doubt is resolved by a person, not by a model."],
+            ["Disagreement is held, not decided", "If the models do not agree, nothing is done to your account. A report never suspends anyone and never removes content on its own. Where the engines cannot both run, the report is recorded without a verdict and no action follows."],
             ["Warning first", "For a first substantiated breach that is not severe, you receive a warning with the reason stated. Warnings are recorded in your trust history."],
-            ["Suspension", "Only substantiated evidence suspends an account. You are told what the finding was."],
-            ["Appeal", "Every suspension can be appealed at /appeal. Appeals are reviewed by a human. A successful appeal restores the account and removes the finding."],
+            ["Suspension", "One ground suspends an account automatically: your sign-in address resolving to a hosting or datacenter range, which the acceptable-use terms do not permit. You are told the reason. Nothing else suspends an account automatically, and being reported is not one of those grounds."],
+            ["Appeal", `Every suspension can be appealed at /appeal, and your appeal is read and decided by the operator rather than by a model. Two things stated honestly: reinstatement is a manual act, because the product does not yet lift a suspension automatically when an appeal succeeds, and we do not promise a turnaround time. If your appeal has gone quiet, write to ${CONTACT_EMAIL} and say so.`],
           ]}
         />
         <p>

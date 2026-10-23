@@ -32,19 +32,40 @@ const list = (v: string | null) =>
 const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
+  /* B6. This endpoint returns real members' names, ages, cities, occupations
+     and photographs. Authentication used to be OPTIONAL here: the Bearer token
+     was read only to personalise the deck, so an anonymous caller fell through
+     to the same query and received live member data.
+
+     Measured on the live preview deployment before this guard:
+       GET /api/profiles   (no cookie, no Bearer)   -> 200
+       {"profiles":[{"id":"772a1827-...","name":"Spencer","age":23,
+        "gender":"man","city":"Abraka","occupation":"Business owner", ...}]}
+
+     That made the member directory public and crawlable, which is exactly what
+     Privacy Policy clause 5 promises it is not. For a dating service used by
+     people who are publicly identifiable by their health views, an open
+     directory of faces and cities is a safety failure, not a technicality. */
+  const viewer = await getMember(request).catch(() => null);
+  if (!viewer) {
+    return Response.json({ error: "Not signed in." }, { status: 401 });
+  }
+
   /* Signed-in viewer: their own card must never appear in their own deck,
      blocked members never appear in either direction, and the viewer's own
      vaccination stance powers the values-affinity ranking. */
-  let viewerId: string | null = null;
+  let viewerId: string | null = viewer.id;
   let viewerVax = "prefer_not_to_say";
   let viewerVerified = false;
   let viewerValues: string[] = [];
   let viewerInterests: string[] = [];
   let viewerGoals: string[] = [];
   const hiddenIds = new Set<string>();
-  if (request.headers.get("authorization")?.startsWith("Bearer ")) {
-    const member = await getMember(request).catch(() => null);
-    viewerId = member?.id ?? null;
+  /* The viewer is already resolved above, so the personalisation block runs
+     unconditionally. It used to be gated on the presence of a Bearer header,
+     which silently skipped blocks, swipes and preferences for any member
+     authenticated by SSR cookie instead. */
+  {
     if (viewerId) {
       const [viewerRow] = await db
         .select({

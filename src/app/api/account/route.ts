@@ -1,7 +1,11 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, userProfiles } from "@/db/schema";
-import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import {
+  createSessionlessSupabaseClient,
+  createSupabaseClientForApi,
+} from "@/lib/supabase/api-auth";
+import { MIN_PASSWORD_LENGTH, passwordTooShort } from "@/lib/password";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +46,8 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/account — account security actions:
- *  - change-password (min 8 chars, enforced by Supabase Auth)
+ *  - change-password (requires the CURRENT password; minimum length from
+ *    MIN_PASSWORD_LENGTH, enforced here and in Supabase Auth alike)
  *  - change-email (sends confirmation to the new address)
  *  - deactivate (hides the profile from the room immediately — reversible)
  *  - delete (permanent — removes the member's data and auth account)
@@ -65,21 +70,66 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { action, newPassword, newEmail } = (body ?? {}) as {
+  const { action, currentPassword, newPassword, newEmail } = (body ?? {}) as {
     action?: string;
+    currentPassword?: string;
     newPassword?: string;
     newEmail?: string;
   };
 
   if (action === "change-password") {
-    if (typeof newPassword !== "string" || newPassword.length < 8) {
+    if (passwordTooShort(newPassword)) {
       return Response.json(
-        { error: "New password must be at least 8 characters." },
+        { error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` },
         { status: 400 }
       );
     }
+
+    /* B5. This route used to accept no current password at all, and Supabase's
+       own re-authentication switch
+       (security_update_password_require_current_password) was off. Together
+       that meant a stolen session, or simply an unattended logged-in device,
+       could quietly replace the account password and convert a hijacked session
+       into a permanent hijack the real owner could no longer reverse. Terms
+       clause 3 promised the opposite of what the code did.
+
+       The credential is now verified here, and the Supabase switch is turned on
+       as well so the rule also holds for any other caller of updateUser. */
+    if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+      return Response.json(
+        { error: "Enter your current password to change it." },
+        { status: 400 }
+      );
+    }
+
+    const checker = createSessionlessSupabaseClient();
+    const { error: credentialError } = await checker.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (credentialError) {
+      /* 403, not 500, and a generic message. The old code returned
+         `error.message` verbatim with a 500 status, which leaked provider
+         internals and told a member their own mistyped password was a server
+         failure. */
+      return Response.json(
+        { error: "That current password is not correct." },
+        { status: 403 }
+      );
+    }
+    /* signInWithPassword minted a real refresh token server-side even though
+       this client does not persist a session. Left alone it would inflate the
+       "active sign-ins" count this same route reports from auth.refresh_tokens,
+       so every password change would look like a new device. */
+    await checker.auth.signOut().catch(() => undefined);
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return Response.json(
+        { error: "We could not change your password. Please try again." },
+        { status: 502 }
+      );
+    }
     return Response.json({ ok: true, message: "Password updated." });
   }
 
@@ -88,10 +138,15 @@ export async function POST(request: Request) {
       return Response.json({ error: "Enter a valid email address." }, { status: 400 });
     }
     const { error } = await supabase.auth.updateUser({ email: newEmail });
-    if (error) return Response.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return Response.json(
+        { error: "We could not start that email change. Please try again." },
+        { status: 502 }
+      );
+    }
     return Response.json({
       ok: true,
-      message: "Confirmation sent — check the new inbox to finish the change.",
+      message: "Confirmation sent. Check the new inbox to finish the change.",
     });
   }
 

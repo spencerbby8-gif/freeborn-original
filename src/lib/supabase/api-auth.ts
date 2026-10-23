@@ -30,3 +30,22 @@ export async function createSupabaseClientForApi(
   }
   return createSupabaseServerClient();
 }
+
+/**
+ * A Supabase client that never persists a session.
+ *
+ * Used to check a member's current password without disturbing the session that
+ * authorised the request. Calling signInWithPassword on the request's own client
+ * would replace its access and refresh tokens underneath it.
+ */
+export function createSessionlessSupabaseClient(): SupabaseClient {
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? FALLBACK_URL;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    FALLBACK_KEY;
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}

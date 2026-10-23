@@ -8,7 +8,13 @@ import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // results in 2 days
+/* An internal target for how long an appeal should take, used only to compute
+   the `dueAt` and `ready` fields on the GET response. It is NOT shown to the
+   member as a promised date, and nothing in the product enforces it: no code
+   path ever writes appeals.verdict or sets suspensions.active to false, so a
+   decision is a manual act by the operator. Presenting this window to members
+   as a deadline would promise something the system cannot deliver. */
+const REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** Latest appeal status for the signed-in member. */
 export async function GET(request: Request) {
@@ -37,9 +43,10 @@ export async function GET(request: Request) {
 }
 
 /**
- * POST /api/appeals — file an appeal. A deep investigation runs immediately
- * (security record + dual-model bot analysis), the member is told to return
- * in 2 days, and the investigation result is stored for the final decision.
+ * POST /api/appeals: file an appeal. The security record is gathered and, when
+ * the engines are available, a dual-model bot analysis runs with it. The result
+ * is stored for the operator to read. No deadline is promised to the member and
+ * no code path lifts a suspension: reinstatement is a manual act.
  */
 export async function POST(request: Request) {
   const member = await getMember(request);
@@ -54,7 +61,7 @@ export async function POST(request: Request) {
   const { detail } = (body ?? {}) as { detail?: string };
   const plea = (detail ?? "").trim();
   if (plea.length < 10) {
-    return Response.json({ error: "Tell us what happened — at least a sentence." }, { status: 400 });
+    return Response.json({ error: "Tell us what happened. At least a sentence." }, { status: 400 });
   }
   if (plea.length > 2000) {
     return Response.json({ error: "Keep it under 2,000 characters." }, { status: 400 });
@@ -79,7 +86,15 @@ export async function POST(request: Request) {
     .orderBy(desc(appeals.createdAt))
     .limit(1);
   if (pending && pending.status === "under_review") {
-    return Response.json({ error: "An appeal is already under review — results in 2 days." }, { status: 409 });
+    /* The message used to promise "results in 2 days". Nothing in the product
+       enforces or even measures that: an appeal is recorded and an investigation
+       summary is written, but no code path lifts a suspension, so a deadline we
+       cannot meet is a promise we should not make. Terms clause 6 now says the
+       same thing plainly. */
+    return Response.json(
+      { error: "An appeal is already under review. We will be in touch." },
+      { status: 409 }
+    );
   }
 
   const [filed] = await db
@@ -109,7 +124,7 @@ export async function POST(request: Request) {
     );
     investigation = result
       ? `botRisk=${result.botRisk} :: ${result.summary}`
-      : "investigation pending — human review (engine budget)";
+      : "investigation pending: engine budget exhausted";
     await db
       .update(appeals)
       .set({ investigation: investigation.slice(0, 900) })
@@ -120,7 +135,6 @@ export async function POST(request: Request) {
 
   return Response.json({
     ok: true,
-    dueInDays: 2,
-    message: "Appeal received. Our investigators are on it — come back in 2 days for the result.",
+    message: "Appeal received. A person reads every appeal. Check back here for the result.",
   });
 }

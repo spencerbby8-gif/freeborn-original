@@ -10,6 +10,7 @@ import { getAuthErrorMessage } from "@/lib/auth/messages";
 import { getBaseUrl } from "@/lib/auth/url";
 import { showToast } from "@/components/toast-host";
 import { TurnstileGate, turnstileEnabled } from "./turnstile";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 export type AuthScreenMode =
   | "sign-in"
@@ -142,7 +143,8 @@ export function AuthExperience({
     if (mode !== "update-password" && !EMAIL_PATTERN.test(email)) next.email = "Enter a valid email address.";
     if (mode === "sign-in" && values.password.length === 0) next.password = "Enter your password.";
     if (mode === "sign-up" || mode === "update-password") {
-      if (values.password.length < 8) next.password = "Use at least 8 characters.";
+      if (values.password.length < MIN_PASSWORD_LENGTH)
+        next.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
       else if (!/[A-Z]/.test(values.password)) next.password = "Add at least one uppercase letter.";
       else if (!/[a-z]/.test(values.password)) next.password = "Add at least one lowercase letter.";
       else if (!/[0-9]/.test(values.password)) next.password = "Add at least one number.";

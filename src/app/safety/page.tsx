@@ -68,12 +68,12 @@ const sections = [
   {
     icon: "shield",
     title: "Identity verification, without the surveillance",
-    body: "A quick pose-mimic selfie: you mimic a pose, two independent engines confirm it's a live person matching your photos. No ID, no documents, and no biometric template is built from your face. The selfie itself is kept, because it has to be: an approved one is re-read when you change your photos, so the seal can be re-checked against the person who earned it, and a rejected one is deleted within 30 days. The Privacy Policy sets out exactly what is retained and for how long. Uploading a new face photo revokes the seal until you re-verify, so the teal badge always matches the face.",
+    body: "A quick pose-mimic selfie: you mimic a pose, and two independent engines confirm it's a live person matching your photos. No ID, no documents, and no biometric template is built from your face. An approved selfie is kept, because it has to be: it is re-read when you change your photos, so the seal can be re-checked against the person who earned it. A rejected selfie is never stored at all. The Privacy Policy sets out exactly what is retained and for how long. Uploading a new face photo revokes the seal until you re-verify, so the teal badge always matches the face. One thing stated plainly: the engines are unavailable at the moment, so verification holds requests as pending and no new seals are being issued.",
   },
   {
     icon: "eye",
-    title: "Moderation that never auto-punishes",
-    body: "Reports are cross-checked by two independent models from different providers, judging observable evidence only, and never private chats. Reports alone never ban anyone. Only substantiated evidence suspends an account, and every doubtful case lands in a human review queue. Both models are third-party services and neither is infallible: when one is unavailable a case waits for a person rather than being settled by a single model, and verification holds rather than quietly passing.",
+    title: "Reports never decide anything on their own",
+    body: "Reports are cross-checked by two independent models from different providers, judging observable evidence only, and never private chats. A report alone never bans anyone and never removes content. Where the models disagree, nothing happens to your account. Suspension has one automatic ground: a sign-in address that resolves to a hosting or datacenter range, which the acceptable-use terms do not permit. Both models are third-party services and neither is infallible, so when they cannot run a report is recorded without a verdict instead of being settled by whichever engine answered. There is no review queue inside the product yet; an unresolved case is read by the operator when a member writes in.",
   },
   {
     icon: "gate",

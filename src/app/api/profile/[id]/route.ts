@@ -1,8 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
 import {
+  blockedUsers,
   matches,
   messages,
   profilePhotos,
@@ -44,6 +45,21 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   if (!isUuid(id)) return badIdResponse();
+
+  /* B6. This route answered anonymous requests and applied none of the owner's
+     privacy controls: a caller who guessed or harvested a member id could read
+     the full profile of someone who was hidden, snoozed, incognito, or who had
+     blocked them. Authentication is now required, and the owner's settings are
+     enforced below. */
+  const viewer = await getMember(request).catch(() => null);
+  if (!viewer) {
+    return Response.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  /* 404 rather than 403 for every refusal: a 403 confirms the id exists, which
+     turns this endpoint into an oracle for enumerating members. */
+  const notReadable = () => Response.json({ error: "Profile not found." }, { status: 404 });
+
   const url = new URL(request.url);
   const fromLat = Number(url.searchParams.get("lat"));
   const fromLng = Number(url.searchParams.get("lng"));
@@ -51,6 +67,68 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
   const [row] = await db.select().from(userProfiles).where(eq(userProfiles.id, id)).limit(1);
   if (!row) return Response.json({ error: "Profile not found." }, { status: 404 });
+
+  /* A member may always read themselves. Everyone else is subject to the same
+     visibility rules the deck applies. */
+  if (row.id !== viewer.id) {
+    const isVisible =
+      row.profileStatus === "active" &&
+      row.discoverable === true &&
+      row.onboardingStage === "ready";
+    if (!isVisible) return notReadable();
+
+    const [ownerPriv] = await db
+      .select({
+        incognito: userPrivateSettings.incognito,
+        discoveryPaused: userPrivateSettings.discoveryPaused,
+      })
+      .from(userPrivateSettings)
+      .where(eq(userPrivateSettings.userId, id))
+      .limit(1);
+
+    // Snooze removes the member from discovery entirely.
+    if (ownerPriv?.discoveryPaused) return notReadable();
+
+    /* Incognito keeps the same semantics as the deck: visible only to members
+       the owner liked, or has matched with. */
+    if (ownerPriv?.incognito) {
+      const [likedViewer] = await db
+        .select({ likedId: userSwipes.likedId })
+        .from(userSwipes)
+        .where(
+          and(
+            eq(userSwipes.likerId, id),
+            eq(userSwipes.likedId, viewer.id),
+            eq(userSwipes.action, "like")
+          )
+        )
+        .limit(1);
+      const [mutual] = await db
+        .select({ id: matches.id })
+        .from(matches)
+        .where(
+          or(
+            and(eq(matches.userA, id), eq(matches.userB, viewer.id)),
+            and(eq(matches.userA, viewer.id), eq(matches.userB, id))
+          )
+        )
+        .limit(1);
+      if (!likedViewer && !mutual) return notReadable();
+    }
+
+    // A block hides both members from each other, in either direction.
+    const [block] = await db
+      .select({ id: blockedUsers.id })
+      .from(blockedUsers)
+      .where(
+        or(
+          and(eq(blockedUsers.blockerId, viewer.id), eq(blockedUsers.blockedId, id)),
+          and(eq(blockedUsers.blockerId, id), eq(blockedUsers.blockedId, viewer.id))
+        )
+      )
+      .limit(1);
+    if (block) return notReadable();
+  }
 
   const photos = await db
     .select()
@@ -132,27 +210,26 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     ? (row.promptAnswers as Array<{ prompt?: string; answer?: string }>)
     : [];
 
-  /* The viewer's messaging rights under this member's privacy rules. */
+  /* The viewer's messaging rights under this member's privacy rules.
+     `viewer` is already resolved above and cannot be null here, because the
+     route returns 401 when there is no signed-in member. The "no viewer"
+     branch that used to live here was therefore unreachable, and removing it
+     also removes a second, redundant authentication round-trip to Supabase. */
   let messageRestricted: string | null = null;
   const mp = row.messagePrivacy ?? "everyone";
   if (mp !== "everyone") {
     const name = mp === "verified" ? "Only verified members can message" : "Only unvaccinated members can message";
-    const viewer = await getMember(request).catch(() => null);
-    if (!viewer) {
-      messageRestricted = name;
-    } else {
-      const [me] = await db
-        .select({
-          isVerified: userProfiles.isVerified,
-          vaccinationStatus: userProfiles.vaccinationStatus,
-        })
-        .from(userProfiles)
-        .where(eq(userProfiles.id, viewer.id))
-        .limit(1);
-      const allowed =
-        mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
-      if (!allowed) messageRestricted = name;
-    }
+    const [me] = await db
+      .select({
+        isVerified: userProfiles.isVerified,
+        vaccinationStatus: userProfiles.vaccinationStatus,
+      })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, viewer.id))
+      .limit(1);
+    const allowed =
+      mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
+    if (!allowed) messageRestricted = name;
   }
 
   /* Privacy display flags — the card honors the owner's choices: when they

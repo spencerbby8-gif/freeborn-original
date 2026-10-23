@@ -64,7 +64,7 @@ export function AppealExperience() {
         showToast({
           tone: "success",
           title: "Appeal received",
-          body: "Investigators are on it — come back in 2 days for the result.",
+          body: "Your appeal is with us. Check back here for the result.",
         });
         void load();
       } else {
@@ -107,22 +107,16 @@ export function AppealExperience() {
               </span>
               <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under investigation</h1>
               <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-6 text-[var(--color-mist)]">
-                Two independent investigators are studying your account&apos;s security record right now.
-                {appeal?.dueAt ? (
-                  <>
-                    {" "}
-                    Come back on{" "}
-                    <span className="font-black text-[var(--color-gold-300)]">
-                      {new Date(appeal.dueAt).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
-                    </span>{" "}
-                    for the result.
-                  </>
-                ) : (
-                  " Come back in 2 days for the result."
-                )}
+                Your appeal is recorded alongside your account&apos;s security record,
+                and a person reads it. Check back here for the result.
+              </p>
+              <p className="mx-auto mt-3 max-w-[42ch] text-[12.5px] leading-5 text-[var(--color-ash)]">
+                We deliberately do not print a date. Reinstatement is decided by the
+                operator rather than by the product, so a deadline shown here would be
+                a promise nothing in the system enforces.
               </p>
               <p className="mt-4 text-[12px] text-[var(--color-ash)]">
-                Real people are never punished without hard evidence — bots and automated traffic are what we hunt.
+                Suspensions come from automated and datacenter traffic. Never from an opinion, and never from a report on its own.
               </p>
             </div>
           ) : state === "filed" && appeal ? (
@@ -134,7 +128,7 @@ export function AppealExperience() {
                 }`}
               >
                 {appeal.verdict === "cleared"
-                  ? "Your account has been cleared — welcome back."
+                  ? "Your account has been cleared. Welcome back."
                   : appeal.verdict
                     ? "The suspension stands after investigation."
                     : "Your appeal is still being processed."}
@@ -152,9 +146,9 @@ export function AppealExperience() {
             <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.02] p-8">
               <h1 className="font-display text-2xl font-semibold">Appeal your suspension</h1>
               <p className="mt-3 text-[13.5px] leading-6 text-[var(--color-mist)]">
-                Suspensions hit automated/datacenter traffic — never opinions, and never reports alone.
-                Tell us your side; two independent investigators review your account&apos;s real security
-                record before any decision. Results in 2 days.
+                Suspensions come from automated and datacenter traffic. Never from an opinion, and never from a report on its own.
+                Tell us your side. Your appeal is read together with your account&apos;s security
+                record, and a person decides it.
               </p>
               <textarea
                 value={plea}
@@ -171,7 +165,7 @@ export function AppealExperience() {
                 {busy ? "Filing…" : "Submit appeal"}
               </button>
               <p className="mt-3 text-center text-[11.5px] text-[var(--color-ash)]">
-                You&apos;ll get your result within 2 days — check back here.
+                Check back here for your result.
               </p>
             </div>
           )}

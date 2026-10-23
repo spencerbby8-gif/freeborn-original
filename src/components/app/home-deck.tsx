@@ -71,6 +71,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const [superToast, setSuperToast] = useState(false);
   const [bubble, setBubble] = useState<{ x: number; y: number; key: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  /* B6. /api/profiles now requires a signed-in member and answers 401 otherwise.
+     Without this flag a signed-out visitor fell into the "You've met everyone
+     here today" empty state, which told them something untrue about the room. */
+  const [signedOut, setSignedOut] = useState(false);
   const [openProfile, setOpenProfile] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ photos: string[]; name: string; start: number } | null>(null);
   const [filters, setFilters] = useState<HomeFilters>({ ...DEFAULT_FILTERS });
@@ -215,6 +219,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       const json = await res.json();
       setProfiles(json.profiles);
       setIndex(0);
+      setSignedOut(false);
+    } else if (res.status === 401) {
+      setProfiles([]);
+      setSignedOut(true);
     }
     setLoading(false);
   }, [filters, origin]);
@@ -586,6 +594,29 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
       {loading ? (
         <div className="skeleton aspect-[3/4.6] rounded-[28px] border border-white/[0.07]" />
+      ) : signedOut ? (
+        <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
+          <p className="font-display text-xl font-semibold">The room is for members.</p>
+          <p className="mx-auto mt-2 max-w-[36ch] text-sm leading-6 text-[var(--color-mist)]">
+            Profiles are only shown to signed-in members, so no one&rsquo;s face, city or
+            health views sit on a page the whole internet can read. Sign in to walk the
+            room, or create an account first.
+          </p>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <Link
+              href="/auth?mode=sign-up"
+              className="btn-ember rounded-full px-7 py-3 text-sm font-bold"
+            >
+              Create your account
+            </Link>
+            <Link
+              href="/auth?mode=sign-in"
+              className="btn-ghost rounded-full px-7 py-3 text-sm font-bold"
+            >
+              I already have one
+            </Link>
+          </div>
+        </div>
       ) : !current ? (
         <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
           <p className="font-display text-xl font-semibold">

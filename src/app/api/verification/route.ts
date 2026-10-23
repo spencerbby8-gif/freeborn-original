@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
@@ -135,6 +135,20 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
+
+  /* Privacy Policy clause 7. The 409 guard above only inspects the most recent
+     row, so an older undecided attempt can still be holding a photograph.
+     Release those images before storing this one, so at most one undecided
+     selfie per member exists at any time. Verdicts and reasons are kept. */
+  await db
+    .update(verificationRequests)
+    .set({ selfieMedia: null })
+    .where(
+      and(
+        eq(verificationRequests.accountId, member.id),
+        eq(verificationRequests.status, "pending")
+      )
+    );
 
   await db.insert(verificationRequests).values({
     accountId: member.id,

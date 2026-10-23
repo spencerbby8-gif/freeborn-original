@@ -31,13 +31,13 @@ export async function POST(request: Request) {
   const { message, email } = (body ?? {}) as { message?: string; email?: string };
   const clean = (message ?? "").trim();
   if (clean.length < 5) {
-    return Response.json({ error: "Tell us a little more — at least a sentence." }, { status: 400 });
+    return Response.json({ error: "Tell us a little more. At least a sentence." }, { status: 400 });
   }
   if (clean.length > 4000) {
     return Response.json({ error: "Keep it under 4,000 characters." }, { status: 400 });
   }
   if (rateLimited(member.id, 10, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many messages — try again in an hour." }, { status: 429 });
+    return Response.json({ error: "Too many messages. Please try again in an hour." }, { status: 429 });
   }
 
   await db.insert(supportRequests).values({

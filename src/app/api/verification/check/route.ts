@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { profilePhotos, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -173,17 +173,38 @@ export async function POST(request: Request) {
      is evidence layered UNDER the dual-engine review — never a substitute. */
   if (liveness?.gate === "ok" && liveness.blink !== true) {
     return Response.json(
-      { error: "Blink challenge not completed — blink once when prompted, then take the selfie." },
+      { error: "Blink challenge not completed. Blink once when prompted, then take the selfie." },
       { status: 400 }
     );
   }
   const blinkTag = liveness?.blink === true ? "+blink" : "";
   if (rateLimited(member.id, 6, 60 * 60 * 1000)) {
     return Response.json(
-      { error: "Too many verification attempts — try again in an hour." },
+      { error: "Too many verification attempts. Please try again in an hour." },
       { status: 429 }
     );
   }
+
+  /* Privacy Policy clause 7. Every attempt INSERTS its own row rather than
+     updating the previous one, so an abandoned undecided attempt would keep its
+     photograph forever. A new attempt supersedes the old one, so the superseded
+     images are released here. That bounds what we hold to at most one undecided
+     selfie per member: the one belonging to the attempt now in flight.
+
+     This matters more than it looks, because the engine-unavailable fallback
+     below records "pending" and is the path every request currently takes.
+     Without this statement each retry added another stored face, which is how
+     eight requests came to hold 707 kB of selfies with no purge anywhere in the
+     codebase. The verdicts and reasons on those rows are left untouched. */
+  await db
+    .update(verificationRequests)
+    .set({ selfieMedia: null })
+    .where(
+      and(
+        eq(verificationRequests.accountId, member.id),
+        eq(verificationRequests.status, "pending")
+      )
+    );
 
   /** Never answer before the thorough window has passed. */
   const holdUntilDone = async () => {
@@ -234,7 +255,13 @@ export async function POST(request: Request) {
       accountId: member.id,
       status: "rejected",
       method: "dual_model",
-      selfieMedia: selfie,
+      /* Privacy Policy clause 7. A rejected request's selfie has no further use,
+         so it is never written to the database in the first place: appeals do not
+         read it, re-verification creates a fresh request with a fresh image, and
+         only an APPROVED selfie is read back later (identity-match.ts re-reads it
+         to confirm a newly uploaded photograph is still the same person). Storing
+         a face that has already been refused is biometric data with no purpose. */
+      selfieMedia: null,
       rejectReason: "stage1: unreadable photo",
       reviewedAt: new Date(),
     });
@@ -250,7 +277,9 @@ export async function POST(request: Request) {
       accountId: member.id,
       status: "rejected",
       method: "dual_model",
-      selfieMedia: selfie,
+      /* Clause 7: a refused selfie is never stored. Rationale on the first
+         stage-1 rejection insert above. */
+      selfieMedia: null,
       rejectReason: `stage1: ${pose.faceCount} faces`,
       reviewedAt: new Date(),
     });
@@ -266,7 +295,9 @@ export async function POST(request: Request) {
       accountId: member.id,
       status: "rejected",
       method: "dual_model",
-      selfieMedia: selfie,
+      /* Clause 7: a refused selfie is never stored. Rationale on the first
+         stage-1 rejection insert above. */
+      selfieMedia: null,
       rejectReason: "stage1: poor lighting",
       reviewedAt: new Date(),
     });
@@ -287,7 +318,9 @@ export async function POST(request: Request) {
       accountId: member.id,
       status: "rejected",
       method: "dual_model",
-      selfieMedia: selfie,
+      /* Clause 7: a refused selfie is never stored. Rationale on the first
+         stage-1 rejection insert above. */
+      selfieMedia: null,
       rejectReason: "face: no profile photos to compare",
       reviewedAt: new Date(),
     });
@@ -343,7 +376,10 @@ export async function POST(request: Request) {
           accountId: member.id,
           status,
           method: `dual_model:${LM7_MODEL}${blinkTag}`,
-          selfieMedia: selfie,
+          /* Rejections are stored without the image (see the note on the stage-1
+             inserts). A PENDING request keeps it, because a human reviewer needs
+             the photograph in order to make the call. */
+          selfieMedia: status === "rejected" ? null : selfie,
           rejectReason: reason,
           reviewedAt: status === "pending" ? null : new Date(),
         });

@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     );
   }
   if (rateLimited(member.id, 200, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many uploads — try again later." }, { status: 429 });
+    return Response.json({ error: "Too many uploads. Please try again later." }, { status: 429 });
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());

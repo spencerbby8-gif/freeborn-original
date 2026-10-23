@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/brow
 import { openVerifyFlow } from "./verify-modal";
 import { FreebornSelect } from "@/components/select-menu";
 import { showToast } from "@/components/toast-host";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 /**
  * Freeborn mixers — real people in real places. Members register interest in
@@ -687,6 +688,7 @@ export function SettingsView() {
   }, [query, area]);
 
   /* Account security state */
+  const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
   const [emailNew, setEmailNew] = useState("");
@@ -740,12 +742,32 @@ export function SettingsView() {
   };
 
   const changePassword = async () => {
+    /* B5. The current password is required and the API verifies it before
+       touching anything. Without that step a hijacked session, or simply an
+       unattended logged-in phone, could replace the password and lock the real
+       owner out permanently. */
+    if (pwdCurrent.length === 0) {
+      setAccountMsg({ ok: false, text: "Enter your current password." });
+      return;
+    }
+    if (pwdNew.length < MIN_PASSWORD_LENGTH) {
+      setAccountMsg({
+        ok: false,
+        text: `Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+      });
+      return;
+    }
     if (pwdNew !== pwdConfirm) {
       setAccountMsg({ ok: false, text: "The two password fields must match." });
       return;
     }
-    const ok = await accountAction({ action: "change-password", newPassword: pwdNew });
+    const ok = await accountAction({
+      action: "change-password",
+      currentPassword: pwdCurrent,
+      newPassword: pwdNew,
+    });
     if (ok) {
+      setPwdCurrent("");
       setPwdNew("");
       setPwdConfirm("");
     }
@@ -1341,9 +1363,19 @@ export function SettingsView() {
             <div className="fb-card" data-search="change password new password credentials security">
               <p className="fb-eyebrow">Change password</p>
               <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                At least 8 characters. Use one you don&apos;t reuse anywhere else.
+                At least {MIN_PASSWORD_LENGTH} characters. Use one you don&apos;t reuse
+                anywhere else. We ask for your current password first, so a stolen
+                session cannot quietly become a stolen account.
               </p>
               <div className="mt-3 grid gap-2">
+                <input
+                  value={pwdCurrent}
+                  onChange={(e) => setPwdCurrent(e.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Current password"
+                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                />
                 <input
                   value={pwdNew}
                   onChange={(e) => setPwdNew(e.target.value)}
@@ -1362,7 +1394,12 @@ export function SettingsView() {
                 />
                 <button
                   type="button"
-                  disabled={busy || pwdNew.length < 8 || pwdNew !== pwdConfirm}
+                  disabled={
+                    busy ||
+                    pwdCurrent.length === 0 ||
+                    pwdNew.length < MIN_PASSWORD_LENGTH ||
+                    pwdNew !== pwdConfirm
+                  }
                   onClick={() => void changePassword()}
                   className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
                 >

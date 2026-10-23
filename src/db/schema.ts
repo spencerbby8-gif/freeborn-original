@@ -677,8 +677,9 @@ export const warnings = pgTable(
   (t) => [index("warnings_email_idx").on(t.email)]
 );
 
-/** Appeals — suspended members plead their case; two models + the security
-    record investigate, results within 2 days. */
+/** Appeals: suspended members plead their case. The security record, plus two
+    models when the engines are available, inform the operator's decision. No
+    code path sets suspensions.active to false, so reinstatement is manual. */
 export const appeals = pgTable(
   "appeals",
   {

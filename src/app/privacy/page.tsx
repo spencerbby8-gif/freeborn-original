@@ -210,14 +210,12 @@ export default function PrivacyPage() {
             <>Whether you are in incognito, paused or hidden. Those settings remove you from other members&rsquo; discovery results entirely.</>,
           ]}
         />
-        {/* DEPENDENCY: this clause is only true once B6 ships. /api/profiles and
-            /api/profile/[id] currently answer unauthenticated requests and the
-            detail route ignores discoverable, profileStatus, incognito,
-            discovery_paused and blocks. Do not publish this page before that
-            change is deployed and verified live. */}
         <p>
           Profile data is only returned to authenticated sessions that pass your
           discovery settings. It is not a public directory and it is not crawlable.
+          Both profile endpoints refuse anonymous requests outright, and neither one
+          will show you a member who is hidden, snoozed, incognito, or who has blocked
+          you. The public discovery preview requires an account for the same reason.
         </p>
       </Clause>
 
@@ -238,21 +236,27 @@ export default function PrivacyPage() {
           items={[
             <><strong className="text-pearl">Identity verification.</strong> Two independent AI models compare your selfie to your profile photographs. The system is deliberately moderate: it hard-rejects only objective failures such as no face detected, unusable light, or a clearly different person. Anything doubtful is escalated rather than decided.</>,
             <><strong className="text-pearl">Report triage.</strong> Two models from different providers assess reported content against observable evidence only. They never read your private conversations. A report on its own never suspends anyone.</>,
-            <>In both cases a human reviews anything the models do not agree on, and every suspension can be appealed at <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href="/appeal">/appeal</a>.</>,
-            <>No decision that produces a legal or similarly significant effect is made without that human step.</>,
+            <>In both cases, anything the models do not agree on is held rather than decided. It is never resolved by whichever model answered last, and doubt is never resolved against you by default.</>,
+            <>There is no review queue inside the product today. An unresolved verification request sits as pending until an operator reads it, which in practice means until you write to{" "}
+              <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>
+                {CONTACT_EMAIL}
+              </a>. That is a real limitation of a one-person platform, and it is stated here rather than dressed up as a process that does not exist.</>,
+            <>Every suspension can be appealed at <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href="/appeal">/appeal</a>.</>,
           ]}
         />
         <Callout label="Current operational status, stated plainly">
           <p>
-            Both AI engines are third-party services on free tiers, and both have
-            experienced availability failures. When either engine cannot run,
-            verification does not silently pass and it does not silently fail you. The
-            request is held in a human review queue and you are told it is pending.
-            We would rather the seal be slow than the seal be wrong.
+            Verification is not working at the moment. Both AI engines are reached
+            through a free third-party relay, and that relay currently strips the
+            image out of the request before it reaches a model, so no selfie can be
+            assessed at all. New requests are recorded as pending. A pending request
+            never grants the seal, and it never rejects you either. It holds.
           </p>
-          {/* DEPENDENCY: requires the B2 work. As of 2026-10-19 stage 1 vision
-              returned 502 and stage 2 vision returned 400 on the live deployment,
-              and rejected requests were recorded as "rejected" rather than queued. */}
+          <p>
+            Until the relay is repaired, no new member can earn the verified seal. We
+            would rather tell you that outright than display a badge nobody is able to
+            obtain, and we would rather the seal be slow than the seal be wrong.
+          </p>
         </Callout>
       </Clause>
 
@@ -271,15 +275,24 @@ export default function PrivacyPage() {
             <>When you submit, the selfie is stored in our database and in a private storage bucket that is not publicly readable and not publicly listable.</>,
             <>It is transmitted to two external AI providers so two independent models can compare it against your profile photographs. See clause 8.</>,
             <>If you are <strong className="text-pearl">approved</strong>, the image is retained while your account exists. This is not hoarding: when you later upload a new face photograph, the system re-reads your approved selfie to confirm the new photo is still the same person, and revokes the seal if it cannot. Without retention that check is impossible.</>,
-            <>If you are <strong className="text-pearl">rejected</strong>, or if a request expires without a decision, the image serves no further purpose and is deleted within 30 days. The verdict and the reason are kept; the face is not.</>,
+            <>If you are <strong className="text-pearl">rejected</strong>, the image is never written to the database at all. The verdict and the reason are kept so you can be told what failed. The face is not kept, because nothing ever reads it again: an appeal does not use it, and a retry is a fresh attempt with a fresh photograph.</>,
+            <>If a request is <strong className="text-pearl">left undecided</strong>, its image is held, because it cannot be assessed without being seen. We hold at most one undecided selfie per member at any time. Starting a new attempt releases the photograph attached to the previous one and keeps only its verdict and reason.</>,
             <>If you <strong className="text-pearl">delete your account</strong>, the selfie goes with it, including the copy in the storage bucket.</>,
             <>If you <strong className="text-pearl">withdraw consent</strong> without deleting your account, the selfie is deleted and your seal is removed.</>,
           ]}
         />
-        {/* DEPENDENCY: the 30-day purge of non-approved selfies is a code change that
-            ships with this policy. Verified 2026-10-19 that all 8 existing
-            verification_requests rows retained their selfie_media (707 kB total)
-            with no purge anywhere in the codebase. */}
+        {/* Evidence for the two clauses above, recorded 2026-10-23:
+            - The six rejected requests that were holding 530,418 bytes of refused
+              selfies were purged in the production database. Total selfie storage
+              fell from 723,696 to 193,278 bytes.
+            - Every rejection path in
+              src/app/api/verification/check/route.ts now writes selfie_media as
+              null, so a refused face is never stored in the first place.
+            - The two approved requests keep theirs, because identity-match.ts
+              re-reads an approved selfie when a member uploads a new photograph.
+              Deleting those would break the re-check that clause 7 promises.
+            - Both verification routes now release superseded pending selfies, so
+              retention is bounded to one undecided image per member. */}
         <p>
           We do not build biometric templates, embeddings or face vectors, and we do
           not run a face recognition database across members. The comparison is a
@@ -514,9 +527,14 @@ export default function PrivacyPage() {
           {SITE_NAME} is for adults aged 18 and over. We do not knowingly collect data
           from anyone under 18 and the service is not directed at children.
         </p>
-        {/* DEPENDENCY: H4. Date of birth is validated server-side on the onboarding
-            route and a CHECK constraint enforces it at the database level. Verified
-            2026-10-19 that the production database contains zero under-18 rows. */}
+        {/* Satisfied, no longer a dependency. Date of birth is validated
+            server-side in src/app/api/onboarding/route.ts through
+            src/lib/age.ts (isUnderMinAge), which rejects an under-18 submission
+            with a 400 before anything is written, and a database CHECK constraint
+            sits behind it. Verified that the production database contains zero
+            under-18 rows. The shared constant lives in src/lib/age.ts precisely
+            because this rule had been copy-pasted into four routes, and a partial
+            fix is how an under-18 member survives. */}
         <p>
           Date of birth is required during onboarding and is validated on the server,
           not only in the browser, with a database-level constraint behind it. If we
