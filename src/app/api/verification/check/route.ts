@@ -269,7 +269,7 @@ export async function POST(request: Request) {
       status: "rejected",
       stage: "inspect",
       engine: lm7Configured() ? "dual" : "single",
-      reason: "The verification service couldn't read the photo — try again.",
+      reason: "The verification service couldn't read the photo. Please try again.",
     });
   }
   if (pose.faceCount !== undefined && pose.faceCount !== 1) {
@@ -305,7 +305,7 @@ export async function POST(request: Request) {
       status: "rejected",
       stage: "inspect",
       engine: lm7Configured() ? "dual" : "single",
-      reason: "Too dark or obstructed — brighten up and retry.",
+      reason: "Too dark or obstructed. Brighten up and retry.",
     });
   }
 
@@ -328,7 +328,7 @@ export async function POST(request: Request) {
       status: "rejected",
       stage: "photos-missing",
       engine: lm7Configured() ? "dual" : "single",
-      reason: "Add at least one profile photo first — your selfie is compared against it.",
+      reason: "Add at least one profile photo first. Your selfie is compared against it.",
     });
   }
 
@@ -390,7 +390,7 @@ export async function POST(request: Request) {
           status: "rejected",
           stage: "reverify",
           engine,
-          reason: "We couldn't confirm a live person in the selfie — take a fresh one and retry.",
+          reason: "We couldn't confirm a live person in the selfie. Take a fresh one and retry.",
         });
       }
       if (verdict.samePerson === "no" && verdict.confidence !== "low") {
@@ -408,7 +408,7 @@ export async function POST(request: Request) {
           status: "rejected",
           stage: "reverify",
           engine,
-          reason: `We couldn't see the pose — ${poseLabel.toLowerCase()}. A rough attempt is fine; try once more.`,
+          reason: `We couldn't see the pose: ${poseLabel.toLowerCase()}. A rough attempt is fine; try once more.`,
         });
       }
       /* Approval demands positive, confident evidence on every axis:

@@ -216,7 +216,7 @@ export async function DELETE(request: Request) {
   const row = rows.find((r) => r.storagePath === path || path.endsWith(r.storagePath));
   if (!row) {
     return Response.json(
-      { ok: false, error: "That photo lives in your original upload store — it can't be removed from this preview room." },
+      { ok: false, error: "That photo lives in your original upload store, so it can't be removed from this preview room." },
       { status: 404 }
     );
   }

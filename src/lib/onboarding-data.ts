@@ -109,11 +109,11 @@ export const STEP_META: Array<{
 }> = [
   { step: "welcome", label: "Welcome", description: "A calm overview before your profile starts taking shape." },
   { step: "identity", label: "Identity", description: "Name, age gate, and gender in one focused moment." },
-  { step: "location", label: "Location", description: "One tap for your city — GPS or manual, your choice." },
+  { step: "location", label: "Location", description: "One tap for your city: GPS or manual, your choice." },
   { step: "relationship_intent", label: "Intentions", description: "What you're looking for and the values you stand on." },
-  { step: "bio", label: "About you", description: "A short human introduction — safety-checked before saving." },
+  { step: "bio", label: "About you", description: "A short human introduction, safety-checked before saving." },
   { step: "interests", label: "Your vibe", description: "How you live and what starts a conversation." },
-  { step: "photos", label: "Photos", description: "Your photo foundation — then you're in." },
+  { step: "photos", label: "Photos", description: "Your photo foundation, then you're in." },
 ];
 
 /** Maps legacy 12-step progress onto the 7-screen journey. */
@@ -250,11 +250,11 @@ export const onboardingFieldHints: Record<string, string> = {
   display_name: "First name or a name you go by. Last names stay private.",
   birth_date: "Used only to confirm you are 18+. Only your age is shown publicly.",
   gender: "Shown on your profile so discovery can respect your preferences.",
-  city: "Shown publicly as city and region — never your exact address.",
-  bio: "Short and human. No contact details — Freeborn keeps those private.",
+  city: "Shown publicly as city and region, never your exact address.",
+  bio: "Short and human. No contact details. Freeborn keeps those private.",
   deal_breakers: "Optional, but honest boundaries save everyone time.",
-  occupation: "Optional — helps people understand your world.",
-  education: "Optional — share as much or as little as you like.",
+  occupation: "Optional. Helps people understand your world.",
+  education: "Optional. Share as much or as little as you like.",
   lifestyle_preferences: "Choose the cues that actually shape your days.",
 };
 

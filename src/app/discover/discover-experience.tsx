@@ -148,7 +148,7 @@ export function DiscoverExperience({
         <p className="mx-auto mt-4 max-w-sm text-center text-[14px] leading-relaxed text-mist">
           {account
             ? "Read the whole person before you decide. Likes are saved to your ledger."
-            : "A working preview seeded with founding-member profiles. Like or pass — the ledger below each card is live, stored in the database."}
+            : "A working preview seeded with founding-member profiles. Like or pass. The ledger below each card is live and stored in the database."}
         </p>
 
         {loading && (
@@ -168,7 +168,7 @@ export function DiscoverExperience({
             </p>
             <p className="mt-3 text-[14px] leading-relaxed text-mist">
               You gave {heartsGiven} {heartsGiven === 1 ? "heart" : "hearts"}. New members
-              arrive daily — come back tomorrow, or finish shaping your own profile.
+              arrive daily. Come back tomorrow, or finish shaping your own profile.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3">
               {account ? null : (
@@ -211,7 +211,7 @@ export function DiscoverExperience({
               <div className="relative aspect-[3/3.1]">
                 <img
                   src={current.photo}
-                  alt={`${current.name}, ${current.age} — ${current.occupation}`}
+                  alt={`${current.name}, ${current.age}, ${current.occupation}`}
                   className="h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-abyss via-transparent to-transparent" />

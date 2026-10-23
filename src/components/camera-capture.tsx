@@ -109,7 +109,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
       onCapture(dataUrl);
     } catch {
       setCapturing(false);
-      setError("Couldn't capture that photo — try again.");
+      setError("Couldn't capture that photo. Please try again.");
     }
   };
 

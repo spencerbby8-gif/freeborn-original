@@ -139,7 +139,7 @@ export function PhotoLightbox({
         <img
           key={idx}
           src={photos[idx]}
-          alt={`${name} — photo ${idx + 1}`}
+          alt={`${name}, photo ${idx + 1}`}
           draggable={false}
           className="animate-scale-in max-h-full max-w-full select-none rounded-xl object-contain"
         />

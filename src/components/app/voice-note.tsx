@@ -355,7 +355,7 @@ export function VoiceRecorder({
     if (blob.size < 400 || secs < 1) {
       phaseRef.current = "idle";
       setPhase("idle");
-      onError?.("Too short — hold the mic a little longer.");
+      onError?.("Too short. Hold the mic a little longer.");
       return;
     }
     setPreviewBlob(blob);
@@ -396,7 +396,7 @@ export function VoiceRecorder({
         streamReadyRef.current = false;
         busyRef.current = false;
         setPhase("idle");
-        onError?.("Recording failed midway — press and hold to try again.");
+        onError?.("Recording failed midway. Press and hold to try again.");
       };
       rec.start(250);
       streamReadyRef.current = true;

@@ -249,7 +249,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             clearInterval(offerTimerRef.current);
             offerTimerRef.current = null;
           }
-          setDetail("Answer received — securing the connection…");
+          setDetail("Answer received. Securing the connection…");
         }
         return;
       }
@@ -284,7 +284,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
       if (stateRef.current === "negotiating") {
         traceCall(callIdRef.current, role, "watchdog-fired", `iceSent=${iceSentRef.current}`);
         cleanup(false);
-        setStateBoth("failed", "Couldn't find a stable path — call again.");
+        setStateBoth("failed", "Couldn't find a stable path. Call again.");
       }
     }, 25_000);
 
@@ -365,7 +365,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             /* SELF-HEAL: one automatic ICE restart before giving up. */
             if (!restartedRef.current) {
               restartedRef.current = true;
-              setStateBoth("negotiating", "Connection wobbled — healing it…");
+              setStateBoth("negotiating", "Connection wobbled. Healing it…");
               try {
                 pc.restartIce();
               } catch {
@@ -375,13 +375,13 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
                 if (closedRef.current) return;
                 if (pcRef.current?.connectionState !== "connected") {
                   cleanup(false);
-                  setStateBoth("failed", "The connection dropped — call again.");
+                  setStateBoth("failed", "The connection dropped. Call again.");
                 }
               }, 8_000);
               return;
             }
             cleanup(false);
-            setStateBoth("failed", "The connection dropped — call again.");
+            setStateBoth("failed", "The connection dropped. Call again.");
           }
         };
 
@@ -410,13 +410,13 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
               const pcx = pcRef.current;
               if (!pcx || madeOfferRef.current || closedRef.current) return;
               madeOfferRef.current = true;
-              setStateBoth("negotiating", `${peer.name} answered — connecting…`);
+              setStateBoth("negotiating", `${peer.name} answered. Connecting…`);
               try {
                 const offer = await pcx.createOffer();
                 await pcx.setLocalDescription(offer);
                 offerSentRef.current = offer;
                 if (chanRef.current) publish(chanRef.current, "signal", { t: "sdp", sdp: offer } satisfies CallSignal);
-                setDetail("Offer sent — waiting for their answer…");
+                setDetail("Offer sent. Waiting for their answer…");
                 /* Retransmit: broadcasts can drop; the offer repeats every 2s
                    until their answer lands. */
                 if (!offerTimerRef.current) {
@@ -471,7 +471,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             // Already accepted in the incoming-call screen.
             publish(chan, "control", { t: "accept" } satisfies CallSignal);
             traceCall(callIdRef.current, role, "tx-accept");
-            setDetail("Accepted — waiting for their offer…");
+            setDetail("Accepted. Waiting for their offer…");
             /* Retransmit: broadcasts can drop; the accept repeats every 1.5s
                until their offer arrives. */
             if (!acceptTimerRef.current) {

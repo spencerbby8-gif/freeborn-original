@@ -576,7 +576,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {matchToast ? (
         <div className="animate-scale-in mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/[0.08] px-4 py-3">
           <p className="text-[13px] font-bold text-[var(--color-teal-300)]">
-            It&apos;s mutual — {matchToast} liked you back.
+            It&apos;s mutual. {matchToast} liked you back.
           </p>
           <Link href="/app/chat" className="shrink-0 text-[12px] font-black text-[var(--color-pearl)] underline underline-offset-2">
             Say hello
@@ -587,7 +587,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {superToast ? (
         <div className="animate-scale-in mb-4 rounded-2xl border border-[var(--color-violet-500)]/35 bg-[var(--color-violet-500)]/[0.09] px-4 py-3">
           <p className="text-[13px] font-bold text-[var(--color-violet-300)]">
-            Super like sent — you&apos;ll stand out in their stack.
+            Super like sent. You&apos;ll stand out in their stack.
           </p>
         </div>
       ) : null}
@@ -627,7 +627,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           <p className="mx-auto mt-2 max-w-[30ch] text-sm leading-6 text-[var(--color-mist)]">
             {profiles.length === 0 && hasActiveFilters(filters)
               ? "Loosen a filter, or check back as the room grows."
-              : "New members join daily. Come back tomorrow — or walk the room again."}
+              : "New members join daily. Come back tomorrow, or walk the room again."}
           </p>
           <button
             type="button"
@@ -918,7 +918,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 type="button"
                 onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
                 aria-label="Super like"
-                title="Super Like — stand out"
+                title="Super Like: stand out"
                 className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-white transition hover:scale-[1.04] active:scale-95"
               >
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

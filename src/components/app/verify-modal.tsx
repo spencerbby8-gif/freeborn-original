@@ -205,7 +205,7 @@ export function VerifyGate() {
         await videoRef.current.play().catch(() => undefined);
       }
     } catch {
-      setErrorMsg("Camera unavailable — allow camera access and try again.");
+      setErrorMsg("Camera unavailable. Allow camera access and try again.");
       setStep("error");
     }
   }, []);
@@ -418,7 +418,7 @@ export function VerifyGate() {
       const json = await res.json().catch(() => ({}));
 
       if (res.status === 429) {
-        const msg = json.error ?? "Too many attempts — take a breath and try later.";
+        const msg = json.error ?? "Too many attempts. Take a breath and try later.";
         setErrorMsg(msg);
         setStep("error");
         showToast({ tone: "error", title: "Verification paused", body: msg });
@@ -434,13 +434,13 @@ export function VerifyGate() {
              never claim two checks when one did. */
           body:
             json.engine === "dual"
-              ? "Both independent checks passed — your profile is confirmed."
-              : "Your identity check passed — your profile is confirmed.",
+              ? "Both independent checks passed. Your profile is confirmed."
+              : "Your identity check passed. Your profile is confirmed.",
         });
         return;
       }
       if (res.ok && json.status === "rejected") {
-        setRejectReason(json.reason ?? "The check didn't pass — try again.");
+        setRejectReason(json.reason ?? "The check didn't pass. Please try again.");
         setSelfie(null);
         setStep("rejected");
         showToast({ tone: "error", title: "Verification didn't pass", body: json.reason ?? "Try again with a fresh selfie." });
@@ -644,7 +644,7 @@ export function VerifyGate() {
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
                 Bright, even lighting · face fully visible · no glasses or hats. The
-                preview behaves like your phone&apos;s selfie camera — the photo you submit
+                preview behaves like your phone&apos;s selfie camera, so the photo you submit
                 is captured true-to-life.
               </p>
               <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] px-3 py-2.5">
@@ -767,7 +767,7 @@ export function VerifyGate() {
               </h2>
               <p className="mx-auto mt-2 max-w-[34ch] text-center text-[12.5px] leading-5 text-[var(--color-mist)]">
                 Your selfie is passing through two independent checks. Thorough
-                verification takes about 10–20 seconds — hold tight.
+                verification takes about 10 to 20 seconds. Hold tight.
               </p>
               <div className="mx-auto mt-5 h-2 w-full max-w-[300px] overflow-hidden rounded-full bg-white/[0.07]">
                 <div
@@ -790,7 +790,7 @@ export function VerifyGate() {
                 </svg>
               </span>
               <h2 className="mt-4 font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Not quite — let&apos;s retry
+                Not quite. Let&apos;s retry
               </h2>
               <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
                 {rejectReason}
@@ -828,7 +828,7 @@ export function VerifyGate() {
                 Freeborn is verifying your identity
               </h2>
               <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                Your selfie has been submitted. The check usually takes a few minutes —
+                Your selfie has been submitted. The check usually takes a few minutes, so
                 keep this page open or come back shortly. You&apos;ll be confirmed the moment
                 it&apos;s done.
               </p>

@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   /* 1. Null-island & too-perfect accuracy (spoofers love exact values). */
   if (lat === 0 && lng === 0) {
     await logSpoof("null-island fix rejected");
-    return Response.json({ error: "That location can't be right — try again outdoors." }, { status: 400 });
+    return Response.json({ error: "That location can't be right. Try again outdoors." }, { status: 400 });
   }
   if (typeof accuracyM === "number" && accuracyM >= 0 && accuracyM < 4) {
     await logSpoof(`impossibly precise accuracy ${accuracyM}m`);
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     .limit(1);
   if (prevFix?.updatedAt && Date.now() - prevFix.updatedAt.getTime() < 5 * 60 * 1000) {
     return Response.json(
-      { error: "Location already updated recently — try again in a few minutes." },
+      { error: "Location already updated recently. Try again in a few minutes." },
       { status: 429 }
     );
   }

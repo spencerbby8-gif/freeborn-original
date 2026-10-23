@@ -541,7 +541,7 @@ function Thread({
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({ match: match.id, text: body }),
-      }).catch(() => flash("Couldn't send — check your connection."));
+      }).catch(() => flash("Couldn't send. Check your connection."));
       setTimeout(() => void load(), 500);
       setTimeout(() => {
         void load();
@@ -576,13 +576,13 @@ function Thread({
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        flash(j.error ?? "Upload failed — try again.");
+        flash(j.error ?? "Upload failed. Please try again.");
         return null;
       }
       const json = await res.json();
       return `/api/chat/media/${json.id}`;
     } catch {
-      flash("Upload failed — check your connection.");
+      flash("Upload failed. Check your connection.");
       return null;
     }
   };
@@ -633,7 +633,7 @@ function Thread({
     for (const file of files) {
       if (staged.length >= MAX_PACKET_ITEMS) break;
       if (file.size > 20 * 1024 * 1024) {
-        flash("That file is over 20 MB — trim it down and try again.");
+        flash("That file is over 20 MB. Trim it down and try again.");
         continue;
       }
       const reader = new FileReader();
@@ -668,7 +668,7 @@ function Thread({
         const url = await uploadMedia(blob, item.kind);
         if (url) markers.push(`[[${item.kind}:${url}]]`);
       } catch {
-        flash("One attachment couldn't be read — skipped.");
+        flash("One attachment couldn't be read, so it was skipped.");
       }
     }
     if (markers.length) {
@@ -753,7 +753,7 @@ function Thread({
         name: m.mine ? "You" : match.with.name,
         text: plainText(m.body).slice(0, 140) || previewBody(m.body),
       });
-      flash("Replying to message — slide back to cancel.");
+      flash("Replying to message. Slide back to cancel.");
     }
     setQuoteArmedId(null);
   };
@@ -830,7 +830,7 @@ function Thread({
                 </svg>
                 <p className="text-[10.5px] font-bold leading-4 text-amber-300">
                   Freeborn safety: this message matches patterns commonly used by scammers.
-                  Never send money, gift cards, or crypto to someone you haven&apos;t met — and
+                  Never send money, gift cards, or crypto to someone you haven&apos;t met, and
                   report them from their profile.
                 </p>
               </div>
@@ -966,7 +966,7 @@ function Thread({
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
         <div className="pt-8 text-center">
-          <p className="text-sm text-[var(--color-mist)]">The conversation is open — say hello.</p>
+          <p className="text-sm text-[var(--color-mist)]">The conversation is open. Say hello.</p>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
             Try an opener
           </p>
@@ -1010,7 +1010,7 @@ function Thread({
         <div className="mb-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-2.5">
           <div className="flex items-center justify-between px-1 pb-2">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--color-sand)]">
-              Packet · {staged.length} {staged.length === 1 ? "item" : "items"} — sent together
+              Packet · {staged.length} {staged.length === 1 ? "item" : "items"}, sent together
             </p>
             <button
               type="button"
@@ -1096,7 +1096,7 @@ function Thread({
             type="button"
             onClick={() => setAttachOpen((o) => !o)}
             disabled={uploading}
-            aria-label="Attach — photos, videos or a live picture"
+            aria-label="Attach photos, videos or a live picture"
             aria-expanded={attachOpen}
             title="Attach"
             className={`flex h-11 w-11 items-center justify-center rounded-full border transition active:scale-95 disabled:opacity-40 ${
@@ -1441,7 +1441,7 @@ export function ChatView() {
     <div className="mx-auto max-w-[680px]">
       <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Chat</h1>
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        Your matches and conversations — values already on the table.
+        Your matches and conversations, values already on the table.
       </p>
 
       {matches.length === 0 ? (
@@ -1498,7 +1498,7 @@ export function ChatView() {
                 <p className={`truncate text-[13px] ${m.unread > 0 ? "font-bold text-[var(--color-pearl)]" : "text-[var(--color-mist)]"}`}>
                   {m.lastMessage
                     ? `${m.lastMessage.mine ? "You: " : ""}${previewBody(m.lastMessage.body)}`
-                    : "Say hello — the conversation is open."}
+                    : "Say hello. The conversation is open."}
                 </p>
               </div>
               {m.unread > 0 ? (
