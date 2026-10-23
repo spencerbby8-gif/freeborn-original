@@ -86,7 +86,8 @@ comment on policy "Discoverable members' photos are visible" on public.profile_p
 --   * 0 rows in public.match_messages reference it either
 --   * src/app/api/chat/upload/route.ts — the ONLY writer to that bucket — is
 --     never called from any client code (dead route; deleted in this branch)
---   * the bucket holds 2 orphaned test objects, both belonging to one user id
+--   * the bucket holds 2 orphaned objects (526,590 bytes, both 2026-10-06),
+--     both under one user id, re-measured 2026-10-23
 --   * the live attachment path is Postgres bytea via /api/chat/media, and 7
 --     messages reference that path instead
 --
@@ -111,7 +112,18 @@ comment on policy "Discoverable members' photos are visible" on public.profile_p
 -- link from a media row to a conversation there is no way to check that the
 -- requester is a participant — which is why the column has to come first.
 --
--- NOT YET APPLIED. Apply with the project owner connection.
+-- APPLIED 2026-10-23 via the Supabase API. Verified afterwards:
+--   chat_media.match_id exists, index chat_media_match_idx exists,
+--   all 11 pre-existing rows carry match_id IS NULL and therefore fall back to
+--   sender-only access exactly as the column comment describes.
+--
+-- This had to be applied before the branch could be promoted. Commit b867f79
+-- added matchId to src/db/schema.ts and made /api/chat/media/[id] select it,
+-- while the column did not exist in production. main selects only { mime, data }
+-- and so was unaffected, which means promoting the branch as-is would have
+-- turned every chat attachment fetch into a 500 with
+-- 'column chat_media.match_id does not exist'. The regression was introduced by
+-- this remediation branch, not by main.
 
 alter table public.chat_media
   add column if not exists match_id uuid

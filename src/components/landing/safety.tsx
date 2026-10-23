@@ -61,7 +61,7 @@ const features = [
   {
     icon: "leaf",
     title: "Health autonomy respected",
-    body: "Freeborn is for people who believe medical decisions and wellness practices deserve informed consent, personal agency, and respectful conversation — never coercion or ridicule.",
+    body: "Freeborn is for people who believe medical decisions and wellness practices deserve informed consent, personal agency, and respectful conversation, never coercion or ridicule.",
     wide: true,
   },
   {
@@ -79,19 +79,19 @@ const features = [
   {
     icon: "sliders",
     title: "Discovery controls",
-    body: "Tune age range, distance, shown genders, intentions, verified-only discovery — and whether you are discoverable at all.",
+    body: "Tune age range, distance, shown genders, intentions, verified-only discovery, and whether you are discoverable at all.",
     wide: false,
   },
   {
     icon: "heart",
-    title: "See who liked you — free",
+    title: "See who liked you, free",
     body: "Every like is visible, exactly as it happened. No mystery notifications, no paywall to peek at who's interested.",
     wide: false,
   },
   {
     icon: "badge",
     title: "Verified-only discovery",
-    body: "Turn it on and the room shows just trust-checked profiles — the teal seal always matches the face.",
+    body: "Turn it on and the room shows just trust-checked profiles, and the teal seal always matches the face.",
     wide: false,
   },
 ];
@@ -103,7 +103,7 @@ const principles = [
   },
   {
     title: "Be recognizable and real",
-    body: "Recent photos, honest details, a bio that sounds like you. A profile should feel like an invitation into your values — not a performance.",
+    body: "Recent photos, honest details, a bio that sounds like you. A profile should feel like an invitation into your values, not a performance.",
   },
   {
     title: "Move toward commitment with care",
@@ -123,7 +123,7 @@ export function Safety() {
               <em className="font-medium italic text-gold-soft">design decision.</em>
             </h2>
             <p className="mt-6 text-[16px] leading-[1.8] text-mist">
-              We don&apos;t ask you to trust a promise — we show you the controls.
+              We do not ask you to trust a promise. We show you the controls.
               Every safety choice below is visible, editable, and enforced in the
               product, not just on this page.
             </p>

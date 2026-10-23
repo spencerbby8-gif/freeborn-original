@@ -88,12 +88,12 @@ const sections = [
   {
     icon: "sliders",
     title: "Controls in your hands",
-    body: "Block, report, hide, or deactivate — one tap, no dark patterns, no 'are you sure?' maze. Hiding removes you from Discover instantly; matches and history stay saved.",
+    body: "Block, report, hide, or deactivate in one tap, with no dark patterns and no 'are you sure?' maze. Hiding removes you from Discover instantly; matches and history stay saved.",
   },
   {
     icon: "scale",
     title: "Rate limits on reports",
-    body: "Report tools are rate-limited per account, so one person can't weaponize them with mass reports. Reports open investigations — they never punish on their own.",
+    body: "Report tools are rate-limited per account, so one person cannot weaponise them with mass reports. A report is recorded and assessed, and it never punishes anyone on its own.",
   },
 ];
 
@@ -144,12 +144,12 @@ export default function SafetyPage() {
             The Freeborn safety promise
           </p>
           <ul className="mt-4 grid gap-3 text-[14px] leading-[1.7] text-mist sm:grid-cols-2">
-            <li>· Identity checks use pose-mimic selfies, and anything doubtful goes to a human queue. Never a link sent in DMs.</li>
-            <li>· Reports land in a moderation queue with rate limits — one person cannot weaponize them.</li>
-            <li>· Chat media stays inside the conversation it was sent in, and nothing is ever sold or handed to advertisers.</li>
+            <li>· Identity checks use pose-mimic selfies, and anything doubtful is held rather than decided. Never a link sent in DMs.</li>
+            <li>· Report tools are rate-limited per account, so one person cannot weaponise them with volume.</li>
+            <li>· Chat media is served only to the two people in the conversation it was sent in, and nothing is ever sold or handed to advertisers.</li>
             <li>· New profile photos require re-verification, so the seal always matches the face.</li>
-            <li>· You can hide or deactivate your account at any time — one tap, no dark patterns.</li>
-            <li>· No paywall hides who liked you — every like is visible, exactly as it happened.</li>
+            <li>· You can hide or deactivate your account at any time, in one tap, with no dark patterns.</li>
+            <li>· No paywall hides who liked you. Every like is visible, exactly as it happened.</li>
           </ul>
           <div className="mt-8 flex flex-wrap gap-4">
             <Link

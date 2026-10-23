@@ -4,7 +4,7 @@ const pillars = [
   {
     index: "01",
     title: "Values before volume",
-    body: "Freeborn is built for people who want health autonomy, natural living, faith or philosophy, family direction, and long-term intentions to have room in the dating experience — without turning a profile into a debate.",
+    body: "Freeborn is built for people who want health autonomy, natural living, faith or philosophy, family direction, and long-term intentions to have room in the dating experience, without turning a profile into a debate.",
   },
   {
     index: "02",
@@ -14,7 +14,7 @@ const pillars = [
   {
     index: "03",
     title: "Trust without overexposure",
-    body: "Age-gated onboarding, private birth dates, editable discovery settings, visible verification status, and clear profile completeness cues help the room feel accountable — while personal essentials stay private.",
+    body: "Age-gated onboarding, private birth dates, editable discovery settings, visible verification status, and clear profile completeness cues help the room feel accountable, while personal essentials stay private.",
   },
 ];
 
@@ -36,7 +36,7 @@ export function Standard() {
             <em className="font-medium italic text-gold-soft">kept in code.</em>
           </h2>
           <p className="mt-6 text-[16px] leading-[1.8] text-mist">
-            Not slogans on a landing page — product decisions. Every one of these
+            Not slogans on a landing page. Product decisions. Every one of these
             shapes what you can share, what stays private, and how discovery feels.
           </p>
         </Reveal>

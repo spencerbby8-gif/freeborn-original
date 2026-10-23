@@ -192,7 +192,7 @@ export function Hero() {
               <span style={{ transitionDelay: "420ms" }}>
                 <p className="text-[17px] leading-[1.75] text-mist">
                   Freeborn is a calm space for health autonomy, natural living, and
-                  lasting love — full profiles, clear intentions, and privacy by
+                  lasting love, with full profiles, clear intentions, and privacy by
                   default. Meet people who value informed choice as much as you do.
                 </p>
               </span>
@@ -242,7 +242,7 @@ export function Hero() {
                   ))}
                 </ul>
                 <p className="mt-6 text-[12px] tracking-wide text-ash">
-                  Free to join · See who liked you — free · Verified-only discovery · Clear intentions from the first screen.
+                  Free to join · See who liked you, free · Verified-only discovery · Clear intentions from the first screen.
                 </p>
               </span>
             </div>

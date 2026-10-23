@@ -62,7 +62,7 @@ export function Manifesto() {
           </Reveal>
           <Reveal delay={140}>
             <p className="mt-7 text-[16px] leading-[1.8] text-mist">
-              Most dating apps reward reflexes — a stack, a swipe, a half-second
+              Most dating apps reward reflexes: a stack, a swipe, a half-second
               verdict on a face. Freeborn was built on the opposite bet: that the
               things which actually hold two lives together deserve room on the
               first screen. How you live. How you heal. What you want to build,
@@ -71,7 +71,7 @@ export function Manifesto() {
             <p className="mt-5 text-[16px] leading-[1.8] text-mist">
               This is a space for people who believe health choices are personal,
               natural wellness matters, and relationships should be built with
-              honesty, respect, and long-term direction — without turning a first
+              honesty, respect, and long-term direction, without turning a first
               conversation into a debate.
             </p>
           </Reveal>

@@ -17,12 +17,12 @@ const steps = [
   {
     step: "03",
     title: "Read the whole person",
-    body: "Profiles put location, intention, words, interests, photos, wellness cues, and verification status in one calm view — so every choice has context.",
+    body: "Profiles put location, intention, words, interests, photos, wellness cues, and verification status in one calm view, so every choice has context.",
   },
   {
     step: "04",
     title: "Move toward something real",
-    body: "When a like becomes mutual, the conversation begins with values already on the table — not a blank performance of small talk.",
+    body: "When a like becomes mutual, the conversation begins with values already on the table, not a blank performance of small talk.",
   },
 ];
 
@@ -62,7 +62,7 @@ export function HowItWorks() {
             </h2>
             <p className="mt-6 max-w-md text-[16px] leading-[1.8] text-mist">
               Four deliberate steps instead of an endless feed. Freeborn is built
-              around deciding with context — not reacting to a stack.
+              around deciding with context, not reacting to a stack.
             </p>
           </Reveal>
           <Reveal delay={160}>

@@ -8,7 +8,7 @@ import { Reveal } from "@/components/reveal";
 const failures = [
   {
     problem: "Fake profiles & romance scams run rampant",
-    fix: "Photo verification with a visible trust badge, and profiles that show real detail — so you can tell a real person from a script.",
+    fix: "Photo verification with a visible trust badge, and profiles that show real detail, so you can tell a real person from a script.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 3l7.5 3v5.2c0 4.8-3.2 8.1-7.5 9.8-4.3-1.7-7.5-5-7.5-9.8V6L12 3z" />
@@ -17,7 +17,7 @@ const failures = [
     ),
   },
   {
-    problem: "Filters that don't work — wrong age, wrong distance, wrong gender",
+    problem: "Filters that don't work: wrong age, wrong distance, wrong gender",
     fix: "Filters that actually filter: age, distance, gender, vaccination stance, religion, kids, drinking, smoking, and language.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -27,7 +27,7 @@ const failures = [
   },
   {
     problem: "People you passed keep showing back up",
-    fix: "Pass is final. When you pass someone, they stay passed — no recycling, no re-showing.",
+    fix: "Pass is final. When you pass someone, they stay passed, with no recycling and no re-showing.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M3 12a9 9 0 109-9" />
@@ -37,7 +37,7 @@ const failures = [
     ),
   },
   {
-    problem: "Paywalls after a few likes — pay to do anything",
+    problem: "Paywalls after a few likes, then pay to do anything",
     fix: "Free to match, chat, send photos and voice notes. No paywall hiding the basics.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -49,7 +49,7 @@ const failures = [
   },
   {
     problem: "No way to edit your profile once it's made",
-    fix: "Full profile editing anytime — bio, photos, values, lifestyle, and every detail.",
+    fix: "Full profile editing anytime: bio, photos, values, lifestyle, and every detail.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 20h9" />
@@ -101,7 +101,7 @@ export function WhyFreeborn() {
           </h2>
           <p className="mt-6 text-[16px] leading-[1.8] text-mist">
             We read the reviews of the other unvaccinated-focused apps. The scams, the broken
-            filters, the paywalls, the dead profiles. Freeborn is built to fix every one of them —
+            filters, the paywalls, the dead profiles. Freeborn is built to fix every one of them,
             and we only promise what we actually ship.
           </p>
         </Reveal>

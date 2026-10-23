@@ -3,7 +3,7 @@ import { Monogram } from "@/components/wordmark";
 import { ArrowIcon } from "@/components/icons";
 
 const promises = [
-  "Full profiles — values, intentions, and lifestyle on the first screen",
+  "Full profiles: values, intentions, and lifestyle on the first screen",
   "Privacy by default: emails and birth dates never shown publicly",
   "Finite discovery designed for deciding with context, not reacting to a stack",
 ];
@@ -47,7 +47,7 @@ export function FinalCta() {
               <p className="mt-6 max-w-xl text-center text-[16px] leading-[1.8] text-[var(--color-mist)]">
                 Create your Freeborn account and step into a room where health
                 autonomy is respected, intentions are stated up front, and every
-                profile is a person — not a card in a stack.
+                profile is a person, not a card in a stack.
               </p>
 
               <ul className="mt-9 w-full max-w-md space-y-3 text-left">

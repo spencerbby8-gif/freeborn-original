@@ -4,7 +4,7 @@ import { HomeDeck } from "@/components/app/home-deck";
 export const metadata: Metadata = {
   title: "Discover",
   description:
-    "Freeborn discovery — full profiles, clear intentions, and values on the table before the first message.",
+    "Freeborn discovery: full profiles, clear intentions, and values on the table before the first message.",
   /* This page renders HomeDeck, which currently shows real member cards to
      anonymous visitors. It must never appear in a search index: a member's face,
      name, age, city and stated health values showing up in Google results under

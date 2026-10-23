@@ -29,7 +29,7 @@ export const faqs = [
   },
   {
     q: "Is Freeborn free?",
-    a: "The current product lets members create a profile, discover people, like, match, and message — without advertising a paid plan or an invented upgrade promise.",
+    a: "The current product lets members create a profile, discover people, like, match, and message, without advertising a paid plan or an invented upgrade promise.",
   },
   {
     q: "What information is public?",
@@ -53,7 +53,7 @@ export function Faq() {
           </h2>
           <p className="mt-6 max-w-sm text-[15px] leading-[1.8] text-mist">
             If something isn&apos;t answered here, it probably isn&apos;t in the product
-            yet — and we&apos;d rather say that plainly than dress it up.
+            yet, and we&apos;d rather say that plainly than dress it up.
           </p>
         </Reveal>
 
