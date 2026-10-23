@@ -68,7 +68,7 @@ const sections = [
   {
     icon: "shield",
     title: "Identity verification, without the surveillance",
-    body: "A quick pose-mimic selfie: you mimic a pose, and two independent engines confirm it's a live person matching your photos. No ID, no documents, and no biometric template is built from your face. An approved selfie is kept, because it has to be: it is re-read when you change your photos, so the seal can be re-checked against the person who earned it. A rejected selfie is never stored at all. The Privacy Policy sets out exactly what is retained and for how long. Uploading a new face photo revokes the seal until you re-verify, so the teal badge always matches the face. One thing stated plainly: the engines are unavailable at the moment, so verification holds requests as pending and no new seals are being issued.",
+    body: "A quick pose-mimic selfie: you mimic a pose, and two independent engines confirm it's a live person matching your photos. No ID, no documents, and no biometric template is built from your face. An approved selfie is kept, because it has to be: it is re-read when you change your photos, so the seal can be re-checked against the person who earned it. A rejected selfie is never stored at all. The Privacy Policy sets out exactly what is retained and for how long. Uploading a new face photo revokes the seal until you re-verify whenever a running check cannot confirm it, so the teal badge always matches the face; if the check is unavailable, your verification is left untouched. One thing stated plainly: the engines are unavailable at the moment, so verification holds requests as pending and no new seals are being issued.",
   },
   {
     icon: "eye",

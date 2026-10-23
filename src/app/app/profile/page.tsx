@@ -314,11 +314,19 @@ function ProfileInner() {
         const json = await res.json().catch(() => ({}));
         if (res.ok) {
           if (json.identityMatch?.decision === "match" && !json.revoked) {
-            // Identity confirmed by the AI check — the seal stays.
+            // A check that actually ran agreed this is you. The seal stays.
             setPhotoMsg("Photo saved. Identity confirmed, so your verification stays.");
+          } else if (json.checkUnavailable) {
+            // The engines could not run. No judgement was made about the member,
+            // so verification is untouched and the message says exactly that.
+            setPhotoMsg(
+              "Photo saved. The identity check is unavailable right now, so it did not run and your verification is unchanged."
+            );
           } else if (json.revoked) {
-            // Doubt or fallback — the identity check restarts with the new photos.
-            setPhotoMsg("Photo saved. Your identity check restarts with your new photos.");
+            // A running check looked and could not confirm. Re-verify to restore.
+            setPhotoMsg(
+              "Photo saved. The check could not confirm this photo, so your verification is paused until you verify again."
+            );
             setProfile((prev) => (prev ? { ...prev, isVerified: false } : prev));
           } else {
             setPhotoMsg("Photo saved to your profile.");
@@ -935,9 +943,10 @@ function ProfileInner() {
             <p className="mt-4 rounded-xl border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--color-gold-300)]">
               Adding a new photo runs an identity re-check while your profile is
               verified. A confirmed match keeps your seal. A photo the check finds
-              does not match is rejected. If the check cannot reach a verdict, the
-              photo is added and your verified seal is revoked, so you can verify
-              again.
+              does not match is rejected. If the check runs and cannot reach a
+              verdict, the photo is added and your seal is paused until you verify
+              again. If the check is unavailable, the photo is added and your
+              verification stays exactly as it is.
             </p>
           </div>
         </div>
@@ -968,8 +977,9 @@ function ProfileInner() {
                   Your verification is active. Before adding this photo, we check it
                   against your verified identity. A confirmed match keeps your verification
                   exactly as it is. A photo the check finds does not match is rejected. If
-                  the check cannot reach a verdict, the photo is added and your verified
-                  seal is revoked, and you can verify again in minutes.
+                  the check runs and cannot reach a verdict, the photo is added and your
+                  seal is paused until you verify again. If the check is unavailable, the
+                  photo is added and your verification stays exactly as it is.
                 </p>
               </div>
             </div>

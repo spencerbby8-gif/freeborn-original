@@ -11,10 +11,13 @@ import { callEngine, type EngineResult, type EngineTarget } from "@/lib/engine-r
  *     STAYS — no re-verification;
  *   - confident DIFFERENT person → the upload is REJECTED (409) and flagged
  *     to the moderation queue;
- *   - anything doubtful (disagreement, unclear, engines down, rate-limited)
- *     → the photo is added but the seal is revoked — exactly the behavior
- *     Freeborn shipped before this gate. Doubt never locks a real member out
- *     of their profile, and doubt never keeps an unchecked photo sealed.
+ *   - unclear with the engines running → the photo is added but the seal is
+ *     revoked until re-verification, so doubt never keeps an unchecked photo
+ *     sealed;
+ *   - unclear because the engines could not run (error, rate-limited) → the
+ *     photo is added and verification is left untouched. Doubt about the check
+ *     is not doubt about the member.
+ *     Doubt never locks a real member out of their profile.
  *
  * The FACE is the decision axis. Body/appearance is supporting context only:
  * person re-identification research shows clothing changes break any
@@ -423,8 +426,9 @@ async function runIdentityMatchInner(
 
 /**
  * Budgeted entry point. Netlify caps functions at 26s; a hanging engine must
- * degrade to the gate's designed fallback (photo added, seal revoked, audit
- * row written) — never to a platform-killed 502 that skips the fallback.
+ * degrade to the gate's designed fallback (photo added, audit row written,
+ * seal revoked only if a check actually ran) — never to a platform-killed 502
+ * that skips the fallback.
  */
 export async function runIdentityMatch(
   memberId: string,

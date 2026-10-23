@@ -28,10 +28,13 @@ const MAX_PHOTOS = 6;
  *     re-verification);
  *   - confident DIFFERENT person → upload rejected (409) and flagged to the
  *     moderation queue;
- *   - anything doubtful (disagreement / unclear / engines down / rate
- *     limited) → photo added but the seal is revoked — exactly the pre-gate
- *     behavior. Doubt never locks a member out, and doubt never keeps an
- *     unchecked photo sealed.
+ *   - unclear with the engines RUNNING → photo added and the seal revoked
+ *     until re-verification, so doubt never keeps an unchecked photo sealed;
+ *   - unclear because the engines COULD NOT RUN (error or rate limit) → photo
+ *     added and verification left exactly as it was. Doubt about the check is
+ *     not doubt about the member, and revoking on an outage punished every
+ *     verified member for it.
+ *     Doubt never locks a member out of their profile.
  * Unverified members are unaffected.
  */
 export async function POST(request: Request) {
@@ -98,8 +101,9 @@ export async function POST(request: Request) {
 
   /* --- Identity match gate (verified members only) -------------------------
      Runs BEFORE anything is stored: a confident mismatch rejects the upload
-     outright; a confident match keeps the seal; doubt falls back to the
-     pre-gate behavior (add + revoke). -------------------------------------- */
+     outright; a confident match keeps the seal; an unclear verdict from a
+     running check revokes the seal; an unavailable check leaves verification
+     untouched and says so in the response. --------------------------------- */
   const [me] = await db
     .select({ isVerified: userProfiles.isVerified })
     .from(userProfiles)
@@ -170,11 +174,41 @@ export async function POST(request: Request) {
     position: existing.length,
   });
 
-  /* Seal handling: a confirmed identity match keeps the verification; any
-     other outcome for a verified member revokes it until re-verification
-     (the pre-gate behavior). */
+  /* Seal handling. Four outcomes for a verified member:
+
+       match       the engines compared the photo and agreed. Seal stays.
+       mismatch    rejected with 409 above, before reaching this point.
+       unclear,    the engines ran and could not reach a verdict. That is doubt
+       engines     about the PHOTO, so the seal is revoked until
+       ran         re-verification. This is what Privacy clause 7 and /safety
+                   promise, and it is what keeps the badge honest.
+       unclear,    the engines produced no verdict at all (engine "none",
+       engines     "error" or "rate-limited"). That is doubt about the CHECK,
+       down        not about the member. Revoking on it punished every
+                   verified member for an outage, and with vision unavailable
+                   on both configured engines it fired on every single
+                   upload.
+                   Verification is left exactly as it was, and the response
+                   carries checkUnavailable so the UI can say the check did
+                   not run instead of implying a judgement was made.
+
+     Nothing here claims a human will review an unclear result, because no
+     review surface exists anywhere in this codebase. */
+  /* "dual" and "single" are only ever returned by identity-match.ts when at
+     least one engine produced a parsed verdict (lines 150-182). Every other
+     engine value means no verdict exists: "none" (no baselines, image prep
+     failed, or both engines errored, e.g. the 400 both configured vision
+     providers return today), "error" (budget exceeded or threw), and
+     "rate-limited" (set by this route). Testing the engine value rather than
+     the decision is what separates "the check looked and doubted" from "the
+     check never looked". A first cut of this fix tested only error and
+     rate-limited, which would have kept revoking on today's "none". */
+  const checkRan =
+    identityMatch !== null &&
+    (identityMatch.engine === "dual" || identityMatch.engine === "single");
+
   let revoked = false;
-  if (verified && identityMatch?.decision !== "match") {
+  if (verified && checkRan && identityMatch !== null && identityMatch.decision !== "match") {
     await db
       .update(userProfiles)
       .set({ isVerified: false })
@@ -182,7 +216,12 @@ export async function POST(request: Request) {
     revoked = true;
   }
 
-  return Response.json({ ok: true, revoked, ...(identityMatch ? { identityMatch } : {}) });
+  return Response.json({
+    ok: true,
+    revoked,
+    checkUnavailable: identityMatch !== null && !checkRan,
+    ...(identityMatch ? { identityMatch } : {}),
+  });
 }
 
 /**

@@ -751,8 +751,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
 
                   {/* Top-right badges: verification + unvaccinated stance.
-                      The verified badge disappears automatically when the member
-                      uploads new photos (the server revokes is_verified). */}
+                      The verified badge disappears when the member uploads a new
+                      photo that a running identity check cannot confirm. */}
                   <div className="absolute right-4 top-8 z-10 flex flex-col items-end gap-2">
                     <div className="relative flex items-center gap-2">
                       {profile.verified ? (
