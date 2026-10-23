@@ -9,7 +9,7 @@ export function OpenInNewTab() {
         window.open(window.location.href, "_blank", "noopener");
       }}
       className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] font-bold text-[var(--color-mist)] transition-all hover:bg-white/[0.08] hover:text-[var(--color-pearl)] sm:flex"
-      title="Previews embed this page in an iframe — opening it in its own tab makes sessions most reliable."
+      title="Previews embed this page in an iframe. Opening it in its own tab makes sessions most reliable."
     >
       <svg
         width="13"
