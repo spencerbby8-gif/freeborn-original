@@ -762,6 +762,39 @@ export const eventInterests = pgTable(
   (t) => [unique("event_interests_user_unique").on(t.userId), index("event_interests_city_idx").on(t.city)]
 );
 
+/* --- Venue consent: a mixer may never name a venue that has not agreed ------
+ *
+ * Unjected announced a Denver mixer at a venue that had never agreed to host
+ * it. The venue was harassed into cancelling and Unjected sued it; an amended
+ * federal complaint followed in September 2026. The failure was not malice. It
+ * was the absence of anywhere to record consent, so nothing forced anyone to
+ * obtain it before publishing a venue name.
+ *
+ * This table is that place. There is deliberately no insert path in product
+ * code: a consent row is an operator act, written out of band with the venue's
+ * written agreement captured in consent_note. Any future announcement route
+ * must call requireVenueConsent() from src/lib/mixer-consent.ts, which throws
+ * unless an un-withdrawn consent row exists for the city and venue.
+ */
+export const mixerVenues = pgTable(
+  "mixer_venues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    city: text("city").notNull(),
+    venueName: text("venue_name").notNull(),
+    /** Who at the venue agreed, by name or role. */
+    consentGivenBy: text("consent_given_by").notNull(),
+    /** How the agreement was captured: email, signed form, contract. */
+    consentMethod: text("consent_method").notNull(),
+    /** Where the written agreement lives, or its full text. */
+    consentNote: text("consent_note").notNull(),
+    consentRecordedAt: timestamp("consent_recorded_at", { withTimezone: true }).notNull().default(utcNow),
+    /** A venue can change its mind; announcements must re-check. */
+    consentWithdrawnAt: timestamp("consent_withdrawn_at", { withTimezone: true }),
+  },
+  (t) => [index("mixer_venues_city_idx").on(t.city)]
+);
+
 /* --- Support messages (real humans, no canned replies) --------------------- */
 
 export const supportRequests = pgTable("support_requests", {

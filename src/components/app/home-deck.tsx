@@ -622,12 +622,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           <p className="font-display text-xl font-semibold">
             {profiles.length === 0 && hasActiveFilters(filters)
               ? "No one matches those filters yet."
-              : "You've met everyone here today."}
+              : filters.distance < 500
+                ? `No one within ${filters.distance} km right now.`
+                : "You've met everyone here today."}
           </p>
           <p className="mx-auto mt-2 max-w-[30ch] text-sm leading-6 text-[var(--color-mist)]">
             {profiles.length === 0 && hasActiveFilters(filters)
               ? "Loosen a filter, or check back as the room grows."
-              : "New members join daily. Come back tomorrow, or walk the room again."}
+              : filters.distance < 500
+                ? "The room is small and honest, so a tight radius can come up empty. Search everywhere below, or check back as your area grows."
+                : "New members join daily. Come back tomorrow, or walk the room again."}
           </p>
           <button
             type="button"

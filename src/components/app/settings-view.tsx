@@ -76,7 +76,9 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
       </p>
       <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
         No swiping forever. We&apos;re building in-person mixers city by city. Register your
-        city and we&apos;ll announce one the moment enough members are ready.
+        city and we&apos;ll announce one the moment enough members are ready. We only
+        name a venue after that venue has agreed in writing, and the agreement is
+        recorded before anything is announced.
       </p>
       <div className="mt-3 flex gap-2">
         <input
