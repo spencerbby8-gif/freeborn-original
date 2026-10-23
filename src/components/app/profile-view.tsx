@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
 import { PhotoLightbox } from "./photo-lightbox";
@@ -53,7 +54,11 @@ type FullProfile = {
   messageRestricted?: string | null;
 };
 
-/** Instant re-open: full profiles are cached after first fetch. */
+/* Instant re-open: full profiles are cached after first fetch. This Map was
+   written to and never read from, so the re-open it promised never happened.
+   The key carries the viewer's origin because distanceKm in the payload is
+   computed from it: a card cached before location consent must not be served
+   after it, or the member reads a distance they never agreed to share. */
 const profileCache = new Map<string, FullProfile>();
 
 function joinedLabel(iso: string | null) {
@@ -103,7 +108,12 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 
 export function ProfileView({ profileId, onClose }: { profileId: string; onClose: () => void }) {
   const [profile, setProfile] = useState<FullProfile | null>(null);
-  const [failed, setFailed] = useState(false);
+  /* Why the card is empty. These are different situations for the member and
+     only one of them has anything they can do about it, so they are told apart
+     instead of collapsing into a single "couldn't load". */
+  const [failed, setFailed] = useState<null | "auth" | "hidden" | "error">(null);
+  /** Bumped by Try again; it is an effect dependency so a retry really refetches. */
+  const [attempt, setAttempt] = useState(0);
   const [photoIdx, setPhotoIdx] = useState(0);
   const dragRef = useRef<{ startX: number; moved: boolean } | null>(null);
 
@@ -120,18 +130,50 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
     } catch {
       /* no location → no distance */
     }
+    const cached = profileCache.get(profileId + qs);
+    if (cached) {
+      setProfile(cached);
+      setFailed(null);
+      return;
+    }
+
     setProfile(null);
+    setFailed(null);
+    let cancelled = false;
     (async () => {
-      const res = await fetch(`/api/profile/${profileId}${qs}`);
-      if (res.ok) {
-        const json = await res.json();
-        profileCache.set(profileId, json.profile);
-        setProfile(json.profile);
-      } else {
-        setFailed(true);
+      try {
+        /* The fix. /api/profile/[id] requires a signed-in member and answers 401
+           without one (route.ts:54-57). Sessions live in localStorage, so no
+           sb-* cookie reaches the server and the SSR fallback in api-auth.ts:31
+           finds nothing: a Bearer token is the only credential this route will
+           ever see. The deck sent one, which is why cards loaded and then every
+           card you tapped said it could not. */
+        const token = await getAccessToken().catch(() => null);
+        const res = await fetch(`/api/profile/${profileId}${qs}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const json = await res.json();
+          profileCache.set(profileId + qs, json.profile);
+          setProfile(json.profile);
+          return;
+        }
+        /* 401 = no session the route can read. 404 = the route refusing, which it
+           answers for every refusal rather than 403 so that it stays useless as
+           an oracle for whether an id exists (route.ts:59-61). Anything else is
+           a fault on our side. */
+        setFailed(res.status === 401 ? "auth" : res.status === 404 ? "hidden" : "error");
+      } catch {
+        /* Without this catch a rejected fetch left failed unset and profile null,
+           which renders the spinner forever: an endless load with no way out. */
+        if (!cancelled) setFailed("error");
       }
     })();
-  }, [profileId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId, attempt]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -413,7 +455,47 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
             <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
           </div>
         ) : failed || !profile ? (
-          <p className="py-28 text-center text-sm text-[var(--color-mist)]">Couldn&apos;t load this profile.</p>
+          <div className="py-24 text-center">
+            <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
+              {failed === "auth"
+                ? "Your session needs a refresh."
+                : failed === "hidden"
+                  ? "This profile isn&rsquo;t available to you."
+                  : "Couldn&rsquo;t load this profile."}
+            </p>
+            <p className="mx-auto mt-3 max-w-[34ch] text-sm leading-6 text-[var(--color-mist)]">
+              {failed === "auth"
+                ? "Profiles are only shown to signed-in members. Sign in again and this card will open."
+                : failed === "hidden"
+                  ? "They may have paused discovery, gone incognito, hidden their profile, or blocked you. Freeborn does not say which, because naming the reason would confirm who is here."
+                  : "The request did not complete. Either your connection dropped it or our server did."}
+            </p>
+            <div className="mt-7 flex flex-col items-center gap-4">
+              {failed === "auth" ? (
+                <Link
+                  href="/auth?mode=sign-in"
+                  className="btn-ember rounded-full px-7 py-3 text-sm font-bold"
+                >
+                  Sign in again
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAttempt((n) => n + 1)}
+                  className="btn-ghost rounded-full px-7 py-3 text-sm font-bold"
+                >
+                  Try again
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-[13px] font-bold text-[var(--color-mist)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="animate-scale-in space-y-6">
             {/* Photos */}
