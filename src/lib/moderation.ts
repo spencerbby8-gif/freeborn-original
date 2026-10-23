@@ -1,3 +1,4 @@
+import { callEngine, type EngineTarget } from "@/lib/engine-request";
 /**
  * FREEBORN JUSTICE ENGINE — dual-model, anti-injustice by design.
  *
@@ -46,39 +47,62 @@ export type JusticeOutcome = {
   summary: string;
 };
 
-async function ask(base: string, key: string, model: string, prompt: string): Promise<string | null> {
-  if (!base || !key) return null;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 35_000);
-  try {
-    const res = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-        /* The Antigravity gateway documents x-api-key as its client header —
-           send both so either contract keeps working. */
-        "x-api-key": key,
-        /* voidai sits behind Cloudflare and rejects the default Node fetch
-           user-agent (error 1010) — same requirement as lm7. */
-        "User-Agent": "freeborn-verify/1.0",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 220,
-        temperature: 0,
-      }),
-    });
-    if (!res.ok) return null;
-    const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return j.choices?.[0]?.message?.content ?? null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+/**
+ * Engine targets.
+ *
+ * Each carries a model LIST rather than a single model. The first entry is the
+ * configured model; the rest are fallbacks confirmed present on that gateway by the
+ * operator's own published model list (2026-10-23). `gemini-2.5-flash` is a
+ * non-reasoning-tier model, so if the failure is a reasoning-tier parameter
+ * incompatibility rather than an outage, the ladder reaches a model that accepts the
+ * conventional request shape.
+ *
+ * The ladder is walked by callEngine() in @/lib/engine-request, which also caches the
+ * first combination that works so only the initial call pays for discovery.
+ */
+const ENGINE_1: EngineTarget = {
+  name: "antigravity",
+  baseUrl: A_BASE,
+  apiKey: A_KEY,
+  models: [MODERATION_MODEL, "gemini-2.5-flash"],
+  /* The gateway documents x-api-key as its client header. Bearer is sent too. */
+  sendApiKeyHeader: true,
+  timeoutMs: 35_000,
+};
+
+const ENGINE_2: EngineTarget = {
+  name: "voidai",
+  baseUrl: V_BASE,
+  apiKey: V_KEY,
+  models: [MODERATION_MODEL_2],
+  timeoutMs: 35_000,
+};
+
+/**
+ * Ask one engine for a verdict.
+ *
+ * Returns null only when every model and every parameter rung failed. The reason is
+ * no longer discarded: callEngine keeps the status and the first 400 characters of
+ * the gateway's own error body for each attempt, and lastEngineFailure() exposes the
+ * most recent one so a silent degradation can actually be diagnosed.
+ */
+const recentFailures: string[] = [];
+
+async function ask(engine: EngineTarget, prompt: string): Promise<string | null> {
+  const result = await callEngine(engine, prompt, { maxTokens: 220 });
+  if (result.ok) return result.text ?? null;
+  const detail = result.attempts
+    .map((a) => `${a.model}/${a.rung} -> ${a.status}${a.error ? ` ${a.error}` : ""}`)
+    .join(" | ")
+    .slice(0, 900);
+  recentFailures.unshift(`${engine.name}: ${detail}`);
+  if (recentFailures.length > 6) recentFailures.pop();
+  return null;
+}
+
+/** Most recent engine failures, newest first. Surfaced by /api/health/engines. */
+export function lastEngineFailures(): string[] {
+  return [...recentFailures];
 }
 
 function parseVerdict(text: string | null): FactVerdict | null {
@@ -125,8 +149,8 @@ export async function factCheckReport(
   const prompt = buildPrompt(reason, details, targetSummary, reportCount);
 
   const [textA, textV] = await Promise.all([
-    ask(A_BASE, A_KEY, MODERATION_MODEL, prompt),
-    ask(V_BASE, V_KEY, MODERATION_MODEL_2, prompt),
+    ask(ENGINE_1, prompt),
+    ask(ENGINE_2, prompt),
   ]);
 
   const vA = parseVerdict(textA);
@@ -172,7 +196,7 @@ export async function factCheckReport(
 
 /** Legacy triage for back-compat (single-engine severity only). */
 export async function triageReport(reason: string, details: string): Promise<{ severity: FactVerdict["severity"]; summary: string } | null> {
-  const text = await ask(A_BASE, A_KEY, MODERATION_MODEL, buildPrompt(reason, details, "", 1));
+  const text = await ask(ENGINE_1, buildPrompt(reason, details, "", 1));
   const v = parseVerdict(text);
   return v ? { severity: v.severity, summary: v.summary } : null;
 }
@@ -194,8 +218,8 @@ export async function investigateAppeal(
     '{"botRisk":"low|medium|high","summary":"<fifteen words max>"}';
 
   const [textA, textV] = await Promise.all([
-    ask(A_BASE, A_KEY, MODERATION_MODEL, prompt),
-    ask(V_BASE, V_KEY, MODERATION_MODEL_2, prompt),
+    ask(ENGINE_1, prompt),
+    ask(ENGINE_2, prompt),
   ]);
 
   const parse = (t: string | null) => {

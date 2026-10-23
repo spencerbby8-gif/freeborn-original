@@ -1,3 +1,4 @@
+import { callEngine, type EngineResult, type EngineTarget } from "@/lib/engine-request";
 /**
  * FREEBORN IDENTITY MATCH GATE
  *
@@ -259,99 +260,92 @@ async function collectBaselines(memberId: string, origin: string): Promise<strin
 
 /* --- Engine calls ---------------------------------------------------------- */
 
-function visionContent(images: string[]): Array<Record<string, unknown>> {
-  return [
-    { type: "text", text: MATCH_PROMPT },
-    ...images.map((url) => ({ type: "image_url", image_url: { url } })),
-  ];
+/**
+ * Engine targets for the identity match.
+ *
+ * Each carries a model LIST. The first entry is the configured model; `gemini-2.5-flash`
+ * is a fallback confirmed present on the operator's own published gateway model list
+ * (2026-10-23) and is not a reasoning-effort tier, so it accepts the conventional
+ * request shape if the tiered model is what the gateway is rejecting.
+ *
+ * The ladder, the response-body capture and the winner cache all live in
+ * @/lib/engine-request. Before that module existed this file retried twice with
+ * byte-identical parameters, discarded both response bodies, and reported the
+ * constant string "unreachable" for every failure mode including a plan limit and an
+ * invalid key, which is why a weeks-long outage produced no diagnosable signal.
+ */
+const MATCH_ENGINE_1: EngineTarget = {
+  name: "antigravity",
+  baseUrl: A_BASE,
+  apiKey: A_KEY,
+  models: [MATCH_MODEL_1, "gemini-2.5-flash"],
+  /* The gateway documents x-api-key as its client header. Bearer is sent too. */
+  sendApiKeyHeader: true,
+  timeoutMs: 20_000,
+};
+
+const MATCH_ENGINE_2: EngineTarget = {
+  name: "voidai",
+  baseUrl: V_BASE,
+  apiKey: V_KEY,
+  models: [MATCH_MODEL_2],
+  timeoutMs: 20_000,
+};
+
+/**
+ * Turn a failed attempt log into the precise reason the flow reports.
+ *
+ * Preserves the distinctions the decision logic depends on: a plan limit is not a
+ * transient outage, and an invalid key is not a gateway failure. Both were previously
+ * read from a single response body that was then thrown away. Now they are read from
+ * every attempt, and the underlying statuses and the gateway's own message are
+ * carried through, so "unreachable" is never again the whole story.
+ */
+function classifyFailure(result: EngineResult): string {
+  const errors = result.attempts.map((a) => a.error ?? "").join(" ");
+  if (VISION_DISABLED_RE.test(errors)) return "vision-disabled";
+  if (INVALID_KEY_RE.test(errors)) return "invalid-key";
+  const statuses = [...new Set(result.attempts.map((a) => a.status))].join(",");
+  const last = result.attempts[result.attempts.length - 1];
+  const detail = (last?.error ?? "").replace(/\s+/g, " ").trim().slice(0, 180);
+  return `unreachable(${statuses})${detail ? `: ${detail}` : ""}`;
+}
+
+/**
+ * A 200 whose content is unusable (the model ignored the images, or replied in
+ * prose instead of the required JSON) is retried once. callEngine caches the winning
+ * model and parameter rung, so the retry costs one round trip rather than a fresh
+ * ladder walk. Transport-level failures are already retried inside callEngine across
+ * every model and rung, so they are not retried again here.
+ */
+const MAX_CONTENT_ATTEMPTS = 2;
+
+async function askEngine(target: EngineTarget, images: string[]): Promise<EngineReply> {
+  let lastReason = "unreachable";
+  for (let i = 0; i < MAX_CONTENT_ATTEMPTS; i++) {
+    const result = await callEngine(target, MATCH_PROMPT, { images, maxTokens: 220 });
+    if (!result.ok) return { ok: false, reason: classifyFailure(result) };
+    const text = result.text ?? "";
+    /* The model answered but ignored the images. Reported distinctly because it is a
+       capability gap, not an outage, and must not be retried into a false verdict. */
+    if (IMAGE_DROPPED_RE.test(text)) { lastReason = "image-dropped"; continue; }
+    const verdict = parseMatchVerdict(text);
+    if (verdict) return { ok: true, verdict };
+    lastReason = "unparseable";
+  }
+  return { ok: false, reason: lastReason };
 }
 
 async function askEngine1(images: string[]): Promise<EngineReply> {
   if (!A_BASE || !A_KEY) return { ok: false, reason: "unconfigured" };
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20_000);
-    try {
-      const res = await fetch(`${A_BASE}/chat/completions`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${A_KEY}`,
-          /* The Antigravity gateway documents x-api-key as its client header —
-             send both so either contract keeps working. */
-          "x-api-key": A_KEY,
-          "User-Agent": "freeborn-verify/1.0",
-        },
-        body: JSON.stringify({
-          model: MATCH_MODEL_1,
-          messages: [{ role: "user", content: visionContent(images) }],
-          max_tokens: 220,
-          temperature: 0,
-        }),
-      });
-      if (!res.ok) throw new Error(`http ${res.status}`);
-      const json = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      const text = json.choices?.[0]?.message?.content ?? "";
-      if (!text) throw new Error("empty");
-      if (IMAGE_DROPPED_RE.test(text)) throw new Error("image-dropped");
-      const verdict = parseMatchVerdict(text);
-      if (!verdict) throw new Error("unparseable");
-      return { ok: true, verdict };
-    } catch {
-      await new Promise((r) => setTimeout(r, 600));
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  return { ok: false, reason: "unreachable" };
+  return askEngine(MATCH_ENGINE_1, images);
 }
 
 async function askEngine2(images: string[]): Promise<EngineReply> {
   if (!V_BASE || !V_KEY) return { ok: false, reason: "unconfigured" };
   /* VoidAI documents its key format as sk-voidai-… — fail fast otherwise. */
   if (!V_KEY.startsWith("sk-voidai-")) return { ok: false, reason: "invalid-key" };
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20_000);
-  try {
-    const res = await fetch(`${V_BASE}/chat/completions`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${V_KEY}`,
-        /* Cloudflare in front of voidai bans default clients — required. */
-        "User-Agent": "freeborn-verify/1.0",
-      },
-      body: JSON.stringify({
-        model: MATCH_MODEL_2,
-        messages: [{ role: "user", content: visionContent(images) }],
-        max_tokens: 220,
-        temperature: 0,
-      }),
-    });
-    const json = (await res.json().catch(() => null)) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-      error?: { message?: string };
-    } | null;
-    const text = json?.choices?.[0]?.message?.content ?? "";
-    if (text) {
-      const verdict = parseMatchVerdict(text);
-      return verdict ? { ok: true, verdict } : { ok: false, reason: "unparseable" };
-    }
-    const errMsg = json?.error?.message ?? "";
-    /* Vision disabled on the current plan is a plan state, not a transient
-       failure — report it precisely instead of walking the whole chain. */
-    if (VISION_DISABLED_RE.test(errMsg)) return { ok: false, reason: "vision-disabled" };
-    if (INVALID_KEY_RE.test(errMsg)) return { ok: false, reason: "invalid-key" };
-    return { ok: false, reason: `http ${res.status}` };
-  } catch {
-    return { ok: false, reason: "unreachable" };
-  } finally {
-    clearTimeout(timer);
-  }
+  return askEngine(MATCH_ENGINE_2, images);
 }
 
 /* --- In-memory rate limit (per account) ------------------------------------ */
