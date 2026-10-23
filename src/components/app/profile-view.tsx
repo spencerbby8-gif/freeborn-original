@@ -52,6 +52,8 @@ type FullProfile = {
   birthMonthYear: string;
   distanceKm: number | null;
   messageRestricted?: string | null;
+  /** Only present when this card was opened as "View as others". */
+  visibility?: { visible: boolean; reasons: string[] } | null;
 };
 
 /* Instant re-open: full profiles are cached after first fetch. This Map was
@@ -106,7 +108,17 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-export function ProfileView({ profileId, onClose }: { profileId: string; onClose: () => void }) {
+export function ProfileView({
+  profileId,
+  onClose,
+  asOthers = false,
+}: {
+  profileId: string;
+  onClose: () => void;
+  /** Ask the route whether the room can actually see this card, rather than
+      only rendering it back to its owner. */
+  asOthers?: boolean;
+}) {
   const [profile, setProfile] = useState<FullProfile | null>(null);
   /* Why the card is empty. These are different situations for the member and
      only one of them has anything they can do about it, so they are told apart
@@ -130,6 +142,8 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
     } catch {
       /* no location → no distance */
     }
+    if (asOthers) qs += `${qs ? "&" : "?"}as=others`;
+
     const cached = profileCache.get(profileId + qs);
     if (cached) {
       setProfile(cached);
@@ -173,7 +187,7 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
     return () => {
       cancelled = true;
     };
-  }, [profileId, attempt]);
+  }, [profileId, attempt, asOthers]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -498,6 +512,40 @@ export function ProfileView({ profileId, onClose }: { profileId: string; onClose
           </div>
         ) : (
           <div className="animate-scale-in space-y-6">
+            {profile.visibility ? (
+              <div
+                className={`rounded-[20px] border p-5 ${
+                  profile.visibility.visible
+                    ? "border-[var(--color-teal-300)]/30 bg-[var(--color-teal-300)]/[0.06]"
+                    : "border-white/[0.08] bg-white/[0.02]"
+                }`}
+              >
+                <p className="font-display text-[17px] font-semibold text-[var(--color-pearl)]">
+                  {profile.visibility.visible ? "Visible to the room." : "Not visible to the room."}
+                </p>
+                <p className="mt-2 text-[13px] leading-6 text-[var(--color-mist)]">
+                  {profile.visibility.visible
+                    ? "A member who isn&rsquo;t a match of yours, with no filters set, can open this card and read all of it. This is not a complete impersonation: blocks and another member&rsquo;s own filters aren&rsquo;t simulated."
+                    : "You can always read your own profile, so this card is not what a stranger sees. Right now:"}
+                </p>
+                {profile.visibility.visible || profile.visibility.reasons.length === 0 ? null : (
+                  <ul className="mt-3 space-y-1.5">
+                    {profile.visibility.reasons.map((r) => (
+                      <li
+                        key={r}
+                        className="flex gap-2 text-[13px] leading-5 text-[var(--color-pearl)]"
+                      >
+                        <span
+                          aria-hidden
+                          className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--color-gold-500)]"
+                        />
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
             {/* Photos */}
             {photos.length > 0 ? (
               <div

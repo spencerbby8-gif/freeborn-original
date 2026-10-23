@@ -68,6 +68,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const [row] = await db.select().from(userProfiles).where(eq(userProfiles.id, id)).limit(1);
   if (!row) return Response.json({ error: "Profile not found." }, { status: 404 });
 
+  /* Only set when the caller asked with ?as=others, and only ever about the
+     caller's own profile. */
+  let visibility: { visible: boolean; reasons: string[] } | null = null;
+
   /* A member may always read themselves. Everyone else is subject to the same
      visibility rules the deck applies. */
   if (row.id !== viewer.id) {
@@ -128,6 +132,36 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       )
       .limit(1);
     if (block) return notReadable();
+  } else if (url.searchParams.get("as") === "others") {
+    /* "View as others" is a promise, and the branch above lets a self-read skip
+       every one of those rules. So the button used to show a member their own
+       profile exactly as they see it and label it what strangers see: a member
+       who was incognito, or had discovery paused, or had not finished
+       onboarding, would read a full card as "the room can see me" when the room
+       could not. Answer the question actually being asked instead.
+
+       This is not a complete impersonation. Blocks and the hypothetical viewer's
+       own filters are not simulated, and the UI says so rather than claiming
+       more than was computed. */
+    const [ownPriv] = await db
+      .select({
+        incognito: userPrivateSettings.incognito,
+        discoveryPaused: userPrivateSettings.discoveryPaused,
+      })
+      .from(userPrivateSettings)
+      .where(eq(userPrivateSettings.userId, id))
+      .limit(1);
+
+    const reasons: string[] = [];
+    if (row.profileStatus !== "active") reasons.push("Your profile is not active.");
+    if (row.discoverable !== true) reasons.push("Discovery is switched off in Settings.");
+    if (row.onboardingStage !== "ready") reasons.push("Your onboarding is not finished yet.");
+    if (ownPriv?.discoveryPaused) reasons.push("Discovery is paused, so you are out of the room.");
+    if (ownPriv?.incognito) {
+      reasons.push("Incognito is on, so only members you liked or matched with can find you.");
+    }
+
+    visibility = { visible: reasons.length === 0, reasons };
   }
 
   const photos = await db
@@ -286,6 +320,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
           ? Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude))
           : null,
       hideActiveStatus,
+      visibility,
     },
   });
 }

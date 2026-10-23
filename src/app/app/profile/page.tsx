@@ -1007,7 +1007,9 @@ function ProfileInner() {
         </div>
       ) : null}
 
-      {viewAs ? <ProfileView profileId={viewAs} onClose={() => setViewAs(null)} /> : null}
+      {viewAs ? (
+        <ProfileView profileId={viewAs} onClose={() => setViewAs(null)} asOthers />
+      ) : null}
 
       {cameraOpen ? (
         <CameraCapture onCapture={handleCameraCapture} onClose={() => setCameraOpen(false)} />
