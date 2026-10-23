@@ -278,7 +278,12 @@ const MATCH_ENGINE_1: EngineTarget = {
   name: "antigravity",
   baseUrl: A_BASE,
   apiKey: A_KEY,
-  models: [MATCH_MODEL_1, "gemini-2.5-flash"],
+  /* Ordered by evidence, not by guess. `gemini-3-flash` is the one model the
+     operator's own router state file records as live on the antigravity provider
+     (free-ai-router-handoff/STATE-OF-PROJECT.md, 2026-10-10: "live for
+     gemini-3-flash; Claude 429 quota at last check"). `gemini-2.5-flash` is in the
+     gateway catalog but has no recorded live probe, so it ranks second. */
+  models: [MATCH_MODEL_1, "gemini-3-flash", "gemini-2.5-flash"],
   /* The gateway documents x-api-key as its client header. Bearer is sent too. */
   sendApiKeyHeader: true,
   timeoutMs: 20_000,

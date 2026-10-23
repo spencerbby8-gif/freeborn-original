@@ -64,7 +64,9 @@ const ENGINE_1: EngineTarget = {
   name: "antigravity",
   baseUrl: A_BASE,
   apiKey: A_KEY,
-  models: [MODERATION_MODEL, "gemini-2.5-flash"],
+  /* See the comment in identity-match.ts: gemini-3-flash is the model with a
+     recorded live probe on this gateway, so it is the first fallback. */
+  models: [MODERATION_MODEL, "gemini-3-flash", "gemini-2.5-flash"],
   /* The gateway documents x-api-key as its client header. Bearer is sent too. */
   sendApiKeyHeader: true,
   timeoutMs: 35_000,

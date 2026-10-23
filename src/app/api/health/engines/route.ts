@@ -75,7 +75,7 @@ const ENGINE_1: EngineTarget = {
   name: "antigravity",
   baseUrl: A_BASE,
   apiKey: A_KEY,
-  models: [MATCH_MODEL_1, "gemini-2.5-flash"],
+  models: [MATCH_MODEL_1, "gemini-3-flash", "gemini-2.5-flash"],
   sendApiKeyHeader: true,
   timeoutMs: 20_000,
 };

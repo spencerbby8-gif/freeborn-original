@@ -310,10 +310,10 @@ export default function PrivacyPage() {
               "Standard terms of service.",
             ],
             [
-              <strong key="k12" className="text-pearl">Antigravity gateway</strong>,
-              "Your verification selfie and your profile photographs, for stage 1 identity comparison.",
-              "Not disclosed by the provider",
-              <span key="k13" className="text-[#e0a08a]"><strong>None.</strong> No DPA, and no published image retention period.</span>,
+              <strong key="k12" className="text-pearl">Antigravity relay</strong>,
+              "Your verification selfie and your profile photographs, for stage 1 identity comparison. This is not a commercial vendor: it is a relay we built ourselves, which forwards requests to Google's free consumer AI tier through a personal Google account token, and it runs on a separate hosting account from this website.",
+              "United States, plus Google's own infrastructure",
+              <span key="k13" className="text-[#e0a08a]"><strong>None, and the upstream terms forbid this use.</strong> Detailed below.</span>,
             ],
             [
               <strong key="k14" className="text-pearl">VoidAI</strong>,
@@ -349,14 +349,31 @@ export default function PrivacyPage() {
         />
         <Callout label="Three disclosures we would rather make than bury">
           <p>
-            <strong className="text-pearl">The AI providers.</strong> Neither
-            Antigravity nor VoidAI has signed a data processing agreement with us, and
-            neither publishes how long it retains images. Your selfie is therefore
+            <strong className="text-pearl">The AI providers.</strong> Neither the
+            Antigravity relay nor VoidAI is under a data processing agreement with us,
+            and neither publishes how long it retains images. Your selfie is therefore
             transmitted to processors whose retention practices we cannot verify and
-            cannot contractually constrain. We consider that unacceptable for a
-            production service and it is scheduled for replacement with a provider
-            under a signed DPA. Until then you are entitled to know, and you are
-            entitled to decline verification entirely and use Freeborn unverified.
+            cannot contractually constrain.
+          </p>
+          <p>
+            The Antigravity relay deserves more detail, because it is the weaker of the
+            two and it handles your face. It is infrastructure we built rather than a
+            service we bought. It reaches Google through the free consumer tier of a
+            personal Google account, and Google&rsquo;s terms for that tier permit
+            personal and development use and prohibit operating it as a relay for other
+            people. Using it to process members&rsquo; verification selfies for a
+            dating service is outside those terms. It is also subject to a weekly quota
+            reset and to token expiry, either of which can stop it working without
+            notice; a sibling provider in the same relay had already failed that way
+            when this policy was written.
+          </p>
+          <p>
+            We consider all of that unacceptable for a production service, and replacing
+            it with a vision provider under a signed agreement is scheduled work rather
+            than an aspiration. Until it is replaced you are entitled to know, and you
+            are entitled to decline verification entirely and use {SITE_NAME}{" "}
+            unverified. Verification is optional and declining it does not restrict
+            matching or messaging.
           </p>
           <p>
             <strong className="text-pearl">The IP lookup.</strong> The network-type
