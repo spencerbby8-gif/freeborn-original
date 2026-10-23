@@ -632,6 +632,15 @@ export const reports = pgTable(
     reason: text("reason").notNull().default("other"),
     details: text("details"),
     status: text("status").notNull().default("open"),
+    /* Who filed this. "member" = a member reported another member, and it is
+       triaged by two engines on arrival so severity and triageSummary are
+       filled. "identity_gate" = api/profile/photos filed it automatically after
+       a high-confidence mismatch rejected an upload: a receipt for a decision
+       already taken and already told to the member, never triaged, and not an
+       accusation by one person about another. Reading the live queue is what
+       surfaced the need: both open reports were gate receipts sitting
+       indistinguishable among member complaints. */
+    origin: text("origin").notNull().default("member"),
     /** AI triage severity — filled by the moderation engine on arrival. */
     severity: text("severity"),
     triageSummary: text("triage_summary"),
@@ -650,6 +659,7 @@ export const reports = pgTable(
       "reports_reason_check",
       sql`${t.reason} in ('fake_profile','scam','harassment','safety','underage','inappropriate_media','other')`
     ),
+    check("reports_origin_check", sql`${t.origin} in ('member','identity_gate')`),
   ]
 );
 

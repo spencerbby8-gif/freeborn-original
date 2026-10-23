@@ -143,6 +143,11 @@ export async function POST(request: Request) {
         reporterId: member.id,
         subjectId: member.id,
         reason: "fake_profile",
+        /* This row is a receipt, not an accusation, and it never passes through
+           the two-engine triage in /api/reports, so severity stays null. Marking
+           the origin is what stops it reading as an untriaged member complaint in
+           the operator queue. */
+        origin: "identity_gate",
         details: `Identity match gate rejected a new photo upload (engine=${identityMatch.engine}, confidence=${identityMatch.confidence}). The photo did not match the member's verified identity references. Member may re-verify with a fresh selfie.`,
         status: "open",
       });

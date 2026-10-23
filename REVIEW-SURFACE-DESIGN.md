@@ -71,6 +71,12 @@ Migration `moderation_review_accountability` adds:
 - `suspensions.lifted_at`, `suspensions.lifted_by`, `suspensions.lift_note`
 - `appeals.reviewed_by`
 
+A second migration, `reports_origin`, adds `reports.origin` (`member` or
+`identity_gate`) with a CHECK and a `(origin, status)` index. It came out of
+running the queue query in section 4 against production and finding that both
+open reports were machine-filed receipts, not complaints. See section 4 for why
+the distinction matters and what it was backfilled on.
+
 All nullable and additive, so nothing that runs today changes behaviour. RLS is
 not enabled on `moderation_actions` for the same reason it is not on the other
 operator tables: the app connects as `postgres` and no member-facing route reads
@@ -83,19 +89,36 @@ applies.
 Run in the Supabase SQL editor. Every statement is one transaction and writes
 its own audit row, so an act and its record cannot be separated.
 
-**Read the open queue, oldest first, with the AI triage beside it:**
+**Read the open queue, member accusations first, oldest first:**
 
 ```sql
-select r.id, r.created_at, r.reason, r.status, r.severity, r.triage_summary,
-       r.details,
+select r.origin, r.id, r.created_at, r.reason, r.status, r.severity,
+       r.triage_summary, r.details,
        sub.display_name as subject, sub.email as subject_email,
        rep.display_name as reporter
 from public.reports r
 left join public.user_profiles sub on sub.id = r.subject_id
 left join public.user_profiles rep on rep.id = r.reporter_id
 where r.status = 'open'
-order by r.created_at;
+order by (r.origin = 'member') desc, r.created_at;
 ```
+
+Read `origin` before anything else on the row, because it changes what the row
+is. `member` is an accusation by one member about another and arrives triaged by
+two engines, so `severity` and `triage_summary` are filled. `identity_gate` is a
+receipt the photo gate filed against the member's own upload after a
+high-confidence mismatch, it is never triaged so `severity` is null by design,
+and the decision it records was already taken and already told to the member. A
+null severity on a `member` row means triage failed and is worth investigating;
+on an `identity_gate` row it means nothing is wrong.
+
+This distinction exists because reading the live queue showed it was needed. Both
+open reports at the time of writing were gate receipts from 2026-10-11, filed by
+`api/profile/photos` with `reporter_id = subject_id`, `severity` null and
+`triage_summary` null, and nothing on the row separated them from an untriaged
+member complaint except the prose in `details`. Migration `reports_origin` added
+the column, backfilled those two rows by matching the gate's fixed leading
+phrase, and added `reports_origin_status_idx`.
 
 **Close a report as unfounded:**
 
