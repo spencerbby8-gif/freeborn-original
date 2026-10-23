@@ -153,7 +153,7 @@ function PromptsEditor({
             <textarea
               value={answer}
               onChange={(e) => set(i, { answer: e.target.value.slice(0, 500) })}
-              placeholder="Your answer — short, human, grounded…"
+              placeholder="Your answer: short, human, grounded…"
               className="min-h-[88px] w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[14px] leading-relaxed text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
             />
             <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{answer.length}/500</span>
@@ -172,7 +172,7 @@ function PromptsEditor({
           Add {value.length === 0 ? "a prompt" : "another prompt"}
         </button>
       ) : null}
-      <p className="fb-caption">Prompts show on your profile exactly as you write them — they start conversations.</p>
+      <p className="fb-caption">Prompts show on your profile exactly as you write them, and they start conversations.</p>
     </div>
   );
 }
@@ -315,16 +315,16 @@ function ProfileInner() {
         if (res.ok) {
           if (json.identityMatch?.decision === "match" && !json.revoked) {
             // Identity confirmed by the AI check — the seal stays.
-            setPhotoMsg("Photo saved — identity confirmed, your verification stays.");
+            setPhotoMsg("Photo saved. Identity confirmed, so your verification stays.");
           } else if (json.revoked) {
             // Doubt or fallback — the identity check restarts with the new photos.
-            setPhotoMsg("Photo saved — your identity check restarts with your new photos.");
+            setPhotoMsg("Photo saved. Your identity check restarts with your new photos.");
             setProfile((prev) => (prev ? { ...prev, isVerified: false } : prev));
           } else {
             setPhotoMsg("Photo saved to your profile.");
           }
         } else if (res.status === 409 && json.error === "identity-mismatch") {
-          setPhotoMsg("That photo doesn't match your verified identity — it wasn't added.");
+          setPhotoMsg("That photo doesn't match your verified identity, so it wasn't added.");
           openVerifyFlow();
         } else {
           setPhotoMsg(json.error ?? "Couldn't add that photo.");
@@ -577,7 +577,7 @@ function ProfileInner() {
             <p className="fb-row-title">
               Identity check complete · <span className="text-[var(--color-teal-300)]">Result: approved</span>
             </p>
-            <p className="fb-row-desc">Your profile is confirmed — thanks for keeping the room real.</p>
+            <p className="fb-row-desc">Your profile is confirmed. Thanks for keeping the room real.</p>
           </div>
         </div>
       ) : verifyStatus === "rejected" ? (
@@ -590,7 +590,7 @@ function ProfileInner() {
           </span>
           <div className="fb-row-body">
             <p className="fb-row-title">Result: not approved this time</p>
-            <p className="fb-row-desc">The selfie didn&apos;t pass — bright, even light and a clear face fix most cases. Try again.</p>
+            <p className="fb-row-desc">The selfie didn&apos;t pass. Bright, even light and a clear face fix most cases. Try again.</p>
           </div>
           <button
             type="button"
@@ -610,7 +610,7 @@ function ProfileInner() {
           </span>
           <div className="fb-row-body">
             <p className="fb-row-title">Verification in review</p>
-            <p className="fb-row-desc">Your selfie was submitted and is being checked. We&apos;ll confirm it shortly — nothing else needed.</p>
+            <p className="fb-row-desc">Your selfie was submitted and is being checked. We&apos;ll confirm it shortly. Nothing else needed.</p>
           </div>
         </div>
       ) : (
@@ -642,7 +642,7 @@ function ProfileInner() {
             <p className="fb-eyebrow">Profile completion</p>
             <p className="fb-meta mt-1">
               {completeness >= 80
-                ? "Looking strong — complete profiles get far more meaningful matches."
+                ? "Looking strong. Complete profiles get far more meaningful matches."
                 : "Complete the details below to show up higher in discovery and attract better matches."}
             </p>
           </div>
@@ -654,7 +654,7 @@ function ProfileInner() {
         {items.length > 0 ? (
           <div className="mt-5">
             <p className="fb-caption font-bold uppercase tracking-[0.14em]">
-              {items.filter((i) => i.done).length}/{items.length} done — tap one to fix it
+              {items.filter((i) => i.done).length}/{items.length} done. Tap one to fix it
             </p>
             <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
               {items
@@ -690,7 +690,7 @@ function ProfileInner() {
                   </button>
                 ))}
               {items.filter((i) => i.done).length === items.length ? (
-                <p className="fb-chip-gold fb-chip mt-1 w-fit">All done — your profile is complete</p>
+                <p className="fb-chip-gold fb-chip mt-1 w-fit">All done. Your profile is complete</p>
               ) : null}
             </div>
           </div>
@@ -933,8 +933,11 @@ function ProfileInner() {
             </div>
 
             <p className="mt-4 rounded-xl border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--color-gold-300)]">
-              Adding a new photo may trigger a quick identity re-check — that&apos;s how
-              members know every profile still matches the real person.
+              Adding a new photo runs an identity re-check while your profile is
+              verified. A confirmed match keeps your seal. A photo the check finds
+              does not match is rejected. If the check cannot reach a verdict, the
+              photo is added and your verified seal is revoked, so you can verify
+              again.
             </p>
           </div>
         </div>
@@ -962,10 +965,11 @@ function ProfileInner() {
                   New photo, identity check
                 </p>
                 <p className="mt-1.5 text-[12.5px] leading-5 text-[var(--color-mist)]">
-                  Your verification is active — before adding this photo, we check it
-                  against your verified identity. A matching photo keeps your verification
-                  exactly as it is; a photo that does not match is rejected, and you can
-                  verify again in minutes.
+                  Your verification is active. Before adding this photo, we check it
+                  against your verified identity. A confirmed match keeps your verification
+                  exactly as it is. A photo the check finds does not match is rejected. If
+                  the check cannot reach a verdict, the photo is added and your verified
+                  seal is revoked, and you can verify again in minutes.
                 </p>
               </div>
             </div>
@@ -1038,7 +1042,7 @@ function ProfileInner() {
             <div className="fb-empty">
               <p className="fb-h-title">No photos yet</p>
               <p className="fb-meta mx-auto mt-2 max-w-[40ch]">
-                Real, recent photos are how members trust each other. Add at least one — three or more builds a real foundation.
+                Real, recent photos are how members trust each other. Add at least one. Three or more builds a real foundation.
               </p>
               <button
                 type="button"
@@ -1086,7 +1090,7 @@ function ProfileInner() {
               </div>
             ) : (
               <div className="fb-empty mt-3 !py-8">
-                <p className="fb-meta">Prompts start conversations — answer one and show up warmer in the room.</p>
+                <p className="fb-meta">Prompts start conversations. Answer one and show up warmer in the room.</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -1183,7 +1187,7 @@ function ProfileInner() {
             <p className="fb-h-title">Know someone who belongs here?</p>
             <p className="fb-meta mt-1.5">
               Freeborn grows through trusted invitations. Share it with someone who shares
-              your values — every real member makes the room better for everyone.
+              your values. Every real member makes the room better for everyone.
             </p>
             <button
               type="button"
@@ -1294,7 +1298,7 @@ function ProfileInner() {
               ) : null}
             </div>
             <p className="mt-3 rounded-xl border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] px-3.5 py-2.5 text-[11.5px] leading-4 text-[var(--color-gold-300)]">
-              Delete, reorder, re-upload from your gallery, or snap a fresh photo — adding a
+              Delete, reorder, re-upload from your gallery, or snap a fresh photo. Adding a
               new photo may trigger a quick identity re-check.
             </p>
           </div>
@@ -1337,7 +1341,7 @@ function ProfileInner() {
 
           <div className="fb-card-lg" data-edit-section="prompts">
             <p className="mb-1 text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Your prompts</p>
-            <p className="fb-meta mb-4">Answer up to three — they appear on your profile and start conversations.</p>
+            <p className="fb-meta mb-4">Answer up to three. They appear on your profile and start conversations.</p>
             <PromptsEditor
               value={(draft.promptAnswers ?? []).filter((p) => p.answer?.trim() || p.prompt)}
               onChange={(v) => set({ promptAnswers: v })}
