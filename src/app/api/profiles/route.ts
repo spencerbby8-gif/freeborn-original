@@ -1,6 +1,6 @@
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, discoveryPreferences, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
+import { blockedUsers, discoveryPreferences, eventInterests, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
 import { ageFromBirthDate } from "@/lib/age";
@@ -29,6 +29,9 @@ const list = (v: string | null) =>
         .filter(Boolean)
     : [];
 
+/* The window behind the "active today" filter. It is 24 hours, and the filter is
+   now labelled with that number instead of the word "Online", which a 24-hour
+   window does not mean. The badge on a card uses the tighter tiers below. */
 const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
@@ -149,6 +152,20 @@ export async function GET(request: Request) {
   const drinking = list(url.searchParams.get("drinking"));
   const smoking = list(url.searchParams.get("smoking"));
   const languages = list(url.searchParams.get("language"));
+  const wantsKids = list(url.searchParams.get("wantsKids"));
+  const newOnly = url.searchParams.get("new") === "1";
+  const mixersOnly = url.searchParams.get("mixers") === "1";
+  /* The filter panel needs the counts and nothing else. Facets describe the room
+     before any of the viewer's filters, so they are identical with or without
+     params, and skipping pass two keeps this from shipping the whole deck to a
+     modal that only wanted numbers. */
+  const facetsOnly = url.searchParams.get("facetsOnly") === "1";
+  /* Photos used to be a standing preference with no control in the filter panel,
+     so it removed members invisibly. "0" and "1" override it; absent means the
+     saved preference still decides. */
+  const photosParam = url.searchParams.get("photos");
+  const photosRequired =
+    photosParam === "0" ? false : photosParam === "1" ? true : basePhotosRequired;
   const ageMinParam = url.searchParams.get("ageMin");
   const ageMaxParam = url.searchParams.get("ageMax");
   const ageMin = ageMinParam !== null ? Number(ageMinParam) : baseAgeMin;
@@ -236,6 +253,12 @@ export async function GET(request: Request) {
   const locations = await db.select().from(userPrivateLocations);
   const locByUser = new Map(locations.map((l) => [l.userId, l]));
 
+  /* Who has asked for a mixer. At most one city per member, written only when
+     they ask, so this is a stated intention and can be filtered and counted
+     without inferring anything about anybody. */
+  const mixerRows = await db.select({ userId: eventInterests.userId }).from(eventInterests);
+  const mixerByUser = new Set(mixerRows.map((m) => m.userId));
+
   /* =========================================================================
      FREEBORN RANKING ENGINE
      Hard filters above are absolute truth — whatever a member filters for is
@@ -311,33 +334,125 @@ export async function GET(request: Request) {
   rows.sort((a, b) => scoreOf(b) - scoreOf(a));
 
   const nowMs = Date.now();
-  const out = [];
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const NEW_MEMBER_MS = 14 * DAY_MS;
+
+  /* Presence tiers, and the reason the badge no longer says "Online" for
+     everybody it saw in the last day. /api/heartbeat is throttled to one real
+     write per member per 2 minutes, so 15 minutes is a defensible "now". A
+     member who hides their active status gets null and the card shows nothing. */
+  const presenceOf = (lastActiveAt: Date | null, hidden: boolean) => {
+    if (hidden || lastActiveAt == null) return null;
+    const idle = nowMs - lastActiveAt.getTime();
+    if (idle < 15 * 60 * 1000) return "now";
+    if (idle < DAY_MS) return "today";
+    if (idle < 7 * DAY_MS) return "week";
+    return null;
+  };
+
+  /* PASS ONE: who this member is allowed to see at all. Their own card, blocks,
+     the other member's discoverPrivacy, snooze and incognito. None of that is a
+     preference the viewer set, so this set is "the room", and it is what the
+     facet counts below describe. Counting after the viewer's filters would make
+     every number move as they toggle, which tells them nothing. */
+  const visible: Array<{
+    row: (typeof rows)[number];
+    hideDistance: boolean;
+    hideActiveStatus: boolean;
+  }> = [];
   for (const row of rows) {
-    // Never show members their own card.
     if (viewerId && row.id === viewerId) continue;
-    // Blocked in either direction — gone from both decks.
     if (hiddenIds.has(row.id)) continue;
-    // Photoless profiles stay out only while the viewer requires photos
-    // (their standing preference); otherwise they render with a placeholder.
-    if (!photoByUser.has(row.id) && basePhotosRequired) continue;
-    // Their privacy choice: who is allowed to see them in discovery.
     const dp = (row as { discoverPrivacy?: string }).discoverPrivacy ?? "everyone";
     if (dp === "verified" && !viewerVerified) continue;
     if (dp === "unvaccinated" && viewerVax !== "unvaccinated") continue;
-
-    // Their snooze choice: a paused member is out of the room (matches/chat unaffected).
     const priv = privByUser.get(row.id);
     if (priv?.discoveryPaused) continue;
-    // Incognito: visible only to members they liked or matched with.
-    if (priv?.incognito && !(viewerId && (admirerIds.has(row.id) || mutualIds.has(row.id)))) continue;
+    if (priv?.incognito && !(viewerId && (admirerIds.has(row.id) || mutualIds.has(row.id)))) {
+      continue;
+    }
+    visible.push({
+      row,
+      hideDistance: priv?.hideDistance ?? false,
+      hideActiveStatus: priv?.hideActiveStatus ?? false,
+    });
+  }
 
+  /* Facets: how many members of the room have actually answered each field, and
+     with which values. In a room this size a filter is dangerous rather than
+     merely narrow, because every one of these fields is optional. The panel can
+     now say "nobody has stated a religion yet" before the member toggles it,
+     instead of emptying the deck and leaving them to guess why. */
+  const tally = (get: (r: (typeof rows)[number]) => string | null | undefined) => {
+    const values: Record<string, number> = {};
+    let stated = 0;
+    for (const v of visible) {
+      const key = (get(v.row) ?? "").trim();
+      if (!key) continue;
+      stated += 1;
+      values[key] = (values[key] ?? 0) + 1;
+    }
+    return { stated, values };
+  };
+  const tallyMany = (get: (r: (typeof rows)[number]) => string[] | null | undefined) => {
+    const values: Record<string, number> = {};
+    let stated = 0;
+    for (const v of visible) {
+      const arr = get(v.row) ?? [];
+      if (!arr.length) continue;
+      stated += 1;
+      for (const item of arr) {
+        const key = (item ?? "").trim();
+        if (key) values[key] = (values[key] ?? 0) + 1;
+      }
+    }
+    return { stated, values };
+  };
+  const facets = {
+    total: visible.length,
+    withPhoto: visible.filter((v) => photoByUser.has(v.row.id)).length,
+    verified: visible.filter((v) => v.row.isVerified).length,
+    newMembers: visible.filter((v) => nowMs - v.row.createdAt.getTime() < NEW_MEMBER_MS).length,
+    openToMixers: visible.filter((v) => mixerByUser.has(v.row.id)).length,
+    activeToday: visible.filter(
+      (v) =>
+        !v.hideActiveStatus &&
+        v.row.lastActiveAt != null &&
+        nowMs - v.row.lastActiveAt.getTime() < DAY_MS
+    ).length,
+    gender: tally((r) => r.gender),
+    religion: tally((r) => r.religion),
+    marital: tally((r) => r.maritalStatus),
+    kids: tally((r) => r.hasKids),
+    wantsKids: tally((r) => r.wantsKids),
+    drinking: tally((r) => r.drinking),
+    smoking: tally((r) => r.smoking),
+    language: tally((r) => r.language),
+    education: tally((r) => r.educationLevel),
+    lifestyle: tallyMany((r) => r.lifestylePreferences),
+    interests: tallyMany((r) => r.interests),
+    intents: tallyMany((r) => r.relationshipGoals),
+  };
+
+  if (facetsOnly) return Response.json({ profiles: [], facets });
+
+  /* PASS TWO: the viewer's own filters, applied to the room. */
+  const out = [];
+  for (const { row, hideDistance, hideActiveStatus } of visible) {
     const age = ageFromBirthDate(row.birthDate);
-    const isOnline =
-      row.lastActiveAt != null && nowMs - row.lastActiveAt.getTime() < ONLINE_WINDOW_MS;
+    const isNew = nowMs - row.createdAt.getTime() < NEW_MEMBER_MS;
 
+    if (photosRequired && !photoByUser.has(row.id)) continue;
     if (vax && vax !== "any" && row.vaccinationStatus !== vax) continue;
     if (verifiedOnly && !row.isVerified) continue;
-    if (onlineOnly && !isOnline) continue;
+    if (
+      onlineOnly &&
+      !(row.lastActiveAt != null && nowMs - row.lastActiveAt.getTime() < ONLINE_WINDOW_MS)
+    ) {
+      continue;
+    }
+    if (newOnly && !isNew) continue;
+    if (mixersOnly && !mixerByUser.has(row.id)) continue;
     if (genders.length && (!row.gender || !genders.includes(row.gender))) continue;
     if (Number.isFinite(ageMin) && (age === null || age < ageMin)) continue;
     if (Number.isFinite(ageMax) && (age === null || age > ageMax)) continue;
@@ -347,6 +462,7 @@ export async function GET(request: Request) {
     if (religions.length && !religions.includes(row.religion ?? "")) continue;
     if (marital.length && !marital.includes(row.maritalStatus ?? "")) continue;
     if (kids.length && !kids.includes(row.hasKids ?? "")) continue;
+    if (wantsKids.length && !wantsKids.includes(row.wantsKids ?? "")) continue;
     if (drinking.length && !drinking.includes(row.drinking ?? "")) continue;
     if (smoking.length && !smoking.includes(row.smoking ?? "")) continue;
     if (languages.length && !languages.includes(row.language ?? "")) continue;
@@ -357,7 +473,7 @@ export async function GET(request: Request) {
       distanceKm = Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude));
       if (distanceKm > distance) continue;
     } else if (haveOrigin) {
-      continue; // tight distance filter + unknown location → hide
+      continue; // tight distance filter + unknown location -> hide
     }
 
     const prompts = Array.isArray(row.promptAnswers)
@@ -374,7 +490,7 @@ export async function GET(request: Request) {
       city: row.city ?? "",
       occupation: row.occupation ?? "",
       headline: row.bio ?? "",
-      promptQuestion: firstPrompt?.prompt ?? "A value I will not compromise on…",
+      promptQuestion: firstPrompt?.prompt ?? "A value I will not compromise on\u2026",
       promptAnswer: firstPrompt?.answer ?? "",
       traits,
       values: row.values ?? [],
@@ -384,23 +500,26 @@ export async function GET(request: Request) {
       photo: resolvePhotoUrl(photoByUser.get(row.id)?.storagePath ?? ""),
       photos: (photosByUser.get(row.id) ?? []).map(resolvePhotoUrl),
       hasPhoto: photoByUser.has(row.id),
-      hideDistance: priv?.hideDistance ?? false,
-      hideActiveStatus: priv?.hideActiveStatus ?? false,
-      /* "In common" — honest shared-trait counts, never a compatibility %. */
+      hideDistance,
+      hideActiveStatus,
+      /* "In common" - honest shared traits, never a compatibility percentage. */
       inCommon: {
         values: (row.values ?? []).filter((v) => viewerValues.includes(v)),
         interests: (row.interests ?? []).filter((i) => viewerInterests.includes(i)),
         goals: (row.relationshipGoals ?? []).filter((g) => viewerGoals.includes(g)),
       },
       verified: row.isVerified,
-      isOnline,
+      /* Replaces the old boolean isOnline, which the deck rendered as the word
+         "Online" over a 24-hour window. */
+      presence: presenceOf(row.lastActiveAt, hideActiveStatus),
       vaccinationStatus: row.vaccinationStatus,
       distanceKm,
       likes: countByProfile.get(row.id) ?? 0,
       joinedAt: row.createdAt,
-      isNew: nowMs - row.createdAt.getTime() < 14 * 24 * 60 * 60 * 1000,
+      isNew,
+      openToMixers: mixerByUser.has(row.id),
     });
   }
 
-  return Response.json({ profiles: out });
+  return Response.json({ profiles: out, facets });
 }

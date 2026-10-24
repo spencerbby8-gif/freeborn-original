@@ -38,7 +38,10 @@ type Profile = {
   hideActiveStatus?: boolean;
   inCommon?: { values: string[]; interests: string[]; goals: string[] };
   verified: boolean;
-  isOnline: boolean;
+  /** "now" | "today" | "week" | null. Replaces a boolean the card labelled
+      "Online" while the window behind it was 24 hours. */
+  presence: string | null;
+  openToMixers?: boolean;
   vaccinationStatus: string;
   distanceKm: number | null;
   joinedAt: string | null;
@@ -798,12 +801,46 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     <div className="flex items-baseline gap-2">
                       <h2 className="font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
                       <span className="font-display text-[22px] text-gold-300">{profile.age}</span>
-                      {profile.isOnline && !profile.hideActiveStatus ? (
-                        <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-teal-300)]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-teal-300)]" />
-                          Online
-                        </span>
-                      ) : null}
+                      {(() => {
+                        /* The badge now says what the window behind it actually
+                           was. "Online" over 24 hours was a claim this data could
+                           not support; the route returns tiers and the label
+                           follows the tier. A member who hides their presence gets
+                           no badge, which is unchanged. */
+                        const label =
+                          profile.presence === "now"
+                            ? "Online now"
+                            : profile.presence === "today"
+                              ? "Active today"
+                              : profile.presence === "week"
+                                ? "Active this week"
+                                : null;
+                        if (!label) return null;
+                        const live = profile.presence === "now";
+                        return (
+                          <span
+                            title={
+                              live
+                                ? "Active within the last 15 minutes"
+                                : profile.presence === "today"
+                                  ? "Active within the last 24 hours"
+                                  : "Active within the last 7 days"
+                            }
+                            className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                              live
+                                ? "border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]"
+                                : "border-white/[0.12] bg-white/[0.05] text-[var(--color-sand)]"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                live ? "bg-[var(--color-teal-300)]" : "bg-[var(--color-sand)]"
+                              }`}
+                            />
+                            {label}
+                          </span>
+                        );
+                      })()}
                       {profile.isNew ? (
                         <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
                           New here

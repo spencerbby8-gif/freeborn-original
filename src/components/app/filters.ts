@@ -15,6 +15,14 @@ export type HomeFilters = {
   drinking: string[];
   smoking: string[];
   languages: string[];
+  wantsKids: string[];
+  /** Joined in the last 14 days. The badge already existed; the filter did not. */
+  newOnly: boolean;
+  /** Members who asked for a mixer in their city. */
+  mixersOnly: boolean;
+  /** "default" defers to the saved Require photos preference, so turning it off
+      here is a choice about this search and not a change to the account. */
+  photos: "default" | "yes" | "no";
 };
 
 export const DEFAULT_FILTERS: HomeFilters = {
@@ -34,6 +42,36 @@ export const DEFAULT_FILTERS: HomeFilters = {
   drinking: [],
   smoking: [],
   languages: [],
+  wantsKids: [],
+  newOnly: false,
+  mixersOnly: false,
+  photos: "default",
+};
+
+export type FacetCount = { stated: number; values: Record<string, number> };
+
+/** What the room actually contains, counted before any of the viewer's filters.
+ *  Sent by GET /api/profiles alongside the cards, and on its own when the request
+ *  carries facetsOnly=1. */
+export type RoomFacets = {
+  total: number;
+  withPhoto: number;
+  verified: number;
+  newMembers: number;
+  openToMixers: number;
+  activeToday: number;
+  gender: FacetCount;
+  religion: FacetCount;
+  marital: FacetCount;
+  kids: FacetCount;
+  wantsKids: FacetCount;
+  drinking: FacetCount;
+  smoking: FacetCount;
+  language: FacetCount;
+  education: FacetCount;
+  lifestyle: FacetCount;
+  interests: FacetCount;
+  intents: FacetCount;
 };
 
 export const FILTERS_KEY = "freeborn.filters";
@@ -83,7 +121,11 @@ export function hasActiveFilters(f: HomeFilters): boolean {
     f.kids.length > 0 ||
     f.drinking.length > 0 ||
     f.smoking.length > 0 ||
-    f.languages.length > 0
+    f.languages.length > 0 ||
+    f.wantsKids.length > 0 ||
+    f.newOnly ||
+    f.mixersOnly ||
+    f.photos !== "default"
   );
 }
 
@@ -108,6 +150,10 @@ export function buildProfileParams(
   if (f.drinking.length) params.set("drinking", f.drinking.join(","));
   if (f.smoking.length) params.set("smoking", f.smoking.join(","));
   if (f.languages.length) params.set("language", f.languages.join(","));
+  if (f.wantsKids.length) params.set("wantsKids", f.wantsKids.join(","));
+  if (f.newOnly) params.set("new", "1");
+  if (f.mixersOnly) params.set("mixers", "1");
+  if (f.photos !== "default") params.set("photos", f.photos === "yes" ? "1" : "0");
   // Only send a distance cap when it's a real cap (< 500). 500 = Anywhere.
   if (f.distance < 500 && origin) {
     params.set("distance", String(f.distance));
