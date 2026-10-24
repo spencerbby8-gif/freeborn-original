@@ -19,6 +19,7 @@ import {
   loadFilters,
   saveFilters,
   type HomeFilters,
+  type RoomFacets,
 } from "./filters";
 
 type Profile = {
@@ -78,6 +79,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
      Without this flag a signed-out visitor fell into the "You've met everyone
      here today" empty state, which told them something untrue about the room. */
   const [signedOut, setSignedOut] = useState(false);
+  /* What the room contains before this member's own filters. Without it an empty
+     deck cannot tell the difference between "nobody is here" and "your filters
+     removed everybody", and those need completely different sentences. */
+  const [facets, setFacets] = useState<RoomFacets | null>(null);
   const [openProfile, setOpenProfile] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ photos: string[]; name: string; start: number } | null>(null);
   const [filters, setFilters] = useState<HomeFilters>({ ...DEFAULT_FILTERS });
@@ -221,10 +226,12 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     if (res.ok) {
       const json = await res.json();
       setProfiles(json.profiles);
+      setFacets(json.facets ?? null);
       setIndex(0);
       setSignedOut(false);
     } else if (res.status === 401) {
       setProfiles([]);
+      setFacets(null);
       setSignedOut(true);
     }
     setLoading(false);
@@ -233,6 +240,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   useEffect(() => {
     void loadProfiles();
   }, [loadProfiles]);
+
+  const roomTotal = facets?.total ?? 0;
+  /* The room has people in it and the deck does not, so a filter removed all of
+     them. This includes the age window, distance and photo preference saved in
+     Settings, which hasActiveFilters cannot see because it only reads the filter
+     panel's own store. Before facets existed this case fell through to "You've
+     met everyone here today", which was simply not true: three members were in
+     the room while the deck said nobody was. */
+  const filteredOut = profiles.length === 0 && roomTotal > 0;
+  const panelFiltersOn = profiles.length === 0 && hasActiveFilters(filters);
 
   /** Undo the last swipe: deletes it (and any match it created), then the
      profile re-enters the deck — explicit recourse, never silent. */
@@ -623,33 +640,48 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       ) : !current ? (
         <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
           <p className="font-display text-xl font-semibold">
-            {profiles.length === 0 && hasActiveFilters(filters)
-              ? "No one matches those filters yet."
-              : filters.distance < 500
-                ? `No one within ${filters.distance} km right now.`
-                : "You've met everyone here today."}
+            {filteredOut
+              ? `${roomTotal} ${roomTotal === 1 ? "member is" : "members are"} in the room, and your filters leave none of them.`
+              : panelFiltersOn
+                ? "No one matches those filters yet."
+                : filters.distance < 500
+                  ? `No one within ${filters.distance} km right now.`
+                  : "You've met everyone here today."}
           </p>
-          <p className="mx-auto mt-2 max-w-[30ch] text-sm leading-6 text-[var(--color-mist)]">
-            {profiles.length === 0 && hasActiveFilters(filters)
-              ? "Loosen a filter, or check back as the room grows."
-              : filters.distance < 500
-                ? "The room is small and honest, so a tight radius can come up empty. Search everywhere below, or check back as your area grows."
-                : "New members join daily. Come back tomorrow, or walk the room again."}
+          <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-6 text-[var(--color-mist)]">
+            {filteredOut
+              ? panelFiltersOn
+                ? "Loosen a filter and they come back. The counts beside each option tell you how many members have actually answered it."
+                : "Not the filter panel this time. The age window, distance and photo preference you saved in Settings narrow this deck too, and one of them is narrower than the room."
+              : panelFiltersOn
+                ? "Loosen a filter, or check back as the room grows."
+                : filters.distance < 500
+                  ? "The room is small and honest, so a tight radius can come up empty. Search everywhere below, or check back as your area grows."
+                  : "New members join daily. Come back tomorrow, or walk the room again."}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (profiles.length === 0 && hasActiveFilters(filters)) {
-                setFilters({ ...DEFAULT_FILTERS });
-                saveFilters({ ...DEFAULT_FILTERS });
-              } else {
-                setIndex(0);
-              }
-            }}
-            className="btn-ghost mt-6 rounded-full px-7 py-3 text-sm font-bold"
-          >
-            {profiles.length === 0 && hasActiveFilters(filters) ? "Clear filters" : "Meet them again"}
-          </button>
+          {filteredOut && !panelFiltersOn ? (
+            <Link
+              href="/app/settings"
+              className="btn-ghost mt-6 inline-block rounded-full px-7 py-3 text-sm font-bold"
+            >
+              Open discovery settings
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (panelFiltersOn) {
+                  setFilters({ ...DEFAULT_FILTERS });
+                  saveFilters({ ...DEFAULT_FILTERS });
+                } else {
+                  setIndex(0);
+                }
+              }}
+              className="btn-ghost mt-6 rounded-full px-7 py-3 text-sm font-bold"
+            >
+              {panelFiltersOn ? "Clear filters" : "Meet them again"}
+            </button>
+          )}
           {profiles.length === 0 && filters.distance < 500 ? (
             <button
               type="button"
