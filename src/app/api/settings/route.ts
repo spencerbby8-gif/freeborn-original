@@ -11,7 +11,11 @@ export async function GET(request: Request) {
     supabase
       .from("user_profiles")
       .select(
-        "display_name, city, region, bio, occupation, education, discoverable, is_verified, onboarding_stage"
+        /* message_privacy and discover_privacy were read by the response below
+           but never selected, so they always answered "everyone" no matter what
+           the member had chosen. Since the Profile tab saves the whole object
+           back, that wrong answer was then written over the real one. */
+        "display_name, city, region, bio, occupation, education, discoverable, is_verified, onboarding_stage, message_privacy, discover_privacy, deal_breakers"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -39,6 +43,9 @@ export async function GET(request: Request) {
       stage: profile.onboarding_stage ?? "account_created",
       messagePrivacy: profile.message_privacy ?? "everyone",
       discoverPrivacy: profile.discover_privacy ?? "everyone",
+      dealBreakers: Array.isArray(profile.deal_breakers)
+        ? (profile.deal_breakers as string[])
+        : [],
     },
     discovery: {
       ageMin: prefs.age_min ?? 22,
@@ -102,6 +109,17 @@ export async function POST(request: Request) {
       }
       if (typeof profile.discoverPrivacy === "string" && PRIVACY_VALUES.has(profile.discoverPrivacy)) {
         patch.discover_privacy = profile.discoverPrivacy;
+      }
+      /* Deal breakers. The canonical vocabulary lives in onboarding-data.ts and
+         the client offers it, but a member's own words are accepted too: a
+         boundary nobody thought to list is still a boundary. Bounded to 12 short
+         strings so this cannot become a second bio. */
+      if (Array.isArray(profile.dealBreakers)) {
+        patch.deal_breakers = (profile.dealBreakers as unknown[])
+          .filter((x): x is string => typeof x === "string")
+          .map((x) => x.trim().slice(0, 60))
+          .filter(Boolean)
+          .slice(0, 12);
       }
       const { error } = await supabase.from("user_profiles").update(patch).eq("id", user.id);
       if (error) throw error;

@@ -6,6 +6,7 @@ import { openVerifyFlow } from "./verify-modal";
 import { FreebornSelect } from "@/components/select-menu";
 import { showToast } from "@/components/toast-host";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { dealBreakerOptions } from "@/lib/onboarding-data";
 
 /**
  * Freeborn mixers — real people in real places. Members register interest in
@@ -192,6 +193,7 @@ type Settings = {
     stage: string;
     messagePrivacy: string;
     discoverPrivacy: string;
+    dealBreakers: string[];
   };
   discovery: {
     ageMin: number;
@@ -815,7 +817,17 @@ export function SettingsView() {
       const res = await fetch("/api/settings", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (res.ok) setSettings(await res.json());
+      if (res.ok) {
+        const json = (await res.json()) as Settings;
+        /* Normalised here rather than at each use: the Profile tab saves this
+           whole object back, so a missing array has to become an empty one before
+           it can ever be posted as something else. */
+        json.profile = {
+          ...json.profile,
+          dealBreakers: Array.isArray(json.profile?.dealBreakers) ? json.profile.dealBreakers : [],
+        };
+        setSettings(json);
+      }
     })();
     (async () => {
       try {
@@ -1026,6 +1038,46 @@ export function SettingsView() {
               />
               <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.bio.length}/500</span>
             </Field>
+            <div
+              className="fb-card"
+              data-search="deal breakers boundaries non negotiables limits standards"
+            >
+              <p className="fb-eyebrow">Deal breakers</p>
+              <p className="mt-2 text-[13px] leading-6 text-[var(--color-mist)]">
+                What you will not compromise on. Shown on your profile in full, so
+                nobody has to learn it three weeks in. Pick up to 12.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {dealBreakerOptions.map((opt) => {
+                  const on = p.dealBreakers.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={!on && p.dealBreakers.length >= 12}
+                      onClick={() =>
+                        setP({
+                          dealBreakers: on
+                            ? p.dealBreakers.filter((x) => x !== opt)
+                            : [...p.dealBreakers, opt],
+                        })
+                      }
+                      className={`rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition disabled:opacity-35 ${
+                        on
+                          ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)]"
+                          : "border-white/10 bg-white/[0.02] text-[var(--color-sand)] hover:border-white/25"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-right text-[11px] font-semibold text-[var(--color-ash)] tabular-nums">
+                {p.dealBreakers.length}/12 selected
+              </p>
+            </div>
             <SaveRow
               state={profileState}
               onSave={async () => {
