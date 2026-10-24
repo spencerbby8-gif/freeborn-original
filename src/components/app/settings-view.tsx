@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
 import { FreebornSelect } from "@/components/select-menu";
@@ -318,6 +318,70 @@ function SaveRow({ state, onSave }: { state: "idle" | "saving" | "saved" | "erro
       ) : null}
       {state === "error" ? (
         <span className="animate-scale-in text-[12px] font-bold text-[var(--color-danger)]">Couldn&apos;t save. Please try again.</span>
+      ) : null}
+    </div>
+  );
+}
+
+/* A card whose secondary controls stay folded until asked for. The Account tab
+   used to hold two permanently expanded forms four inputs deep, plus a
+   destructive action, all above the fold of a screen whose first job is to show
+   a member their own email address. */
+function Disclosure({
+  title,
+  summary,
+  search,
+  tone = "default",
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary: string;
+  search?: string;
+  tone?: "default" | "danger";
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const panelId = useId();
+  const danger = tone === "danger";
+  return (
+    <div
+      className={`fb-card ${danger ? "border-red-400/25 bg-red-500/[0.05]" : ""}`}
+      data-search={search}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          <span className={`fb-row-title ${danger ? "text-red-200" : ""}`}>{title}</span>
+          <span className="fb-row-desc">{summary}</span>
+        </span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          className={`shrink-0 text-[var(--color-ash)] transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open ? (
+        <div id={panelId} className="mt-4 border-t border-white/[0.06] pt-4">
+          {children}
+        </div>
       ) : null}
     </div>
   );
@@ -1204,6 +1268,11 @@ export function SettingsView() {
             <div className="grid gap-3 sm:grid-cols-2">
               <ToggleRow label="Verified members only" body="Only profiles with trust verification." value={d.verifiedOnly} onChange={(v) => setD({ verifiedOnly: v })} />
               <ToggleRow label="Require photos" body="Hide profiles without at least one photo." value={d.photosRequired} onChange={(v) => setD({ photosRequired: v })} />
+            {/* Moved here from the Account tab. Registering interest in a mixer is
+                about who you meet and where, and it was sitting between data
+                export and account deletion, which is not where anyone looks for
+                it and not what it is about. */}
+            <MixerCard defaultCity={settings?.profile.city ?? ""} />
             </div>
             <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4" data-search="vaccination vaccine vax status preference filter">
               <p className="text-[13px] font-black text-[var(--color-pearl)]">Vaccination preference</p>
@@ -1440,38 +1509,39 @@ export function SettingsView() {
               <p className="mt-1 text-[14px] font-medium text-[var(--color-mist)] [overflow-wrap:anywhere]">{settings.account.email}</p>
             </div>
 
-            {/* Change email */}
-            <div className="fb-card" data-search="change email new email address confirmation">
-              <p className="fb-eyebrow">Change email</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                We&apos;ll send a confirmation link to the new address before it takes effect.
-              </p>
-              <div className="mt-3 flex gap-2">
+            <Disclosure
+              title="Change email"
+              summary="A confirmation link goes to the new address before it takes effect."
+              search="change email new email address confirmation"
+            >
+              <div className="flex gap-2">
                 <input
                   value={emailNew}
                   onChange={(e) => setEmailNew(e.target.value)}
                   type="email"
                   placeholder="new@email.com"
-                  className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                  className="fb-input flex-1"
                 />
                 <button
                   type="button"
                   disabled={busy || !emailNew.trim()}
                   onClick={() => void accountAction({ action: "change-email", newEmail: emailNew.trim() }).then((ok) => ok && setEmailNew(""))}
-                  className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+                  className="fb-btn fb-btn-sm shrink-0 bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
                 >
                   Update
                 </button>
               </div>
-            </div>
+            </Disclosure>
 
-            {/* Change password */}
-            <div className="fb-card" data-search="change password new password credentials security">
-              <p className="fb-eyebrow">Change password</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                At least {MIN_PASSWORD_LENGTH} characters. Use one you don&apos;t reuse
-                anywhere else. We ask for your current password first, so a stolen
-                session cannot quietly become a stolen account.
+            <Disclosure
+              title="Change password"
+              summary={`At least ${MIN_PASSWORD_LENGTH} characters, and your current password first.`}
+              search="change password new password credentials security"
+            >
+              <p className="fb-caption">
+                Use one you don&apos;t reuse anywhere else. We ask for your current
+                password first, so a stolen session cannot quietly become a stolen
+                account.
               </p>
               <div className="mt-3 grid gap-2">
                 <input
@@ -1480,7 +1550,7 @@ export function SettingsView() {
                   type="password"
                   autoComplete="current-password"
                   placeholder="Current password"
-                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                  className="fb-input"
                 />
                 <input
                   value={pwdNew}
@@ -1488,7 +1558,7 @@ export function SettingsView() {
                   type="password"
                   autoComplete="new-password"
                   placeholder="New password"
-                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                  className="fb-input"
                 />
                 <input
                   value={pwdConfirm}
@@ -1496,7 +1566,7 @@ export function SettingsView() {
                   type="password"
                   autoComplete="new-password"
                   placeholder="Repeat new password"
-                  className="min-h-[44px] rounded-xl border border-white/10 bg-white/[0.03] px-4 text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-white/25"
+                  className="fb-input"
                 />
                 <button
                   type="button"
@@ -1507,20 +1577,27 @@ export function SettingsView() {
                     pwdNew !== pwdConfirm
                   }
                   onClick={() => void changePassword()}
-                  className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+                  className="fb-btn fb-btn-sm bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
                 >
                   Save new password
                 </button>
               </div>
-            </div>
+            </Disclosure>
 
-            {/* Sessions */}
-            <div className="fb-card" data-search="sessions devices sign out everywhere log out active sign ins">
-              <p className="fb-eyebrow">Sessions</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                {accountFacts
-                  ? `${accountFacts.activeSignIns} active ${accountFacts.activeSignIns === 1 ? "sign-in" : "sign-ins"} on file. Signing out everywhere ends this session and every other device.`
-                  : "Ends this session and every other device signed into your account."}
+            <Disclosure
+              title="Sessions"
+              summary={
+                accountFacts
+                  ? `${accountFacts.activeSignIns} active ${
+                      accountFacts.activeSignIns === 1 ? "sign-in" : "sign-ins"
+                    } on file.`
+                  : "Every device signed into your account."
+              }
+              search="sessions devices sign out everywhere log out active sign ins"
+            >
+              <p className="fb-caption">
+                Signing out everywhere ends this session and every other device at
+                once. You will need your password to come back in.
               </p>
               <button
                 type="button"
@@ -1529,21 +1606,21 @@ export function SettingsView() {
               >
                 Sign out of all devices
               </button>
-            </div>
+            </Disclosure>
 
             <DataCard />
 
-            {/* Danger zone */}
-            <div className="fb-card border-red-400/25 bg-red-500/[0.05]" data-search="danger zone deactivate hide pause account">
-              <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Danger zone</p>
-              <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
-                Deactivating hides you from Discover immediately. Matches and history stay saved.
-              </p>
+            <Disclosure
+              title="Danger zone"
+              summary="Deactivating hides you from Discover immediately. Matches and history stay saved."
+              search="danger zone deactivate hide pause account"
+              tone="danger"
+            >
               {!confirmDeactivate ? (
                 <button
                   type="button"
                   onClick={() => setConfirmDeactivate(true)}
-                  className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
+                  className="fb-btn fb-btn-sm border border-red-400/30 bg-red-500/10 font-bold text-red-200 hover:bg-red-500/20"
                 >
                   Deactivate my account
                 </button>
@@ -1566,11 +1643,9 @@ export function SettingsView() {
                   </button>
                 </div>
               )}
-            </div>
+            </Disclosure>
 
             <DeleteAccount />
-
-            <MixerCard defaultCity={settings?.profile.city ?? ""} />
             <SupportCard />
 
             <form method="POST" action="/auth/signout">
