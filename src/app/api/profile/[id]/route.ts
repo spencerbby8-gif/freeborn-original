@@ -4,6 +4,7 @@ import { resolvePhotoUrl } from "@/lib/photo-url";
 import { getMember } from "@/lib/app-auth";
 import {
   blockedUsers,
+  eventInterests,
   matches,
   messages,
   profilePhotos,
@@ -280,6 +281,61 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const hideDistance = priv?.hideDistance ?? false;
   const hideActiveStatus = priv?.hideActiveStatus ?? false;
 
+  /* Truthful presence. POST /api/heartbeat writes lastActiveAt and is throttled
+     to one real write per member per 2 minutes, so a 15-minute "now" window is
+     honest rather than optimistic. The deck labels a 24-hour window "Online",
+     which is not what that word means; this route does not repeat that. A member
+     who hides their active status gets no presence at all, and neither does
+     anyone reading them. */
+  const presence = (() => {
+    /* "hidden" is returned as its own value rather than collapsed into null: a
+       member who chose to hide their presence should read as having made a
+       choice, not as having been away for a week. */
+    if (hideActiveStatus) return "hidden";
+    if (!row.lastActiveAt) return null;
+    const idle = Date.now() - row.lastActiveAt.getTime();
+    if (idle < 15 * 60 * 1000) return "now";
+    if (idle < 24 * 60 * 60 * 1000) return "today";
+    if (idle < 7 * 24 * 60 * 60 * 1000) return "week";
+    return null;
+  })();
+
+  /* Open to meeting in person. eventInterests holds at most one city per member,
+     written when they ask for a mixer there, so this is a stated intention and
+     not an inference. */
+  const [mixer] = await db
+    .select({ city: eventInterests.city })
+    .from(eventInterests)
+    .where(eq(eventInterests.userId, id))
+    .limit(1);
+
+  /* Shared ground, computed here rather than in the browser so the viewer's own
+     values, interests and lifestyle never travel to the client. Only for someone
+     else's profile: being told what you have in common with yourself is noise.
+     Sent as words, not counts, because "3 in common" says nothing to read. */
+  let inCommon: { values: string[]; interests: string[]; lifestyle: string[] } | null = null;
+  if (row.id !== viewer.id) {
+    const [mine] = await db
+      .select({
+        values: userProfiles.values,
+        interests: userProfiles.interests,
+        lifestyle: userProfiles.lifestylePreferences,
+      })
+      .from(userProfiles)
+      .where(eq(userProfiles.id, viewer.id))
+      .limit(1);
+    const overlap = (theirs: unknown, mineValue: unknown) => {
+      const left = Array.isArray(theirs) ? (theirs as string[]) : [];
+      const right = new Set(Array.isArray(mineValue) ? (mineValue as string[]) : []);
+      return left.filter((x) => right.has(x));
+    };
+    inCommon = {
+      values: overlap(row.values, mine?.values),
+      interests: overlap(row.interests, mine?.interests),
+      lifestyle: overlap(row.lifestylePreferences, mine?.lifestyle),
+    };
+  }
+
   return Response.json({
     profile: {
       id: row.id,
@@ -291,6 +347,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       education: row.education ?? "",
       educationLevel: row.educationLevel ?? "",
       bio: row.bio ?? "",
+      gender: row.gender ?? "",
+      dealBreakers: Array.isArray(row.dealBreakers) ? row.dealBreakers : [],
       language: row.language ?? "",
       religion: row.religion ?? "",
       maritalStatus: row.maritalStatus ?? "",
@@ -320,6 +378,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
           ? Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude))
           : null,
       hideActiveStatus,
+      presence,
+      mixerCity: mixer?.city ?? null,
+      inCommon,
       visibility,
     },
   });

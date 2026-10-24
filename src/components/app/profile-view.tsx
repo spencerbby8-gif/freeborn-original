@@ -7,6 +7,7 @@ import { VerifyBadge } from "@/components/verify-badge";
 import { PhotoLightbox } from "./photo-lightbox";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { prettyText } from "@/lib/pretty-text";
+import { genderOptions } from "@/lib/onboarding-data";
 import { showToast } from "@/components/toast-host";
 
 const REPORT_REASONS: Array<{ value: string; label: string }> = [
@@ -52,6 +53,14 @@ type FullProfile = {
   birthMonthYear: string;
   distanceKm: number | null;
   messageRestricted?: string | null;
+  gender: string;
+  dealBreakers: string[];
+  /** "now" | "today" | "week" | "hidden" | null when idle beyond 7 days. */
+  presence: string | null;
+  /** City they asked for a mixer in, if they asked for one. */
+  mixerCity: string | null;
+  /** Computed server-side from the viewer's own row; null on your own profile. */
+  inCommon?: { values: string[]; interests: string[]; lifestyle: string[] } | null;
   /** Only present when this card was opened as "View as others". */
   visibility?: { visible: boolean; reasons: string[] } | null;
 };
@@ -87,11 +96,49 @@ const VAX_LABELS: Record<string, { label: string; cls: string }> = {
   prefer_not_to_say: { label: "Private on vaccines", cls: "border-white/10 bg-white/[0.03] text-[var(--color-mist)]" },
 };
 
+/* One source of truth: the same options onboarding offers, not a second copy
+   that can drift from it. */
+const GENDER_LABELS: Record<string, string> = Object.fromEntries(
+  genderOptions.map((g) => [g.value, g.label])
+);
+
+/* The wording has to match the window that produced it, which is the mistake the
+   deck makes when it calls a 24-hour window "Online". /api/heartbeat is throttled
+   to one real write per member per 2 minutes, so a 15-minute "now" is honest.
+   "hidden" is its own value rather than a null, because a member who chose to
+   hide their presence should read as having chosen, not as having been away. */
+const PRESENCE_LABELS: Record<string, { short: string; long: string }> = {
+  now: { short: "Now", long: "Active within the last 15 minutes" },
+  today: { short: "Today", long: "Active within the last 24 hours" },
+  week: { short: "This week", long: "Active within the last 7 days" },
+  hidden: { short: "Private", long: "They hide their active status" },
+};
+
 function Chips({ items }: { items: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => (
         <span key={item} className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-semibold text-[var(--color-sand)]">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* One line of shared ground: a label, then the actual words you both said. Words
+   rather than a count, because "3 in common" is a score and this is not one. */
+function SharedRow({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+      <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
+        {label}
+      </p>
+      {items.map((item) => (
+        <span
+          key={item}
+          className="rounded-full border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.08] px-3 py-1 text-[12px] font-bold text-[var(--color-gold-300)]"
+        >
           {item}
         </span>
       ))}
@@ -204,6 +251,12 @@ export function ProfileView({
   const photos = profile?.photos ?? [];
   const clampIdx = (i: number) => Math.max(0, Math.min(photos.length - 1, i));
   const vax = profile ? VAX_LABELS[profile.vaccinationStatus] ?? VAX_LABELS.prefer_not_to_say : null;
+  const presence = profile?.presence ? PRESENCE_LABELS[profile.presence] ?? null : null;
+  const sharedCount = profile?.inCommon
+    ? profile.inCommon.values.length +
+      profile.inCommon.interests.length +
+      profile.inCommon.lifestyle.length
+    : 0;
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   /* --- Member actions menu (3 dots) ------------------------------------------- */
@@ -622,7 +675,12 @@ export function ProfileView({
                     {/* Badge lives ONLY at the top-right of the photo (see above) */}
                   </div>
                   <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
-                    {profile.occupation ? `${profile.occupation} · ` : ""}{profile.city}{profile.region ? `, ${profile.region}` : ""}
+                    {profile.gender
+                      ? `${GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)} · `
+                      : ""}
+                    {profile.occupation ? `${profile.occupation} · ` : ""}
+                    {profile.city}
+                    {profile.region ? `, ${profile.region}` : ""}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {profile.memberSince ? (
@@ -648,6 +706,29 @@ export function ProfileView({
               </div>
             ) : null}
 
+            {profile.inCommon && sharedCount > 0 ? (
+              <div className="rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">
+                  Ground you already share
+                </p>
+                <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
+                  Not a compatibility score. These are the things you both said,
+                  so a first message has somewhere honest to start.
+                </p>
+                <div className="mt-4 space-y-3">
+                  {profile.inCommon.values.length ? (
+                    <SharedRow label="Values" items={profile.inCommon.values} />
+                  ) : null}
+                  {profile.inCommon.lifestyle.length ? (
+                    <SharedRow label="How they live" items={profile.inCommon.lifestyle} />
+                  ) : null}
+                  {profile.inCommon.interests.length ? (
+                    <SharedRow label="Interests" items={profile.inCommon.interests} />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             {/* Trust row */}
             <div className="grid grid-cols-3 gap-2.5">
               <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
@@ -663,12 +744,27 @@ export function ProfileView({
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Match rate</p>
               </div>
               <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                  {profile.conversationCount > 0 ? "Active" : "Quiet"}
+                <p
+                  className="font-display text-[22px] font-semibold text-[var(--color-pearl)]"
+                  title={presence ? presence.long : "Last active more than 7 days ago"}
+                >
+                  {presence ? presence.short : "7+ days"}
                 </p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">In the room</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Last active</p>
               </div>
             </div>
+
+            {profile.verified ? (
+              <div className="rounded-[20px] border border-[var(--color-teal-300)]/25 bg-[var(--color-teal-300)]/[0.05] p-4">
+                <p className="text-[12.5px] leading-[1.75] text-[var(--color-mist)]">
+                  <strong className="font-black text-[var(--color-pearl)]">Identity checked.</strong>{" "}
+                  A pose-mimic selfie was compared with these photos by two
+                  independent engines, which confirmed a live person matching
+                  them. No ID, no documents, and no biometric template is built
+                  from the face.
+                </p>
+              </div>
+            ) : null}
 
             {/* Stances */}
             <div className="flex flex-wrap gap-2">
@@ -696,6 +792,27 @@ export function ProfileView({
               </Block>
             ))}
 
+            {profile.dealBreakers.length > 0 ? (
+              <Block title="What they will not compromise on">
+                <div className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+                  <p className="text-[12.5px] leading-6 text-[var(--color-mist)]">
+                    Boundaries stated up front, so nobody has to learn them the
+                    hard way three weeks in.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {profile.dealBreakers.map((d) => (
+                      <span
+                        key={d}
+                        className="rounded-full border border-red-300/20 bg-red-400/[0.06] px-3.5 py-1.5 text-[12px] font-semibold text-[#f2c8c2]"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </Block>
+            ) : null}
+
             {profile.values.length > 0 ? (
               <Block title="Values they stand on">
                 <Chips items={profile.values} />
@@ -714,9 +831,46 @@ export function ProfileView({
               </Block>
             ) : null}
 
+            {profile.mixerCity ? (
+              <div className="flex items-start gap-3 rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+                <svg
+                  className="mt-0.5 shrink-0 text-[var(--color-gold-300)]"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
+                  <circle cx="9.5" cy="7" r="3.2" />
+                  <path d="M22 21v-2a4 4 0 00-3-3.87M16.5 3.6a4 4 0 010 7.75" />
+                </svg>
+                <div>
+                  <p className="text-[13px] font-bold text-[var(--color-pearl)]">
+                    Open to meeting in person in {profile.mixerCity}
+                  </p>
+                  <p className="mt-1 text-[12px] leading-5 text-[var(--color-mist)]">
+                    They asked for a Freeborn mixer there. A venue is only ever
+                    named once it has agreed in writing, and the agreement is
+                    recorded before anything is announced.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             {/* The details — a clean, editorial register */}
             {(() => {
               const details = [
+                {
+                  label: "Gender",
+                  value: profile.gender
+                    ? GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)
+                    : "",
+                },
                 { label: "Born", value: profile.birthMonthYear },
                 { label: "Height", value: profile.heightCm ? `${profile.heightCm} cm` : "" },
                 { label: "Language", value: profile.language },
@@ -726,7 +880,13 @@ export function ProfileView({
                 { label: "Wants kids", value: profile.wantsKids },
                 { label: "Drinking", value: profile.drinking },
                 { label: "Smoking", value: profile.smoking },
-                { label: "Education", value: profile.educationLevel || profile.education },
+                /* Level and institution are different facts and the old
+                   `educationLevel || education` threw one of them away. */
+                {
+                  label: "Education",
+                  value: profile.educationLevel ? prettyText(profile.educationLevel) : "",
+                },
+                { label: "Studied at", value: profile.education },
               ].filter((d) => d.value);
               if (!details.length) return null;
               return (
