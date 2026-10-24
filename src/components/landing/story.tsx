@@ -1,14 +1,27 @@
 import { Reveal } from "@/components/reveal";
 import { ScenePanel } from "@/components/landing/member-portrait";
 
+/* Every line here is a claim that was checked against the code before it was
+   written, because a scrolling ribbon of mood words is decoration and this page
+   already says it ships rules rather than slogans.
+     no paywall to see who liked you   GET /api/likes has no paid tier
+     pass is final                     profiles/route.ts hides every swipe, pass
+                                       included, and only a deliberate reset returns one
+     six photos, no more               MAX_PHOTOS = 6, enforced in the photo route
+     birth dates stay private          the discovery payload carries an age, never a
+                                       birth date, and no email at all
+     deal breakers stated up front     collected in Settings, rendered on the profile
+     18+ before discovery opens        onboarding rejects an under-18 birth date
+     filters that actually filter      sixteen parameters the deck sends and the
+                                       route reads, each counted against the room */
 const ribbon = [
-  "Date like you mean it",
-  "Informed choice",
-  "Natural health",
-  "Intentional love",
-  "Health autonomy",
-  "Roots & resilience",
-  "Lasting commitment",
+  "No paywall to see who liked you",
+  "Pass is final",
+  "Six photos, no more",
+  "Birth dates stay private",
+  "Deal breakers stated up front",
+  "18+ before discovery opens",
+  "Filters that actually filter",
 ];
 
 export function Marquee() {

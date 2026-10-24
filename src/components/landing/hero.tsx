@@ -168,7 +168,7 @@ export function Hero() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ember opacity-60" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-ember" />
                   </span>
-                  Values-aligned dating · Est. for the intentional
+                  Values-aligned dating · No paywall · 18+
                 </span>
               </span>
             </div>
@@ -247,7 +247,9 @@ export function Hero() {
                   ))}
                 </ul>
                 <p className="mt-6 text-[12px] tracking-wide text-ash">
-                  Free to join · See who liked you, free · Verified-only discovery · Clear intentions from the first screen.
+                  Free to join and free to stay. Every like is visible, discovery
+                  narrows to what you actually asked for, and intentions are on the
+                  card before the first message.
                 </p>
               </span>
             </div>

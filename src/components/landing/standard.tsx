@@ -21,7 +21,14 @@ const pillars = [
 const ledger = [
   { stat: "18+", label: "age-gated membership before discovery opens" },
   { stat: "6", label: "profile photos maximum, keeping presentation intentional" },
-  { stat: "3", label: "relationship intentions highlighted on each profile" },
+  /* Was "3 relationship intentions highlighted on each profile". There is no cap
+     of three: relationshipGoalOptions has four entries, onboarding stores an
+     unbounded array, and the profile maps every one of them. Production holds
+     members with zero, one and two. Four is the number the product ships with. */
+  {
+    stat: "4",
+    label: "relationship intentions to choose from, and every one a member picks is shown",
+  },
   { stat: "0", label: "birth dates, emails, or account providers shown publicly" },
 ];
 
