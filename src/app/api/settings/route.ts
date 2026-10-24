@@ -1,4 +1,5 @@
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import { dbErrorMessage, normalizeDisplayName } from "@/lib/field-rules";
 
 export async function GET(request: Request) {
   const supabase = await createSupabaseClientForApi(request);
@@ -96,7 +97,16 @@ export async function POST(request: Request) {
   try {
     if (profile) {
       const patch: Record<string, unknown> = {};
-      if (typeof profile.displayName === "string") patch.display_name = profile.displayName.slice(0, 40);
+      /* Was `.slice(0, 40)`, which truncated but never checked the floor. The
+         production CHECK allows NULL or 2..40, so an empty string violated it and
+         the member got a 500 reading "Unknown error". Empty now means "leave it
+         alone", which is what a member with no name yet needs in order to save
+         anything else on this tab at all. */
+      if (profile.displayName !== undefined) {
+        const name = normalizeDisplayName(profile.displayName);
+        if (!name.ok) return Response.json({ error: name.error }, { status: 400 });
+        if (name.write) patch.display_name = name.value;
+      }
       if (typeof profile.city === "string") patch.city = profile.city.slice(0, 60);
       if (typeof profile.region === "string") patch.region = profile.region.slice(0, 60);
       if (typeof profile.bio === "string") patch.bio = profile.bio.slice(0, 500);
@@ -175,7 +185,13 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: `Couldn't save settings: ${message}` }, { status: 500 });
+    /* A PostgREST failure is a plain object, so `err instanceof Error` was false
+       for every database refusal and each one arrived as "Unknown error". That is
+       how the display_name CHECK violation survived: the member saw a failure
+       with no reason and the response carried none either. */
+    return Response.json(
+      { error: `Couldn't save settings: ${dbErrorMessage(err)}` },
+      { status: 500 }
+    );
   }
 }

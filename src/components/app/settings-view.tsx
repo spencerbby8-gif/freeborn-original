@@ -877,6 +877,13 @@ export function SettingsView() {
   const n = settings.notifications;
   const v = settings.privacy;
 
+  /* One character is refused by the production CHECK on display_name and now by
+     the API with a 400 that says why. Telling the member here beats telling them
+     after a request has already failed. Empty is allowed and means "keep the name
+     you have", because a member who never set one still has to be able to save
+     the rest of this tab. */
+  const nameTooShort = p.displayName.trim().length === 1;
+
   const setP = (patch: Partial<typeof p>) => setSettings({ ...settings, profile: { ...p, ...patch } });
   const setD = (patch: Partial<typeof d>) => setSettings({ ...settings, discovery: { ...d, ...patch } });
   const setN = async (key: keyof typeof n, value: boolean) => {
@@ -1012,7 +1019,13 @@ export function SettingsView() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Display name" search="display name what people call you">
                 <input className={inputClass} value={p.displayName} maxLength={40} onChange={(e) => setP({ displayName: e.target.value })} />
-                <span className="block text-right text-[11px] text-[var(--color-ash)] tabular-nums">{p.displayName.length}/40</span>
+                <span
+                  className={`block text-right text-[11px] font-semibold tabular-nums ${
+                    nameTooShort ? "text-red-300" : "text-[var(--color-ash)]"
+                  }`}
+                >
+                  {nameTooShort ? "Needs 2 characters, or clear it" : `${p.displayName.length}/40`}
+                </span>
               </Field>
               <Field label="Occupation" search="occupation job work">
                 <input className={inputClass} value={p.occupation} maxLength={80} placeholder="Optional" onChange={(e) => setP({ occupation: e.target.value })} />
@@ -1081,6 +1094,14 @@ export function SettingsView() {
             <SaveRow
               state={profileState}
               onSave={async () => {
+                if (nameTooShort) {
+                  showToast({
+                    tone: "error",
+                    title: "That name is too short",
+                    body: "Use at least 2 characters, or clear the field to keep the name you have.",
+                  });
+                  return;
+                }
                 setProfileState("saving");
                 const ok = await post({ profile: p });
                 setProfileState(ok ? "saved" : "error");

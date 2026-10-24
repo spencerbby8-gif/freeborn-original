@@ -4,6 +4,7 @@ import { matches, messages, userSwipes } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { ageFromBirthDate } from "@/lib/age";
+import { normalizeDisplayName, normalizeHeightCm } from "@/lib/field-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -208,9 +209,19 @@ export async function POST(request: Request) {
   for (const key of Object.keys(COLUMN)) {
     const value = (body as Record<string, unknown>)[key];
     if (value === undefined) continue;
-    if (key === "heightCmProfile") {
-      const n = Number(value);
-      patch[COLUMN[key]] = Number.isFinite(n) && n > 0 ? n : null;
+    if (key === "displayName") {
+      /* Same CHECK, same failure, second route. Both writers now share one rule
+         in src/lib/field-rules.ts rather than each inventing one. */
+      const name = normalizeDisplayName(value);
+      if (!name.ok) return Response.json({ error: name.error }, { status: 400 });
+      if (name.write) patch[COLUMN[key]] = name.value;
+    } else if (key === "heightCmProfile") {
+      /* height_cm is CHECKed to 120..230 in production; height_cm_profile, the
+         column this route actually writes, has no CHECK at all, so `n > 0`
+         accepted a height of 4 cm and the profile then showed it to everyone. */
+      const height = normalizeHeightCm(value);
+      if (!height.ok) return Response.json({ error: height.error }, { status: 400 });
+      patch[COLUMN[key]] = height.write ? height.value : null;
     } else if (typeof value === "string") {
       patch[COLUMN[key]] = value.trim();
     }
