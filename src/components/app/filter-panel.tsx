@@ -10,6 +10,7 @@ import {
   type RoomFacets,
 } from "./filters";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import {
   genderOptions,
   interestOptions,
@@ -251,6 +252,7 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
   const [f, setF] = useState<HomeFilters>({ ...DEFAULT_FILTERS });
   const [saved, setSaved] = useState(false);
   const [facets, setFacets] = useState<RoomFacets | null>(null);
+  const units = useDistanceUnits();
 
   useEffect(() => {
     if (!open) return;
@@ -371,7 +373,7 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
           {/* Distance */}
           <div className="space-y-3">
             <SectionLabel>Maximum distance</SectionLabel>
-            <Slider label="Distance" value={f.distance} min={5} max={500} display={f.distance >= 500 ? "Anywhere" : `${f.distance} km`} onChange={(v) => set({ distance: v })} />
+            <Slider label="Distance" value={f.distance} min={5} max={500} display={f.distance >= 500 ? "Anywhere" : formatDistance(f.distance, units)} onChange={(v) => set({ distance: v })} />
             <p className="text-[11px] leading-4 text-[var(--color-ash)]">&quot;Anywhere&quot; shows everyone regardless of location.</p>
           </div>
 

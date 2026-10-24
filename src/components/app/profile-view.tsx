@@ -8,6 +8,7 @@ import { PhotoLightbox } from "./photo-lightbox";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { prettyText } from "@/lib/pretty-text";
 import { genderOptions } from "@/lib/onboarding-data";
+import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import { showToast } from "@/components/toast-host";
 
 const REPORT_REASONS: Array<{ value: string; label: string }> = [
@@ -252,6 +253,7 @@ export function ProfileView({
   const clampIdx = (i: number) => Math.max(0, Math.min(photos.length - 1, i));
   const vax = profile ? VAX_LABELS[profile.vaccinationStatus] ?? VAX_LABELS.prefer_not_to_say : null;
   const presence = profile?.presence ? PRESENCE_LABELS[profile.presence] ?? null : null;
+  const units = useDistanceUnits();
   const sharedCount = profile?.inCommon
     ? profile.inCommon.values.length +
       profile.inCommon.interests.length +
@@ -698,7 +700,7 @@ export function ProfileView({
                           <path d="M12 21s-7-5.6-7-11a7 7 0 0114 0c0 5.4-7 11-7 11z" />
                           <circle cx="12" cy="10" r="2.5" />
                         </svg>
-                        {profile.distanceKm} km away
+                        {formatDistance(profile.distanceKm, units)} away
                       </p>
                     ) : null}
                   </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { UnvaxBadge } from "@/components/unvax-badge";
@@ -241,6 +242,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     void loadProfiles();
   }, [loadProfiles]);
 
+  const units = useDistanceUnits();
   const roomTotal = facets?.total ?? 0;
   /* The room has people in it and the deck does not, so a filter removed all of
      them. This includes the age window, distance and photo preference saved in
@@ -645,7 +647,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               : panelFiltersOn
                 ? "No one matches those filters yet."
                 : filters.distance < 500
-                  ? `No one within ${filters.distance} km right now.`
+                  ? `No one within ${formatDistance(filters.distance, units)} right now.`
                   : "You've met everyone here today."}
           </p>
           <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-6 text-[var(--color-mist)]">
@@ -885,7 +887,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     </div>
                     <p className="text-[12px] tracking-wide text-sand">
                       {profile.occupation} · {profile.city}
-                      {profile.distanceKm != null && !profile.hideDistance ? ` · ${profile.distanceKm} km` : ""}
+                      {profile.distanceKm != null && !profile.hideDistance
+                        ? ` · ${formatDistance(profile.distanceKm, units)}`
+                        : ""}
                     </p>
                     {profile.joinedAt ? (
                       <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white/45">

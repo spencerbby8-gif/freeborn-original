@@ -7,6 +7,12 @@ import { FreebornSelect } from "@/components/select-menu";
 import { showToast } from "@/components/toast-host";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { dealBreakerOptions } from "@/lib/onboarding-data";
+import {
+  DEFAULT_PREFS,
+  loadPrefs,
+  savePrefs,
+  type Prefs,
+} from "@/lib/device-prefs";
 
 /**
  * Freeborn mixers — real people in real places. Members register interest in
@@ -229,21 +235,9 @@ const AREAS = [
 ] as const;
 type AreaId = (typeof AREAS)[number]["id"];
 
-const PREFS_KEY = "freeborn.preferences";
-type Prefs = { units: "km" | "mi"; animations: boolean; haptics: boolean; sounds: boolean };
-const DEFAULT_PREFS: Prefs = { units: "km", animations: true, haptics: true, sounds: true };
-function loadPrefs(): Prefs {
-  try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    if (!raw) return { ...DEFAULT_PREFS };
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
-}
-function savePrefs(p: Prefs) {
-  localStorage.setItem(PREFS_KEY, JSON.stringify(p));
-}
+/* Moved to src/lib/device-prefs.ts. It lived here because only this screen knew
+   about it, which is exactly why the unit choice never reached the deck, the card
+   or the filter slider: nothing outside this file could read it. */
 
 const GENDER_LABELS: Record<string, string> = {
   woman: "Woman",
@@ -1390,6 +1384,12 @@ export function SettingsView() {
             <PanelTitle title="Preferences" blurb="How Freeborn feels for you. Saved on this device." />
             <div className="fb-card" data-search="distance units kilometers miles measurement">
               <p className="fb-eyebrow">Distance units</p>
+              <p className="mt-2 text-[13px] leading-6 text-[var(--color-mist)]">
+                Applies to every distance you read: the card in the room, the
+                profile you open, the filter slider and the empty-deck message.
+                Distances are stored and matched in kilometres, so the choice is
+                about how they are shown to you and not about who you see.
+              </p>
               <div className="mt-3 flex gap-2">
                 {(["km", "mi"] as const).map((u) => (
                   <button
