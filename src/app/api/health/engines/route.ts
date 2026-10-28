@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { callEngine, describeWinners, resetWinners, type EngineTarget } from "@/lib/engine-request";
+import { getMember } from "@/lib/app-auth";
 import { MODERATION_MODEL, MODERATION_MODEL_2 } from "@/lib/moderation";
 import { MATCH_MODEL_1, MATCH_MODEL_2 } from "@/lib/identity-match";
 
@@ -30,14 +31,24 @@ export const maxDuration = 120;
  * fix can be promoted from "whatever the ladder stumbled into" to a deliberate
  * configuration.
  *
- * SAFE TO CALL PUBLICLY
- * ---------------------
- * Reports status codes, latencies, model names and gateway error text. Never key
- * values: error bodies are scrubbed of both keys before they leave, because a
- * gateway that echoes a malformed request could otherwise reflect an Authorization
- * header back to an anonymous caller. Key fingerprints are one-way sha256, first 16
- * hex characters.
+ * OPERATOR-GATED (audit finding F2, fixed 2026-10-27)
+ * -----------------------------------------------
+ * This route used to be deliberately anonymous: status codes, latencies, model
+ * names and gateway error text were judged harmless, keys scrubbed, fingerprints
+ * one-way. Re-reviewed: model names + upstream error text + key fingerprints are a
+ * probe map — they tell a stranger exactly which gateway, which plan tier and which
+ * models are misconfigured, and let them watch remediation attempts in real time
+ * (including our own 2026-10-27 observations of the 404ing vision lane). The 30 s
+ * soft rate limit throttled cost, not disclosure.
  *
+ * Access rule now: only a signed-in member whose email is in FREEBORN_ADMIN_EMAILS
+ * (comma-separated, Vercel env) gets the payload. Everyone else — signed out or
+ * signed in — receives the same bare 404 the debug routes ship; no distinguishing
+ * response for wrong-vs-no session. If the allowlist is unset the route is 404 for
+ * everyone (fail-closed), because an operator diagnostic nobody can read is safer
+ * than a public one. The minimal public liveness probe stays at /api/health.
+ *
+ * Legend:
  *   engine1.text   → moderation verdicts (stage 1) and report triage
  *   engine1.vision → verification stage 1 and the photo identity gate
  *   engine2.text   → moderation second opinion and appeals
@@ -136,6 +147,21 @@ async function probe(target: EngineTarget, images?: string[]): Promise<ProbeRepo
 }
 
 async function handleGet(request: Request) {
+  /* F2 gate (2026-10-27): operator-only. Runs BEFORE the rate limiter and before
+     any probing, so an anonymous caller learns nothing — not even the limiter's
+     retry shape. Same 404 body as the debug routes: indistinguishable. */
+  const adminAllowlist = (process.env.FREEBORN_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (adminAllowlist.length === 0) {
+    return new Response("Not found", { status: 404 });
+  }
+  const member = await getMember(request);
+  if (!member || !adminAllowlist.includes(member.email.toLowerCase())) {
+    return new Response("Not found", { status: 404 });
+  }
+
   /* `?fresh=1` clears the cached winning combination so the ladder runs from
      scratch. Use it after changing a model or a gateway setting, otherwise the
      cached winner is reported and the new configuration is never exercised. */

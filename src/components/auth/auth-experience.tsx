@@ -29,6 +29,32 @@ const switchItems: Array<{ mode: "sign-in" | "sign-up"; label: string }> = [
 ];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/**
+ * F9: client-side Have I Been Pwned check using the k-anonymity range API.
+ * Only the first 5 characters of the SHA-1 hash ever leave the browser.
+ * Returns null when the service is unreachable (fail-open) so signup never
+ * breaks on a network error; a hit returns true and is rejected.
+ */
+async function isPwnedPassword(password: string): Promise<boolean | null> {
+  try {
+    const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(password));
+    const hex = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${hex.slice(0, 5)}`, {
+      headers: { "Add-Padding": "true" },
+    });
+    if (!res.ok) return null;
+    const body = await res.text();
+    return body
+      .split("\n")
+      .some((line) => line.split(":")[0]?.trim().toUpperCase() === hex.slice(5));
+  } catch {
+    return null;
+  }
+}
+
 function Spinner() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" className="spin" aria-hidden>
@@ -169,6 +195,16 @@ export function AuthExperience({
         body: "Complete the human check below, then continue.",
       });
       return;
+    }
+    // F9: reject breached passwords before creating or changing one.
+    if (mode === "sign-up" || mode === "update-password") {
+      const pwned = await isPwnedPassword(values.password);
+      if (pwned === true) {
+        const msg = "This password appeared in a known data breach. Choose a unique one.";
+        setErrors({ password: msg });
+        showToast({ tone: "error", title: "Choose a different password", body: msg });
+        return;
+      }
     }
     setPending("email");
     const email = values.email.trim().toLowerCase();

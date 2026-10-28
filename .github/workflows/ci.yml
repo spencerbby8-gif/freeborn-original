@@ -1,4 +1,4 @@
-name: CI — typecheck & build
+name: CI — typecheck / lint / secret scan / build
 
 on:
   push:
@@ -16,64 +16,35 @@ permissions:
 
 jobs:
   verify:
-    name: typecheck / lint / build
+    name: verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # matches NODE_VERSION in netlify.toml
+          node-version: 24 # matches Vercel production
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck (tsc --noEmit)
+      - name: Secret scan (blocking)
+        run: npm run check:secrets
+
+      - name: Typecheck
         run: npm run typecheck
 
-      # Advisory only — 4 known errors remain, so this must not block merges yet.
-      #
-      # This was 32 errors. The security branch cleared 28 of them:
-      #   - 27 x react/no-unescaped-entities (escaped in place)
-      #   -  1 x react-hooks/purity — voice-note.tsx called Math.random() in a
-      #     useRef initializer; replaced with useId()
-      #
-      # The 4 that remain are all react-hooks/set-state-in-effect, surfaced by
-      # the Next 16.4.2 upgrade. Each needs a deliberate refactor, NOT a
-      # mechanical fix, and there is no test suite to catch a regression:
-      #   - chat-view.tsx:1407        window.dispatchEvent("freeborn:chat-thread")
-      #                               synchronously drives the app shell's
-      #                               setState. Correct fix is lifting openMatch
-      #                               into shared context, not a window event.
-      #   - filter-panel.tsx:131      setF(loadFilters()) + setSaved(false) run
-      #                               synchronously in the effect body on open.
-      #                               Correct fix is deriving from props or
-      #                               remounting via a key.
-      #   - chat-view.tsx:1392        setState inside an async load() invoked
-      #   - notifications-view.tsx:53 from an effect. Both follow an await, so
-      #                               they may be conservative flags — verify
-      #                               before refactoring.
-      #
-      # Remove `continue-on-error` once these four are resolved.
-      - name: Lint (advisory)
-        continue-on-error: true
+      - name: Lint (blocking — F10)
         run: npm run lint
 
       - name: Production build
         env:
-          # Only NEXT_PUBLIC_* values are inlined into the client bundle, so
-          # only these are needed at build time. Server-only secrets are a
-          # runtime concern (Netlify site env vars) and are deliberately not
-          # passed to this job. Values are injected by GitHub at runtime —
-          # they never appear in this file or in logs.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://freeborn.netlify.app' }}
-          # Add this secret to enable Turnstile in CI builds:
-          # NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          NEXT_PUBLIC_APP_URL: https://freeborn-umber.vercel.app
         run: npm run build
 
       - name: Upload build artifact

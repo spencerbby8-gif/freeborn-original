@@ -86,7 +86,6 @@ export function MemberPortrait({ seed, label, className, photo }: MemberPortrait
 
   if (photo) {
     return (
-      /* eslint-disable-next-line @next/next/no-img-element */
       <img
         src={photo}
         alt={label ? `${label}: illustrative AI-generated sample portrait` : ""}

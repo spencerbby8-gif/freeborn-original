@@ -50,7 +50,8 @@ export function NotificationsView() {
   }, []);
 
   useEffect(() => {
-    void load();
+    // F10: defer state-producing work out of the effect body.
+    queueMicrotask(() => void load());
     const iv = setInterval(() => void load(), 15000);
     return () => clearInterval(iv);
   }, [load]);

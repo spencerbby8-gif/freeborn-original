@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import { Fraunces, Inter } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
 import { absolute, CONTACT_EMAIL, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
@@ -125,6 +126,9 @@ const supabaseOrigin = (
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
 ).replace(/\/$/, "");
 
+// F9: a per-request CSP nonce only works if pages render per request.
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = {
   themeColor: "#0a0d18",
   width: "device-width",
@@ -132,7 +136,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" className="bg-[var(--color-night)]">
       <head>
@@ -144,7 +149,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <meta name="apple-mobile-web-app-title" content="Freeborn" />
         {/* Static file rather than an inline script, so the CSP can use a nonce on
             script-src without needing 'unsafe-inline'. See public/sw-register.js. */}
-        <script src="/sw-register.js" defer />
+        <script src="/sw-register.js" nonce={nonce} defer />
         {/* Speed layer: warm the connections before the first request needs
             them — auth calls, images, and the captcha start instantly.
             The Supabase origin comes from the environment rather than being
@@ -162,10 +167,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             own canonical in its metadata export; the sitewide default is the root. */}
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
         />
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
         />
       </head>

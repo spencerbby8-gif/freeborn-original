@@ -52,8 +52,7 @@ export function Reveal({
   const style = { "--rv-delay": `${delay}ms` } as CSSProperties;
 
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    <Tag ref={ref as any} id={id} className={`rv ${className}`} style={style}>
+      <Tag ref={ref as any} id={id} className={`rv ${className}`} style={style}>
       {children}
     </Tag>
   );

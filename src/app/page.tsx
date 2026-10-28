@@ -11,6 +11,7 @@ import { FinalCta } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { faqs } from "@/components/landing/faq";
 
 /**
@@ -48,11 +49,13 @@ const jsonLd = {
   })),
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <>
       <script
         type="application/ld+json"
+        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Nav />

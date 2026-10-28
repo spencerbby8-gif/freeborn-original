@@ -256,8 +256,11 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
 
   useEffect(() => {
     if (!open) return;
-    setF(loadFilters());
-    setSaved(false);
+    // F10: defer synchronous setState out of the effect body.
+    queueMicrotask(() => {
+      setF(loadFilters());
+      setSaved(false);
+    });
     let cancelled = false;
     (async () => {
       try {

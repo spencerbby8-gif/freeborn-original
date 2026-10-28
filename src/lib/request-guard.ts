@@ -31,7 +31,6 @@ function allowedOrigins(): Set<string> {
   };
   add(process.env.NEXT_PUBLIC_APP_URL);
   add(process.env.FREEBORN_ALLOWED_ORIGINS);
-  add("https://freeborn.netlify.app");
   return origins;
 }
 

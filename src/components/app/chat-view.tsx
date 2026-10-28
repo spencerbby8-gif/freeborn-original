@@ -1389,7 +1389,8 @@ export function ChatView() {
   }, []);
 
   useEffect(() => {
-    void load();
+    // F10: defer state-producing work out of the effect body.
+    queueMicrotask(() => void load());
   }, [load]);
 
   /* Tell the app shell when a conversation is open, so the bottom tab bar
@@ -1404,9 +1405,9 @@ export function ChatView() {
     if (!param) return;
     const found = matches.find((m) => m.id === param);
     if (found) {
-      setOpenMatch(found);
+      queueMicrotask(() => setOpenMatch(found));
     } else {
-      void load();
+      queueMicrotask(() => void load());
     }
   }, [loading, matches, load]);
 

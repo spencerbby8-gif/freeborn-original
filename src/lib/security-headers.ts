@@ -12,12 +12,11 @@
  *
  * WHY A NONCE RATHER THAN 'unsafe-inline'
  * ---------------------------------------
- * The session cookies are not HttpOnly (the `@supabase/ssr` default, and this app's
- * browser client reads the session to attach bearer tokens), and the session is also
- * mirrored into localStorage. So script running on a Freeborn page can reach session
- * material. That makes script injection the highest-consequence vulnerability here,
- * and it makes `'unsafe-inline'` in script-src close to worthless, because injected
- * inline script is exactly what an attacker would use.
+ * Session cookies are now HttpOnly (F9, 2026-10-27): the browser client uses
+ * localStorage for its session and attaches Bearer tokens, so no page script
+ * needs to read the cookie. An allowlisted connect-src still limits where a
+ * stolen token could be sent. `'unsafe-inline'` in script-src was removed in
+ * favour of a per-request nonce (see src/middleware.ts).
  *
  * A nonce means only scripts carrying this request's secret value may execute.
  * Next.js reads the CSP header set by middleware and propagates the same nonce to
@@ -129,9 +128,8 @@ export function buildContentSecurityPolicy(nonce: string | null): string {
     "media-src": ["'self'", "blob:", "https://*.supabase.co"],
 
     /* This is the directive that matters most on this particular app.
-       The session cookies are not HttpOnly (the @supabase/ssr default) and the
-       session is mirrored into localStorage, so script on the page can read
-       session material. An allowlisted connect-src means that even if an attacker
+       Session cookies are HttpOnly (F9) and Bearer tokens live in localStorage,
+       but an allowlisted connect-src still means that even if an attacker
        achieves script execution, there is no origin they can POST the token to.
        Stealing a session you cannot exfiltrate is worth far less. */
     "connect-src": [
@@ -142,6 +140,8 @@ export function buildContentSecurityPolicy(nonce: string | null): string {
       "https://cdn.jsdelivr.net",
       /* MediaPipe face landmarker model, src/lib/face-gate.ts */
       "https://storage.googleapis.com",
+      /* HIBP Pwned Passwords k-anonymity range lookup during sign-up (F9). */
+      "https://api.pwnedpasswords.com",
       /* Reverse geocoding during onboarding, src/components/onboarding/steps-a.tsx.
          Listed so the call keeps working, and disclosed in Privacy Policy clause 8
          because it sends precise coordinates to a third party. Moving that call

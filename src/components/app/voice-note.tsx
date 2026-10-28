@@ -82,7 +82,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     return () => {
       playListeners.delete(check);
     };
-  }, [playing]);
+  }, [playing, voiceId]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -116,7 +116,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
       a.removeEventListener("pause", onPause);
       a.removeEventListener("ended", onEnd);
     };
-  }, []);
+  }, [voiceId]);
 
   useEffect(() => {
     if (!playing) return;
@@ -619,8 +619,7 @@ export function VoiceRecorder({
       }
       cleanupInternals();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, []);
 
   /* --- Idle: the mic button ------------------------------------------------------ */
 

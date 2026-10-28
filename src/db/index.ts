@@ -6,10 +6,10 @@ import { Pool } from "pg";
  *
  * The connection string is read from the environment only — it must never be
  * hardcoded here. `SUPABASE_TRANSACTION_POOLER` is flagged as a secret in
- * Netlify, and Netlify's secret scanning fails the build if it finds that
+ * Vercel, and Vercel's secret scanning fails the build if it finds that
  * value anywhere in the repo or build output.
  *
- * Configure it in Netlify -> Project configuration -> Environment variables.
+ * Configure it in Vercel -> Project -> Settings -> Environment Variables.
  *
  * Resolution order:
  *  1. SUPABASE_TRANSACTION_POOLER — the member-provided pooler env var.
@@ -45,7 +45,7 @@ function createDb() {
     throw new Error(
       "No database connection configured. Set SUPABASE_TRANSACTION_POOLER " +
         "(preferred) or DATABASE_URL to your Supabase pooler connection " +
-        "string in your Netlify site environment variables. See DEPLOY.md.",
+        "string in your Vercel project environment variables. See DEPLOY.md.",
     );
   }
 
@@ -56,7 +56,7 @@ function createDb() {
     globalForDb.__freebornPgPool ??
     new Pool({
       connectionString: databaseUrl,
-      /* node-postgres defaults to max:10. On Netlify EVERY serverless
+      /* node-postgres defaults to max:10. On Vercel EVERY serverless
          instance builds its own pool, so 50 concurrent instances means 500
          connections aimed at the Supabase transaction pooler — which refuses
          them. The failure mode is sporadic, hard-to-diagnose 500s under load,
@@ -68,7 +68,7 @@ function createDb() {
          the connection is still encrypted. Never enable this for a local
          sandbox Postgres, which typically has no certificate at all. */
       ssl: isLocal ? undefined : { rejectUnauthorized: false },
-      /* Bound every statement. Netlify caps functions at 26s on paid plans, so
+      /* Bound every statement. Vercel caps functions at 26s on paid plans, so
          a runaway query must die before the platform kills the invocation and
          leaves the connection in an unknown state. */
       statement_timeout: 15_000,

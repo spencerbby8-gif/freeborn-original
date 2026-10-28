@@ -343,6 +343,7 @@ function ProfileInner() {
         void load(); // refresh the verified/re-verify banner immediately
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is declared later in this component; adding it here is a TDZ error. The callback is intentionally stable.
     []
   );
 

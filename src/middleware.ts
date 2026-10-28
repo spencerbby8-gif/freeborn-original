@@ -20,33 +20,20 @@ const CSP_MODE: "enforce" | "report-only" = "enforce";
 /**
  * Whether inline scripts must be allowed.
  *
- * TRUE, and it cannot be false without taking the site down. Measured 2026-10-19
- * against a production build, counting script tags that carried the request nonce:
+ * FALSE as of the 2026-10-27 audit (F9). The nonce plumbing below and in
+ * `updateSession` was already correct on dynamic routes; the blocker was that
+ * marketing/legal routes were prerendered, so a per-request nonce could not
+ * reach them. `src/app/layout.tsx` now exports `dynamic = "force-dynamic"`, so
+ * every route renders per request and Next.js stamps the nonce onto its inline
+ * scripts. The two hand-written JSON-LD scripts carry the nonce explicitly and
+ * the service-worker registration is an external /sw-register.js.
  *
- *     /        static    20 scripts,  0 nonced, flight payload NOT nonced
- *     /privacy static    17 scripts,  0 nonced, flight payload NOT nonced
- *     /auth    dynamic   15 scripts, 15 nonced, flight payload nonced
- *
- * Statically prerendered routes have their HTML frozen at BUILD time, so a
- * per-request nonce cannot reach them. `/auth` proves the nonce plumbing in this
- * file and in `updateSession` is correct; the limitation is prerendering, not the
- * wiring. Enforcing a nonce-only script-src would therefore blank the landing page,
- * all three legal documents, /safety and the whole /app shell, because none of them
- * could execute the React Server Component payload that boots the app.
- *
- * What this costs and what still protects us:
- *   Lost: CSP cannot block an injected INLINE script.
- *   Kept: connect-src is allowlisted, so a stolen session token has nowhere to be
- *         sent. frame-ancestors, form-action, base-uri and object-src are all locked.
- *         And the app loads ZERO third-party scripts (verified by grep across src/),
- *         which removes the vector that delivers most real-world XSS in the first
- *         place.
- *
- * To get nonce enforcement later, the marketing and legal routes would have to render
- * dynamically (export const dynamic = "force-dynamic"), trading away prerendering.
- * That is a deliberate trade to make on purpose, not one to stumble into here.
+ * Trade-off: prerendering is given up in exchange for actually enforcing
+ * script-src. connect-src, frame-ancestors, form-action, base-uri and
+ * object-src stay locked. Cost is one server render per page view; no feature
+ * changes. Verified by build + live CSP header checks after deploy.
  */
-const CSP_INLINE_SCRIPTS = true;
+const CSP_INLINE_SCRIPTS = false;
 
 export async function middleware(request: NextRequest) {
   /* Magic-link rescue: if Supabase's redirect allowlist drops our callback

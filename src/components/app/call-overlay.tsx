@@ -190,6 +190,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     chanRef.current = null;
     destroyChannel(ringChanRef.current);
     ringChanRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- kind/onCallEnd are read at call time; a stable cleanup avoids rebuilding the WebRTC channel.
   }, []);
 
   const endCall = useCallback(() => {
