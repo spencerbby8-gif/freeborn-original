@@ -830,3 +830,66 @@ your explicit go-ahead because it changes what anonymous visitors see.
 **Also verified this pass, unrelated to photos:** `sessions` is not dead — `account/route.ts:185` issues
 `delete from public.sessions where account_id = …`; the table is simply empty (0 rows) because sign-out
 has never run for a member with a row. Correcting my earlier "unused table" note.
+
+---
+
+# PASS 4 · SHIPPED — commit, CI, deployment, live production evidence
+
+The patch is no longer an artifact in this workspace: it is on `main` and it is what production is serving.
+Credentials used: a GitHub PAT supplied for `spencerbby8-gif/freeborn-original` only, held at `/tmp/gh_tok`
+(0600, never in the repo, never echoed, `shred -u` after use). Note for whoever pushes next: git over HTTPS
+**rejects `Authorization: Bearer <pat>`** with `remote: invalid credentials` while the REST API accepts it —
+push with `Authorization: Basic base64("oauth2:<pat>")` via `git -c http.extraHeader=…`.
+
+## Commit + push
+| item | value |
+|---|---|
+| `origin/main` before | `fda146e944b15071606a0c4e77e066435a3a3110` |
+| code commit | `ce34772` — *Fix FREEBORN audit findings F-A…F-G + RLS hardening (2026-10-28)*, 12 files, **+365 / −65**, includes `db/migrations/2026-10-28-audit2-rls-hardening.sql` (138 lines) |
+| docs commit | `c445c7c` — audit report (this file) |
+| `origin/main` after | `c445c7c6322448ec54ae3ec1ebfd6322dbbd1800` (fast-forward `fda146e..c445c7c`, rc=0) |
+| tree pushed | clean; the `.patch` / `.bundle` artifacts were deliberately **not** committed (git history is the source of truth) |
+
+Gates re-run after commit, on a fresh `npm ci`, Node v24.22.1: `typecheck` **0**, `lint` **0**,
+`check:secrets` **0**, `next build` **rc=0**. `git diff --check` **0**.
+
+## CI, measured on GitHub
+| run | head | conclusion |
+|---|---|---|
+| `40762189506` (Verify) | `c445c7c6` | **completed / success** — all 8 steps green: Setup Node 24 · Install · **Secret scan (blocking)** · **Typecheck** · **Lint (blocking)** · **Production build** · Upload artifact |
+| `40758570304` (Verify) | `24b8abbb` (stale PR #24 branch) | failure: 1 × `@next/next/no-img-element` in `src/app/match-peek/[id]/page.tsx` — F10's lint ratchet, firing on an old head |
+
+## Deployment, measured on Vercel
+- production `dpl_2QNY7zbvcUi3527oEZfz8C1qiMET` — `state: READY`, `readySubstate: PROMOTED`,
+  `githubCommitSha: c445c7c6322448ec54ae3ec1ebfd6322dbbd1800`, deployment url
+  `freeborn-c5aen3r6n-spencerbby8-5225s-projects.vercel.app`; **54 build errors: 0**.
+- aliases `freebornumber.vercel.app` and `freeborn-umber.vercel.app` both resolve to this deployment
+  (`GET /api/health` → `{"ok":true}`).
+
+## LIVE PRODUCTION VERIFICATION (`https://freeborn-umber.vercel.app`, unauthenticated, 2026-10-28 20:2xZ)
+| # | probe | expected | **measured live** |
+|---|---|---|---|
+| 1 | `GET /api/health` | 200 `{"ok":true}` | **200 `{"ok":true}`** |
+| 2 | `GET /api/calls/ice` | no `openrelay`, no credentials, private | **200** · `openrelay present: False` · `credential field: False` · `iceServers: 2` · `relayConfigured: False` · `cache-control: private, no-store` |
+| 3 | `GET /api/calls/trace` (anon) | 401 (was 200 + full trace before) | **401 `{"error":"Not signed in."}`**; `POST` anon **401** |
+| 4 | 7 previously-unguarded mutation routes, `Origin: https://evil.example` | 403 | **403 for all 7** (`/api/settings`, `/api/verification`, `/api/reports`, `/api/location`, `/api/support`, `/api/appeals`, `/api/profile/me`); with same-origin `Origin` each returns **401/405** (auth/method, not CSRF) — exactly the intended split |
+| 5 | `GET /api/health/engines` in production | 404 | **404 `Not found`** |
+| 6 | preview-wildcard `Origin` on `POST /api/settings` | must **not** 403 | **401** (guard passed, route's own auth rejected) |
+| 7 | `Origin: https://x.freeborn-umber.vercel.app` (lookalike subdomain) | 403 | **403** |
+| 8 | unauthenticated UX regression | intact | **200** on `/`, `/auth`, `/discover`, `/safety`, `/robots.txt` |
+
+## Supabase, re-read after the deploy (nothing drifted)
+`32 / 32 / 15` tables RLS-enabled / **FORCE**d / with ≥1 policy · grants `authenticated 123`,
+`service_role 231`, `anon 0` · app rows `user_profiles=8 messages=16 verification_requests=8 accounts=3`
+(identical to before the patch) · `security_events` **0 rows** (correct: the engines route 404s in prod, so
+no `engine_health_check` write has been triggered) · buckets `profile-photos=true`, `verification-selfies=false`,
+`chat-media=false` · publication `supabase_realtime` → `realtime_health`.
+
+## Housekeeping
+- PR **#24 closed** (`closed_at: 2026-10-28T20:21:03Z`, `merged: false`) with a comment recording that main
+  carries equal-or-newer content for all 5 of its files (`src/app/api/health/engines/route.ts` differs by
+  design: `6eec6309c3f0…` main vs `8be016b77c00…` PR, because ce34772 relaxed the gate outside production).
+- **Still blocked, unchanged by this deploy:** CAPTCHA (held off by standing instruction), HIBP +
+  `password_min_length=12` (connector cannot write them; plan unconfirmed → Dashboard steps in §2 above),
+  TURN relay provisioning (`relayConfigured:false` means P2P-only, mobile/CGNAT may fail to connect),
+  `profile-photos` public read (three product-visible options, awaiting explicit approval — see PASS 3).
