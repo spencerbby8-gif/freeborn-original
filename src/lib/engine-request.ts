@@ -98,8 +98,15 @@ export type EngineTarget = {
   models: string[];
   /** Send `x-api-key` alongside `Authorization: Bearer`. Antigravity documents it. */
   sendApiKeyHeader?: boolean;
-  /** Per-attempt timeout in ms. */
+  /** Per-attempt timeout in ms. Overridden by the budget-derived cap. */
   timeoutMs?: number;
+  /**
+   * Total wall-clock the whole ladder may spend. When `budgetMs` is set it wins
+   * over `timeoutMs`: the ladder stops as soon as the deadline is reached, so a
+   * route wrapped in `withBudget(promise, ENGINE_BUDGET_MS, …)` can no longer be
+   * resolved by its own fallback while the ladder keeps burning a 35s attempt.
+   */
+  budgetMs?: number;
 };
 
 export type Attempt = {
@@ -178,7 +185,14 @@ export async function callEngine(
   const vision = Boolean(images && images.length > 0);
   const key = cacheKey(target.name, vision);
   const messages = [{ role: "user", content: buildContent(prompt, images) }];
-  const timeoutMs = target.timeoutMs ?? 30_000;
+  /* Budget wins over a hand-picked per-attempt timeout. With no budget the old
+     timeoutMs is honoured, so any caller that has not been migrated behaves
+     exactly as before. */
+  const ladderDeadlineMs = target.budgetMs ? Math.max(2_000, target.budgetMs - 1_500) : 0;
+  const timeoutMs = target.budgetMs
+    ? Math.max(1_500, Math.floor((target.budgetMs - 1_500) / 3))
+    : (target.timeoutMs ?? 30_000);
+  const ladderStartedAt = Date.now();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -202,6 +216,20 @@ export async function callEngine(
   }
 
   for (const step of plan) {
+    /* Stop walking the ladder once the budget is spent. Before this, a route
+       awaiting callEngine inside withBudget() kept burning upstream attempts after
+       its own fallback had already been returned — wasted spend and, on the
+       health probe, a function that could outlive maxDuration. */
+    if (ladderDeadlineMs && Date.now() - ladderStartedAt >= ladderDeadlineMs) {
+      attempts.push({
+        model: step.model,
+        rung: step.rung.id,
+        status: -3,
+        ms: Date.now() - ladderStartedAt,
+        error: `ladder deadline ${ladderDeadlineMs}ms reached; ${plan.length - plan.indexOf(step)} attempt(s) not tried`,
+      });
+      break;
+    }
     const t0 = Date.now();
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);

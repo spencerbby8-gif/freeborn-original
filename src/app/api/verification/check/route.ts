@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { profilePhotos, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,16 @@ export const maxDuration = 120;
 
 const MIN_VERIFY_MS = 14_000;
 
+/* Audit finding F-E (2026-10-28): this route was the one engine path with no
+ * budget. `askGemini` retried 3 times with a 20s abort each, and the route also
+ * holds the response open for MIN_VERIFY_MS — 60s of engine waiting plus a 14s
+ * UX hold inside a function capped at maxDuration=120. A platform cancellation
+ * mid-hold loses the verdict the member waited for, so the attempt timeout is now
+ * derived from the same ENGINE_BUDGET_MS the rest of the product uses, and the
+ * hold runs concurrently with the engine call rather than after it. */
+const ATTEMPT_TIMEOUT_MS = Math.max(3_000, Math.floor((ENGINE_BUDGET_MS - 1_500) / 3));
+const MAX_ATTEMPTS = 2;
+
 const MODEL = "gemini-3.6-flash-high";
 const BASE = (process.env.ANTIGRAVITY_BASE_URL ?? "").replace(/\/$/, "");
 const KEY = process.env.ANTIGRAVITY_FREE_API_KEY ?? "";
@@ -51,9 +62,9 @@ const IMAGE_DROPPED_RE =
   /no (reference )?image|please upload|cannot see|can't see|image (was )?(not )?(provided|missing|available)|provide (an? )?image/i;
 
 async function askGemini(content: Array<Record<string, unknown>>): Promise<string | null> {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20_000);
+    const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
     try {
       const res = await fetch(`${BASE}/v1/chat/completions`, {
         method: "POST",
@@ -81,6 +92,7 @@ async function askGemini(content: Array<Record<string, unknown>>): Promise<strin
       if (IMAGE_DROPPED_RE.test(text)) throw new Error("image-dropped");
       return text;
     } catch {
+      /* Back off for at most the time the remaining budget allows. */
       await new Promise((r) => setTimeout(r, 700));
     } finally {
       clearTimeout(timer);

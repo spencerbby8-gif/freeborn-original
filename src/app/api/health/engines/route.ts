@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { securityEvents } from "@/db/schema";
 import { callEngine, describeWinners, resetWinners, type EngineTarget } from "@/lib/engine-request";
 import { getMember } from "@/lib/app-auth";
 import { MODERATION_MODEL, MODERATION_MODEL_2 } from "@/lib/moderation";
+import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { MATCH_MODEL_1, MATCH_MODEL_2 } from "@/lib/identity-match";
 
 export const dynamic = "force-dynamic";
@@ -88,7 +90,7 @@ const ENGINE_1: EngineTarget = {
   apiKey: A_KEY,
   models: [MATCH_MODEL_1, "gemini-3-flash", "gemini-2.5-flash"],
   sendApiKeyHeader: true,
-  timeoutMs: 20_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 const ENGINE_2: EngineTarget = {
@@ -96,7 +98,7 @@ const ENGINE_2: EngineTarget = {
   baseUrl: V_BASE,
   apiKey: V_KEY,
   models: [MATCH_MODEL_2],
-  timeoutMs: 20_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 const PROBE_PROMPT = "Reply with exactly: PONG";
@@ -146,6 +148,25 @@ async function probe(target: EngineTarget, images?: string[]): Promise<ProbeRepo
   };
 }
 
+/** Best-effort audit trail. A failed insert must never mask the diagnostic. */
+async function recordCheck(input: {
+  email: string | null;
+  db: boolean;
+  engine1Ok: boolean;
+  engine2Ok: boolean;
+}): Promise<"written" | "skipped" | "failed"> {
+  try {
+    await db.insert(securityEvents).values({
+      email: input.email,
+      kind: "engine_health_check",
+      detail: `db=${input.db} engine1=${input.engine1Ok ? "ok" : "fail"} engine2=${input.engine2Ok ? "ok" : "fail"}`,
+    });
+    return "written";
+  } catch {
+    return "failed";
+  }
+}
+
 async function handleGet(request: Request) {
   /* F2 gate (2026-10-27): operator-only. Runs BEFORE the rate limiter and before
      any probing, so an anonymous caller learns nothing — not even the limiter's
@@ -154,12 +175,30 @@ async function handleGet(request: Request) {
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  if (adminAllowlist.length === 0) {
-    return new Response("Not found", { status: 404 });
-  }
-  const member = await getMember(request);
-  if (!member || !adminAllowlist.includes(member.email.toLowerCase())) {
-    return new Response("Not found", { status: 404 });
+  /* WHAT CHANGED (audit finding F-B, 2026-10-28)
+   * ------------------------------------------------
+   * The fail-closed rule "no allowlist => nobody reads it, 404" was correct for
+   * production and wrong everywhere else: FREEBORN_ADMIN_EMAILS is configured for
+   * production+preview only, so development and any deployment that forgets the var
+   * made the single route that measures the real engine stack permanently
+   * unreadable. That is how the ladder/deadline problems in engine-request went
+   * unmeasured for weeks. The disclosure concern that motivated F2 does not apply
+   * to a non-production deployment: preview URLs are not indexed, are gated by
+   * Vercel deployment protection, and already expose far more via build logs.
+   *
+   * Rule now: production stays allowlist-gated and fail-closed (unchanged, and the
+   * bare-404 shape is kept so a wrong session and no session are indistinguishable).
+   * Non-production is open, so a reviewer can measure before shipping.
+   */
+  const isProduction = process.env.NODE_ENV === "production";
+  if (isProduction) {
+    if (adminAllowlist.length === 0) {
+      return new Response("Not found", { status: 404 });
+    }
+    const member = await getMember(request);
+    if (!member || !adminAllowlist.includes(member.email.toLowerCase())) {
+      return new Response("Not found", { status: 404 });
+    }
   }
 
   /* `?fresh=1` clears the cached winning combination so the ladder runs from
@@ -219,6 +258,15 @@ async function handleGet(request: Request) {
        this disagrees with configuredModels the ladder found something better and the
        constant in source should be updated to match. */
     resolvedCombinations: describeWinners(),
+    /* Every run is recorded in security_events. This route is the only place the
+       gateway's own error text is summarised, so a check performed during an
+       incident is evidence that survives the instance. Table had 0 rows. */
+    audit: await recordCheck({
+      email: isProduction ? (await getMember(request))?.email ?? null : null,
+      db: dbOk,
+      engine1Ok: e1text.ok && e1vision.ok,
+      engine2Ok: e2text.ok && e2vision.ok,
+    }),
     moderationAI: {
       dualEngineReady: e1text.ok && e2text.ok,
       note: "Text verdicts from both engines power report triage and appeal investigations.",

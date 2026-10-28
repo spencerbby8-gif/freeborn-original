@@ -49,9 +49,35 @@ export function withBudget<T>(
 }
 
 /**
- * The budget every AI-calling route uses: 20s. Leaves ~4s of headroom under
- * the 26s platform cap for DB round-trips, inserts and response overhead.
- * Warm engine calls answer in 2-13s, so the budget only bites when an engine
- * is genuinely hanging — exactly the case the fallbacks exist for.
+ * The budget every AI-calling route gives one engine call: 20s.
+ *
+ * WHAT CHANGED (audit follow-up, 2026-10-28)
+ * -------------------------------------------
+ * This number used to be derived from a platform limit that no longer applies:
+ * the comment here cited Netlify's 26s synchronous-function cap, and Netlify was
+ * removed from the product on 2026-10-27. The real ceiling is now
+ * `export const maxDuration` per route (60s on reports/appeals, 120s on
+ * verification and media) plus `statement_timeout: 15_000` on the DB pool.
+ *
+ * The budget stays 20s deliberately — it is the contract with `callEngine`, which
+ * now sizes its own ladder to `budgetMs` instead of walking every
+ * model × rung combination to the end. See ENGINE_ATTEMPT_SHARE below.
  */
 export const ENGINE_BUDGET_MS = 20_000;
+
+/** Head-room kept back from the budget for DB writes and response assembly. */
+export const ENGINE_DEADLINE_SAFETY_MS = 1_500;
+
+/** How much of the budget the ladder may spend before it stops trying. */
+export const ENGINE_LADDER_DEADLINE_MS = ENGINE_BUDGET_MS - ENGINE_DEADLINE_SAFETY_MS;
+
+/** The budget is shared across at most this many attempts, so one hanging
+    attempt cannot consume the whole window the way a 35s timeout did. */
+export const ENGINE_MAX_ATTEMPTS = 3;
+
+/** Per-attempt abort derived from the budget. Floor of 1.5s: below that a
+    healthy gateway under normal latency is punished rather than measured. */
+export const ENGINE_ATTEMPT_MS = Math.max(
+  1_500,
+  Math.floor(ENGINE_LADDER_DEADLINE_MS / ENGINE_MAX_ATTEMPTS),
+);

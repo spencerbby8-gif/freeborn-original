@@ -20,11 +20,27 @@ const FALLBACK_KEY = "sb_publishable_7N1q-Cnr7bXvBKJQGuG4zg_MCML5bPc";
  * src/lib/request-guard.ts is the second layer and does not depend on this
  * value being correct.
  */
-const COOKIE_SAME_SITE: "lax" | "none" =
-  process.env.NODE_ENV === "production" &&
-  process.env.FREEBORN_ALLOW_CROSS_SITE_COOKIES !== "1"
-    ? "lax"
-    : "none";
+/* Audit finding (preview cookie security, 2026-10-28).
+ *
+ * The old rule was "lax in production, none everywhere else". Production is the
+ * *only* place a session cookie matters, and NODE_ENV is "development" on every
+ * Vercel preview deployment — so every preview URL ran with SameSite=None, i.e.
+ * the CSRF exposure the comment above describes was live on previews, gated only
+ * by an Origin check that 16 mutating routes did not make.
+ *
+ * New rule: lax is the default in every environment; `none` is opt-in, per
+ * deployment, via FREEBORN_ALLOW_CROSS_SITE_COOKIES=1. That variable is absent
+ * from the Vercel project (verified 2026-10-28), so production behaviour is
+ * UNCHANGED, and a reviewer who genuinely needs a cross-site embed in a preview
+ * sets the flag on that deployment instead of inheriting it by default.
+ *
+ * Cost, stated plainly: a preview opened inside a third-party cross-site iframe
+ * can no longer authenticate until the flag is set. The preview URL opened in its
+ * own tab is same-origin and keeps working. The escape hatch above is the
+ * documented way to restore the old behaviour deliberately.
+ */
+const CROSS_SITE_EMBEDS_ENABLED = process.env.FREEBORN_ALLOW_CROSS_SITE_COOKIES === "1";
+const COOKIE_SAME_SITE: "lax" | "none" = CROSS_SITE_EMBEDS_ENABLED ? "none" : "lax";
 
 export async function updateSession(
   request: NextRequest,
@@ -99,3 +115,4 @@ export async function updateSession(
 
   return response;
 }
+

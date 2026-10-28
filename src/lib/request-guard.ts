@@ -20,7 +20,26 @@
  *   if (blocked) return blocked;
  */
 
-function allowedOrigins(): Set<string> {
+/**
+ * Entries may contain a single `*` wildcard, e.g.
+ *   https://*-spencerbby8-5225s-projects.vercel.app
+ * so every Vercel preview URL for this account is covered without listing each
+ * deployment. Escaped regex + one substitution keeps this non-backtracking and
+ * immune to regex injection from config text. A `*` never spans a dot, so a
+ * *.vercel.app entry cannot be satisfied by https://evil-freeborn.example.com.
+ * It also cannot widen the previous behaviour: every exact entry still matches
+ * exactly, and the same-host fallback below is untouched by this change.
+ */
+function matchesOrigin(entry: string, origin: string): boolean {
+  if (!entry.includes("*")) return entry === origin;
+  const source = entry
+    .split("*")
+    .map((piece) => piece.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("[^.]+");
+  return new RegExp(`^${source}$`).test(origin);
+}
+
+function allowedOrigins(): string[] {
   const origins = new Set<string>();
   const add = (v: string | undefined) => {
     if (!v) return;
@@ -31,7 +50,7 @@ function allowedOrigins(): Set<string> {
   };
   add(process.env.NEXT_PUBLIC_APP_URL);
   add(process.env.FREEBORN_ALLOWED_ORIGINS);
-  return origins;
+  return [...origins];
 }
 
 /**
@@ -44,7 +63,8 @@ function allowedOrigins(): Set<string> {
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
-  if (allowedOrigins().has(origin.replace(/\/$/, ""))) return true;
+  const normalised = origin.replace(/\/$/, "");
+  if (allowedOrigins().some((entry) => matchesOrigin(entry, normalised))) return true;
   // Fall back to comparing against the request's own host (preview URLs,
   // deploy previews, custom domains added later).
   try {

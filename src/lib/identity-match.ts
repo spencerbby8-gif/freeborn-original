@@ -289,7 +289,7 @@ const MATCH_ENGINE_1: EngineTarget = {
   models: [MATCH_MODEL_1, "gemini-3-flash", "gemini-2.5-flash"],
   /* The gateway documents x-api-key as its client header. Bearer is sent too. */
   sendApiKeyHeader: true,
-  timeoutMs: 20_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 const MATCH_ENGINE_2: EngineTarget = {
@@ -297,7 +297,7 @@ const MATCH_ENGINE_2: EngineTarget = {
   baseUrl: V_BASE,
   apiKey: V_KEY,
   models: [MATCH_MODEL_2],
-  timeoutMs: 20_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 /**

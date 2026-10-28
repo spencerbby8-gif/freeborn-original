@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { buildContentSecurityPolicy, generateNonce, staticSecurityHeaders } from "@/lib/security-headers";
 
 /**
@@ -36,6 +37,28 @@ const CSP_MODE: "enforce" | "report-only" = "enforce";
 const CSP_INLINE_SCRIPTS = false;
 
 export async function middleware(request: NextRequest) {
+  /* CSRF layer for the whole surface (audit finding F-C / F-D follow-up, 2026-10-28).
+   *
+   * WHY HERE AND NOT ONLY PER-ROUTE
+   * --------------------------------
+   * `rejectCrossOrigin()` was called by 8 of 36 routes, and 16 mutating routes had
+   * no guard at all — including settings, profile/me, verification, reports and
+   * appeals. A per-route opt-in control does not survive one new route file, which
+   * is exactly how the gap stayed open. The middleware matcher below already covers
+   * every non-asset path, so one call here covers all of them.
+   *
+   * WHY THIS IS NOT A BREAKING CHANGE
+   * ----------------------------------
+   * `rejectCrossOrigin` returns null for GET/HEAD/OPTIONS and for requests with no
+   * `Origin` header at all, so navigations, the auth-code redirect handled just
+   * below, native app traffic and curl-driven health checks are untouched. Only a
+   * *present, foreign* Origin on a mutation is rejected. Same-origin POSTs from a
+   * preview URL carry an Origin equal to the request host and pass the same-host
+   * fallback inside isSameOrigin().
+   */
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
+
   /* Magic-link rescue: if Supabase's redirect allowlist drops our callback
      path, the member lands somewhere else (often "/") still carrying the
      one-time code. Catch it and route it to the exchange page so the sign-in

@@ -1,3 +1,4 @@
+import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { callEngine, type EngineTarget } from "@/lib/engine-request";
 /**
  * FREEBORN JUSTICE ENGINE — dual-model, anti-injustice by design.
@@ -69,7 +70,7 @@ const ENGINE_1: EngineTarget = {
   models: [MODERATION_MODEL, "gemini-3-flash", "gemini-2.5-flash"],
   /* The gateway documents x-api-key as its client header. Bearer is sent too. */
   sendApiKeyHeader: true,
-  timeoutMs: 35_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 const ENGINE_2: EngineTarget = {
@@ -77,7 +78,7 @@ const ENGINE_2: EngineTarget = {
   baseUrl: V_BASE,
   apiKey: V_KEY,
   models: [MODERATION_MODEL_2],
-  timeoutMs: 35_000,
+  budgetMs: ENGINE_BUDGET_MS,
 };
 
 /**
