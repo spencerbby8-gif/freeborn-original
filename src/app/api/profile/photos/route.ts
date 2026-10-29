@@ -8,6 +8,8 @@ import {
   runIdentityMatch,
 } from "@/lib/identity-match";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { deriveAnchor, hashImageBytes } from "@/lib/photo-hash";
+import { findDuplicatePhotos, findSharedAnchor, openCase, recordDuplicatePhotoHits, recomputeTrust, upsertFingerprint } from "@/lib/identity-resolve";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -171,13 +173,95 @@ export async function POST(request: Request) {
     .values({ senderId: member.id, kind: "image", mime: mimeMatch[1], data: bytes })
     .returning({ id: chatMedia.id });
 
+  /* CROSS-ACCOUNT DUPLICATE CHECK. Both perceptual hashes are computed here, from
+     the bytes we just took custody of, so an image re-uploaded under a different
+     filename, resized or recompressed still matches. `null` means "the check could
+     not run" and is never reported as "clean". */
+  const hashes = await hashImageBytes(bytes);
+  const dup = hashes
+    ? await findDuplicatePhotos(member.id, { d: hashes.d, a: hashes.a, bytes: hashes.bytes })
+    : { hits: [], scanned: 0, truncated: false, error: "hasher-unavailable" };
+
   const isFirst = existing.length === 0;
-  await db.insert(profilePhotos).values({
-    userId: member.id,
-    storagePath: `/api/chat/media/${media.id}`,
-    isPrimary: isFirst,
-    position: existing.length,
-  });
+  const [photoRow] = await db
+    .insert(profilePhotos)
+    .values({
+      userId: member.id,
+      storagePath: `/api/chat/media/${media.id}`,
+      isPrimary: isFirst,
+      position: existing.length,
+      phashD: hashes?.d ?? null,
+      phashA: hashes?.a ?? null,
+      phashBytes: hashes?.bytes ?? null,
+      phashAt: hashes ? new Date() : null,
+    })
+    .returning({ id: profilePhotos.id });
+
+  if (dup.hits.length) {
+    try {
+      await recordDuplicatePhotoHits(member.id, dup.hits.length);
+      const worst = dup.hits.reduce((a, b) => (Number(b.distance ?? -1) < Number(a.distance ?? -1) ? b : a));
+      await openCase({
+        userId: member.id,
+        email: member.email ?? null,
+        input: {
+          code: "photo_reused_across_accounts",
+          violatedClass: "violation_profile_content",
+          detail: `Upload ${photoRow?.id ?? "?"} ${worst.distance === null ? "is the BYTE-IDENTICAL FILE" : `is within ${worst.distance}/64 bits`} of a photo on ${worst.userId}${worst.suspended ? " (that account is currently suspended)" : ""}. Scanned ${dup.scanned} hashed photos${dup.truncated ? " (scan truncated at the row cap)" : ""}.`,
+          notes:
+            "One of your photos is already on another account. If you own both, say so in your appeal; if someone else supplied this photo, replace it and re-verify.",
+          trustDelta: worst.exact ? -28 : -14,
+          openedBy: "system",
+        },
+      });
+    } catch {
+      /* a duplicate finding must not fail an upload that the member is entitled to make */
+    }
+  }
+
+  /* Identity anchor: recompute from ALL of this member's hashed photos and look for
+     the same anchor elsewhere. This is the non-biometric analogue of "the same face
+     is on several accounts", derived only from photos we already hold. */
+  if (hashes) {
+    try {
+      const mine = await db
+        .select({ d: profilePhotos.phashD, a: profilePhotos.phashA })
+        .from(profilePhotos)
+        .where(eq(profilePhotos.userId, member.id));
+      const anchor = await deriveAnchor(
+        mine
+          .filter((r) => typeof r.d === "string")
+          .map((r) => ({ d: r.d as string, a: typeof r.a === "string" ? r.a : undefined }))
+      );
+      const shared = anchor ? await findSharedAnchor(member.id, anchor) : { users: [], suspended: 0, scanned: 0 };
+      await upsertFingerprint({
+        userId: member.id,
+        source: "photo_upload",
+        hashes,
+        anchor,
+        engine: identityMatch ? { decision: identityMatch.decision, confidence: identityMatch.confidence } : null,
+      });
+      if (shared.users.length) {
+        await openCase({
+          userId: member.id,
+          email: member.email ?? null,
+          input: {
+            code: "identity_anchor_shared",
+            violatedClass: "violation_identity",
+            detail: `Photo-set anchor ${anchor} also held by ${shared.users.slice(0, 5).join(", ")}${shared.users.length > 5 ? ` (+${shared.users.length - 5} more)` : ""}; ${shared.suspended} of those accounts are suspended.`,
+            notes:
+              "Your photos line up with another account on Freeborn. Verified members can clear this by re-verifying; a duplicate account cannot be kept alongside the original.",
+            trustDelta: -28,
+            openedBy: "system",
+            verified,
+          },
+        });
+      }
+      await recomputeTrust(member.id);
+    } catch {
+      /* never fail the upload for the dedup layer */
+    }
+  }
 
   /* Seal handling. Four outcomes for a verified member:
 
@@ -226,6 +310,17 @@ export async function POST(request: Request) {
     revoked,
     checkUnavailable: identityMatch !== null && !checkRan,
     ...(identityMatch ? { identityMatch } : {}),
+    /* Honest reporting of the duplicate layer: `checked:false` means no verdict
+       about reuse exists, not that none was found. */
+    duplicateCheck: {
+      checked: dup.error === null,
+      matches: dup.hits.length,
+      exact: dup.hits.some((h) => h.exact),
+      suspendedOwner: dup.hits.some((h) => h.suspended),
+      scanned: dup.scanned,
+      truncated: dup.truncated,
+      reason: dup.hits.length ? "photo_already_on_another_account" : dup.error ?? "no_match",
+    },
   });
 }
 

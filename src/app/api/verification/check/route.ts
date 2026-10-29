@@ -2,8 +2,63 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { profilePhotos, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { deriveAnchor } from "@/lib/photo-hash";
+import { findSharedAnchor, openCase, recomputeTrust, upsertFingerprint } from "@/lib/identity-resolve";
 import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
+
+/* afterVerificationSuccess — post-approval identity bookkeeping.
+   Writes the member's photo-set anchor, checks whether another account holds the same
+   anchor (the non-biometric analogue of "one face, many accounts"), and recomputes the
+   trust score so a successful verification actually MOVES the number. Never throws: a
+   verification that the engines approved must not be failed by this layer. */
+async function afterVerificationSuccess(
+  userId: string,
+  decision: "match" | "mismatch" | "unclear",
+  confidence: "high" | "medium" | "low"
+): Promise<void> {
+  try {
+    const photos = await db
+      .select({ d: profilePhotos.phashD, a: profilePhotos.phashA })
+      .from(profilePhotos)
+      .where(eq(profilePhotos.userId, userId));
+    const usable = photos
+      .filter((r) => typeof r.d === "string")
+      .map((r) => ({ d: r.d as string, a: typeof r.a === "string" ? r.a : undefined }));
+    const anchor = await deriveAnchor(usable);
+    if (anchor) {
+      await upsertFingerprint({
+        userId,
+        source: "verification",
+        hashes: usable.length ? { d: usable[0].d, a: usable[0].a ?? "", bytes: "", width: 0, height: 0 } : null,
+        anchor,
+        engine: { decision, confidence },
+      });
+      const shared = await findSharedAnchor(userId, anchor);
+      if (shared.users.length) {
+        await openCase({
+          userId,
+          email: null,
+          input: {
+            code: "identity_anchor_shared",
+            violatedClass: "violation_identity",
+            detail:
+              "Verified anchor is also held by " +
+              shared.users.slice(0, 5).join(", ") +
+              " (" + shared.users.length + " accounts, " + shared.suspended + " suspended).",
+            notes:
+              "Your photos match another Freeborn account. If it is yours, say so in the appeal; if it is not, this is why the profile is under review.",
+            trustDelta: -28,
+            openedBy: "identity_engine",
+          },
+        });
+      }
+    }
+    await recomputeTrust(userId);
+  } catch {
+    /* never fail a verification because the dedup layer had a bad day */
+  }
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -443,6 +498,7 @@ export async function POST(request: Request) {
         .update(userProfiles)
         .set({ isVerified: true, lastVerifiedAt: new Date() })
         .where(eq(userProfiles.id, member.id));
+      await afterVerificationSuccess(member.id, "match", "high");
       return finish({ status: "approved", stage: "reverify", engine });
     }
     // Second engine answered but unparseably → honest fallback to review.
@@ -474,6 +530,10 @@ export async function POST(request: Request) {
       .update(userProfiles)
       .set({ isVerified: true, lastVerifiedAt: new Date() })
       .where(eq(userProfiles.id, member.id));
+    /* Single-engine pass is still a pass, and it is recorded as one: medium
+       confidence, so a later cross-account finding on top of a single-engine
+       seal weighs more than one on top of a unanimous seal. */
+    await afterVerificationSuccess(member.id, "match", "medium");
     return finish({ status: "approved", stage: "inspect", engine });
   }
   return finish({ status: "review", stage: "inspect", engine });

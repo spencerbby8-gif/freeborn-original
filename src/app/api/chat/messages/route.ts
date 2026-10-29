@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { matches, messageReactions, messages, userPrivateSettings, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { looksLikeScam } from "@/lib/scam-guard";
+import { recordScamFlag } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
 async function ownsMatch(matchId: string, memberId: string) {
@@ -161,10 +162,18 @@ export async function POST(request: Request) {
     }
   }
 
-  /* Scam guard: flag recognizable scam patterns so the recipient is warned. */
+  /* Scam guard: flag recognizable scam patterns so the recipient is warned.
+     The flag is also counted against the SENDER, because a warning that the
+     recipient dismisses was previously the end of the signal — Bumble's
+     Deception Detector acts before the recipient ever sees the profile, and the
+     minimum Freeborn can do with the same intent is accumulate the evidence so
+     repeat behaviour raises review priority instead of resetting to zero every
+     message. It never blocks speech and never auto-acts. */
+  const scamFlag = looksLikeScam(clean);
   await db
     .insert(messages)
-    .values({ matchId, senderId: member.id, body: clean, flagged: looksLikeScam(clean) });
+    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag });
+  if (scamFlag) await recordScamFlag(member.id);
   await db.update(matches).set({ lastMessageAt: new Date() }).where(eq(matches.id, matchId));
 
   // Read receipts: the other member reads everything you've sent before they

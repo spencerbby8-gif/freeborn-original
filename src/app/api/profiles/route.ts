@@ -2,6 +2,7 @@ import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { blockedUsers, discoveryPreferences, eventInterests, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { suppressedUserIds } from "@/lib/identity-resolve";
 import { getMember } from "@/lib/app-auth";
 import { ageFromBirthDate } from "@/lib/age";
 
@@ -184,6 +185,15 @@ export async function GET(request: Request) {
   const fromLng = lngParam !== null ? Number(lngParam) : NaN;
   const haveOrigin = Number.isFinite(fromLat) && Number.isFinite(fromLng) && Number.isFinite(distance);
 
+  /* SUPPRESSION IS REAL, NOT DECORATIVE.
+     moderation-policy.ts documents suppression's three effects; effect 1 is "not in the
+     discovery deck". A tier that no query honours is exactly the "we told you it is
+     enforced but nothing changed" failure that makes an enforcement system worse than
+     none, so the exclusion is applied here, at the only place the deck is built.
+     Existing conversations and profile links keep working, by design: suppression
+     removes reach, not access. */
+  const suppressed = await suppressedUserIds().catch(() => [] as string[]);
+
   const rows = await db
     .select()
     .from(userProfiles)
@@ -191,7 +201,8 @@ export async function GET(request: Request) {
       sql`${userProfiles.profileStatus} = 'active'
         and ${userProfiles.discoverable} = true
         and ${userProfiles.onboardingStage} = 'ready'
-        and ${userProfiles.handle} is distinct from 'preview_visitor'`
+        and ${userProfiles.handle} is distinct from 'preview_visitor'
+        ${suppressed.length ? sql`and ${userProfiles.id} not in (${sql.raw(suppressed.map((u) => `'${u}'`).join(","))})` : sql``}`
     );
 
   /* (Feed ordering moved below — the ranking engine runs after the photo and

@@ -6,6 +6,7 @@
 
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   customType,
@@ -20,6 +21,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -32,6 +34,28 @@ const citext = customType<{ data: string }>({
 const char2 = customType<{ data: string }>({
   dataType() {
     return "character(2)";
+  },
+});
+
+/** Fixed-width hex/binary digests (sha256 hex = 64). Length is enforced by the
+    column type rather than a check constraint, so a truncated write cannot land. */
+const charN = (name: string, len: number) =>
+  customType<{ data: string }>({ dataType() { return `character(${len})`; } })(name);
+
+/** A 64-bit hash stored as `char(16)` LOWERCASE HEX — the exact encoding
+ *  src/lib/photo-hash.ts emits (`toString("hex")`).
+ *
+ *  This type is named `bit64` for historical reasons and MUST NOT be `bit(64)`:
+ *  node-postgres returns bit columns as "0100…" strings and accepts only that form
+ *  on write, so declaring bit(64) while passing hex made every hashed-photo insert
+ *  fail with 22P02 `"d" is not a valid binary digit`. The live schema, this type and
+ *  the hex producer are now locked together by an assertion in scripts/trust/harness.ts
+ *  that reads information_schema. Do not "optimise" this to bit or bytea without
+ *  changing photo-hash.ts, hamming64() and that assertion in the same commit.
+ *  Postgres can still popcount: public.hamming64(text, text) casts internally. */
+const bit64 = customType<{ data: string }>({
+  dataType() {
+    return "char(16)";
   },
 });
 
@@ -304,6 +328,18 @@ export const profilePhotos = pgTable(
     position: integer("position").notNull().default(0),
     isPrimary: boolean("is_primary").notNull().default(false),
     isVerified: boolean("is_verified").notNull().default(false),
+    /* Perceptual hashes of the bytes in chat_media, computed server-side at upload
+       (src/lib/photo-hash.ts), stored as 16 hex chars. The JS hamming64() in that module
+       does the comparison (the route needs the distance for its own thresholding, not just
+       a boolean), and public.hamming64(text,text) exists so SQL-side audits and the parity
+       script agree with it. null = "not hashed", which is NEVER read as "no duplicate". */
+    phashD: bit64("phash_d"),
+    phashA: bit64("phash_a"),
+    /** sha256 of the exact uploaded bytes (64 hex chars). A global perceptual hash diverges
+     *  past a ~5% crop — measured, not assumed — so this is what still links a
+     *  byte-identical re-upload of the same file across two accounts. */
+    phashBytes: charN("phash_bytes", 64),
+    phashAt: timestamp("phash_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
   },
@@ -516,6 +552,15 @@ export const userTrustHistory = pgTable("user_trust_history", {
   cooldownUntil: timestamp("cooldown_until", { withTimezone: true }),
   priorSafetyFlagsCount: integer("prior_safety_flags_count").notNull().default(0),
   duplicateDetectionRisk: boolean("duplicate_detection_risk").notNull().default(false),
+  /* Written by src/lib/identity-resolve.ts. Before 2026-10-28 these columns
+     existed with no writer anywhere: trust_score and duplicate_detection_risk
+     were readable in the schema but never computed, so the "trust system" was
+     a schema fixture rather than a control. */
+  scamFlags7d: integer("scam_flags_7d").notNull().default(0),
+  scamFlagLastAt: timestamp("scam_flag_last_at", { withTimezone: true }),
+  duplicatePhotoHits: integer("duplicate_photo_hits").notNull().default(0),
+  sharedDeviceAccounts: integer("shared_device_accounts").notNull().default(0),
+  suppressionActive: boolean("suppression_active").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
 });
@@ -876,3 +921,172 @@ export const supportRequests = pgTable("support_requests", {
   status: text("status").notNull().default("open"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
 });
+
+/* --- Cross-account identity evidence --------------------------------------
+   Recovered design (see RE-MECHANICS.md): Tinder stores a face map/vector "to verify
+   new photos, detect fraud, and prevent duplicate accounts" and Hinge "scans for
+   duplicate faces among profile images". Freeborn stores NO biometric template: the
+   anchor here is a deterministic fold of the member's own perceptual photo hashes,
+   re-derivable from photos the row already links to, carrying nothing about a face.
+   RLS: enabled + forced + zero policies, so the publishable key in a browser bundle
+   cannot read it; only service_role and the postgres owner (bypassrls) touch it. */
+
+export const identityFingerprints = pgTable(
+  "identity_fingerprints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    photoDhash: bit64("photo_dhash"),
+    photoAhash: bit64("photo_ahash"),
+    anchor: bit64("anchor").notNull(),
+    selfieCheckId: uuid("selfie_check_id"),
+    engineDecision: text("engine_decision"),
+    engineConfidence: text("engine_confidence"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    check(
+      "identity_fingerprints_source_check",
+      sql`${t.source} in ('verification','photo_upload','backfill')`
+    ),
+    check(
+      "identity_fingerprints_decision_check",
+      sql`${t.engineDecision} is null or ${t.engineDecision} in ('match','mismatch','unclear')`
+    ),
+    check(
+      "identity_fingerprints_confidence_check",
+      sql`${t.engineConfidence} is null or ${t.engineConfidence} in ('high','medium','low','unknown')`
+    ),
+    index("identity_fingerprints_user_idx").on(t.userId, sql`${t.createdAt} desc`),
+    index("identity_fingerprints_anchor_idx").on(t.anchor),
+    index("identity_fingerprints_dhash_idx").on(t.photoDhash),
+  ]
+);
+
+/* --- Device linkage --------------------------------------------------------
+   A per-install random id the CLIENT chooses to send (as Tinder's
+   persistent-device-id and Bumble's device_id are client-held), hashed server-side.
+   Deliberately NOT a browser fingerprint: no canvas/WebGL/audio derivation, because
+   a dating app must not quietly build a cross-account tracker it has not disclosed. */
+
+export const accountDevices = pgTable(
+  "account_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    deviceHash: bit64("device_hash").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().default(utcNow),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(utcNow),
+    seenCount: integer("seen_count").notNull().default(1),
+    /* Cadence signal, modelled on Tinder's app/user-session-elapsed headers: the
+       client's claimed install age vs this account's age. Review priority only. */
+    installAgeMs: bigint("install_age_ms", { mode: "number" }),
+  },
+  (t) => [
+    uniqueIndex("account_devices_one_row_per_pair").on(t.userId, t.deviceHash),
+    index("account_devices_hash_idx").on(t.deviceHash, sql`${t.lastSeenAt} desc`),
+  ]
+);
+
+/* --- Graduated enforcement cases ------------------------------------------
+   The ladder recovered from Tinder's client: warning -> suppression -> suspension ->
+   ban, with the four VIOLATING_* classes and one resolution code per removal kind.
+   Suppression is the tier Freeborn was missing: the reversible middle step that makes
+   acting on a signal proportionate instead of all-or-nothing. */
+
+export const enforcementCases = pgTable(
+  "enforcement_cases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    email: citext("email"),
+    tier: text("tier").notNull(),
+    state: text("state").notNull().default("open"),
+    violatedClass: text("violated_class").notNull(),
+    code: text("code").notNull(),
+    /** What the system observed. Machine words, not shown verbatim to the subject. */
+    detail: text("detail"),
+    /** What a member may be told. If it cannot be written, the case should not open. */
+    notes: text("notes"),
+    trustDelta: integer("trust_delta").notNull().default(0),
+    resolution: text("resolution"),
+    openedBy: text("opened_by").notNull(),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by"),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    check("enforcement_cases_tier_check", sql`${t.tier} in ('warning','suppression','suspension','ban')`),
+    check(
+      "enforcement_cases_state_check",
+      sql`${t.state} in ('open','in_review','acknowledged','appealable','resolved')`
+    ),
+    check(
+      "enforcement_cases_class_check",
+      sql`${t.violatedClass} in ('violation_personal_content','violation_profile_content','violation_media','violation_behavior','violation_identity')`
+    ),
+    check(
+      "enforcement_cases_resolution_check",
+      sql`${t.resolution} is null or ${t.resolution} in ('denied','warning_removed','content_reinstated','suppression_removed','suspension_removed','ban_removed')`
+    ),
+    check(
+      "enforcement_cases_actor_check",
+      sql`${t.openedBy} in ('system','identity_engine','moderation_engine','operator','member_report')`
+    ),
+    /* One live case per (member, tier): a heuristic that fires weekly must not
+       stack identical cases into a ratchet. */
+    uniqueIndex("enforcement_cases_one_live_per_tier").on(t.userId, t.tier, t.state),
+    index("enforcement_cases_user_idx").on(t.userId, sql`${t.createdAt} desc`),
+    index("enforcement_cases_open_idx")
+      .on(t.state, t.tier)
+      .where(sql`${t.state} in ('open','in_review')`),
+    index("enforcement_cases_email_idx").on(t.email),
+  ]
+);
+
+/* --- Human challenge seam --------------------------------------------------
+   Tinder files a ban appeal with an Arkose token (appealChallengeToken) and gates
+   login behind POST /v2/auth/verify-captcha. No captcha provider is configured on
+   this project, so this is the seam, not the protection: a nonce + verify endpoint
+   that a real provider plugs into later. The route records whether it ENFORCED. */
+
+export const humanChallenges = pgTable(
+  "human_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: citext("email").notNull(),
+    purpose: text("purpose").notNull(),
+    tokenHash: bit64("token_hash").notNull(),
+    /* The server-issued random. Stored (and only this) so verification can recompute
+       the prefix without a session, and so a row is meaningful in a review. It is
+       random, single-use, and 15-minute-lived: nothing about the member. */
+    nonce: text("nonce").notNull().unique(),
+    difficultyBits: integer("difficulty_bits").notNull().default(20),
+    status: text("status").notNull().default("issued"),
+    attempts: integer("attempts").notNull().default(0),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().default(utcNow),
+    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .notNull()
+      .default(sql`timezone('utc', now()) + interval '15 minutes'`),
+    solvedAt: timestamp("solved_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("human_challenges_purpose_check", sql`${t.purpose} in ('appeal','signup','reset')`),
+    check(
+      "human_challenges_status_check",
+      sql`${t.status} in ('issued','solved','failed','expired')`
+    ),
+    uniqueIndex("human_challenges_single_live").on(t.email, t.purpose, t.status),
+    index("human_challenges_email_idx").on(t.email, sql`${t.issuedAt} desc`),
+  ]
+);

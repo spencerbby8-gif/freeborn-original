@@ -27,3 +27,9 @@ netlify/
 .DS_Store
 npm-debug.log*
 PLAN.md
+
+# throwaway bundles produced by the trust harness / live proofs (esbuild output)
+scripts/**/*.build.mjs
+scripts/trust/.ctl.*
+scripts/trust/.gen-parity.mjs
+scripts/trust/.backfill-bytes.*

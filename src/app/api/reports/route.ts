@@ -1,8 +1,9 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { reports, userProfiles, warnings } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
 import { factCheckReport } from "@/lib/moderation";
+import { openCase, recomputeTrust } from "@/lib/identity-resolve";
 import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,29 @@ const REASONS = new Set([
   "safety",
   "underage",
   "inappropriate_media",
+  /* Bumble added exactly this reason in July 2024 under Fake Profile once AI
+     impersonation became a mass problem. A dating app that cannot record "this is
+     generated" separately from "this is someone else" cannot tell which fraud it has. */
+  "ai_generated_media",
   "other",
 ]);
+
+/** Report reason -> enforcement code. Only ever opens a REVIEW-REQUIRED case. */
+const REASON_TO_CASE: Record<string, {
+  code: "photo_reused_across_accounts" | "scam_pattern_message" | "harassment_pattern"
+      | "inappropriate_media" | "underage_suspected" | "report_surge";
+  violatedClass: "violation_personal_content" | "violation_profile_content"
+      | "violation_media" | "violation_behavior" | "violation_identity";
+} | null> = {
+  fake_profile: { code: "photo_reused_across_accounts", violatedClass: "violation_profile_content" },
+  ai_generated_media: { code: "photo_reused_across_accounts", violatedClass: "violation_personal_content" },
+  scam: { code: "scam_pattern_message", violatedClass: "violation_behavior" },
+  harassment: { code: "harassment_pattern", violatedClass: "violation_behavior" },
+  safety: { code: "harassment_pattern", violatedClass: "violation_behavior" },
+  inappropriate_media: { code: "inappropriate_media", violatedClass: "violation_media" },
+  underage: { code: "underage_suspected", violatedClass: "violation_profile_content" },
+  other: null,
+};
 
 const submitLog = new Map<string, number[]>();
 
@@ -135,6 +157,42 @@ export async function POST(request: Request) {
     }
   } catch {
     /* justice-engine outage never stops a report */
+  }
+
+  /* A report never acts on an account (moderation.ts rule 1). What it CAN do is make the
+     queue durable and ordered the way Tinder's client models it: a case with a tier, a
+     violation class, a state and an explicit `reviewRequired` flag, plus the
+     warnings/acknowledge exit. decidePolicy() caps anything report-only at a WARNING, so a
+     mass-report wave cannot suppress or suspend — scripts/trust/harness.ts asserts that
+     over 720 input combinations. */
+  try {
+    const map = REASON_TO_CASE[safeReason];
+    if (map && profileId) {
+      const subjectId = profileId;
+      const [sameReason] = await db
+        .select({ n: sql<number>`count(distinct ${reports.reporterId})::int` })
+        .from(reports)
+        .where(and(eq(reports.subjectId, subjectId), eq(reports.reason, safeReason)));
+      const distinctReporters = Number(sameReason?.n ?? 1);
+      await openCase({
+        userId: subjectId,
+        email: (target as { email?: string | null }).email ?? null,
+        input: {
+          code: map.code,
+          violatedClass: map.violatedClass,
+          detail: `${distinctReporters} distinct reporter(s) filed "${safeReason}"; report=${filed?.id ?? "?"}.`,
+          notes:
+            "Members reported your profile. Nothing has been changed on your account; a person will look, and you can add your side here.",
+          trustDelta: -5,
+          openedBy: "member_report",
+          reporterCount: distinctReporters,
+          verified: Boolean((target as { isVerified?: boolean }).isVerified),
+        },
+      });
+      await recomputeTrust(subjectId).catch(() => undefined);
+    }
+  } catch {
+    /* the report is already filed; a queue-side failure must not lose it or fail the member */
   }
 
   return Response.json({ ok: true, severity, outcome, triage });
