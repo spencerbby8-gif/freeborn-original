@@ -295,3 +295,56 @@ SUPABASE_TRANSACTION_POOLER='postgresql://…' \
 ```
 
 Bundling into the repo (not `/tmp`) is required so `--external:sharp` resolves.
+
+## 12. Making the recovered mechanics operable (2026-10-29, commit `d10a6bc`)
+
+§11 described mechanisms that were implemented but not *executable*. This section records what changed
+when they were pushed to the point where they run — and one defect that only that push found.
+
+**(a) The CHECK that destroyed reports.** §6/§8 recorded the live `reports_reason_check` as "the 12-value
+list". True, and useless: the app's `REASONS` contained `safety` and `ai_generated_media`, which the live
+constraint rejected, and `reports/route.ts:95` inserted unguarded. So a member reporting a safety concern
+got HTTP 500 and their report was **not recorded**. Reproduced against production first
+(`insert … values ('safety')` → `23514`). Reconciled in `db/migrations/2026-10-29-engine-operability.sql`
+as a union with what existing rows already carry (so it can never be re-narrowed), normalised at the route,
+retried once with `other` + a `security_events` row, and pinned by harness section [11] (app set ==
+migration set == schema set, plus a direct assertion that a rejected insert cannot escape as a 500).
+*Lesson kept: verifying that a constraint exists is not verifying that it agrees with the caller.*
+
+**(b) An unreachable escalation.** Scam-guard's auto-escalation needed `score >= 70` with a history, but
+the history bonus capped at 20 over a 45-point serious ask: `45 + 20 = 65`. The control never fired for
+any input. Fixed (serious-with-history **or** persistent-mild sender) and asserted reachable. 10 unweighted
+signals → 22 weighted across 9 categories; deliberately no tone/grammar features, which would police
+non-native speakers. Chat remains unblocked — flag, case, human decide.
+
+**(c) Liveness honesty, narrowed at the verifiable layer.** `verification/check` trusted client JSON for
+`blinkTag`. Now a server-issued, member-bound, 5-minute single-use token (compare-and-set consumption) is
+required before any engine call, and the single-engine approval path requires `state === "verified"`.
+What this proves: the challenge was issued by us, is fresh, and was used once. What it still does **not**
+prove: that a live human was in front of the camera. A camera-feed verifier would be a different mechanism
+and is not claimed here.
+
+**(d) A rate control nobody could pass is an outage.** `FREEBORN_HUMAN_CHALLENGE=enforce` was unusable
+until this change because no client answered the 428 — every appeal would have been refused. Measured
+before choosing: WebCrypto sustains ~8.5 k sha256/s here, the 18-bit default averages ~262 k candidates
+(~31 s) and a full 4,000,000-candidate run did not finish in 242 s. Added a 12-bit `browser` tier
+(~0.5–2 s, `src/lib/human-challenge-client.ts`, predicate asserted identical to the server's over 400
+inputs × 6 tiers) and left the flag at `record`. The PoW raises the per-account cost of farming; it does
+not stop a distributed attacker and is not CAPTCHA.
+
+**(e) Photo hashing finished.** The earlier backfill only understood `/api/chat/media/` paths and skipped
+Supabase object keys — 7 of 11 production photos were unhashed. `scripts/trust/backfill-photos.ts` now
+handles both; run against production: 7 hashed, **11/11**, second run 0 (idempotent). Cross-account result
+over the whole set: 40 pairs, closest Hamming **14** against a ≤10 threshold → **no duplicate identity**.
+A null result, recorded as one. `phash_bytes` is `char(64)` hex and `hamming64` only accepts 16-hex input,
+so bytes are compared by exact equality — which is what `identity-resolve.ts` does; my first two SQL probes
+got this backwards and returned misleading NULLs.
+
+**(f) Admin surface, deliberately read-only.** `GET /api/admin/review-queue` fails closed to a bare 404 in
+production when `FREEBORN_ADMIN_EMAILS` is empty (confirmed live) and reads nothing beyond what a reviewer
+needs. No write panel, per §2 of `REVIEW-SURFACE-DESIGN.md`.
+
+Gates at `d10a6bc`: tsc 0, eslint 0, `next build` 0 (16/16), secret scan OK on 257 tracked files, harness
+**ALL PASS 136/136** (negative control re-confirmed: injected failures → `FAILURES: 2`, exit 1).
+REA was re-run bounded on one Bumble and one Hinge chunk (exit 0, ~10.8 MB evidence each); it added **no**
+corroboration for the `device_id` claim — see §5 of `RE-EVIDENCE-GAP-REPORT.md` for the correction.
