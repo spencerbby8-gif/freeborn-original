@@ -34,8 +34,20 @@ export const SOLVER_BUDGET_CANDIDATES = 4_000_000;
 /** Risk-scaled difficulty: the ladder, not a flat toll. A member with an identity-verified
     account and nothing open is not the same threat as an unverified account with duplicate
     photos, so the cost should differ — but never past the reliability ceiling. */
-export function difficultyForRisk(risk: "standard" | "elevated" | "high"): number {
-  const want = risk === "high" ? 20 : risk === "elevated" ? 19 : CHALLENGE_DIFFICULTY_BITS;
+/**
+ * BROWSER tier added 2026-10-29 after measuring, not guessing: WebCrypto in a browser costs
+ * ~8,500 sha256/s measured here, so the 18-bit default needs ~31 s on average and a full
+ * 4,000,000-candidate run did NOT solve in 242 s. A control no honest member can complete is
+ * not a control, it is an outage. 12 bits is ~4,096 candidates (0.5-2 s), which is the right
+ * size for the actual threat on this path — a browser script flooding the appeal queue — and
+ * it is explicitly NOT claimed to resist a GPU. Signup/reset keep the higher tiers because
+ * nothing in this product makes a browser solve those.
+ */
+export const BROWSER_CHALLENGE_DIFFICULTY_BITS = 12;
+
+export function difficultyForRisk(risk: "standard" | "elevated" | "high" | "browser"): number {
+  const want =
+    risk === "high" ? 20 : risk === "elevated" ? 19 : risk === "browser" ? BROWSER_CHALLENGE_DIFFICULTY_BITS : CHALLENGE_DIFFICULTY_BITS;
   return Math.min(Math.max(want, 12), MAX_CHALLENGE_DIFFICULTY_BITS);
 }
 const MASK = "0".repeat(Math.floor(CHALLENGE_DIFFICULTY_BITS / 4));
@@ -77,6 +89,9 @@ export async function POST(request: Request) {
     body = {};
   }
   const purpose = (body as { purpose?: unknown })?.purpose;
+  /* 'verification' is issued by /api/verification/challenge, not here: it must not
+     carry a proof-of-work demand, so it keeps its own route. Rejected here so a
+     caller cannot mint a liveness token by asking for the wrong shape. */
   if (purpose !== "appeal" && purpose !== "signup" && purpose !== "reset") {
     return Response.json({ error: "purpose must be appeal, signup or reset." }, { status: 400 });
   }
@@ -93,7 +108,9 @@ export async function POST(request: Request) {
     .where(and(eq(humanChallenges.email, email), eq(humanChallenges.purpose, purpose), eq(humanChallenges.status, "issued")));
 
   const risk = (body as { risk?: unknown })?.risk;
-  const difficultyBits = difficultyForRisk(risk === "high" || risk === "elevated" ? risk : "standard");
+  const riskKind =
+    risk === "high" || risk === "elevated" || risk === "browser" ? (risk as "high" | "elevated" | "browser") : "standard";
+  const difficultyBits = difficultyForRisk(riskKind);
 
   await db.insert(humanChallenges).values({
     email,

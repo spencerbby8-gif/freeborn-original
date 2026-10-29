@@ -1,9 +1,9 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageReactions, messages, userPrivateSettings, userProfiles } from "@/db/schema";
+import { matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
-import { looksLikeScam } from "@/lib/scam-guard";
-import { recordScamFlag } from "@/lib/identity-resolve";
+import { scoreScamMessage } from "@/lib/scam-guard";
+import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
 async function ownsMatch(matchId: string, memberId: string) {
@@ -169,11 +169,42 @@ export async function POST(request: Request) {
      minimum Freeborn can do with the same intent is accumulate the evidence so
      repeat behaviour raises review priority instead of resetting to zero every
      message. It never blocks speech and never auto-acts. */
-  const scamFlag = looksLikeScam(clean);
+  /* Scored, not boolean: `recentFlags` is read BEFORE this message is counted, so a
+     first-time flag cannot escalate itself, and only a repeat sender crosses the line
+     into an enforcement case. The message is still never blocked — the recipient keeps
+     the choice, which is the whole point of a warning rather than a shadow filter. */
+  const [priorHist] = await db
+    .select({ flags: userTrustHistory.scamFlags7d })
+    .from(userTrustHistory)
+    .where(eq(userTrustHistory.userId, member.id))
+    .limit(1);
+  const scam = scoreScamMessage(clean, Number(priorHist?.flags ?? 0));
+  const scamFlag = scam.shouldWarn;
   await db
     .insert(messages)
     .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag });
   if (scamFlag) await recordScamFlag(member.id);
+  if (scam.shouldEscalate) {
+    try {
+      await openCase({
+        userId: member.id,
+        email: member.email,
+        input: {
+          code: "scam_pattern_message",
+          violatedClass: "violation_behavior",
+          detail: `scam score ${scam.score} across ${scam.categories.join("+")} (repeat: ${Number(priorHist?.flags ?? 0)} flags in 7d)`,
+          notes:
+            "Several of your recent messages matched patterns used in payment scams. Nothing has been hidden or removed; a person will look, and you can explain here.",
+          trustDelta: -6,
+          openedBy: "system",
+          verified: false,
+        },
+      });
+      await recomputeTrust(member.id).catch(() => undefined);
+    } catch {
+      /* escalation is a review aid; it must never fail the member's send */
+    }
+  }
   await db.update(matches).set({ lastMessageAt: new Date() }).where(eq(matches.id, matchId));
 
   // Read receipts: the other member reads everything you've sent before they

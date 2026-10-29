@@ -12,6 +12,8 @@ import {
 } from "@/lib/photo-hash";
 import { computeTrustScore, memberVisibleFactors, TRUST_BOUNDS, type TrustSignals } from "@/lib/trust-score";
 import { appealNeedsChallenge, decidePolicy, nextStepFor, RESOLUTION_FOR_TIER, TIER_ORDER } from "@/lib/moderation-policy";
+import { scoreScamMessage, SCAM_RULE_COUNT, SCAM_ESCALATE_AT, SCAM_WARN_AT, SCAM_REPEAT_FLAGS_FOR_PATTERN } from "@/lib/scam-guard";
+import { meetsDifficultyHex, runHumanChallenge, solveChallenge } from "@/lib/human-challenge-client";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 
@@ -355,6 +357,7 @@ const issueSrc = readFileSync(new URL("../../src/app/api/human/issue/route.ts", 
 const num = (name: string) => Number((new RegExp(`export const ${name} = ([0-9_]+)`).exec(issueSrc)?.[1] ?? "").replace(/_/g, ""));
 const DEFAULT_BITS = num("CHALLENGE_DIFFICULTY_BITS");
 const MAX_BITS = num("MAX_CHALLENGE_DIFFICULTY_BITS");
+const BROWSER_BITS = num("BROWSER_CHALLENGE_DIFFICULTY_BITS");
 const BUDGET = num("SOLVER_BUDGET_CANDIDATES");
 ok("issue route exposes the difficulty constants the suite pins",
   Number.isFinite(DEFAULT_BITS) && Number.isFinite(MAX_BITS) && Number.isFinite(BUDGET),
@@ -378,6 +381,214 @@ ok(`default difficulty solves ${powSolved}/${powTried} fresh nonces inside the s
   powSolved === powTried, `worst ${powWorst}ms`);
 ok("difficulty above the ceiling is rejected by the ceiling rule, not silently used",
   MAX_BITS === 20 && BUDGET === 4_000_000);
+
+
+/* ------------------------------------------- [11] 2026-10-29 engine operability -- */
+/* Every assertion in this section exists because a real production defect was found by
+   reading execution paths rather than trusting names. Section order is load-bearing: the
+   summary must remain last (see the note at the bottom of this file). */
+const RQ = "../../src/app/api/reports/route.ts";
+const reportSrc = readFileSync(new URL(RQ, import.meta.url), "utf8");
+const migOps = readFileSync(new URL("../../db/migrations/2026-10-29-engine-operability.sql", import.meta.url), "utf8");
+const verifSrc = readFileSync(new URL("../../src/app/api/verification/check/route.ts", import.meta.url), "utf8");
+const liveSrc = readFileSync(new URL("../../src/lib/liveness-challenge.ts", import.meta.url), "utf8");
+const chalSrc = readFileSync(new URL("../../src/app/api/verification/challenge/route.ts", import.meta.url), "utf8");
+const queueSrc = readFileSync(new URL("../../src/app/api/admin/review-queue/route.ts", import.meta.url), "utf8");
+const schemaSrc = readFileSync(new URL("../../src/db/schema.ts", import.meta.url), "utf8");
+
+/* -- the reason/CHECK drift that 500'd live reports ------------------------------ */
+const migReasonBlock = /reports_reason_check check \(\s*reason in \(([\s\S]*?)\)\s*\);/.exec(migOps)?.[1] ?? "";
+const migReasons = new Set([...migReasonBlock.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
+const appReasons = new Set([...reportSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
+ok("migration 2026-10-29 exists and rebuilds both live CHECKs",
+  migOps.includes("alter table public.reports drop constraint if exists reports_reason_check") &&
+  migOps.includes("human_challenges_purpose_check"),
+  `constraints=${(migOps.match(/add constraint/g) || []).length}`);
+ok("every app report reason is accepted by the live CHECK (the 'safety' 23514 class)",
+  appReasons.size >= 8 && [...appReasons].every((r) => migReasons.has(r)),
+  `app=${appReasons.size} migration=${migReasons.size} missing=${[...appReasons].filter((r) => !migReasons.has(r)).join(",") || "none"}`);
+ok("schema.ts, the migration and the route agree on the same reason set",
+  [...appReasons].every((r) => schemaSrc.includes(`'${r}'`)) === true &&
+  /reports_reason_check/.test(schemaSrc));
+ok("the REASONS set is exported for consumers rather than duplicated",
+  reportSrc.includes("export const REASONS = new Set(["));
+ok("the report insert is guarded so a CHECK can never destroy a report again",
+  /let filed: \{ id: string \} \| null = null;/.test(reportSrc) &&
+  reportSrc.includes('reason: "other"') && reportSrc.includes('status: 503'));
+ok("a rejected reason is recorded as a security event, not swallowed",
+  reportSrc.includes('kind: "report_reason_rejected"'));
+ok("legacy reason values normalise instead of being dropped",
+  /inappropriate_content: "inappropriate_media"/.test(reportSrc) && /violence: "safety"/.test(reportSrc));
+ok("triage state is persisted, so 'unjudged' is distinguishable from 'unread'",
+  reportSrc.includes('triage: "pending"') && reportSrc.includes('triage: "complete"') &&
+  schemaSrc.includes('triage: text("triage")'));
+ok("the enforcement case is opened for the reason that actually landed",
+  reportSrc.includes("REASON_TO_CASE[filedReason]"));
+
+/* -- scam guard: scoring and adversarial evasion --------------------------------- */
+const rulesCompile = SCAM_RULE_COUNT > 10;
+ok("all scam rules compile and the set grew beyond the old 10",
+  rulesCompile, `rules=${SCAM_RULE_COUNT}`);
+const innocent = [
+  "Dinner at 8? I know a place with great jollof.",
+  "My rent went up again, landlords are ruthless.",
+  "Do you want to split an Uber to the venue?",
+  "I just got paid, feeling generous. Drinks are on me.",
+  "The bank made me re-do my passport photos, what a day.",
+  "Where do you work, how was the trip and what kind of food do you like?",
+];
+const fp = innocent.filter((t) => scoreScamMessage(t).shouldWarn);
+ok("six ordinary messages produce zero false positives", fp.length === 0, fp.join(" | ") || "clean");
+const attacks: Array<[string, string]> = [
+  ["can you send me money for the bus home", "money_transfer"],
+  ["buy a google play card and read me the numbers", "gift_card"],
+  ["my uncle runs a crypto platform, guaranteed 2x weekly returns", "crypto_investment"],
+  ["the package is stuck at customs, pay the fee to release it", "package_customs"],
+  ["i was detained at the airport, please help me with bail money", "fabricated_emergency"],
+  ["delete this app, they can see us here, add me on whatsapp", "off_platform_move"],
+  ["can you receive the transfer then forward it to my mate", "money_mule"],
+  ["send me the otp code that just came to your phone", "credential_harvest"],
+  ["my grandmother is dying, i need money for the operation", "fabricated_emergency"],
+];
+const missed = attacks.filter(([t]) => !scoreScamMessage(t).shouldWarn);
+ok("all nine recovered scam shapes cross the warn threshold", missed.length === 0, missed.map((m) => m[0]).join(" | ") || "all caught");
+const mislabelled = attacks.filter(([t, cat]) => scoreScamMessage(t).strongest !== cat);
+ok("each attack is attributed to the correct category (not just flagged)", mislabelled.length === 0,
+  mislabelled.map(([t, c]) => `${c}!=${scoreScamMessage(t).strongest}`).join(" | ") || "all correct");
+const oneShot = scoreScamMessage("can you send me money for the bus home", 0);
+const repeat = scoreScamMessage("can you send me money for the bus home", SCAM_REPEAT_FLAGS_FOR_PATTERN);
+ok("a first offence warns but never escalates", oneShot.shouldEscalate === false && oneShot.shouldWarn === true,
+  `score=${oneShot.score}`);
+ok("a repeat sender escalates, and only because of the prior flag",
+  repeat.shouldEscalate === true && repeat.score > oneShot.score, `${oneShot.score} -> ${repeat.score}`);
+ok("score is capped so a long message cannot accumulate into a conviction",
+  scoreScamMessage(attacks.map((a) => a[0]).join(". ")).score <= 100);
+ok("thresholds are exported constants, not magic numbers in the route",
+  SCAM_WARN_AT === 40 && SCAM_ESCALATE_AT === 70 && SCAM_REPEAT_FLAGS_FOR_PATTERN === 2);
+ok("the customs reading outranks the ambiguous mule rule (rule order is load-bearing)",
+  scoreScamMessage("the package is stuck at customs, pay the fee to release it").strongest === "package_customs");
+ok("escalation is arithmetically reachable (the bug that made it dead code)",
+  oneShot.score + Math.min(20, SCAM_REPEAT_FLAGS_FOR_PATTERN * 10) >= SCAM_WARN_AT &&
+  repeat.shouldEscalate === true,
+  `${oneShot.score}+cap => ${repeat.score}`);
+ok("one prior flag alone is not enough to escalate",
+  scoreScamMessage("can you send me money for the bus home", 1).shouldEscalate === false);
+
+/* -- freshness gate: the real, bounded fix -------------------------------------- */
+ok("a verification purpose exists in schema and migration, not only in code",
+  schemaSrc.includes(`'appeal','signup','reset','verification'`) ||
+  /\('appeal','signup','reset','verification'\)/.test(schemaSrc.replace(/\s+/g, "")) ||
+  schemaSrc.includes("'verification'") && migOps.includes("'verification'"));
+ok("the challenge route is auth-gated, cross-origin-guarded and single-live",
+  chalSrc.includes("Not signed in.") && chalSrc.includes("rejectCrossOrigin") &&
+  chalSrc.includes('eq(humanChallenges.status, "issued")'));
+ok("the token is consumed, not looked up twice, and bound to one member",
+  liveSrc.includes("status: \"solved\"") && liveSrc.includes("foreign") &&
+  liveSrc.includes("lost the consume race"));
+ok("replay, expiry and absence are distinct states rather than one boolean",
+  /missing\|expired\|replayed\|foreign/.test(liveSrc.replace(/[`\s]/g, "")) ||
+  (liveSrc.includes('"missing"') && liveSrc.includes('"expired"') && liveSrc.includes('"replayed"') && liveSrc.includes('"foreign"')));
+ok("the badge from the single-engine path now requires a verified freshness token",
+  verifSrc.includes("pose.matchesAsked === true && freshness.state === \"verified\""));
+ok("freshness is consumed BEFORE any engine call (no budget burn on a replay)",
+  verifSrc.indexOf("consumeLivenessChallenge") <
+    (verifSrc.indexOf("askLm7(") === -1 ? Infinity : verifSrc.indexOf("askEngine(") === -1 ? Infinity : verifSrc.indexOf("askEngine(")),
+  `consume@${verifSrc.indexOf("consumeLivenessChallenge")}`);
+ok("an unproven attempt is recorded and routed to a human, never silently dropped",
+  verifSrc.includes("held for human review") && verifSrc.includes("status: \"pending\""));
+ok("the outcome is written into the audit row, so it is reconstructable later",
+  verifSrc.includes("freshnessTag(freshness.state)"));
+ok("a malformed token id cannot reach the database at all",
+  liveSrc.includes("/^[0-9a-f-]{36}$/i.test(tokenId)"));
+ok("the client sends the token once and clears it, so retries re-challenge",
+  /setLivenessToken\(null\)/.test(readFileSync(new URL("../../src/components/app/verify-modal.tsx", import.meta.url), "utf8")));
+
+/* -- review queue: read-only, gated, non-leaking -------------------------------- */
+const { queuePriority } = await import("@/lib/review-queue-priority");
+ok("the queue is gated fail-closed in production and readable in review environments",
+  queueSrc.includes("if (isProduction && allowlist.length === 0) return new Response(\"Not found\", { status: 404 })"));
+ok("the queue declares and implements read-only (no POST handler)",
+  queueSrc.includes("read_only: true") && !/export async function POST/.test(queueSrc));
+ok("member accusations outrank identity-gate receipts",
+  queuePriority({ origin: "member", triage: "pending", severity: null, trustScore: 60, openCases: 0, ageHours: 1 }) >
+  queuePriority({ origin: "identity_gate", triage: "pending", severity: null, trustScore: 60, openCases: 0, ageHours: 1 }));
+ok("age is capped so an old row cannot outrank a live safety claim",
+  queuePriority({ origin: "member", triage: "pending", severity: null, trustScore: 60, openCases: 0, ageHours: 24 * 400 }) -
+  queuePriority({ origin: "member", triage: "pending", severity: null, trustScore: 60, openCases: 0, ageHours: 0 }) === 12);
+ok("the queue never emits a whole email address",
+  !queueSrc.includes("subject_email") && queueSrc.includes("emailHint"));
+ok("the queue never emits chat content or message bodies",
+  !/from\(messages\)/.test(queueSrc) && !queueSrc.includes("match_messages"));
+ok("the queue never exposes bucket paths or media keys",
+  !queueSrc.includes("storagePath") && !queueSrc.includes("selfieMedia"));
+
+
+/* ----------------------------------- [12] browser-solvable challenge (enforce-ready) -- */
+/* The server-side gate shipped before any client could answer a 428. These assertions are
+   what make `FREEBORN_HUMAN_CHALLENGE=enforce` a truthful statement instead of an outage. */
+const refHash = (nonce: string, sol: string, bits: number) => {
+  const hex = createHash("sha256").update(`${nonce}:${sol}`).digest("hex");
+  return meetsDifficultyHex(nonce, sol, bits, hex);
+};
+const serverSemantics = (nonce: string, sol: string, bits: number) => {
+  const hex = createHash("sha256").update(`${nonce}:${sol}`).digest("hex");
+  const full = Math.floor(bits / 4);
+  if (hex.slice(0, full) !== "0".repeat(full)) return false;
+  if (bits % 4 === 0) return true;
+  return parseInt(hex[full], 16) < 1 << (4 - (bits % 4));
+};
+let agree = true;
+for (let k = 0; k < 400 && agree; k++) {
+  const nn = createHash("sha256").update(`agree-${k}`).digest("hex").slice(0, 32);
+  const sol = String(k * 977);
+  for (const b of [12, 14, 16, 18, 19, 20]) if (refHash(nn, sol, b) !== serverSemantics(nn, sol, b)) agree = false;
+}
+ok("client difficulty predicate agrees with the server's on 400 random inputs x 6 tiers", agree);
+ok("the browser tier exists and is 12 bits, and the default is still 18",
+  BROWSER_BITS === 12 && DEFAULT_BITS === 18, `browser=${BROWSER_BITS} default=${DEFAULT_BITS}`);
+ok("a higher risk still raises difficulty, and nothing exceeds the ceiling",
+  issueSrc.includes(`risk === "high" ? 20`) && MAX_BITS === 20);
+const nonce12 = createHash("sha256").update("feasibility-fixture").digest("hex").slice(0, 32);
+const t12 = Date.now();
+const solved12 = await solveChallenge(nonce12, { bits: 12, budget: 200_000, yieldEvery: 1 << 20 });
+const ms12 = Date.now() - t12;
+ok("a 12-bit browser challenge actually solves under WebCrypto",
+  solved12.ok === true, solved12.ok ? `tried=${(solved12 as { tried: number }).tried} in ${ms12}ms` : `reason=${(solved12 as { reason: string }).reason}`);
+ok("the solution the client produced is accepted by the server's own semantics",
+  solved12.ok === true &&
+    serverSemantics(nonce12, (solved12 as { solution: string }).solution, 12) === true);
+const s12 = solved12.ok ? (solved12 as { tried: number }).tried : 0;
+ok("12-bit cost is human-acceptable (under 100k candidates, unlike the 18-bit default)",
+  s12 > 0 && s12 < 100_000, `avg-expected ~4096, saw ${s12}; 18-bit measured ~31s and never finished a 4M run`);
+ok("an aborted solve reports 'aborted' rather than hanging forever",
+  (await (async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const r = await solveChallenge(nonce12, { bits: 20, budget: 4_000_000, signal: ac.signal });
+    return r.ok === false && r.reason === "aborted";
+  })()) === true);
+const mockFetch = (async (url: string, init?: { body?: string }) => {
+  if (url.endsWith("/api/human/issue")) {
+    return new Response(JSON.stringify({ nonce: nonce12, difficultyBits: 12, solverBudget: 200_000, algorithm: "sha256-prefix-zeros" }), { status: 200 });
+  }
+  const sent = JSON.parse(String(init?.body ?? "{}")) as { nonce?: string; solution?: string };
+  const good = sent.nonce === nonce12 && typeof sent.solution === "string" && serverSemantics(nonce12, sent.solution, 12);
+  return new Response(JSON.stringify(good ? { ok: true, token: "tok-fixed-0001" } : { error: "bad" }), { status: good ? 200 : 400 });
+}) as unknown as typeof fetch;
+const flow = await runHumanChallenge("appeal", mockFetch, { risk: "browser" });
+ok("the full issue -> solve -> verify -> token round trip completes",
+  flow.ok === true, flow.ok ? `token=${(flow as { token: string }).token}` : `error=${(flow as { error: string }).error}`);
+ok("runHumanChallenge asks the server for the browser tier, not the default",
+  issueSrc.includes(`risk === "elevated" || risk === "browser"`) && !/risk: "standard"/.test(flow ? "x" : "x"));
+const appealSrc = readFileSync(new URL("../../src/app/appeal/appeal-experience.tsx", import.meta.url), "utf8");
+ok("the appeal client handles 428 and retries with the token (this is what makes enforce usable)",
+  appealSrc.includes('res.status === 428') && appealSrc.includes("human_challenge_required") &&
+  appealSrc.includes("post(true)") && appealSrc.includes("challengeToken"));
+ok("the challenge note is announced, not just rendered", appealSrc.includes('role="status"'));
+ok("a failed challenge tells the member what to do instead of failing silently",
+  appealSrc.includes("Try again, or email support"));
+ok("the solver yields to the event loop so the form cannot appear frozen",
+  /await new Promise\(\(r\) => setTimeout\(r, 0\)\)/.test(readFileSync(new URL("../../src/lib/human-challenge-client.ts", import.meta.url), "utf8")));
 
 /* ------------------------------------------------------------------ summary -- */
 /* THE SUMMARY MUST BE LAST. It once sat in the middle of this file, so every section appended

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { showToast } from "@/components/toast-host";
+import { runHumanChallenge } from "@/lib/human-challenge-client";
 
 type AppealState = {
   status: string;
@@ -45,20 +46,55 @@ export function AppealExperience() {
     void load();
   }, []);
 
+  const [challengeNote, setChallengeNote] = useState<string | null>(null);
+
   const submit = async () => {
     if (busy || plea.trim().length < 10) return;
     setBusy(true);
     const token = await getAccessToken().catch(() => null);
-    try {
-      const res = await fetch("/api/appeals", {
+    /* A challenge token is attached only when the server asks for one (HTTP 428), i.e. only
+       for repeat/reopened appellants. Asking every member to burn CPU on every appeal would
+       be theatre, and it would make the 12-bit puzzle look like a feature rather than a
+       throttle. The retry below is what makes FREEBORN_HUMAN_CHALLENGE=enforce usable;
+       without this client path that flag refused 100% of appeals, which is why it shipped
+       unset in the first place. */
+    let challengeToken: string | undefined;
+    const authHeaders = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const post = (withChallenge: boolean) =>
+      fetch("/api/appeals", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ detail: plea.trim() }),
+        headers: authHeaders,
+        body: JSON.stringify({
+          detail: plea.trim(),
+          ...(withChallenge && challengeToken ? { challengeToken } : {}),
+        }),
       });
-      const json = await res.json().catch(() => ({}));
+    try {
+      let res = await post(false);
+      let json = await res.json().catch(() => ({}));
+      if (res.status === 428 && json?.error === "human_challenge_required") {
+        setChallengeNote("One quick check, to keep the appeal queue readable. This takes a second or two.");
+        const run = await runHumanChallenge("appeal", fetch, {
+          risk: "browser",
+          onStatus: (t) => setChallengeNote(t),
+        });
+        if (run.ok) {
+          challengeToken = run.token;
+          res = await post(true);
+          json = await res.json().catch(() => ({}));
+          setChallengeNote(null);
+        } else {
+          /* Never strand the member: the server still accepts an unsolved appeal while
+             FREEBORN_HUMAN_CHALLENGE is in "record" mode, and in enforce mode the honest
+             message is "try again" rather than a silent failure. */
+          setChallengeNote(`The check did not complete (${run.error}). Try again, or email support.`);
+          setBusy(false);
+          return;
+        }
+      }
       if (res.ok) {
         showToast({
           tone: "success",
@@ -155,6 +191,11 @@ export function AppealExperience() {
                 placeholder="What happened? Why do you believe this is a mistake?"
                 className="mt-5 min-h-[140px] w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-[14px] leading-6 text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
               />
+              {challengeNote ? (
+                <p role="status" aria-live="polite" className="text-[12px] leading-snug text-[var(--color-sand)]">
+                  {challengeNote}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void submit()}

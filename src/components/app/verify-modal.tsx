@@ -105,6 +105,9 @@ export function VerifyGate() {
   const [gateSkipped, setGateSkipped] = useState(false);
   const challengeTriesRef = useRef(0);
   const [challengeTries, setChallengeTries] = useState(0);
+  /* Server-issued freshness token. Requested when the camera opens so it is ~5 min
+     fresh at submit time (its TTL); never re-used, the server consumes it on use. */
+  const [livenessToken, setLivenessToken] = useState<string | null>(null);
   const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
@@ -279,7 +282,23 @@ export function VerifyGate() {
   };
 
   useEffect(() => {
-    if (step === "camera") void startCamera();
+    if (step === "camera") {
+      void startCamera();
+      /* Failures here are deliberately non-fatal to the flow: with no token the
+         server still records the attempt and returns an explicit
+         `freshness: "missing"` verdict, it just does not grant the badge. A member
+         must never be blocked by a control we failed to deliver. */
+      void (async () => {
+        try {
+          const r = await fetch("/api/verification/challenge", { method: "POST", headers: await authHeaders() });
+          if (!r.ok) return;
+          const j = (await r.json().catch(() => ({}))) as { livenessToken?: string };
+          if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
+        } catch {
+          /* no token: the attempt degrades to unverified-freshness, not to an error */
+        }
+      })();
+    }
     else stopCamera();
     return stopCamera;
   }, [step, startCamera, stopCamera]);
@@ -412,9 +431,15 @@ export function VerifyGate() {
       const res = await fetch("/api/verification/check", {
         method: "POST",
         headers: await authHeaders(),
-        body: JSON.stringify({ selfie, poseLabel: pose.label, liveness: livenessEvidence() }),
+        body: JSON.stringify({
+          selfie,
+          poseLabel: pose.label,
+          liveness: livenessEvidence(),
+          livenessToken: livenessToken ?? undefined,
+        }),
       });
       setCheckingProgress(100);
+      setLivenessToken(null); /* one-shot: a retry needs a brand-new challenge */
       const json = await res.json().catch(() => ({}));
 
       if (res.status === 429) {

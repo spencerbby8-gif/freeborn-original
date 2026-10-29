@@ -689,6 +689,11 @@ export const reports = pgTable(
     /** AI triage severity — filled by the moderation engine on arrival. */
     severity: text("severity"),
     triageSummary: text("triage_summary"),
+    /** 'complete' = both engines returned a verdict, 'pending' = unavailable/over budget.
+     *  Stored because the queue's meaning changes completely with it: with no engine keys
+     *  configured every member report is legitimately unjudged, and an operator must be
+     *  able to tell that apart from "nobody has looked yet" without guessing. */
+    triage: text("triage"),
     /* Human review. `status` records that a report was closed; these record
        who closed it, when, and on what ground. `resolution` is deliberately
        separate from `triageSummary`, which is the AI reading and must not be
@@ -700,9 +705,19 @@ export const reports = pgTable(
   },
   (t) => [
     index("reports_subject_idx").on(t.subjectId),
+    /* LIVE-DEFECT (found 2026-10-29, measured against production): the deployed
+     * `reports_reason_check` enumerated 12 values copied from an early list
+     * (inappropriate_content, spam, nudity, violence, selfie_mismatch, …) and did NOT
+     * contain 'safety'. `POST /api/reports` with reason="safety" therefore raised
+     * 23514 out of the unguarded insert at reports/route.ts:95 and returned 500 — a
+     * member's report was silently destroyed. Reproduced directly:
+     *   insert into reports(reason) values ('safety')  ->  ERROR: 23514
+     * The CHECK and this list are now the same set, plus the legacy values that older
+     * rows already carry so the constraint can never be re-narrowed under existing data.
+     * The route additionally never inserts an unlisted reason (see safeReason). */
     check(
       "reports_reason_check",
-      sql`${t.reason} in ('fake_profile','scam','harassment','safety','underage','inappropriate_media','other')`
+      sql`${t.reason} in ('fake_profile','scam','harassment','safety','underage','inappropriate_media','ai_generated_media','other','inappropriate_content','spam','nudity','violence','selfie_mismatch')`
     ),
     check("reports_origin_check", sql`${t.origin} in ('member','identity_gate')`),
   ]
@@ -1081,7 +1096,14 @@ export const humanChallenges = pgTable(
     solvedAt: timestamp("solved_at", { withTimezone: true }),
   },
   (t) => [
-    check("human_challenges_purpose_check", sql`${t.purpose} in ('appeal','signup','reset')`),
+    /* 'verification' added 2026-10-29: a selfie/liveness attempt must be attributable to
+     * a server-issued, single-use, expiring challenge, otherwise `liveness.blink` is a
+     * free self-declaration the member can precompute once and replay forever. See
+     * /api/verification/challenge and RE-EVIDENCE-GAP-REPORT.md §5. */
+    check(
+      "human_challenges_purpose_check",
+      sql`${t.purpose} in ('appeal','signup','reset','verification')`
+    ),
     check(
       "human_challenges_status_check",
       sql`${t.status} in ('issued','solved','failed','expired')`

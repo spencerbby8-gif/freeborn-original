@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { reports, userProfiles, warnings } from "@/db/schema";
+import { reports, securityEvents, userProfiles, warnings } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
 import { factCheckReport } from "@/lib/moderation";
 import { openCase, recomputeTrust } from "@/lib/identity-resolve";
@@ -9,7 +9,12 @@ import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const REASONS = new Set([
+/** The canonical member-facing reason set. Kept in lockstep with the live
+ *  `reports_reason_check` by scripts/trust/harness.ts section [10], which reads
+ *  db/migrations/2026-10-29-engine-operability.sql and asserts every value here is
+ *  accepted by it. Before that test existed, production's CHECK was missing 'safety'
+ *  and 500'd the whole POST — see RE-EVIDENCE-GAP-REPORT and the schema comment. */
+export const REASONS = new Set([
   "fake_profile",
   "scam",
   "harassment",
@@ -82,7 +87,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "You can't report your own profile." }, { status: 400 });
   }
 
-  const safeReason = reason && REASONS.has(reason) ? reason : "other";
+  /* Legacy values that already exist in rows written before this list was reconciled.
+     They are accepted on read and normalised on write, rather than rejected, because a
+     member who picks "nudity" in an older client must not lose their report. */
+  const LEGACY_REASON: Record<string, string> = {
+    inappropriate_content: "inappropriate_media",
+    nudity: "inappropriate_media",
+    violence: "safety",
+    selfie_mismatch: "fake_profile",
+    spam: "other",
+  };
+  const requested = typeof reason === "string" ? reason.trim().toLowerCase() : "";
+  const safeReason = REASONS.has(requested)
+    ? requested
+    : LEGACY_REASON[requested] ?? "other";
   const safeDetails = typeof details === "string" ? details.slice(0, 1000) : null;
 
   if (rateLimited(member.id, 10, 60 * 60 * 1000)) {
@@ -92,15 +110,54 @@ export async function POST(request: Request) {
     );
   }
 
-  const [filed] = await db
-    .insert(reports)
-    .values({
-      reporterId: member.id,
-      subjectId: profileId,
-      reason: safeReason,
-      details: safeDetails,
-    })
-    .returning({ id: reports.id });
+  /* This insert was previously unguarded, which is exactly how a CHECK drift turned into
+     a lost report and an HTTP 500. It now retries once with the only reason the database
+     can never reject ("other"), so a schema/code mismatch degrades the taxonomy, not the
+     safety action. Both attempts failing is the only path that surfaces an error. */
+  let filed: { id: string } | null = null;
+  let filedReason = safeReason;
+  try {
+    filed = await db
+      .insert(reports)
+      .values({
+        reporterId: member.id,
+        subjectId: profileId,
+        reason: safeReason,
+        details: safeDetails,
+        triage: "pending",
+      })
+      .returning({ id: reports.id })
+      .then((r) => r[0] ?? null);
+  } catch (e) {
+    await db
+      .insert(securityEvents)
+      .values({
+        email: member.email,
+        kind: "report_reason_rejected",
+        detail: `insert failed for reason="${safeReason}" (${String((e as { code?: string })?.code ?? e)}); re-filing as "other"`,
+      })
+      .catch(() => undefined);
+    try {
+      filed = await db
+        .insert(reports)
+        .values({ reporterId: member.id, subjectId: profileId, reason: "other", details: safeDetails })
+        .returning({ id: reports.id })
+        .then((r) => r[0] ?? null);
+      filedReason = "other";
+    } catch {
+      return Response.json(
+        { error: "We could not file your report. It has been logged; please try again." },
+        { status: 503 }
+      );
+    }
+  }
+
+  if (!filed) {
+    return Response.json(
+      { error: "We could not file your report. It has been logged; please try again." },
+      { status: 503 }
+    );
+  }
 
   /* DUAL-MODEL FACT CHECK — two independent engines judge observable
      evidence only (never private chats). Reports alone never ban anyone;
@@ -142,8 +199,8 @@ export async function POST(request: Request) {
       outcome = verdict.action;
       await db
         .update(reports)
-        .set({ severity: verdict.severity, triageSummary: verdict.summary.slice(0, 200) })
-        .where(eq(reports.id, filed.id));
+        .set({ severity: verdict.severity, triageSummary: verdict.summary.slice(0, 200), triage: "complete" })
+        .where(eq(reports.id, filed!.id));
 
       /* A warning is issued only when BOTH models find the claim credible
          and serious — and never against verified members on one engine. */
@@ -166,7 +223,7 @@ export async function POST(request: Request) {
      mass-report wave cannot suppress or suspend — scripts/trust/harness.ts asserts that
      over 720 input combinations. */
   try {
-    const map = REASON_TO_CASE[safeReason];
+    const map = REASON_TO_CASE[filedReason];
     if (map && profileId) {
       const subjectId = profileId;
       const [sameReason] = await db
@@ -180,7 +237,7 @@ export async function POST(request: Request) {
         input: {
           code: map.code,
           violatedClass: map.violatedClass,
-          detail: `${distinctReporters} distinct reporter(s) filed "${safeReason}"; report=${filed?.id ?? "?"}.`,
+          detail: `${distinctReporters} distinct reporter(s) filed "${filedReason}"; report=${filed.id}.`,
           notes:
             "Members reported your profile. Nothing has been changed on your account; a person will look, and you can add your side here.",
           trustDelta: -5,

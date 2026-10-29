@@ -6,6 +6,7 @@ import { deriveAnchor } from "@/lib/photo-hash";
 import { findSharedAnchor, openCase, recomputeTrust, upsertFingerprint } from "@/lib/identity-resolve";
 import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
+import { consumeLivenessChallenge, freshnessTag } from "@/lib/liveness-challenge";
 
 /* afterVerificationSuccess — post-approval identity bookkeeping.
    Writes the member's photo-set anchor, checks whether another account holds the same
@@ -224,10 +225,11 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
-  const { selfie, poseLabel, liveness } = (body ?? {}) as {
+  const { selfie, poseLabel, liveness, livenessToken: bodyLivenessToken } = (body ?? {}) as {
     selfie?: string;
     poseLabel?: string;
     liveness?: { gate?: string; blink?: boolean; singleFace?: boolean };
+    livenessToken?: string;
   };
   if (!selfie || !/^data:image\/(jpeg|png|webp);base64,/.test(selfie)) {
     return Response.json({ error: "A live selfie is required." }, { status: 400 });
@@ -245,6 +247,15 @@ export async function POST(request: Request) {
     );
   }
   const blinkTag = liveness?.blink === true ? "+blink" : "";
+
+  /* FRESHNESS GATE. `blink` and `gate` are client-asserted and always have been; the
+     only thing we can verify server-side is that this attempt was initiated moments ago
+     with a token we issued and that it is being presented for the first time. Consumed
+     here, once, before any engine call, so a replayed submission cannot burn a second
+     engine budget either. */
+  const freshness = await consumeLivenessChallenge(member.email, bodyLivenessToken).catch(
+    () => ({ state: "missing" as const, detail: "challenge lookup failed" })
+  );
   if (rateLimited(member.id, 6, 60 * 60 * 1000)) {
     return Response.json(
       { error: "Too many verification attempts. Please try again in an hour." },
@@ -321,7 +332,7 @@ export async function POST(request: Request) {
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "rejected",
-      method: "dual_model",
+      method: `dual_model${freshnessTag(freshness.state)}`,
       /* Privacy Policy clause 7. A rejected request's selfie has no further use,
          so it is never written to the database in the first place: appeals do not
          read it, re-verification creates a fresh request with a fresh image, and
@@ -442,7 +453,7 @@ export async function POST(request: Request) {
         db.insert(verificationRequests).values({
           accountId: member.id,
           status,
-          method: `dual_model:${LM7_MODEL}${blinkTag}`,
+          method: `dual_model:${LM7_MODEL}${blinkTag}${freshnessTag(freshness.state)}`,
           /* Rejections are stored without the image (see the note on the stage-1
              inserts). A PENDING request keeps it, because a human reviewer needs
              the photograph in order to make the call. */
@@ -516,13 +527,20 @@ export async function POST(request: Request) {
      Truthful degradation: Stage 1's lenient gesture read decides with the
      profile photo, and the response says a single engine ran. --------------- */
 
-  const sameEnough = pose.matchesAsked === true;
+  /* A single-engine pass with no fresh challenge is exactly the shape a scripted client
+     produces (pre-computed selfie, blink:true, no token), so it does not self-serve a
+     badge any more. It is still recorded and routed to a person, never discarded. */
+  const sameEnough = pose.matchesAsked === true && freshness.state === "verified";
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
-    method: `single_model:${MODEL}${blinkTag}`,
+    method: `single_model:${MODEL}${blinkTag}${freshnessTag(freshness.state)}`,
     selfieMedia: selfie,
-    rejectReason: sameEnough ? null : `stage1 only, gesture uncertain: ${lm7.reason}`,
+    rejectReason: sameEnough
+      ? null
+      : pose.matchesAsked === true
+        ? `stage1 agreed but freshness unproven (${freshness.detail}); held for human review`
+        : `stage1 only, gesture uncertain: ${lm7.reason}`,
     reviewedAt: sameEnough ? new Date() : null,
   });
   if (sameEnough) {
