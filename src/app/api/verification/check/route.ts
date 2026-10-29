@@ -7,6 +7,7 @@ import { findSharedAnchor, openCase, recomputeTrust, upsertFingerprint } from "@
 import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
 import { consumeLivenessChallenge, freshnessTag } from "@/lib/liveness-challenge";
+import { consumePoseChallenge, poseTag, type PoseOutcome } from "@/lib/pose-challenge";
 
 /* afterVerificationSuccess — post-approval identity bookkeeping.
    Writes the member's photo-set anchor, checks whether another account holds the same
@@ -256,6 +257,24 @@ export async function POST(request: Request) {
   const freshness = await consumeLivenessChallenge(member.email, bodyLivenessToken).catch(
     () => ({ state: "missing" as const, detail: "challenge lookup failed" })
   );
+
+  /* POSE PROVENANCE. `poseLabel` used to be the only source of the pose, and it came
+     from this request body, so the "prove you are live" step verified a pose the
+     submitter chose. Here we look up the pose WE served against that same token,
+     consume it once, and use the SERVER's wording from here down. Note the deliberate
+     name: `pose` below is the engine's verdict object, `poseChallenge` is ours.
+     Side effect that matters: `askedPose` is no longer attacker-controlled text, which
+     also closes the prompt-injection path created by interpolating `poseLabel` into a
+     single-quoted prompt literal. */
+  const poseChallenge = await consumePoseChallenge(
+    member.id,
+    typeof bodyLivenessToken === "string" ? bodyLivenessToken : "",
+    poseLabel
+  ).catch((): PoseOutcome => ({ state: "unavailable", detail: "pose lookup failed" }));
+  const askedPose =
+    poseChallenge.label ??
+    (typeof poseLabel === "string" ? poseLabel.replace(/['"\`\n\r]/g, " ").slice(0, 120) : "");
+  const poseServed = poseChallenge.state === "verified";
   if (rateLimited(member.id, 6, 60 * 60 * 1000)) {
     return Response.json(
       { error: "Too many verification attempts. Please try again in an hour." },
@@ -322,7 +341,7 @@ export async function POST(request: Request) {
         "with JSON only, no prose: " +
         '{"observedPose": "<your six-word description>", "faceCount": <number of faces visible>, ' +
         '"lightingOk": <true if the face is bright and unobstructed>, ' +
-        `"matchesAsked": <true if the observed gesture is clearly similar to, or a reasonable attempt at, this asked pose: '${poseLabel}'. Allow natural variation — do NOT require an exact copy>}`,
+        `"matchesAsked": <true if the observed gesture is clearly similar to, or a reasonable attempt at, this asked pose: '${askedPose}'. Allow natural variation — do NOT require an exact copy>}`,
     },
     { type: "image_url", image_url: { url: selfie } },
   ]);
@@ -332,7 +351,7 @@ export async function POST(request: Request) {
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "rejected",
-      method: `dual_model${freshnessTag(freshness.state)}`,
+      method: `dual_model${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
       /* Privacy Policy clause 7. A rejected request's selfie has no further use,
          so it is never written to the database in the first place: appeals do not
          read it, re-verification creates a fresh request with a fresh image, and
@@ -453,7 +472,7 @@ export async function POST(request: Request) {
         db.insert(verificationRequests).values({
           accountId: member.id,
           status,
-          method: `dual_model:${LM7_MODEL}${blinkTag}${freshnessTag(freshness.state)}`,
+          method: `dual_model:${LM7_MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
           /* Rejections are stored without the image (see the note on the stage-1
              inserts). A PENDING request keeps it, because a human reviewer needs
              the photograph in order to make the call. */
@@ -530,16 +549,21 @@ export async function POST(request: Request) {
   /* A single-engine pass with no fresh challenge is exactly the shape a scripted client
      produces (pre-computed selfie, blink:true, no token), so it does not self-serve a
      badge any more. It is still recorded and routed to a person, never discarded. */
-  const sameEnough = pose.matchesAsked === true && freshness.state === "verified";
+  const sameEnough =
+    /* `pose.matchesAsked` is the ENGINE judging the pose; `poseServed` is the SERVER
+       confirming this is the pose it issued, to this member, once. Both are required, so
+       a client that supplies its own favourable prompt can no longer self-serve a badge
+       off a single engine. */
+    pose.matchesAsked === true && freshness.state === "verified" && poseServed;
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
-    method: `single_model:${MODEL}${blinkTag}${freshnessTag(freshness.state)}`,
+    method: `single_model:${MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
     selfieMedia: selfie,
     rejectReason: sameEnough
       ? null
       : pose.matchesAsked === true
-        ? `stage1 agreed but freshness unproven (${freshness.detail}); held for human review`
+        ? `stage1 agreed but challenge unproven (freshness: ${freshness.detail}; pose: ${poseChallenge.detail}); held for human review`
         : `stage1 only, gesture uncertain: ${lm7.reason}`,
     reviewedAt: sameEnough ? new Date() : null,
   });

@@ -483,7 +483,12 @@ export const verificationChallenges = pgTable("verification_challenges", {
   gesture: text("gesture").notNull(),
   headDirection: text("head_direction").notNull(),
   expressionCue: text("expression_cue").notNull(),
-  challengeToken: text("challenge_token").notNull(),
+  /* TEXT in the live database (verified via information_schema), holding the id of the
+     `human_challenges` row this pose is bound to, with its own UNIQUE constraint — that
+     uniqueness is what makes a pose spendable exactly once. Do not "tidy" this to uuid:
+     the comparison in pose-challenge.ts is text-to-text and a uuid column would make it
+     throw 42883. */
+  challengeToken: text("challenge_token").notNull().unique(),
   challengePayload: jsonb("challenge_payload").notNull().default({}),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),

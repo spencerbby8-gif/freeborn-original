@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { humanChallenges } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { assignPoseChallenge } from "@/lib/pose-challenge";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,20 @@ export async function POST(request: Request) {
     })
     .returning({ id: humanChallenges.id, expiresAt: humanChallenges.expiresAt });
 
+  /* The pose the member must perform is chosen HERE, not by the client. It is bound to
+     this token in public.verification_challenges, which the verification pipeline had
+     never written to despite being provisioned with exactly these columns. If the write
+     fails we say so in the response and the attempt is still recorded downstream; a
+     control we could not deliver must not become an outage for a real member. */
+  let pose: { label: string; demo: string; poseId: string } | null = null;
+  let poseError: string | null = null;
+  try {
+    const assigned = await assignPoseChallenge(member.id, row.id);
+    pose = { label: assigned.pose.label, demo: assigned.pose.demo, poseId: assigned.poseId };
+  } catch (err) {
+    poseError = err instanceof Error ? err.message.slice(0, 160) : "unknown";
+  }
+
   return Response.json(
     {
       livenessToken: row.id,
@@ -84,8 +99,13 @@ export async function POST(request: Request) {
       nonce,
       expiresIn: TTL_SECONDS,
       expiresAt: row.expiresAt,
-      rule:
-        "POST /api/verification/check with livenessToken. One use, 5 minutes. A missing or consumed token means the attempt is recorded but the badge is not granted.",
+      /** Server-assigned pose. Perform THIS one; a client-supplied label is ignored. */
+      pose,
+      poseRequired: pose !== null,
+      ...(poseError ? { poseWarning: poseError } : {}),
+      rule: pose
+        ? `POST /api/verification/check with livenessToken. One use, ${TTL_SECONDS} seconds. The pose above is the only pose that counts. A missing or consumed token means the attempt is recorded but the badge is not granted.`
+        : `POST /api/verification/check with livenessToken. One use, ${TTL_SECONDS} seconds. A missing or consumed token means the attempt is recorded but the badge is not granted.`,
     },
     { headers: { "cache-control": "private, no-store" } }
   );

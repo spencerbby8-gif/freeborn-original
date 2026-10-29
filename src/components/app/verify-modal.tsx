@@ -5,6 +5,7 @@ import { getAccessToken } from "@/lib/supabase/browser";
 import { VerifyBadge } from "@/components/verify-badge";
 import { showToast } from "@/components/toast-host";
 import type { FaceGate, FaceGateState } from "@/lib/face-gate";
+import { POSES as SERVER_POSES, type Pose as ServerPose } from "@/lib/pose-pool";
 
 type VerifyStatus = "none" | "pending" | "approved" | "rejected";
 type Step =
@@ -31,46 +32,15 @@ export function openVerifyFlow() {
  * shown one pose pulled from a library of real reference photos, then takes a
  * selfie mimicking it. Every retry samples a DIFFERENT pose.
  */
-type Pose = { label: string; demo: string };
 /**
  * Every pose is one a member can comfortably perform with a front camera at
  * arm's length. Guides are Freeborn's own uniform illustration set
  * (public/images/verify) — one consistent character, mature and calm.
  */
-const POSES: Pose[] = [
-  {
-    label: "Show a peace sign beside your eye",
-    demo: "/images/verify/pose-1.jpg",
-  },
-  {
-    label: "Touch your cheek with your index finger",
-    demo: "/images/verify/pose-2.jpg",
-  },
-  {
-    label: "Place one hand under your chin",
-    demo: "/images/verify/pose-3.jpg",
-  },
-  {
-    label: "Touch your cheek and smile at the camera",
-    demo: "/images/verify/pose-6.jpg",
-  },
-  {
-    label: "Make an OK sign beside your chin",
-    demo: "/images/verify/pose-7.jpg",
-  },
-  {
-    label: "Raise an open palm beside your face",
-    demo: "/images/verify/pose-8.jpg",
-  },
-  {
-    label: "Give a thumbs-up next to your face",
-    demo: "/images/verify/pose-9.jpg",
-  },
-  {
-    label: "Place one hand over your heart",
-    demo: "/images/verify/pose-10.jpg",
-  },
-];
+type Pose = ServerPose;
+
+const POSES: Pose[] = [...SERVER_POSES];
+
 
 const VERIFY_STEPS = ["Details", "Pose", "Camera", "Review"] as const;
 
@@ -108,12 +78,18 @@ export function VerifyGate() {
   /* Server-issued freshness token. Requested when the camera opens so it is ~5 min
      fresh at submit time (its TTL); never re-used, the server consumes it on use. */
   const [livenessToken, setLivenessToken] = useState<string | null>(null);
+  /** "server" = the pose was issued by /api/verification/challenge and is the one
+   *  the engine will be told about. "local" = degraded mode, prompt chosen in-browser. */
+  const [poseSource, setPoseSource] = useState<"server" | "local">("local");
   const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
   /** Sample a different pose than the current one (every retry re-samples). */
   const sampleNewPose = () => {
+    /* A server-issued pose must NOT be re-rolled locally: the challenge row is already
+       written for it, so re-sampling here would show a pose nothing will ever accept. */
+    if (poseSource === "server") return;
     const others = POSES.filter((p) => p.label !== pose.label);
     setPose(others[Math.floor(Math.random() * others.length)]);
   };
@@ -292,8 +268,29 @@ export function VerifyGate() {
         try {
           const r = await fetch("/api/verification/challenge", { method: "POST", headers: await authHeaders() });
           if (!r.ok) return;
-          const j = (await r.json().catch(() => ({}))) as { livenessToken?: string };
+          const j = (await r.json().catch(() => ({}))) as {
+            livenessToken?: string;
+            pose?: { label?: string; demo?: string };
+          };
           if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
+          /* The pose to perform is the SERVER's, not the one we sampled locally. Until
+             this landed the client picked its own pose and the engine graded that, which
+             proved nothing: there was nothing to predict. If the server gave us no pose
+             (challenge write failed) we keep the local sample so the member is never
+             blocked by a control we failed to deliver — the attempt is still recorded. */
+          if (typeof j.pose?.label === "string" && j.pose.label.length > 0) {
+            /* Functional update: this effect must not depend on `pose` (it re-runs on
+               every pose change otherwise), and reading it directly here would capture a
+               stale value from the closure. Only the demo artwork can be stale, and the
+               pool supplies a correct default. */
+            setPose((prev) => ({
+              label: j.pose!.label as string,
+              demo: typeof j.pose!.demo === "string" ? j.pose!.demo : prev.demo,
+            }));
+            setPoseSource("server");
+          } else {
+            setPoseSource("local");
+          }
         } catch {
           /* no token: the attempt degrades to unverified-freshness, not to an error */
         }
@@ -622,6 +619,11 @@ export function VerifyGate() {
                 Copy this pose
               </h2>
               <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
+                {poseSource === "server"
+                  ? "The pose below was chosen by Freeborn, not by you. It is spent once, and only this one counts."
+                  : "This pose was chosen on your device because the server challenge was unavailable, so it is advisory only."}
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-ash)]">
                 Copy this exact pose in your selfie. It&apos;s how Freeborn proves a real,
                 live person stands behind every confirmed profile.
               </p>

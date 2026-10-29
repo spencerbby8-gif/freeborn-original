@@ -14,6 +14,7 @@ import { computeTrustScore, memberVisibleFactors, TRUST_BOUNDS, type TrustSignal
 import { appealNeedsChallenge, decidePolicy, nextStepFor, RESOLUTION_FOR_TIER, TIER_ORDER } from "@/lib/moderation-policy";
 import { scoreScamMessage, SCAM_RULE_COUNT, SCAM_ESCALATE_AT, SCAM_WARN_AT, SCAM_REPEAT_FLAGS_FOR_PATTERN } from "@/lib/scam-guard";
 import { meetsDifficultyHex, runHumanChallenge, solveChallenge } from "@/lib/human-challenge-client";
+import { POSES, poseIdFor, poseTag, POSE_TTL_SECONDS, type PoseState } from "@/lib/pose-pool";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 
@@ -598,6 +599,92 @@ ok("the solver yields to the event loop so the form cannot appear frozen",
    number cannot drift from what was printed no matter how this file is restructured. */
 /* The count in the summary is only trustworthy if it equals what was actually printed.
    Cross-check it here so a future refactor of ok() cannot silently under-report coverage. */
+
+/* [13] SERVER-ASSIGNED POSE CHALLENGE — the liveness hole this turn actually closed.
+   The pose step graded whatever pose the SUBMITTER named, so it could not be replayed
+   against, and the same string was interpolated into a model prompt. These assertions
+   pin the fix in the only way an offline harness can: by pinning provenance (where the
+   prompt's pose comes from), consumption shape, and the live constraint it must satisfy. */
+const poseSrc = readFileSync(new URL("../../src/lib/pose-challenge.ts", import.meta.url), "utf8");
+const modalSrc = readFileSync(new URL("../../src/components/app/verify-modal.tsx", import.meta.url), "utf8");
+const photoDir = new URL("../../public/images/verify/", import.meta.url);
+const { existsSync } = await import("node:fs");
+
+ok("[13] pose pool is non-trivial and disjoint", POSES.length >= 6 && new Set(POSES.map((x) => x.label)).size === POSES.length, `n=${POSES.length}`);
+ok("[13] every pose has artwork that exists", POSES.every((x) => /^\/images\/verify\/[a-z0-9-]+\.jpg$/.test(x.demo) && existsSync(new URL(x.demo.replace("/images/verify/", ""), photoDir))));
+ok("[13] poseId is stable + injectively named", poseIdFor(POSES[0].label) === poseIdFor(POSES[0].label) && new Set(POSES.map((x) => poseIdFor(x.label))).size === POSES.length);
+ok("[13] poseId shape is a safe token", POSES.every((x) => /^p[0-9a-f]{8}$/.test(poseIdFor(x.label))));
+
+/* The actual control: the prompt must be fed the server's wording, never the body's. */
+ok("[13] stage-1 prompt is fed askedPose, not poseLabel",
+   /this asked pose: '\$\{askedPose\}'/.test(verifSrc) && !/this asked pose: '\$\{poseLabel\}'/.test(verifSrc));
+ok("[13] askedPose comes from the consumed challenge row",
+   /const askedPose =[\s\S]{0,220}poseChallenge\.label/.test(verifSrc));
+ok("[13] client-fallback text is neutralised before prompting",
+   /poseLabel\.replace\(\/\['"\\`\\n\\r\]\/g, " "\)/.test(verifSrc));
+ok("[13] pose is consumed with the member + token it was issued to",
+   /consumePoseChallenge\(\s*member\.id,\s*typeof bodyLivenessToken[^)]*\)\s*\.catch/.test(verifSrc));
+ok("[13] single-engine badge needs the SERVER pose, not just the engine's yes",
+   /pose\.matchesAsked === true && freshness\.state === "verified" && poseServed/.test(verifSrc));
+ok("[13] poseServed is derived from the challenge state only",
+   /const poseServed = poseChallenge\.state === "verified";/.test(verifSrc));
+ok("[13] every request row records which pose path decided it",
+   (verifSrc.match(/\$\{poseTag\(poseChallenge\.state\)\}/g) || []).length >= 3,
+   `method strings=${(verifSrc.match(/poseTag\(poseChallenge\.state\)/g) || []).length}`);
+ok("[13] failure degrades to review, never to a silent drop",
+   /held for human review/.test(verifSrc) && /pose: \$\{poseChallenge\.detail\}/.test(verifSrc));
+
+/* Consumption shape — compare-and-set, matching the freshness token it rides on. */
+ok("[13] pose consumption is compare-and-set on status",
+   /\.set\(\{ status: "consumed" \}\)[\s\S]{0,220}eq\(verificationChallenges\.status, "active"\)/.test(poseSrc));
+ok("[13] foreign member is indistinguishable from a mismatch",
+   /state: "mismatch", detail: "pose belongs to a different member"/.test(poseSrc));
+ok("[13] re-entry returns the SAME pose (idempotent per token)",
+   /if \(existing\)/.test(poseSrc) && /eq\(verificationChallenges\.challengeToken, challengeToken\)/.test(poseSrc));
+ok("[13] hygiene expires OTHER tokens only, after the idempotent lookup",
+   poseSrc.indexOf("if (existing)") < poseSrc.indexOf('status: "expired"') &&
+   /challenge_token <> \$\{challengeToken\}`/.test(poseSrc));
+ok("[13] a client claim of a different pose is recorded, not ignored",
+   /state: "mismatch", label, detail: `client claimed/.test(poseSrc));
+ok("[13] poseTag never overclaims", poseTag("verified") === "+pose" && poseTag("absent") === "+pose:absent" && poseTag("unavailable") === "+pose:unavailable");
+ok("[13] every pose state is surfaced in the audit string",
+   (["verified","mismatch","expired","absent","unavailable"] as PoseState[]).every((x) => typeof poseTag(x) === "string" && poseTag(x).startsWith("+pose")));
+ok("[13] pose TTL matches the liveness token it rides on", POSE_TTL_SECONDS === 300);
+
+/* Wiring: server issues, client obeys, and a failed issue degrades loudly. */
+ok("[13] challenge route issues the pose before responding",
+   /assignPoseChallenge\(member\.id, row\.id\)/.test(chalSrc));
+ok("[13] a pose-assignment failure is reported, not swallowed",
+   /poseWarning/.test(chalSrc) && /poseRequired: pose !== null/.test(chalSrc));
+/* Pinned on behaviour, not on a local variable name (an earlier draft matched
+   `setPose(served)` and went red the moment the write became a functional update). */
+ok("[13] client adopts the server pose via a functional update",
+   /setPose\(\(prev\) => \(\{[\s\S]{0,160}j\.pose!\.label/.test(modalSrc) &&
+   /setPoseSource\("server"\)/.test(modalSrc));
+ok("[13] retry cannot re-roll a server pose out from under itself",
+   /if \(poseSource === "server"\) return;/.test(modalSrc));
+ok("[13] degraded mode is disclosed in the UI, not silent",
+   /advisory only/.test(modalSrc));
+ok("[13] client uses the shared pool, so labels cannot drift",
+   /import \{ POSES as SERVER_POSES/.test(modalSrc) && /\[\.\.\.SERVER_POSES\]/.test(modalSrc));
+
+/* The token column is TEXT with a UNIQUE constraint (re-verified against
+   information_schema). An earlier version of this guard demanded a `::uuid` cast because
+   I had mis-read the probe's error as the column type rather than my own cast — the cast
+   was the bug. Pinning the real shape is the point: any uuid() declaration here, or any
+   ::uuid in the comparison, breaks every pose assignment with 42883. */
+ok("[13] token column declared text, matching the live DB",
+   /challengeToken: text\("challenge_token"\)\.notNull\(\)\.unique\(\)/.test(schemaSrc) &&
+   !/challengeToken: uuid\("challenge_token"\)/.test(schemaSrc));
+ok("[13] token comparison stays text-to-text with no bogus cast",
+   /challenge_token <> \$\{challengeToken\}`/.test(poseSrc) && !/challenge_token <>[^`]*::uuid/.test(poseSrc));
+
+/* The live DB is the reason this table was dead: the declared type must match it. */
+const poseStatusOk = /verification_challenges_status_check|status = ANY/.test(migOps) === false;
+ok("[13] only the live CHECK's three states are ever written",
+   poseStatusOk && ["active","consumed","expired"].every((x) => poseSrc.includes(`"${x}"`)) &&
+   !/set\(\{ status: "(?!active|consumed|expired)/.test(poseSrc));
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {
