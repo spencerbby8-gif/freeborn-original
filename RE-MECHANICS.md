@@ -348,3 +348,47 @@ Gates at `d10a6bc`: tsc 0, eslint 0, `next build` 0 (16/16), secret scan OK on 2
 **ALL PASS 136/136** (negative control re-confirmed: injected failures → `FAILURES: 2`, exit 1).
 REA was re-run bounded on one Bumble and one Hinge chunk (exit 0, ~10.8 MB evidence each); it added **no**
 corroboration for the `device_id` claim — see §5 of `RE-EVIDENCE-GAP-REPORT.md` for the correction.
+
+## 13. Liveness, wired to the table that already existed (2026-10-29, commits `803c31a`/`5244aa5`)
+
+Resumed at deployed `main` and worked the engines in the requested priority order. Priority 1
+produced a real find, and it was not in the code I had written — it was in code I had *not* written.
+
+**The hole.** `verification/check` graded a selfie against `poseLabel`, taken from the request body
+and checked only for length, then interpolated into a single-quoted prompt. A liveness step that
+verifies a pose the submitter chose verifies nothing: there is nothing to predict, so no replay can
+fail. Same string, same prompt literal = a prompt-injection path.
+
+**The table was already there.** `public.verification_challenges` has `pose_id`, `gesture`,
+`head_direction`, `expression_cue`, a UNIQUE `challenge_token`, and `active|consumed|expired` —
+the exact protocol, provisioned, with 7 rows last touched 2026-07-13 and **no code anywhere reading
+or writing it**. `verification_selfie_checks` has 0 rows while 8 requests were decided: the pose
+lane had been dead since July. Reused rather than replaced; no migration was needed. (The `::uuid`
+cast I first wrote was wrong — the live column is TEXT with a UNIQUE index on it; I mis-read my own
+probe's error as the column's type and had to revert both the cast and the assertion that pinned it.)
+
+**Now:** the server assigns the pose with the freshness token (idempotent per token, so re-opening
+the camera never re-rolls a pose the member is holding; an *expired* one does re-roll), consumption is
+a compare-and-set keyed on `status='active'`, a foreign member is answered like a mismatch, and the
+engine is prompted with the SERVER's wording. Single-engine self-serve additionally requires the
+consumed pose. `verification_requests.method` carries `+pose` / `+pose:<state>` on every decision.
+
+**Honest scope:** unpredictable, single-use, member-bound. NOT proof a live human was present.
+
+**Implemented / configured / production-tested** — the distinction the last pass kept collapsing:
+
+| Engine | Implemented | Configured | Production-tested |
+|---|---|---|---|
+| Liveness (pose + freshness) | yes, wired | needs nothing | **no** — 0 server-issued pose rows; route live, auth-gated, no member has submitted since |
+| Identity matching | yes | photo-hash lane needs no creds; engines empty | partial: 11/11 hashed and queried live; `identity_fingerprints` still 0 |
+| Dual-model moderation | yes | **no** — keys defined, empty | no: 2 open reports, both pre-date `triage` |
+| Scam detection | yes | yes | no live case written |
+| Human challenge | yes, + browser tier | `record` (absent) | no — enforce not enabled, by instruction |
+| Graduated moderation + appeals | read-only queue | `FREEBORN_ADMIN_EMAILS` empty | queue 404 as designed |
+
+**The test lesson.** `[13b]` originally could not fail: `pick` was pinned to `pool[0]`, so an ordering
+bug (hygiene sweep before the idempotent lookup) was invisible; and a `indexOf` comparison across the
+whole file passed for *any* order because the interface declares both names above both call sites. Both
+rewritten to measure a call log. The control now does fail on deliberately-broken code
+(`FAILURES: 1`, log `expireOthers>findActive>…`). Note also that my first control attempt built to
+`/tmp`, where `--external:pg` cannot resolve: its silence was `ERR_MODULE_NOT_FOUND`, not a pass.
