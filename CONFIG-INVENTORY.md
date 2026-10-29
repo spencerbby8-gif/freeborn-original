@@ -83,6 +83,9 @@ anonymous callers.
 | `FREEBORN_ALLOW_CROSS_SITE_COOKIES` | Widens CSRF surface; the app works without it. |
 | `SUPABASE_TRANSACTION_POOLER` (as `sensitive`) | Correctly `encrypted` today across production/preview/development. If it was rotated, the value here must be updated too — see E. |
 
+Before any of that: `select count(*) from verification_challenges where challenge_payload ? 'issuedBy'` is **0** and the newest row is dated 2026-07-13, i.e. the pose
+path is deployed but has not yet been taken by a member. That is the precise meaning of "production-tested = no" for engine 1.
+
 ## E. Verified, not assumed: database connectivity after the password rotation
 
 `/api/health` is `await db.execute(sql\`select 1\`)` and answers `{"ok":true}` **with no
@@ -104,8 +107,8 @@ so each engine needs the live check listed here instead:
 
 | Engine | Live proof, after configuration |
 |---|---|
-| Liveness / verification | Real member completes the modal; then `select status, method, reject_reason from verification_requests order by submitted_at desc limit 1` shows `method` containing `+fresh+pose`, and `select status from verification_challenges where user_id=...` shows `consumed`, not `active`. |
+| Liveness / verification | Real member completes the modal; then `select status, method, reject_reason from verification_requests order by submitted_at desc limit 1` shows `method` containing `+fresh+pose` (not `+fresh:missing+pose:absent`), AND `select status, challenge_payload->>'issuedBy' from verification_challenges order by created_at desc limit 1` returns `consumed` / `server`. A row still `active` after a submission means the consume statement did not run. |
 | Dual-model moderation | Submit one report; `select triage from reports order by created_at desc limit 1` is **not** `pending`. |
-| Identity matching | `select count(*) from identity_fingerprints` rises above 0 for the accounts involved. |
+| Identity matching | `select count(*) from identity_fingerprints` rises above 0 for the accounts involved. It is 0 right now, with 11/11 photos hashed — the anchor exists but nothing has minted a fingerprint record since. |
 | Human challenge | With `enforce`: an appeal without a solved token returns 428 and the member's next attempt succeeds — verified by a real browser, not by curl. |
 | Admin surfaces | `/api/health/engines` returns 200 with the attempt log instead of 404. |
