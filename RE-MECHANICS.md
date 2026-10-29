@@ -202,6 +202,47 @@ Not fixed in this change set: a correct fix means middleware that recognises API
 returns a JSON 404, and a path allowlist is exactly the kind of thing that silently rots. Flagged
 for an explicit decision instead of a half-measure.
 
+## 4c. Deployed — 2026-10-29, with evidence
+
+| Item | Value |
+|---|---|
+| Commit on `main` | `4355a371e89ac6e5595d40130e306a30f4738a5a` (pushed fast-forward `c445c7c..4355a37`, `--force-with-lease=main:c445c7c`; no rewrite) |
+| GitHub Actions | run `40833619801`, "CI — typecheck / lint / secret scan / build", **completed/success** in 52 s |
+| Vercel deployment | `dpl_FatxAjugrRprxGZCtiqQ6iuG2xQu`, state READY, `readySubstate: PROMOTED`, `target: production`, alias `freeborn-umber.vercel.app` |
+| Vercel build log | `✓ Compiled successfully in 7.5s`, TypeScript executed, no errors; only warnings are Next 16's `middleware`→`proxy` deprecation and two unapproved install scripts (esbuild, unrs-resolver — build-time only) |
+
+Live probes against `freeborn-umber.vercel.app` after promotion (all with `x-matched-path` equal to
+the route, i.e. the handler really ran — contrast §2.6, where a *missing* route answers 200/HTML):
+
+| Probe | Result |
+|---|---|
+| `GET /api/trust/self`, `GET /api/safety/cases` (anon) | 401 |
+| `POST /api/device/self`, `/api/human/issue`, `/api/human/verify`, `/api/safety/cases/ack` (anon) | 401 `{"error":"Not signed in."}` |
+| `POST /api/trust/self`, `POST /api/safety/cases` | 405 — method-not-allowed, so routing is correct |
+| Same six with `Origin: https://evil.example` | **403** on every one (CSRF guard, before any body parsing) |
+| `POST /api/human/issue {"purpose":"nonsense"}` (anon) | 401 — auth is checked **before** input validation, as it must be |
+| `POST /api/human/verify` with a raw non-JSON text body | 401, not 500 |
+| All of the above with a forged `alg:none` Bearer JWT | 401 — the token is verified against Supabase, never trusted |
+| `/`, `/discover`, `/api/profiles` | 200, 200, 401 — no regression to the existing surface |
+
+**Not covered, stated plainly:** no *authenticated* HTTP round trip of the photo-upload or
+appeal-challenge path. Freeborn resolves members from a Supabase-verified Bearer token
+(`supabase.auth.getUser()`), and this environment has no service-role key (none is configured in the
+project's env — 11 vars, all read), no `vault.secrets` rows, SMTP unset with `mailer_autoconfirm=false`
+(so a confirmation link cannot be retrieved), and no Docker/`supabase` CLI for a disposable local
+auth server. Minting a token by other means would be forging a production session, so the check was
+left undone rather than faked. The *logic* those routes call is nevertheless verified against the
+production database by `route-sql-proof.ts` (§3), and the first real upload will be detectable with:
+
+```sql
+select id, phash_d, phash_bytes, phash_at from public.profile_photos
+ order by created_at desc limit 1;   -- phash_d must be 16 hex chars, phash_bytes 64
+```
+
+`sharp` is a new runtime dependency; Vercel restored it from the build cache (`up to date in 791ms`)
+rather than reinstalling, so its native binary was not re-verified in the deployed image. It is
+verified locally (all 86 harness assertions decode real JPEGs through it).
+
 ## 4b. Repository state, measured
 
 `origin/main` is `c445c7c`. Local `HEAD` is `94fa668`:
@@ -219,6 +260,10 @@ Production `dpl_2QNY7zbvcUi3527oEZfz8C1qiMET` still serves the `c445c7c` build: 
 the 404s on the new routes.
 
 ## 5. Blocked / operator actions outstanding
+
+0. ~~Push/deploy~~ **DONE 2026-10-29** — see §4c. Items 1–2 below are the historical record of why
+   they were blocked at the time of writing, retained because the reasoning (and the credential
+   handling) is the point.
 
 1. **Push to GitHub** — no credential in this environment: `git push` returns
    `Invalid username or token. Password authentication is not supported`, the `origin` URL carries a
