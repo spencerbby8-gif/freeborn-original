@@ -5,6 +5,18 @@
  */
 export type Pose = { label: string; demo: string };
 
+/** The live row shape, kept here so the pure modules share one definition. */
+export interface PoseRow {
+  id: string;
+  userId: string;
+  /** TEXT in the live table: the id of the human_challenges row this pose is bound to. */
+  challengeToken: string;
+  poseId: string;
+  gesture: string;
+  status: "active" | "consumed" | "expired";
+  expiresAt: Date | null;
+}
+
 export type PoseState = "verified" | "mismatch" | "expired" | "absent" | "unavailable";
 
 /**

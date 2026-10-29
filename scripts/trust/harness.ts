@@ -15,6 +15,8 @@ import { appealNeedsChallenge, decidePolicy, nextStepFor, RESOLUTION_FOR_TIER, T
 import { scoreScamMessage, SCAM_RULE_COUNT, SCAM_ESCALATE_AT, SCAM_WARN_AT, SCAM_REPEAT_FLAGS_FOR_PATTERN } from "@/lib/scam-guard";
 import { meetsDifficultyHex, runHumanChallenge, solveChallenge } from "@/lib/human-challenge-client";
 import { POSES, poseIdFor, poseTag, POSE_TTL_SECONDS, type PoseState } from "@/lib/pose-pool";
+import { assignPose, consumePose, type PoseStore } from "@/lib/pose-store";
+import type { PoseRow } from "@/lib/pose-pool";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 
@@ -605,7 +607,10 @@ ok("the solver yields to the event loop so the form cannot appear frozen",
    against, and the same string was interpolated into a model prompt. These assertions
    pin the fix in the only way an offline harness can: by pinning provenance (where the
    prompt's pose comes from), consumption shape, and the live constraint it must satisfy. */
-const poseSrc = readFileSync(new URL("../../src/lib/pose-challenge.ts", import.meta.url), "utf8");
+const poseSrc = [ "pose-store.ts", "pose-challenge.ts" ]
+  .map((f) => readFileSync(new URL(`../../src/lib/${f}`, import.meta.url), "utf8"))
+  .join("\n");
+const poseDbSrc = readFileSync(new URL("../../src/lib/pose-challenge.ts", import.meta.url), "utf8");
 const modalSrc = readFileSync(new URL("../../src/components/app/verify-modal.tsx", import.meta.url), "utf8");
 const photoDir = new URL("../../public/images/verify/", import.meta.url);
 const { existsSync } = await import("node:fs");
@@ -639,11 +644,15 @@ ok("[13] pose consumption is compare-and-set on status",
    /\.set\(\{ status: "consumed" \}\)[\s\S]{0,220}eq\(verificationChallenges\.status, "active"\)/.test(poseSrc));
 ok("[13] foreign member is indistinguishable from a mismatch",
    /state: "mismatch", detail: "pose belongs to a different member"/.test(poseSrc));
-ok("[13] re-entry returns the SAME pose (idempotent per token)",
-   /if \(existing\)/.test(poseSrc) && /eq\(verificationChallenges\.challengeToken, challengeToken\)/.test(poseSrc));
-ok("[13] hygiene expires OTHER tokens only, after the idempotent lookup",
-   poseSrc.indexOf("if (existing)") < poseSrc.indexOf('status: "expired"') &&
-   /challenge_token <> \$\{challengeToken\}`/.test(poseSrc));
+/* The idempotency GUARD moved into pose-store.ts and now also excludes expired rows, so
+   pinning its source text kept failing for reasons unrelated to the behaviour. The
+   behaviour is proved in [13b] by executing it; what is worth pinning in text is that
+   the production adapter keys the lookup on the token at all. */
+ok("[13] the adapter keys the active-lookup on the token",
+   /findActiveByToken[\s\S]{0,640}eq\(verificationChallenges\.challengeToken, token\)/.test(poseDbSrc) &&
+   /eq\(verificationChallenges\.status, "active"\)/.test(poseDbSrc));
+ok("[13] hygiene sweep excludes the caller's own token in the SQL it emits",
+   /challenge_token <> \$\{keepToken\}`/.test(poseDbSrc));
 ok("[13] a client claim of a different pose is recorded, not ignored",
    /state: "mismatch", label, detail: `client claimed/.test(poseSrc));
 ok("[13] poseTag never overclaims", poseTag("verified") === "+pose" && poseTag("absent") === "+pose:absent" && poseTag("unavailable") === "+pose:unavailable");
@@ -677,7 +686,176 @@ ok("[13] token column declared text, matching the live DB",
    /challengeToken: text\("challenge_token"\)\.notNull\(\)\.unique\(\)/.test(schemaSrc) &&
    !/challengeToken: uuid\("challenge_token"\)/.test(schemaSrc));
 ok("[13] token comparison stays text-to-text with no bogus cast",
-   /challenge_token <> \$\{challengeToken\}`/.test(poseSrc) && !/challenge_token <>[^`]*::uuid/.test(poseSrc));
+   /challenge_token <> \$\{keepToken\}`/.test(poseDbSrc) &&
+   !/challenge_token <>[^`]*::uuid/.test(poseDbSrc));
+
+
+/* [13b] RUNTIME tests against a deterministic fake store. Section [13] reads source
+   text, which cannot see ORDERING — and two ordering bugs were in fact shipped in the
+   first draft of pose-challenge.ts (expiry before the idempotent lookup, and a
+   read-then-write that lost the consume race). These execute the real functions. */
+{
+  const mk = () => {
+    const rows: PoseRow[] = [];
+    const log: string[] = [];
+    let casSucceeds = true;
+    const store: PoseStore = {
+      async findActiveByToken(t) {
+        log.push("findActive");
+        return rows.find((r) => r.challengeToken === t && r.status === "active") ?? null;
+      },
+      async findByToken(t) {
+        log.push("find");
+        return rows.find((r) => r.challengeToken === t) ?? null;
+      },
+      async latestPoseId(u) {
+        log.push("latest");
+        const mine = rows.filter((r) => r.userId === u);
+        return mine.length ? (mine[mine.length - 1]!.poseId) : null;
+      },
+      async expireOtherActive(u, keep) {
+        log.push("expireOthers");
+        for (const r of rows) if (r.userId === u && r.status === "active" && r.challengeToken !== keep) r.status = "expired";
+      },
+      async insert(row) {
+        log.push("insert");
+        rows.push({
+          id: `row${rows.length + 1}`,
+          userId: row.userId,
+          poseId: row.poseId,
+          gesture: row.gesture,
+          status: "active",
+          expiresAt: new Date(Date.now() + row.ttlSeconds * 1000),
+          challengeToken: row.challengeToken,
+        });
+      },
+      async consume(id) {
+        log.push("consume");
+        const r = rows.find((x) => x.id === id && x.status === "active");
+        if (!r || !casSucceeds) return false;
+        r.status = "consumed";
+        return true;
+      },
+      async markExpired(id) {
+        log.push("markExpired");
+        const r = rows.find((x) => x.id === id);
+        if (r && r.status === "active") r.status = "expired";
+      },
+    };
+    return { rows, log, store, setCas: (v: boolean) => (casSucceeds = v) };
+  };
+
+  const T1 = "11111111-1111-1111-1111-111111111111";
+  const T2 = "22222222-2222-2222-2222-222222222222";
+  const U = "aaaaaaaa-0000-0000-0000-000000000001";
+  const other = "bbbbbbbb-0000-0000-0000-000000000002";
+
+  /* pick() is realistic (first of whatever pool it is given) rather than pinned to
+     pool[0]: pinning made every call return the same pose no matter what the code did,
+     which is exactly why an earlier version of this suite could not see an ordering bug
+     where the hygiene sweep ran before the idempotent lookup. */
+  const firstOfPool = (pool: readonly (typeof POSES)[number][]) => pool[0]!;
+  const a1 = await assignPose(U, T1, mk().store, firstOfPool);
+  ok("[13b] assignment returns a real pool pose", POSES.some((p) => p.label === a1.pose.label) && a1.poseId === poseIdFor(a1.pose.label));
+
+  /* Ordering: the idempotent lookup must come BEFORE the hygiene sweep. */
+  const g = mk();
+  await assignPose(U, T1, g.store, (pool) => pool[0]!);
+  const second = await assignPose(U, T1, g.store, firstOfPool);
+  ok("[13b] re-entry to the camera step keeps the SAME pose", second.pose.label === a1.pose.label, `${second.pose.label}`);
+  ok("[13b] re-entry inserts no second row", g.rows.filter((r) => r.challengeToken === T1).length === 1);
+  /* An indexOf comparison over the source was meaningless here: the PoseStore *interface*
+     declares both names before either call site, so it passed for any execution order.
+     The call log is the only way to see the order the code actually ran in. */
+  ok("[13b] hygiene runs AFTER the idempotent lookup, and spares the caller's row",
+     g.log.indexOf("findActive") < g.log.indexOf("expireOthers") &&
+     g.rows.every((r) => r.status === "active"), g.log.join(">"));
+  const z = mk();
+  await assignPose(U, T1, z.store, firstOfPool);
+  (z.rows[0] as { expiresAt: Date | null }).expiresAt = new Date(Date.now() - 1);
+  const afterExpiry = await assignPose(U, T1, z.store, firstOfPool, () => Date.now());
+  ok("[13b] an EXPIRED pose is re-rolled rather than re-served",
+     afterExpiry.poseId !== z.rows[0]!.poseId && z.rows.length === 2);
+  ok("[13b] lookup happens before the expiry sweep", g.log.indexOf("findActive") < g.log.lastIndexOf("expireOthers"));
+
+  /* Single use. */
+  const h = mk();
+  await assignPose(U, T1, h.store, (pool) => pool[0]!);
+  const first = await consumePose(U, T1, undefined, h.store);
+  const twice = await consumePose(U, T1, undefined, h.store);
+  ok("[13b] first consume verifies and carries the server label", first.state === "verified" && first.label === h.rows[0]!.gesture);
+  ok("[13b] second consume cannot re-spend the pose", twice.state === "mismatch" && twice.detail === "pose already used", twice.detail);
+
+  /* Losing the compare-and-set must not be a pass. */
+  const i = mk();
+  await assignPose(U, T1, i.store, (pool) => pool[0]!);
+  i.setCas(false);
+  const raced = await consumePose(U, T1, undefined, i.store);
+  ok("[13b] a lost consume race is not a verification", raced.state === "mismatch" && raced.detail === "lost the consume race");
+
+  /* Foreign member learns nothing distinguishable. */
+  const j = mk();
+  await assignPose(U, T1, j.store, (pool) => pool[0]!);
+  /* Each case gets its own store: sharing one meant the second call saw the row the
+     first had already consumed, so it asserted an order-dependent answer, not a
+     property. Isolation is the point — and it is what exposed that my original test
+     was testing my own call sequence rather than the code. */
+  const j2 = mk();
+  await assignPose(U, T1, j2.store, (pool) => pool[0]!);
+  const foreign = await consumePose(other, T1, undefined, j2.store);
+  const k0 = mk();
+  await assignPose(U, T1, k0.store, (pool) => pool[0]!);
+  await consumePose(U, T1, undefined, k0.store);
+  const usedTwice = await consumePose(U, T1, undefined, k0.store);
+  ok("[13b] foreign token reports a mismatch, not an absence", foreign.state === "mismatch");
+  ok("[13b] neither foreign nor used answers reveal whether the token exists",
+     usedTwice.state === "mismatch" && foreign.detail !== usedTwice.detail);
+  const ghost = await consumePose(other, "99999999-9999-9999-9999-999999999999", undefined, mk().store);
+  ok("[13b] an unknown token is indistinguishable from a consumed one to a stranger",
+     ghost.state === "absent");
+
+  /* Expiry, measured against an injected clock. */
+  const k = mk();
+  await assignPose(U, T1, k.store, (pool) => pool[0]!);
+  (k.rows[0] as { expiresAt: Date | null }).expiresAt = new Date(Date.now() + 1000);
+  const late = await consumePose(U, T1, undefined, k.store, () => Date.now() + 5000);
+  ok("[13b] expiry marks the row and refuses the badge", late.state === "expired" && k.rows[0]!.status === "expired");
+  const atBoundary = await consumePose(U, T2, undefined, (() => { const m = mk(); void m.store.insert({ userId: U, poseId: "p", gesture: POSES[0].label, challengeToken: T2, demo: "d", ttlSeconds: 0 }); return { ...m.store, rows: m.rows }; })(), () => Date.now());
+  ok("[13b] expiry is inclusive (<=), so a zero-TTL pose never verifies", atBoundary.state === "expired");
+
+  /* Truthful label on a claim mismatch, and no claim at all is not a mismatch. */
+  const l = mk();
+  await assignPose(U, T1, l.store, (pool) => pool[0]!);
+  const claimed = await consumePose(U, T1, "Some pose I preferred", l.store);
+  ok("[13b] a contradicting client claim is recorded with the real label", claimed.state === "mismatch" && claimed.label === l.rows[0]!.gesture && /client claimed/.test(claimed.detail));
+  const noClaim = await consumePose(U, T2, undefined, await (async () => { const m = mk(); await assignPose(U, T2, m.store, (pool) => pool[1]!); return m.store; })());
+  ok("[13b] a client that sends no claim still verifies", noClaim.state === "verified");
+
+  /* Hygiene across tokens. */
+  const n = mk();
+  await assignPose(U, T1, n.store, (pool) => pool[0]!);
+  await assignPose(U, T2, n.store, (pool) => pool[1]!);
+  ok("[13b] a new token expires the member's older active pose", n.rows[0]!.status === "expired" && n.rows[1]!.status === "active");
+
+  /* Retry must differ; an exhausted pool must not deadlock. */
+  const q = mk();
+  const qa = await assignPose(U, T1, q.store, firstOfPool);
+  const qb = await assignPose(U, T2, q.store, firstOfPool);
+  ok("[13b] retry is offered a different pose", qa.pose.label !== qb.pose.label, `${qa.pose.label} -> ${qb.pose.label}`);
+  const exhausted = await assignPose(U, "33333333-3333-3333-3333-333333333333", {
+    ...q.store,
+    async latestPoseId() { return null; },
+  }, (pool) => pool[pool.length - 1]!);
+  ok("[13b] a member with no history still gets a pose", POSES.some((p) => p.label === exhausted.pose.label));
+  ok("[13b] pick() is always given a non-empty pool", POSES.every((p, k2) => p.label.length > 0) && !Number.isNaN(POSE_TTL_SECONDS));
+
+  /* Empty token short-circuits before touching the store at all. */
+  const r2 = mk();
+  let touched = false;
+  const blind: PoseStore = { ...r2.store, async findByToken() { touched = true; return null; }, async findActiveByToken() { touched = true; return null; } };
+  const empty = await consumePose(U, "", undefined, blind);
+  ok("[13b] an absent token is answered without a DB read", empty.state === "absent" && touched === false);
+}
 
 /* The live DB is the reason this table was dead: the declared type must match it. */
 const poseStatusOk = /verification_challenges_status_check|status = ANY/.test(migOps) === false;

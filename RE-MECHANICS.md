@@ -285,10 +285,10 @@ the 404s on the new routes.
 ## 6. Reproducing this
 
 ```bash
-export PATH=/home/user/re/node24/bin:$PATH         # node 24 required by package.json engines
+export PATH=/home/user/re/node24/bin:$PATH         # any node >=20 runs the harness; package.json engines ask for 24
 node_modules/.bin/esbuild scripts/trust/harness.ts --bundle --platform=node --format=esm \
-  --outfile=scripts/trust/.harness.build.mjs --external:sharp --alias:@=./src
-node scripts/trust/.harness.build.mjs              # expects: ALL PASS (86/86 …, 0 failed)
+  --outfile=scripts/trust/.harness.build.mjs --external:sharp --external:pg --alias:@=./src
+node scripts/trust/.harness.build.mjs              # expects: ALL PASS (N/N assertions, 0 failed)
 
 SUPABASE_TRANSACTION_POOLER='postgresql://…' \
   node scripts/trust/.live-proof.build.mjs         # write path against production, self-cleaning
