@@ -25,6 +25,11 @@ import {
 } from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import {
+  decideMediaAccess,
+  needsPublishedProfilePhotoLookup,
+  type MediaAccessFacts,
+} from "@/lib/media-access";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 
@@ -1169,17 +1174,18 @@ ok("[15] no path yields no URL, never a guessed one", resolvePhotoUrl(null) === 
    only ADD an audience the owner chose, and (b) equivalent to the RLS-1 predicate. */
 const idxMember = mediaGetSrc.indexOf("getMember(request)");
 const idxPub = mediaGetSrc.indexOf("const published = await db");
-const idxBail = mediaGetSrc.indexOf('if (!allowed) return new Response("Not found"');
-ok("[15] the media route authenticates before consulting any branch", idxMember >= 0 && idxMember < idxPub);
-ok("[15] the published-photo lookup runs only when the conversation checks failed", idxPub > 0 && idxPub < idxBail && idxBail > 0);
-/* One deny, and the new branch can only ever flip !allowed into allowed. That is the
-   whole safety argument of the change, so it is pinned structurally: if anyone adds a
-   `return` inside the published-photo block, it stops being a grant and becomes a
-   second, independent authorization decision — which is how these things rot. */
-const denyGates = (mediaGetSrc.match(/if \(!allowed\) return/g) ?? []).length;
-const grantBranch = mediaGetSrc.slice(idxPub, mediaGetSrc.indexOf("allowed = published.length > 0;"));
-ok("[15] exactly one deny statement guards the whole route", denyGates === 1, `gates=${denyGates}`);
-ok("[15] the added branch can only grant, never deny", grantBranch.length > 50 && !grantBranch.includes("return") && !grantBranch.includes("404"));
+const idxGate = mediaGetSrc.indexOf("if (needsPublishedProfilePhotoLookup(facts))");
+ok("[15] the media route authenticates before consulting any branch", idxMember >= 0 && idxMember < idxGate);
+ok("[15] the profile-photo lookup is the lazy last resort, not a per-request join",
+  idxGate > 0 && idxPub > idxGate, `gate=${idxGate} lookup=${idxPub}`);
+/* The route used to own the boolean; if it grows one back, the two copies are free to
+   disagree and only one of them is tested. One deny, one source of truth. */
+ok("[15] the route holds no authorization logic of its own",
+  !/\ballowed\b/.test(mediaGetSrc) && !mediaGetSrc.includes("if (!canRead"),
+  "route must delegate to decideMediaAccess");
+ok("[15] there is exactly one deny statement, and it is the delegated one",
+  (mediaGetSrc.match(/return new Response\("Not found", \{ status: 404 \}\)/g) ?? []).length === 2 &&
+  mediaGetSrc.includes("if (!decideMediaAccess(facts).allow) return new Response(\"Not found\", { status: 404 });"));
 ok("[15] it is keyed on the exact path the photo row publishes", /eq\(profilePhotos\.storagePath, `\/api\/chat\/media\/\$\{id\}`\)/.test(mediaGetSrc));
 ok("[15] the branch mirrors RLS-1 (active + discoverable + stage)",
   /eq\(userProfiles\.profileStatus, "active"\)/.test(mediaGetSrc) &&
@@ -1188,9 +1194,96 @@ ok("[15] the branch mirrors RLS-1 (active + discoverable + stage)",
 ok("[15] the policy it imitates still says the same three things",
   ["profile_status = 'active'", "discoverable = true", "onboarding_stage = any (array['profile_setup','ready'])"].every((frag) => rls1Src.includes(frag)));
 ok("[15] denial is still an indistinguishable 404 with no reason given",
-  !mediaGetSrc.includes("Not authorized") && !mediaGetSrc.includes("not the participant"));
+  !mediaGetSrc.includes("Not authorized") && !mediaGetSrc.includes("not the participant") &&
+  !/reason/.test(mediaGetSrc.slice(mediaGetSrc.indexOf("export async function GET"))));
 ok("[15] served media stays uncacheable and un-sniffable",
   mediaGetSrc.includes('"Cache-Control": "private, no-store"') && mediaGetSrc.includes('"X-Content-Type-Options": "nosniff"'));
+
+/* ── the rule table, EXECUTED ──
+   The brief asks for testing across profile owners, eligible viewers, chat senders and
+   recipients. Two live member sessions are not available to me in this sandbox, so the
+   roles are enumerated as inputs instead — which is stronger than one hand-picked pair:
+   every combination of the five facts is asserted below, and the loop over the full
+   space follows. A case cannot be quietly dropped, because the exhaustive pass would
+   then contradict the named one. */
+const U = "member-sender";
+const V = "member-recipient";
+const X = "member-stranger";
+const M = "conversation-1";
+const EMPTY: MediaAccessFacts = {
+  requesterId: null,
+  mediaSenderId: null,
+  mediaMatchId: null,
+  requesterIsParticipant: false,
+  publishedAsVisibleProfilePhoto: false,
+};
+const decide = (over: Partial<MediaAccessFacts>) => decideMediaAccess({ ...EMPTY, ...over });
+const MEDIA_RULES: Array<[string, Partial<MediaAccessFacts>, boolean]> = [
+  ["sender opens their own unlinked (legacy) blob", { requesterId: U, mediaSenderId: U }, true],
+  ["recipient opens a linked blob", { requesterId: V, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, true],
+  ["sender opens a linked blob they are in", { requesterId: U, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, true],
+  ["stranger opens a linked blob", { requesterId: X, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: false }, false],
+  ["stranger opens an unlinked blob", { requesterId: X, mediaSenderId: U }, false],
+  ["anonymous opens a blob its own rules would otherwise grant", { requesterId: null, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, false],
+  ["sender is REFUSED a linked blob they no longer participate in — the sender fallback is legacy-only", { requesterId: U, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: false }, false],
+  ["eligible viewer opens a published profile photo", { requesterId: X, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
+  ["owner opens their own published profile photo", { requesterId: U, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
+  ["no row to decide on", { requesterId: X }, false],
+  ["a null sender id alone must not read as 'no relationship, allow'", { requesterId: X, mediaMatchId: M, requesterIsParticipant: false }, false],
+];
+for (const [name, facts, want] of MEDIA_RULES) {
+  const got = decide(facts);
+  ok(`[15] media rule: ${name}`, got.allow === want, `allow=${got.allow} reason=${got.reason}`);
+}
+ok("[15] every denial names a deny: reason, every grant a grant: reason",
+  MEDIA_RULES.every(([, facts, want]) => decide(facts).reason.startsWith(want ? "grant:" : "deny:")));
+
+/* Exhaustive pass. Two properties the whole design leans on:
+   monotonicity — a further fact never revokes a grant, which is what lets the route look
+   rule 3 up lazily — and deny-by-default, which keeps the grant set small enough to audit. */
+let combos = 0, grantsBeforeLookup = 0, monotone = true, lazySafe = true, anonCases = 0, anonDenied = 0;
+for (const requesterId of [U, V, X, null])
+  for (const mediaSenderId of [U, V, null])
+    for (const mediaMatchId of [null, M])
+      for (const requesterIsParticipant of [false, true])
+        for (const publishedAsVisibleProfilePhoto of [false, true]) {
+          const base = { requesterId, mediaSenderId, mediaMatchId, publishedAsVisibleProfilePhoto };
+          const asAsked = { ...base, requesterIsParticipant };
+          const noLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: false });
+          const withLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: true });
+          const weak = decideMediaAccess({ ...base, requesterIsParticipant: false, publishedAsVisibleProfilePhoto: false });
+          combos++;
+          /* Monotone in the granting facts: learning that the requester is a participant,
+             or that the owner published the blob, may only ever ADD a grant. */
+          if (weak.allow && !withLookup.allow) monotone = false;
+          if (noLookup.allow && !withLookup.allow) monotone = false;
+          /* And the route's shortcut is behaviour-preserving: it skips the profile-photo
+             query exactly when the answer is already "allow", so the answer cannot change.
+             Compared against `noLookup` (the flags as actually asked), not a weakened
+             baseline — an earlier draft of this pin compared the wrong pair and went red
+             on correct code. */
+          if (!needsPublishedProfilePhotoLookup({ ...asAsked, publishedAsVisibleProfilePhoto: false })) {
+            if (!noLookup.allow || withLookup.allow !== noLookup.allow) lazySafe = false;
+          }
+          if (noLookup.allow) grantsBeforeLookup++;
+          if (requesterId === null) {
+            anonCases++;
+            if (!withLookup.allow) anonDenied++;
+          }
+        }
+ok("[15] the rule is monotone over the full fact space", monotone, `${combos} combinations`);
+ok("[15] the lazy lookup gate cannot skip a grant the rule would have made", lazySafe);
+/* Two properties worth pinning. The first is the one an attacker probes: a missing
+   session must deny in EVERY case, whatever else is true about the row. The second is
+   deny-by-default measured BEFORE the profile-photo lookup — counting with the flag
+   forced true would be meaningless, since "this blob is somebody's published photo" is
+   the rarest fact in the space and the enumeration makes it always-true. An earlier
+   draft asserted the minority over that inflated denominator and went red on correct
+   code; the shape of the assertion, not the rule, was wrong. */
+ok("[15] no combination whatsoever grants media to an anonymous caller",
+  anonCases > 0 && anonDenied === anonCases, `${anonDenied}/${anonCases} anonymous cases denied`);
+ok("[15] before the lookup, a grant needs a real relationship (minority of the space)",
+  grantsBeforeLookup > 0 && grantsBeforeLookup < combos / 2, `grants=${grantsBeforeLookup}/${combos}`);
 
 /* Orphan bytes: the row and the object must die together, and the object name must
    never come from the request body. */

@@ -2,6 +2,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import { chatMedia, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { decideMediaAccess, needsPublishedProfilePhotoLookup } from "@/lib/media-access";
 import { badIdResponse, isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,11 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   // id exists, which turns this endpoint into an oracle for probing.
   if (!row) return new Response("Not found", { status: 404 });
 
-  let allowed = false;
+  /* The decision lives in src/lib/media-access.ts so that every combination of these
+     facts can be EXECUTED under test — the harness enumerates the truth table. The route's
+     job is only to gather the facts, cheapest first: the conversation link (indexed,
+     already loaded) and, only when nothing has granted yet, the profile-photo lookup. */
+  let requesterIsParticipant = false;
   if (row.matchId) {
     // The caller must be one of the two participants of this conversation.
     const [participant] = await db
@@ -60,33 +65,34 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       .where(
         and(
           eq(matches.id, row.matchId),
-          or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
-        ),
+          or(eq(matches.userA, member.id), eq(matches.userB, member.id))
+        )
       )
       .limit(1);
-    allowed = Boolean(participant);
-  } else {
-    // Legacy row uploaded before chat_media.match_id existed. The only person
-    // we can prove a relationship for is the sender.
-    allowed = row.senderId === member.id;
+    requesterIsParticipant = Boolean(participant);
   }
 
-  /* A third audience, and the one that fixes disappearing profile photos:
-     `/api/profile/photos` stores profile images as chat_media blobs when the
-     photo manager is used (see that route's POST). Those rows have no
-     conversation, so the two branches above leave them readable by their owner
-     ONLY — the owner sees their own photo everywhere and every other member
-     sees a broken image, which is exactly how "my photos disappeared" is
-     reported. An `<img>` for a profile photo is a *member* request, so the
-     correct rule is the one RLS already enforces on `profile_photos` itself:
-     serve the bytes when the row is published as the profile photo of a member
-     who is active and discoverable. The predicate below is copied from policy
-     "Discoverable members' photos are visible" (db/migrations/
-     2026-10-16-rls-and-media-ownership.sql) so the two cannot drift, and it is
-     no wider than the public `profile-photos` bucket this media substitutes
-     for. It never widens a private conversation attachment: a blob counts only
-     if the owner put it on their own profile. */
-  if (!allowed) {
+  const facts = {
+    requesterId: member.id,
+    mediaSenderId: row.senderId,
+    mediaMatchId: row.matchId,
+    requesterIsParticipant,
+    publishedAsVisibleProfilePhoto: false,
+  };
+
+  if (needsPublishedProfilePhotoLookup(facts)) {
+    /* The audience that fixes disappearing profile photos:
+       `/api/profile/photos` stores profile images as chat_media blobs (see that
+       route's POST), and those rows have no conversation, so the rules above left
+       them readable by their owner ONLY — the owner saw their own photo everywhere
+       and every other member saw a broken image, which is exactly how "my photos
+       disappeared" gets reported. An <img> for a profile photo is a *member*
+       request, so the right rule is the one RLS already enforces on profile_photos
+       itself. The predicate below is copied from policy "Discoverable members'
+       photos are visible" (db/migrations/2026-10-16-rls-and-media-ownership.sql) so
+       the two cannot drift, and it is no wider than the public `profile-photos`
+       bucket this media substitutes for. It never widens a private conversation
+       attachment: a blob counts only if the owner put it on their own profile. */
     const published = await db
       .select({ id: profilePhotos.id })
       .from(profilePhotos)
@@ -100,10 +106,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
         )
       )
       .limit(1);
-    allowed = published.length > 0;
+    facts.publishedAsVisibleProfilePhoto = published.length > 0;
   }
 
-  if (!allowed) return new Response("Not found", { status: 404 });
+  if (!decideMediaAccess(facts).allow) return new Response("Not found", { status: 404 });
 
   return new Response(new Uint8Array(row.data), {
     headers: {
