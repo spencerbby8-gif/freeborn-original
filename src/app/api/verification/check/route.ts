@@ -149,6 +149,17 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
 const IMAGE_DROPPED_RE =
   /no (reference )?image|please upload|cannot see|can't see|image (was )?(not )?(provided|missing|available)|provide (an? )?image/i;
 
+/* WHY THIS LANE DOES NOT USE THE SHARED ENGINE CALLER (measured, not assumed, 2026-10-30)
+ * identity-match.ts:334 and moderation.ts:88 both go through callEngine() in
+ * lib/engine-request.ts, which walks a ladder of models and request RUNGS and caches the winner.
+ * That is why the gateway's model-id breakage took VERIFICATION down for weeks while the identity
+ * gate kept answering: the ladder fell into a combination that worked and remembered it. This lane
+ * hand-rolls one frozen model id with three identical retries, so a 404 here had no fallback.
+ * Aligning it with callEngine is the principled fix and deliberately NOT done here: this PR is
+ * already changing what a member is told and what is recorded, and rewiring which model answers
+ * stage 1 in the same commit would make the two effects impossible to separate in review. The
+ * default below is now at least a working id, overridable by ANTIGRAVITY_MODEL.
+ */
 async function askGemini(content: Array<Record<string, unknown>>): Promise<Stage1Reply> {
   let lastReason: Stage1Failure = "empty";
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
