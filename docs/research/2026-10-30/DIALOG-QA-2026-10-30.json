@@ -159,10 +159,10 @@
       "name": "the sheet fits the 390px viewport without horizontal overflow",
       "pass": true,
       "detail": {
-        "x": 16.064788818359375,
-        "y": 287.1702575683594,
-        "w": 357.87042236328125,
-        "h": 540.80419921875,
+        "x": 16.044326782226562,
+        "y": 287.11651611328125,
+        "w": 357.911376953125,
+        "h": 540.8660278320312,
         "vw": 390,
         "vh": 844,
         "scrollable": false,
@@ -173,10 +173,10 @@
       "name": "and reaches the bottom edge as a sheet, scrolling internally if content grows",
       "pass": true,
       "detail": {
-        "x": 16.064788818359375,
-        "y": 287.1702575683594,
-        "w": 357.87042236328125,
-        "h": 540.80419921875,
+        "x": 16.044326782226562,
+        "y": 287.11651611328125,
+        "w": 357.911376953125,
+        "h": 540.8660278320312,
         "vw": 390,
         "vh": 844,
         "scrollable": false,
@@ -223,7 +223,7 @@
       "name": "on desktop it is a centred modal, not a sheet stuck to the bottom",
       "pass": true,
       "detail": {
-        "w": 419.84783935546875,
+        "w": 417.96832275390625,
         "centred": true,
         "top": true
       }

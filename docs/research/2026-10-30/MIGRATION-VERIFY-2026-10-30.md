@@ -19,7 +19,7 @@ working tree. The production schema still has `matches.status` with three values
 
 | | |
 |---|---|
-| Server | PostgreSQL **17.6** (installed this session into `/usr/lib/postgresql/17/bin`), throwaway cluster, port **55499**, unix socket in `/tmp/fb-migration-verify`, no TCP listener |
+| Server | PostgreSQL **17.11** (installed this session into `/usr/lib/postgresql/17/bin`), throwaway cluster, port **55499**, unix socket in `/tmp/fb-migration-verify`, no TCP listener |
 | Schema source | `drizzle-kit generate` against `src/db/schema.ts` → 36 tables of DDL, i.e. the app's own declared schema, **not** a hand-written stand-in |
 | Pre-state | the migration's **own rollback block** is applied first, so the run starts from what production actually looks like today |
 | Stubs | `auth.uid()` (reads a test GUC), `anon`/`authenticated` roles, since a vanilla cluster has neither. `authenticated` gets explicit grants the way Supabase grants them, because `SET ROLE authenticated` inherits nothing. |
