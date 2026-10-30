@@ -6,6 +6,7 @@ import { VerifyBadge } from "@/components/verify-badge";
 import { showToast } from "@/components/toast-host";
 import type { FaceGate, FaceGateState } from "@/lib/face-gate";
 import { POSES as SERVER_POSES, type Pose as ServerPose } from "@/lib/pose-pool";
+import { browserObservations } from "@/lib/browser-integrity-client";
 
 type VerifyStatus = "none" | "pending" | "approved" | "rejected";
 type Step =
@@ -433,6 +434,13 @@ export function VerifyGate() {
           poseLabel: pose.label,
           liveness: livenessEvidence(),
           livenessToken: livenessToken ?? undefined,
+          /* Four coarse facts the server compares against the headers its own edge
+             received. Nothing here is stored about the device: only the names of the
+             consistency rules that fired, and they can only ever add context for a
+             human reviewer — never deny the badge (see src/lib/browser-integrity.ts).
+             Omitting them is a legitimate choice: a check with one side missing
+             reports nothing rather than guessing. */
+          browser: browserObservations(),
         }),
       });
       setCheckingProgress(100);

@@ -16,6 +16,13 @@ import { scoreScamMessage, SCAM_RULE_COUNT, SCAM_ESCALATE_AT, SCAM_WARN_AT, SCAM
 import { meetsDifficultyHex, runHumanChallenge, solveChallenge } from "@/lib/human-challenge-client";
 import { POSES, poseIdFor, poseTag, POSE_TTL_SECONDS, type PoseState } from "@/lib/pose-pool";
 import { assignPose, consumePose, type PoseStore } from "@/lib/pose-store";
+import {
+  evaluateIntegrity,
+  memberVisibleIntegrity,
+  persistableDetail,
+  NEVER_COLLECTED,
+  type BrowserObservations,
+} from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
@@ -491,8 +498,13 @@ ok("the token is consumed, not looked up twice, and bound to one member",
 ok("replay, expiry and absence are distinct states rather than one boolean",
   /missing\|expired\|replayed\|foreign/.test(liveSrc.replace(/[`\s]/g, "")) ||
   (liveSrc.includes('"missing"') && liveSrc.includes('"expired"') && liveSrc.includes('"replayed"') && liveSrc.includes('"foreign"')));
+/* Retargeted 2026-10-30: the two engine chains now share named proofs (freshnessProven /
+   poseProven) instead of each spelling the condition inline, so the pin follows the name and
+   ALSO pins the definition — otherwise renaming a variable would silently un-pin the rule.
+   The guarantee is unchanged: no badge without a token we issued, consumed once, minutes ago. */
 ok("the badge from the single-engine path now requires a verified freshness token",
-  verifSrc.includes("pose.matchesAsked === true && freshness.state === \"verified\""));
+  verifSrc.includes("pose.matchesAsked === true && freshnessProven && poseProven") &&
+    verifSrc.includes('const freshnessProven = freshness.state === "verified";'));
 ok("freshness is consumed BEFORE any engine call (no budget burn on a replay)",
   verifSrc.indexOf("consumeLivenessChallenge") <
     (verifSrc.indexOf("askLm7(") === -1 ? Infinity : verifSrc.indexOf("askEngine(") === -1 ? Infinity : verifSrc.indexOf("askEngine(")),
@@ -503,13 +515,31 @@ ok("the outcome is written into the audit row, so it is reconstructable later",
   verifSrc.includes("freshnessTag(freshness.state)"));
 ok("a malformed token id cannot reach the database at all",
   liveSrc.includes("/^[0-9a-f-]{36}$/i.test(tokenId)"));
+/* Added 2026-10-30, after production evidence: the stage-1 call answered 502 for every member
+   (the configured model id does not exist behind the free gateway) and each one was written up as
+   a REJECTED selfie. The route must distinguish "the call failed" from "the photo was unreadable". */
+ok("stage 1 reports WHY it has no answer, instead of returning a bare null",
+  verifSrc.includes("reason: Stage1Failure | null") && verifSrc.includes("return { text: null, reason: lastReason };"));
+ok("an unavailable engine parks the attempt as pending rather than rejecting the member",
+  verifSrc.includes("if (stage1.reason !== null) {") &&
+    verifSrc.includes("stage1: unavailable (") &&
+    verifSrc.includes('status: "review"'));
+ok("a model verdict we could not read stays the member's own readable outcome",
+  verifSrc.includes("dual_model+stage1:unparseable"));
+ok("the stage-1 model id is an operator setting, since it is a property of the gateway",
+  /process\.env\.ANTIGRAVITY_MODEL/.test(verifSrc));
 ok("the client sends the token once and clears it, so retries re-challenge",
   /setLivenessToken\(null\)/.test(readFileSync(new URL("../../src/components/app/verify-modal.tsx", import.meta.url), "utf8")));
 
 /* -- review queue: read-only, gated, non-leaking -------------------------------- */
 const { queuePriority } = await import("@/lib/review-queue-priority");
-ok("the queue is gated fail-closed in production and readable in review environments",
-  queueSrc.includes("if (isProduction && allowlist.length === 0) return new Response(\"Not found\", { status: 404 })"));
+/* This pin used to require `isProduction && allowlist.length === 0`, i.e. it *pinned the
+   fail-open*: a development-mode deployment of the same code with no allowlist answered the
+   whole review queue to any signed-in member. Retargeted 2026-10-30 to the stronger policy,
+   and it asserts the old spelling is gone, so the pin cannot be satisfied by keeping both. */
+ok("the queue is gated fail-closed in EVERY environment, and the dev-mode exception is gone",
+  queueSrc.includes("if (allowlist.length === 0) return new Response(\"Not found\", { status: 404 })") &&
+    !/isProduction && allowlist\.length === 0/.test(queueSrc));
 ok("the queue declares and implements read-only (no POST handler)",
   queueSrc.includes("read_only: true") && !/export async function POST/.test(queueSrc));
 ok("member accusations outrank identity-gate receipts",
@@ -630,7 +660,10 @@ ok("[13] client-fallback text is neutralised before prompting",
 ok("[13] pose is consumed with the member + token it was issued to",
    /consumePoseChallenge\(\s*member\.id,\s*typeof bodyLivenessToken[^)]*\)\s*\.catch/.test(verifSrc));
 ok("[13] single-engine badge needs the SERVER pose, not just the engine's yes",
-   /pose\.matchesAsked === true && freshness\.state === "verified" && poseServed/.test(verifSrc));
+   /* `poseProven` reduces to `poseServed` unless the operator opens the bounded hatch, so the
+      definition is pinned alongside the use: renaming or widening it fails HERE, not silently. */
+   /pose\.matchesAsked === true && freshnessProven && poseProven/.test(verifSrc) &&
+     /const poseProven = poseMode === "legacy" \? true : poseServed;/.test(verifSrc));
 ok("[13] poseServed is derived from the challenge state only",
    /const poseServed = poseChallenge\.state === "verified";/.test(verifSrc));
 ok("[13] every request row records which pose path decided it",
@@ -862,6 +895,252 @@ const poseStatusOk = /verification_challenges_status_check|status = ANY/.test(mi
 ok("[13] only the live CHECK's three states are ever written",
    poseStatusOk && ["active","consumed","expired"].every((x) => poseSrc.includes(`"${x}"`)) &&
    !/set\(\{ status: "(?!active|consumed|expired)/.test(poseSrc));
+
+/* ------------------------------------------------------------------ [14] browser integrity -- */
+/* Privacy-safe browser-consistency signals, and the gate that decides whether a model verdict is
+   enough to grant a badge. Split into three kinds of assertion on purpose:
+     A. EXECUTE the evaluator. Behaviour, not text — a pattern pin can bless a bug.
+     B. GREP the two client files for what they must NOT contain. A privacy promise that is not
+        checkable is a wish, and "we never fingerprint" is the kind of sentence that rots first.
+     C. PIN the approval gate's shape. These are contracts with the operator (one env var, one
+        audit marker), and a refactor that quietly drops one is the failure we have actually had.
+   Read the module header in src/lib/browser-integrity.ts for why each rule exists. */
+{
+  const ev2 = readFileSync(new URL("../../src/lib/browser-integrity.ts", import.meta.url), "utf8");
+  const client = readFileSync(new URL("../../src/lib/browser-integrity-client.ts", import.meta.url), "utf8");
+  const singleLiveMig = readFileSync(new URL("../../db/migrations/2026-10-29-human-challenge-single-live.sql", import.meta.url), "utf8");
+  const clean: BrowserObservations = {
+    timezoneOffsetMinutes: 300, language: "en-US", maxTouchPoints: 0,
+    claimedPlatform: "Windows", hasCameraApi: true, hasPermissionsApi: true, secureContext: true,
+  };
+  const chrome = {
+    acceptLanguage: "en-US,en;q=0.9",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    secChUaPlatform: '"Windows"',
+    secChUa: '"Chromium";v="131", "Not_A Brand";v="8"',
+  };
+  const keys = (r: { fired: Array<{ key: string }> }) => r.fired.map((f) => f.key).join(",");
+
+  const base = evaluateIntegrity(clean, chrome);
+  ok("[14] a plain Chrome desktop with matching headers fires nothing", base.count === 0, keys(base));
+  ok("[14] the result is advisory, in the type and in the value", base.advisory === true);
+  ok("[14] an ordinary browser persists the literal 'none', not an empty row",
+    persistableDetail(base) === "none");
+
+  /* The checks are COMPARISONS. Anything missing on either side must mean "no opinion" — the
+     single most important property here, because the alternative is that a privacy-hardened
+     browser (which sends less) is treated as suspicious for sending less. */
+  ok("[14] no observations at all silences every check",
+    evaluateIntegrity({}, chrome).count === 0);
+  ok("[14] no server headers silences every check",
+    evaluateIntegrity(clean, {}).count === 0);
+  ok("[14] a wildcard Accept-Language is read as no preference, not as a foreign one",
+    evaluateIntegrity({ ...clean, language: "sw-KE" }, { ...chrome, acceptLanguage: "*/*" }).count === 0);
+  ok("[14] a lone '*' is the same no-preference signal",
+    evaluateIntegrity({ ...clean, language: "sw-KE" }, { ...chrome, acceptLanguage: "*" }).count === 0);
+
+  const off = evaluateIntegrity({ ...clean, timezoneOffsetMinutes: -120 }, chrome);
+  ok("[14] a clock outside every US zone with a US-English-only list is a named contradiction",
+    off.count === 1 && off.advisory === true && keys(off) === "tzVsAcceptLanguage", keys(off));
+  ok("[14] a mixed language list silences it (traveller, expat, developer)",
+    evaluateIntegrity({ ...clean, timezoneOffsetMinutes: -120 }, { ...chrome, acceptLanguage: "en-US,fr-FR,fr;q=0.9" }).count === 0);
+  ok("[14] a US offset with the same list is not a contradiction at all",
+    evaluateIntegrity({ ...clean, timezoneOffsetMinutes: 240 }, chrome).count === 0);
+  ok("[14] the persisted form of the contradiction carries the rule name and not the clock",
+    persistableDetail(off) === "tzVsAcceptLanguage" && !persistableDetail(off).includes("120"));
+
+  const lang = evaluateIntegrity({ ...clean, language: "de-DE" }, chrome);
+  ok("[14] the browser's own primary language must appear in the list its edge sent",
+    lang.count === 1 && keys(lang) === "languageNotInAcceptLanguage", keys(lang));
+  ok("[14] region-only differences are not a contradiction (en-GB vs en-US,en)",
+    evaluateIntegrity({ ...clean, language: "en-GB" }, chrome).count === 0);
+
+  /* Platform: three independent opinions, and 'Sec-CH-UA-Platform' is a STRUCTURED header whose
+     value arrives quoted. A comparison that forgets to unquote fires on every honest Chrome user
+     on the planet, so this pair of assertions is the reason the helper exists. */
+  ok("[14] a quoted edge header does not contradict the page's unquoted claim",
+    evaluateIntegrity({ ...clean, claimedPlatform: "Android" }, { ...chrome, secChUaPlatform: '"Android"', userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/131.0.0.0 Mobile Safari/537.36", acceptLanguage: "en-US" }).count === 0);
+  const plat = evaluateIntegrity({ ...clean, claimedPlatform: "Android" }, { ...chrome, secChUaPlatform: '"Windows"' });
+  ok("[14] page and edge disagreeing about the platform is a named contradiction",
+    plat.count >= 1 && keys(plat).includes("platformContradictsUserAgent"), keys(plat));
+  ok("[14] a desktop UA carries no platform token, so 'Windows' is unmatched rather than false",
+    evaluateIntegrity({ ...clean, claimedPlatform: "Windows" }, { acceptLanguage: null, userAgent: null, secChUaPlatform: null, secChUa: null }).count === 0);
+  ok("[14] iOS reports 'iOS' to the page and 'iPhone' in the UA: same family, no signal",
+    evaluateIntegrity({ ...clean, claimedPlatform: "iOS" }, { ...chrome, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile Safari/605.1.15", secChUaPlatform: '"iOS"', secChUa: "" }).count === 0);
+  ok("[14] an Android UA claimed as Windows is caught",
+    keys(evaluateIntegrity({ ...clean, claimedPlatform: "Windows" }, { ...chrome, userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/131 Mobile Safari/537.36", secChUaPlatform: null })).includes("platformContradictsUserAgent"));
+
+  const hints = evaluateIntegrity({ ...clean, claimedPlatform: undefined }, { ...chrome, secChUa: "" });
+  ok("[14] a Chrome-shaped UA with no Client Hints at all is the scripted-client tell",
+    keys(hints).includes("chromeWithoutClientHints"), keys(hints));
+  ok("[14] Safari and Firefox send no Client Hints and are never punished for that",
+    evaluateIntegrity(clean, { ...chrome, secChUa: "", userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15" }).count === 0 &&
+      evaluateIntegrity(clean, { ...chrome, secChUa: "", userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0" }).count === 0);
+  ok("[14] a client that never claims to be a browser contradicts nothing, so nothing fires",
+    keys(evaluateIntegrity({}, { acceptLanguage: "*/*", userAgent: "curl/8.5.0", secChUa: "", secChUaPlatform: null })).length === 0,
+    "silence rather than suspicion is what keeps absence honest");
+
+  /* Only four names can ever be emitted, for ANY input. 'never fires anything unstated' is what
+     lets the retention rule ("names only, 120 chars") be the whole privacy story. */
+  const MATRIX_KEYS = new Set(["tzVsAcceptLanguage", "languageNotInAcceptLanguage", "platformContradictsUserAgent", "chromeWithoutClientHints"]);
+  const fixtures: Array<[BrowserObservations, Record<string, string | null>]> = [];
+  for (const tz of [0, 60, 300, -120, 780, NaN]) {
+    for (const langTag of ["en-US", "de-DE", "", "pt-BR"]) {
+      for (const platClaim of ["Windows", "Android", "iOS", ""]) {
+        for (const ua of [chrome.userAgent, "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", "curl/8.5.0", ""]) {
+          for (const al of ["en-US,en;q=0.9", "en-US,fr-FR", "*/*", ""]) {
+            fixtures.push([{ timezoneOffsetMinutes: tz, language: langTag, claimedPlatform: platClaim }, { acceptLanguage: al, userAgent: ua, secChUaPlatform: platClaim ? `"${platClaim}"` : null, secChUa: ua.includes("Chrome/") ? '"Chromium";v="131"' : "" }]);
+          }
+        }
+      }
+    }
+  }
+  const allKeys = new Set<string>();
+  let nonAdvisory = 0;
+  let unstable = 0;
+  for (const [b, h] of fixtures) {
+    const r = evaluateIntegrity(b, h);
+    for (const f of r.fired) allKeys.add(f.key);
+    if (r.advisory !== true) nonAdvisory++;
+    if (r.count !== evaluateIntegrity(b, h).count) unstable++;
+  }
+  ok("[14] the whole fixture matrix emits no rule name outside the four declared ones",
+    [...allKeys].every((k) => MATRIX_KEYS.has(k)) && allKeys.size > 0,
+    `${fixtures.length} combinations, names seen: ${[...allKeys].sort().join("|")}`);
+  ok("[14] advisory:true is not conditional on anything, across every combination", nonAdvisory === 0);
+  ok("[14] the evaluator is pure: repeated calls agree, and nothing is memoised on the input",
+    unstable === 0);
+  const before = JSON.stringify(clean);
+  evaluateIntegrity(clean, { ...chrome, acceptLanguage: "zh-CN" });
+  ok("[14] the caller's observation object is not mutated", JSON.stringify(clean) === before);
+  ok("[14] every fired rule carries prose a reviewer can read",
+    evaluateIntegrity({ ...clean, timezoneOffsetMinutes: -120 }, chrome).fired.every((f) => f.label.length > 40));
+
+  const multi = evaluateIntegrity(
+    { timezoneOffsetMinutes: -120, language: "de-DE", claimedPlatform: "Android" },
+    { ...chrome, secChUa: "", secChUaPlatform: '"Windows"' }
+  );
+  ok("[14] several contradictions at once are all named, comma-joined, and still bounded",
+    multi.count === 4 &&
+      persistableDetail(multi) ===
+        "tzVsAcceptLanguage,languageNotInAcceptLanguage,platformContradictsUserAgent,chromeWithoutClientHints" &&
+      persistableDetail(multi).length <= 120,
+    persistableDetail(multi));
+  ok("[14] the member is told the two things they own and not the two that teach evasion",
+    memberVisibleIntegrity(multi.fired).length === 2 &&
+      !memberVisibleIntegrity(multi.fired).some((f) => f.key === "platformContradictsUserAgent") &&
+      !memberVisibleIntegrity(multi.fired).some((f) => f.key === "chromeWithoutClientHints"));
+  ok("[14] NEVER_COLLECTED names the fingerprinting surfaces this module will not read",
+    NEVER_COLLECTED.length >= 10 && ["canvas", "webgl", "fonts", "plugins", "audioContext", "deviceMemory", "localStorage"].every((x) => NEVER_COLLECTED.includes(x)));
+
+  /* ---- B. the two client files, grepped for what they must not contain ---- */
+  /* This is the only direction in which "no covert persistent fingerprinting" can be enforced:
+     the shipped browser code either does not touch those APIs or it does. Note the assertion is
+     over BOTH spellings — a call and a property access — because `window.localStorage` and
+     `navigator.plugins` are the forms that actually appear in the wild. */
+  const FORBIDDEN = [
+    "canvas", "getContext", "toDataURL", "webgl", "fonts", "plugins", "mimeTypes",
+    "audioContext", "OfflineAudioContext", "deviceMemory", "hardwareConcurrency",
+    "screen.", "colorDepth", "battery", "getBattery", "localStorage", "sessionStorage",
+    "indexedDB", "openDatabase", "document.cookie", "serviceWorker", "matchMedia",
+    "connection", "videoWidth", "enumerateDevices", "MediaSource", "RTCPeerConnection",
+  ];
+  /* Strip the comments first. These modules deliberately SAY OUT LOUD which APIs they refuse
+     (the doc header names canvas, localStorage and friends to explain their absence), and a
+     grep that reads prose as code is a test that fails for the wrong reason — or worse, passes
+     because someone deleted the honest comment. */
+  const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const clientCode = strip(client);
+  const found = FORBIDDEN.filter((t) => clientCode.includes(t));
+  ok("[14] the browser client touches none of the fingerprinting surfaces", found.length === 0, found.join("|"));
+  ok("[14] the client stores nothing, so nothing persists between sessions",
+    !/setItem|sessionStorage|document\.cookie|navigator\.serviceWorker/i.test(clientCode));
+  ok("[14] the client sets no header of its own — the compared values must come from the browser",
+    /return \{\};/.test(clientCode) && !/headers\.set|new Headers|secCh|Sec-CH/i.test(clientCode));
+  ok("[14] the client reads exactly the four coarse facts it documents",
+    (clientCode.match(/nav\.[a-zA-Z?]+/g) ?? []).length >= 4 &&
+      ["getTimezoneOffset", "maxTouchPoints", "isSecureContext", "getUserMedia"].every((p) => client.includes(p)),
+    `${(clientCode.match(/nav\.[a-zA-Z?]+/g) ?? []).length} navigator reads`);
+  ok("[14] the evaluator itself imports nothing (no fs, no net, no storage)",
+    !/^import /m.test(ev2) && !/require\(/.test(ev2) && !/import\(/.test(ev2),
+    `imports in the evaluator: ${(ev2.match(/^import /gm) ?? []).length}`);
+  ok("[14] a client that throws is answered with silence, not with a failure",
+    /catch \{\s*return \{\};?\s*\}/.test(clientCode));
+
+  /* ---- C. the gate: what may and may not veto a badge ---- */
+  ok("[14] a favourable model verdict alone cannot approve: both proofs are in the condition",
+    /if \(!approvable \|\| !freshnessProven \|\| !poseProven\) \{/.test(verifSrc));
+  ok("[14] freshness is proven from the consumed token's state, not from a client field",
+    /const freshnessProven = freshness\.state === "verified";/.test(verifSrc) &&
+      !/const freshnessProven = /.test(verifSrc.replace(/const freshnessProven = freshness\.state === "verified";/, "")));
+  ok("[14] the legacy hatch relaxes POSE provenance only",
+    /const poseProven = poseMode === "legacy" \? true : poseServed;/.test(verifSrc));
+  /* The hatch used to have a branch of its own inside the gate. That branch was unreachable in the
+     mode it existed for — `poseProven` had ALREADY relaxed the condition the branch tested — so a
+     hatch grant went out with a clean-pass reason on the row. Now the flag appears in exactly one
+     place, and these two pins are what stop a second copy of it being added later. */
+  const verifCode = verifSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("[14] the operator flag is read in one place and applied in one place",
+    (verifCode.match(/poseMode === "legacy"/g) ?? []).length === 1 &&
+      (verifCode.match(/FREEBORN_POSE_ENFORCEMENT/g) ?? []).length === 1,
+    `code-level uses: ${(verifCode.match(/poseMode === "legacy"/g) ?? []).length}`);
+  ok("[14] the hatch has no approval path of its own: the gate is a veto, not a switch",
+    !/viaLegacyHatch/.test(verifSrc) &&
+      /if \(!approvable \|\| !freshnessProven \|\| !poseProven\) \{/.test(verifSrc));
+  ok("[14] no engine branch may waive freshness — there is no 'no-freshness' grant marker at all",
+    !/\+unproven:no-freshness/.test(verifSrc) && !/poseMode === "legacy" \? true : freshness/.test(verifSrc));
+  ok("[14] an unproven-pose grant is written where a reviewer can query it",
+    /grantedUnproven \? "\+unproven:legacy-pose" : ""/.test(verifSrc));
+  ok("[14] the reason and the marker come from ONE variable, so the row cannot contradict itself",
+    /const grantedUnproven = !challengeProven;/.test(verifSrc) &&
+      /grantedUnproven\n\s*\? "stage1\+stage2 pass, badge granted by the legacy hatch"/.test(verifSrc));
+  ok("[14] the hatch says what it did on the approval record",
+    /badge granted by the legacy hatch/.test(verifSrc));
+  ok("[14] the operator's escape hatch is one env var and defaults to enforcing",
+    /process\.env\.FREEBORN_POSE_ENFORCEMENT === "legacy"/.test(verifSrc) &&
+      /: "review";/.test(verifSrc));
+  ok("[14] the single-engine path is held to the same two proofs",
+    /pose\.matchesAsked === true && freshnessProven && poseProven;/.test(verifSrc));
+  ok("[14] a configured-but-refused second engine is reported, not hidden as 'single'",
+    /\+lm7:\$\{lm7\.reason/.test(verifSrc) && /engineReason/.test(verifSrc));
+  ok("[14] stage 2 is asked about the SERVER's pose, never the client's string",
+    /roughly perform: "\$\{askedPose\}"/.test(verifSrc) && !/roughly perform: "\$\{poseLabel\}"/.test(verifSrc));
+  ok("[14] the observation set reaches the audit row only through persistableDetail",
+    /detail: persistableDetail\(integrity\)/.test(verifSrc) &&
+      !/detail: JSON\.stringify\(browser\)/.test(verifSrc) &&
+      !/detail: JSON\.stringify\(integrity\)/.test(verifSrc));
+  ok("[14] every attempt is recorded, clean ones included, and never gated on a hit",
+    /kind: "browser_integrity"/.test(verifSrc) && !/if \(integrity\.count/.test(verifSrc));
+  ok("[14] nothing in the decision path reads the integrity result",
+    !/if \(integrity/.test(verifSrc) && !/approvable[\s\S]{0,80}integrity\./.test(verifSrc));
+  ok("[14] the integrity write cannot fail a member's verification",
+    /\.values\(\{[^}]*kind: "browser_integrity"[\s\S]{0,240}\.catch\(\(\) => undefined\)/.test(verifSrc));
+  ok("[14] the event kind is a fixed string, so the audit query is stable",
+    (verifSrc.match(/kind: "browser_integrity"/g) ?? []).length === 1);
+
+  /* ---- D. the challenge-store defect that made all of this unreachable ---- */
+  ok("[14] one LIVE challenge per (email, purpose) — a partial index, not a status-keyed unique",
+    /uniqueIndex\("human_challenges_single_live"\)\s*\.on\(t\.email, t\.purpose\)\s*\.where\(sql`\$\{t\.status\} = 'issued'`\)/.test(schemaSrc));
+  ok("[14] no unique index on human_challenges still includes status",
+    !/uniqueIndex\("human_challenges[^"]*"\)\.on\([^)]*status/.test(schemaSrc));
+  ok("[14] the shipped migration is idempotent in both directions",
+    /drop index if exists public\.human_challenges_single_live;/.test(singleLiveMig) &&
+      /create unique index if not exists human_challenges_single_live/.test(singleLiveMig) &&
+      /where status = 'issued';/.test(singleLiveMig));
+  /* Production holds this uniqueness as a table CONSTRAINT, not a standalone index, and
+     `drop index` on a constraint-backed index is refused (2BP01). The first version of the
+     migration only said `drop index if exists` and was rejected by the live database on
+     2026-10-30 — a review DB built by `drizzle-kit push` cannot catch that. So the file
+     must carry BOTH removal forms; a future "simplification" that keeps one of them
+     re-breaks the only environment that matters. */
+  ok("[14] the migration removes BOTH shapes (constraint in production, index under drizzle push)",
+    /drop constraint if exists human_challenges_single_live;/.test(singleLiveMig) &&
+      /drop index if exists public\.human_challenges_single_live;/.test(singleLiveMig));
+  ok("[14] the migration keeps history rather than deleting the member's rows",
+    !/delete from human_challenges/i.test(singleLiveMig));
+  ok("[14] the index keeps its name, so production swaps shape and not identity",
+    (singleLiveMig.match(/human_challenges_single_live/g) ?? []).length >= 4);
+}
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
