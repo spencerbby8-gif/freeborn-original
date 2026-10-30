@@ -1,5 +1,6 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
+import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { chatMedia, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { decideMediaAccess, needsPublishedProfilePhotoLookup } from "@/lib/media-access";
@@ -58,9 +59,15 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
      already loaded) and, only when nothing has granted yet, the profile-photo lookup. */
   let requesterIsParticipant = false;
   if (row.matchId) {
-    // The caller must be one of the two participants of this conversation.
-    const [participant] = await db
-      .select({ id: matches.id })
+    /* The caller must be one of the two participants of this conversation — and the ANSWER to
+       "may a former participant still open what they were sent" is the lifecycle table's, not
+       this file's. The query below used to return a bare membership boolean, so the two rules
+       agreed only by accident: a later edit to `read_media` (e.g. narrowing it to active
+       matches) would have silently kept working here, and the member who was unmatched would
+       keep their evidence while the rest of the product lost it. Selecting the row's status
+       costs nothing (indexed by id) and makes the table the single authority. */
+    const [conversation] = await db
+      .select({ id: matches.id, status: matches.status, unmatchedBy: matches.unmatchedBy })
       .from(matches)
       .where(
         and(
@@ -69,7 +76,15 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
         )
       )
       .limit(1);
-    requesterIsParticipant = Boolean(participant);
+    if (conversation) {
+      requesterIsParticipant = decideMatchAccess({
+        status: conversation.status as MatchLifecycleStatus,
+        isParticipant: true,
+        isActor: conversation.unmatchedBy === member.id,
+        hasMessages: false,
+        action: "read_media",
+      }).allow;
+    }
   }
 
   const facts = {
