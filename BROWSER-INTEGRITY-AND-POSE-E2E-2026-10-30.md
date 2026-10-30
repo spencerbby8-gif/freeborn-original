@@ -95,8 +95,9 @@ caught a real defect earlier in this work.
    after the second abandoned attempt — and that table is shared by verification, appeals, signup and
    reset. Now a partial unique index on `(email, purpose) where status = 'issued'`
    (`src/db/schema.ts`), with `db/migrations/2026-10-29-human-challenge-single-live.sql` for
-   production (idempotent both ways, keeps history, keeps the index name). Proven live in both
-   directions and pinned by `[14]` plus `main`'s re-issue test plus control 6.
+   production (idempotent both ways, keeps history, keeps the index name, and drops BOTH the constraint
+   and the standalone index because production has the former and an ORM push makes the latter). Proven
+   live in both directions and pinned by `[14]` plus `main`'s re-issue test plus control 6.
 2. **Stage 2 graded the client's pose string (pre-existing).** The second engine's prompt interpolated
    `poseLabel` from the request body while stage 1 used `askedPose`, i.e. the "prove you are live" step
    verified a pose the submitter chose — and that text went into a prompt inside a template literal.
@@ -114,26 +115,84 @@ caught a real defect earlier in this work.
    re-introduces: an escape hatch that escapes nothing is worse than none (the operator believes the
    control is off), and a hatch that escapes everything is the vulnerability you shipped.
 
+### 1f. Two more defects, both invisible until the branch met production
+
+5. **An engine outage was reported as the member's photograph, and written as their rejection.**
+   `askGemini` returned a bare `string | null`; the caller turned `null` into
+   `status:"rejected", stage:"inspect"` plus "The verification service couldn't read the photo." Four
+   different failures shared that one string: the model answering in prose, the free proxy dropping the
+   images, a timeout, and the state production was in — `ANTIGRAVITY_MODEL` did not exist, because the
+   id was frozen in source and the gateway in front of `ANTIGRAVITY_BASE_URL` 404s it (502 wrapping a
+   backend 404 "Requested entity was not found"). Measured 2026-10-30 with a throwaway probe
+   deployment: `gemini-3-flash` and `gemini-2.5-flash` answer 200 *with a real 237 KB photograph
+   attached*, returning a usable verdict in the product's own JSON shape, and correctly refusing the
+   pose that photograph does not make — `{"observedPose":"Right hand resting on wooden fence.",
+   "faceCount":1,"lightingOk":true,"matchesAsked":false}`. The frozen id answered 502. So every member
+   attempt that day was refused for our configuration, told it was their face, and recorded as a
+   rejected member. Now: `askGemini` returns `{ text, reason }`; a failed *call* parks the attempt
+   (`verification_requests.status='pending'`, `reviewed_at` null, the selfie kept for the retry,
+   `+stage1:<class>` in the `method` column an operator can query) and answers "nothing was decided,
+   try again in a few minutes"; a verdict we could not parse stays a rejection, tagged
+   `+stage1:unparseable`. The model id became `ANTIGRAVITY_MODEL` with the probe-verified working id as
+   the default, because freezing a gateway fact in source is how this became an outage. `refused`/
+   `single` modes now carry a scripted 502 and an empty completion.
+6. **The review queue failed open outside production.** `api/admin/review-queue` gated on
+   `if (isProduction && allowlist.length === 0)` — `isProduction` being `NODE_ENV === "production"` —
+   so in a development-mode runtime with no `FREEBORN_ADMIN_EMAILS` the whole queue (reports, cases,
+   appeals, trust history) answered any signed-in member. Checked the Vercel project: that variable is
+   assigned to Production and Preview only, so the combination is real. The qualifier is gone; an empty
+   allowlist now 404s everywhere, matching what `api/health/engines` already did. The harness pin that
+   required the old spelling is retargeted and asserts the old form is *absent*, so it cannot be
+   satisfied by keeping both. Verified on both live deployments: `GET /api/admin/review-queue` signed
+   out returns 404 "Not found" on production and on this PR's preview.
+
 ### 1e. Preserved functionality
 `FREEBORN_POSE_ENFORCEMENT` defaults to enforcing (`review`); global automated enforcement is
 unchanged and still off; `verify-modal`'s existing pose/camera/gate flow keeps its behaviour and only
 adds one body field; no existing route contract changed shape (the added response field
 `engineReason` is additive). `npm run lint` 0 problems, `tsc --noEmit` clean, `check:secrets` clean
-(270 files), `next build` succeeds, harness 244/244, all six e2e modes pass.
+(271 files), `next build` succeeds, harness 249/249, and all six e2e modes pass: 62 assertions
+(main 13, adversarial 15, ratelimit 10, legacy 7, single 8, refused 9). Vercel's own build for
+`998df04` ran `npm run test:trust` green inside the deploy pipeline (build 26.5 s,
+`dpl_7UiT7fK9NJoYsgXgtZ2Kb4UicQrc`), which is an independent execution of the harness — not of the
+e2e, which has no CI runner here (§3.2).
 
 ---
 
 ## 2. Works in production — what is actually claimable
 
-**Nothing in this pass is verified in production, and I am not going to describe it as such.**
+**Rewritten on 2026-10-30 after the member flow was actually executed against production.** The
+earlier version of this section said "nothing in this pass is verified in production", which was true
+when it was written and is no longer true; the claims below are each tied to a response or a row.
+
+* **The lockout fix in §1d.1 is applied to production and proven there.** `POST
+  /api/verification/challenge` returned 200 three times in a row for one member (poses "Show a peace
+  sign beside your eye", "Hand over heart", "Place one hand under your chin"); under the old
+  `unique(email, purpose, status)` the second re-issue 500s. The live schema now carries the partial
+  unique index (constraint gone, count 0, same index name, 4 indexes on the table).
+* **Freshness and pose provenance fire in production.** `verification_requests.method` for that
+  member's attempts: `dual_model+fresh+pose`, `dual_model+fresh:missing+pose:absent`,
+  `dual_model+fresh:replayed+pose:mismatch` — a replayed token and an absent token are both recorded
+  and refused, and no leg of the flow could fake the pose because the server assigned it.
+* **The retention rule holds on real data.** All six rejected rows from today have
+  `selfie_media IS NULL`; the two 2026-10-07 approved rows still hold theirs, which is exactly the
+  policy (only an approved selfie is read back, for the identity gate). After cleanup the database is
+  back to its pre-test counts (8 members / 7 identities / 8 profiles / 8 requests / 10 events /
+  11 photos / 0 human_challenges).
+* **Not verified in production, still:** the approval leg (no consent-clean second face available in
+  this session), the review-queue *payload* (no member session carries an admin email; I did not read
+  that secret to forge one), the integrity lane's effect (its client half ships only here), and RLS
+  policy rows (see the bullet below).
 
 * The changes live on a branch in this workspace's clone, verified against a **local** Postgres 17.11
   cluster (schema pushed from `src/db/schema.ts` + the `hamming64` function from the shipped migration
   set) and a **scripted** vision double. No real member request was made against
   `freeborn-umber.vercel.app` during this pass.
-* `db/migrations/2026-10-29-human-challenge-single-live.sql` has **not been applied to the production
-  Supabase database** — that is an owner action, and it is the only change here whose absence has a
-  live consequence (the lockout in §1d.1 remains possible until it runs).
+* `db/migrations/2026-10-29-human-challenge-single-live.sql` **has been applied to production**
+  (2026-10-30) after the version in this branch was corrected: production holds the rule as a table
+  CONSTRAINT, `drop index` on a constraint-backed index fails `2BP01`, so the file now removes both
+  shapes before creating the partial index. Reproduced against a temp table: the old shape still
+  rejects the second live row with `23505`, the new one does not.
 * Row-level security on `security_events` was not re-inspected in production this pass. This lane adds
   **no new table**, so the exposure profile of the integrity rows is exactly the existing
   `security_events` profile that `identity-resolve` already writes to — but "same as before" is not the
@@ -154,9 +213,18 @@ those sources make the suite go red.
 ---
 
 ## 3. Still blocked / open
-1. **Owner actions required:** apply the `2026-10-29-human-challenge-single-live.sql` migration to the
-   production database; merge + deploy the branch; then re-run the member flow once with real
-   credentials. None of these are things I can do from here.
+1. **Owner actions required, in risk order.** (a) Production still runs the model id that 404s: merge
+   and deploy this branch, or set `ANTIGRAVITY_MODEL=gemini-3-flash` on the `freeborn` project's
+   Production target — until one of those happens every verification attempt fails and every member is
+   told it is their photograph. (b) Rotate the legacy `anon` + `service_role` JWTs, which are still
+   enabled alongside the publishable pair; a leaked `service_role` bypasses every RLS policy here.
+   (c) Raise `password_min_length` from 6 to 12 in the Supabase dashboard — `src/lib/password.ts`
+   documents the mismatch, and `update_auth_config` exposes no such field (and is a whole-config PUT
+   that clears whatever you do not send, so it must not be used for this). (d) Decide what stage 2 is
+   for: `VOID_AI_*` answers text and returns `400 Vision/OCR is disabled for free plans`, so the
+   "dual model" second opinion currently cannot see the face. (e) The migration is applied; the branch
+   is not deployed. I did not write to Vercel's environment or promote a deployment from here.
+   See `VERIFICATION-MECHANISM-MAP-2026-10-30.md` for the full implemented-vs-proven map.
 2. **No CI in this repository** for these lanes (there is no workflow running the harness or the e2e),
    so a green Vercel check on the PR is *not* validation of any number in this document. Validation is
    `npm run test:security` and `npm run test:pose:negctl`, run locally; the PR body says so.
@@ -180,7 +248,7 @@ those sources make the suite go red.
 
 ## Reproducing
 ```
-npm run test:harness          # 244 assertions, no DB or network needed
+npm run test:harness          # 249 assertions, no DB or network needed
 npm run test:pose             # six modes against a local Postgres (see pose-run.mjs header)
 npm run test:pose:negctl      # eight controls; expects 6 caught + 2 masked-by-design
 npm run lint && npm run typecheck && npm run check:secrets
