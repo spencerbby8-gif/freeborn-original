@@ -1479,12 +1479,12 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
   const photo = readFileSync(new URL("../../src/components/ui/photo-image.tsx", import.meta.url), "utf8");
   ok("[16] hover and pressed are overlay layers, so label contrast cannot drift per state",
     /--button-overlay-background-hover/.test(css) && /--button-overlay-background-pressed/.test(css) &&
-    /\.fb-btn::after/.test(css),
+    /\.fb-cta::after/.test(css),
     "Bumble's mechanism, read off its stylesheet — not its appearance");
   ok("[16] hover styling is capability-gated, so it cannot stick after a tap",
     /@media \(hover: hover\) and \(pointer: fine\)/.test(css), "as Tinder's stylesheet does");
   ok("[16] focus is explicit and motion is respected",
-    /\.fb-btn:focus-visible/.test(css) && /@media \(prefers-reduced-motion: reduce\)/.test(css));
+    /\.fb-cta:focus-visible/.test(css) && /@media \(prefers-reduced-motion: reduce\)/.test(css));
   ok("[16] the measured type scale lives in @theme so the utilities exist",
     /--text-ui-xs: 0\.8125rem/.test(css) && /--text-ui-sm: 0\.9375rem/.test(css) &&
     /--text-ui-md: 1\.0625rem/.test(css) && /--radius-card: 1rem/.test(css) &&
@@ -1492,11 +1492,28 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
     "13/15/17px + 16px radius + 44px control floor, from bumble.7050c3776fb2414d.css");
   ok("[16] a loading button is disabled and announced, not merely styled",
     /disabled \|\| loading/.test(btn) && /aria-busy/.test(btn));
+  {
+    /* The class name must not collide with the app's pre-existing pill button system. */
+    /* My own comments inside the block deliberately NAME the old class, so the check strips
+       comments and inspects selectors only — testing the prose would pass a real collision. */
+    const block = css.slice(css.indexOf("CTA CONTRACT")).replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("[16] the new contract owns a distinct class name, so neither system restyles the other",
+      block.includes(".fb-cta") && !/\.fb-btn\s*[{:,_]/.test(block) && /\.fb-btn\s*\{/.test(css),
+      "found by the headless pass: the shared name made my rules override the onboarding pill");
+    ok("[16] the pre-existing pill system is still defined after the rename",
+      /\.fb-btn\s*\{[\s\S]{0,500}?border-radius:\s*999px/.test(css));
+  }
   ok("[16] a new src resets render state in-render, not in an effect",
     /setPrevSrc\(src\)[\s\S]{0,120}setState\("loading"\)/.test(photo) && !/useEffect\(\(\) => \{\s*setState\("loading"\)/.test(photo),
     "an effect would paint one frame of the previous photo's state onto the new src");
   ok("[16] a failed photo is said out loud and offers a way out",
-    /didn/.test(photo) && /Tap to try again/.test(photo));
+    /Didn&rsquo;t load/.test(photo) && /tap to retry/i.test(photo) &&
+    /aria-label=\{`Photo of \$\{alt\} failed to load/.test(photo));
+  ok("[16] the failure state fits inside the caller's tile instead of overflowing it",
+    /min-h-0[\s\S]{0,200}?overflow-hidden/.test(photo) && /line-clamp-2/.test(photo),
+    "a real render clipped 'again.' mid-word; a truncated error message is still a hidden error");
+  ok("[16] compact mode drops the sentence a 44px circle cannot carry, and keeps the label",
+    /compact\?: boolean/.test(photo) && /compact \? null :/.test(photo));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

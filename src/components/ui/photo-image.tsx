@@ -27,6 +27,10 @@ export type PhotoImageProps = {
   className?: string;
   /** For surfaces that size an avatar from data (chat rows pass width/height). */
   style?: CSSProperties;
+  /** Small tiles (avatars, chips) cannot carry a sentence. Render the glyph only — the
+   *  explanation still exists for assistive tech via aria-label. Chosen per call site rather
+   *  than by container query because a 44px circle is a decision, not a breakpoint. */
+  compact?: boolean;
   /** Classes for the <img> itself, for the cases the default `object-cover` is wrong
    *  (a lightbox wants `object-contain`, a circular avatar wants `rounded-full`). */
   imgClassName?: string;
@@ -37,7 +41,7 @@ export type PhotoImageProps = {
   onError?: (info: { attempts: number }) => void;
 };
 
-export function PhotoImage({ src, alt, className = "", imgClassName = "object-cover", style, priority = false, maxRetries = 3, onError }: PhotoImageProps) {
+export function PhotoImage({ src, alt, className = "", imgClassName = "object-cover", style, compact = false, priority = false, maxRetries = 3, onError }: PhotoImageProps) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
   const [attempt, setAttempt] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,11 +89,24 @@ export function PhotoImage({ src, alt, className = "", imgClassName = "object-co
       <button
         type="button"
         onClick={retryNow}
-        className={`flex w-full flex-col items-center justify-center gap-2 rounded-card border border-white/10 bg-white/5 px-4 py-6 text-center text-ui-sm text-mist transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-300 ${className}`}
+        /* The tile's aspect ratio is owned by the caller, so this must fit inside it instead
+           of growing past it: h-full + min-h-0 + centred content + a two-line clamp. The first
+           version clipped "again." off the bottom of a 3:3.2 card, which is exactly the
+           "silent broken image" this component exists to end. */
+        className={`flex h-full w-full min-h-0 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-card border border-white/12 bg-white/6 px-3 py-2 text-center leading-snug text-mist transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-300 ${
+          compact ? "" : "hover:bg-white/10"
+        } ${className}`}
         aria-label={`Photo of ${alt} failed to load. Activate to try again.`}
       >
-        <span aria-hidden="true" className="text-ui-lg">&#9676;</span>
-        <span>This photo didn&rsquo;t load. Tap to try again.</span>
+        <span aria-hidden="true" className={compact ? "text-ui-sm" : "text-ui-lg"}>
+          &#9676;
+        </span>
+        {compact ? null : (
+          /* Short enough to survive two lines at 13px inside a 3:3.2 tile. The first wording
+             ellipsised mid-sentence in a real browser render, which is a smaller version of
+             the problem this component was written to fix. */
+          <span className="line-clamp-2 text-ui-xs">Didn&rsquo;t load &mdash; tap to retry</span>
+        )}
       </button>
     );
   }
@@ -99,7 +116,7 @@ export function PhotoImage({ src, alt, className = "", imgClassName = "object-co
       {state === "loading" ? (
         <span
           aria-hidden="true"
-          className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/5 via-white/10 to-white/5 motion-reduce:animate-none"
+          className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/10 via-white/20 to-white/10 motion-reduce:animate-none"
         />
       ) : null}
       <img

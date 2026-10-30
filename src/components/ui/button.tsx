@@ -24,14 +24,14 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "quie
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "fb-btn--primary",
-  secondary: "fb-btn--secondary",
-  ghost: "fb-btn--ghost",
-  danger: "fb-btn--danger",
-  quiet: "fb-btn--quiet",
+  primary: "fb-cta--primary",
+  secondary: "fb-cta--secondary",
+  ghost: "fb-cta--ghost",
+  danger: "fb-cta--danger",
+  quiet: "fb-cta--quiet",
 };
 
-const SIZE: Record<ButtonSize, string> = { sm: "fb-btn--sm", md: "fb-btn--md", lg: "fb-btn--lg" };
+const SIZE: Record<ButtonSize, string> = { sm: "fb-cta--sm", md: "fb-cta--md", lg: "fb-cta--lg" };
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -67,11 +67,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
-        "fb-btn",
+        "fb-cta",
         VARIANT[variant],
         SIZE[size],
-        block ? "fb-btn--block" : "",
-        loading ? "fb-btn--loading" : "",
+        block ? "fb-cta--block" : "",
+        loading ? "fb-cta--loading" : "",
         className,
       ].filter(Boolean).join(" ")}
       {...rest}

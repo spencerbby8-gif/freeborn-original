@@ -1117,7 +1117,12 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 .fb-section-head .fb-meta { max-width: 62ch; }
 
 /* ==========================================================================
-   BUTTON CONTRACT — token-themed, overlay interaction states, capability-gated
+   CTA CONTRACT — token-themed, overlay interaction states, capability-gated
+   Named fb-cta*, NOT fb-btn*: `.fb-btn` / `.fb-btn-primary` already existed in this file
+   (pill radius, `filter:brightness(1.05)` + `translateY(-2px)` hover) and is live in the
+   onboarding flow. A headless-browser pass caught the collision — with the shared name, my
+   rules overrode theirs and theirs leaked `white-space:nowrap` and a 1px border into mine,
+   and neither system could have been reasoned about from its own source.
    ==========================================================================
    Mechanism sources, all from acquired bytes (offsets in
    docs/research/2026-10-30/DESIGN-TOKENS.json and MINING-API-STATE.json):
@@ -1130,7 +1135,7 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
      * Tinder styles `:focus-visible` explicitly rather than relying on the UA ring.
    Sizes/radii are Freeborn's own; the palette is Freeborn's. This is a shared contract,
    not a reskin. */
-.fb-btn {
+.fb-cta {
   --button-background-color: var(--color-pearl);
   --button-color: var(--color-ink);
   --button-border-color: transparent;
@@ -1163,7 +1168,7 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 }
 /* The overlay. Rendered as a sibling layer so the base colour — and therefore the
    label contrast — is identical in every state. */
-.fb-btn::after {
+.fb-cta::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1172,35 +1177,35 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   background: transparent;
   transition: background-color 160ms ease;
 }
-.fb-btn__label {
+.fb-cta__label {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
 }
-.fb-btn--block { display: flex; width: 100%; }
-.fb-btn--sm { min-height: var(--control-h-sm); font-size: var(--text-ui-xs); padding: 0 0.875rem; border-radius: 0.75rem; }
-.fb-btn--md { min-height: var(--control-h-md); }
-.fb-btn--lg { min-height: var(--control-h-lg); font-size: var(--text-ui-md); padding: 0 1.5rem; }
-.fb-btn--secondary {
+.fb-cta--block { display: flex; width: 100%; }
+.fb-cta--sm { min-height: var(--control-h-sm); font-size: var(--text-ui-xs); padding: 0 0.875rem; border-radius: 0.75rem; }
+.fb-cta--md { min-height: var(--control-h-md); }
+.fb-cta--lg { min-height: var(--control-h-lg); font-size: var(--text-ui-md); padding: 0 1.5rem; }
+.fb-cta--secondary {
   --button-background-color: rgba(251, 247, 242, 0.06);
   --button-color: var(--color-pearl);
   --button-border-color: rgba(251, 247, 242, 0.18);
   --button-border-width: 1px;
   --button-shadow: none;
 }
-.fb-btn--ghost {
+.fb-cta--ghost {
   --button-background-color: transparent;
   --button-color: var(--color-mist);
   --button-border-color: transparent;
   --button-border-width: 0px;
   --button-shadow: none;
 }
-.fb-btn--danger {
+.fb-cta--danger {
   --button-background-color: var(--color-danger);
   --button-color: #2b0710;
   --button-shadow: 0 18px 36px -18px rgba(255, 107, 122, 0.42);
 }
-.fb-btn--quiet {
+.fb-cta--quiet {
   --button-background-color: transparent;
   --button-color: var(--color-pearl);
   --button-border-color: rgba(251, 247, 242, 0.28);
@@ -1209,24 +1214,24 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   border-radius: var(--radius-pill);
 }
 @media (hover: hover) and (pointer: fine) {
-  .fb-btn:not(:disabled):hover::after { background: var(--button-overlay-background-hover); }
-  .fb-btn:not(:disabled):hover { box-shadow: 0 22px 40px -18px rgba(251, 247, 242, 0.4); }
+  .fb-cta:not(:disabled):hover::after { background: var(--button-overlay-background-hover); }
+  .fb-cta:not(:disabled):hover { box-shadow: 0 22px 40px -18px rgba(251, 247, 242, 0.4); }
 }
-.fb-btn:not(:disabled):active::after { background: var(--button-overlay-background-pressed); }
-.fb-btn:not(:disabled):active { transform: translateY(1px); }
-.fb-btn:focus-visible {
+.fb-cta:not(:disabled):active::after { background: var(--button-overlay-background-pressed); }
+.fb-cta:not(:disabled):active { transform: translateY(1px); }
+.fb-cta:focus-visible {
   outline: 2px solid var(--color-ember-300);
   outline-offset: 3px;
 }
-.fb-btn:disabled,
-.fb-btn[aria-busy="true"] {
+.fb-cta:disabled,
+.fb-cta[aria-busy="true"] {
   cursor: not-allowed;
   opacity: 0.55;
   box-shadow: none;
 }
-.fb-btn--loading { cursor: progress; }
-.fb-btn--loading .fb-btn__label { opacity: 0.72; }
-.fb-btn--loading::before {
+.fb-cta--loading { cursor: progress; }
+.fb-cta--loading .fb-cta__label { opacity: 0.72; }
+.fb-cta--loading::before {
   content: "";
   width: 1em;
   height: 1em;
@@ -1237,8 +1242,8 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 }
 @keyframes fb-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .fb-btn, .fb-btn::after { transition: none; }
-  .fb-btn--loading::before { animation-duration: 1.6s; }
+  .fb-cta, .fb-cta::after { transition: none; }
+  .fb-cta--loading::before { animation-duration: 1.6s; }
 }
 /* One place to lower the type scale instead of per-breakpoint redeclarations. */
 @media (max-width: 599px) { :root { --fb-text-scale: 0.94; } }

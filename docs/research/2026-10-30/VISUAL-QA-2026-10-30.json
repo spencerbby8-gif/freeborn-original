@@ -1,0 +1,66 @@
+{
+ "generatedBy": "node scripts/qa/build.mjs && PLAYWRIGHT_BROWSERS_PATH=0 node scripts/qa/visual-check.mjs",
+ "environment": "headless Chromium 153.0.8010.12 via playwright 1.63, 390x1180 @2x and 1280x1000",
+ "what_this_is": "Computed values read from the REAL Button and PhotoImage rendered against the stylesheet Next emitted from src/app/globals.css. Numbers here are what a browser resolves, not what the source says.",
+ "unverified_in_this_environment": {
+  "hover_and_pressed_paint": "Chromium headless-shell does not advertise (pointer:fine) \u2014 matchMedia reported pointerFine:false \u2014 so the media-gated hover overlay cannot paint here and :active on a synthetic mouse-down did not resolve. The rules are proven present in the shipped CSS (`.fb-cta:not(:disabled):hover:after` inside `@media (hover:hover) and (pointer:fine)`, and `:active:after`); their paint is unverified from this sandbox. The transparent result is the gate working, not the overlay broken.",
+  "real_typefaces": "next/font families are injected by the app layout; the QA page maps --font-inter/--font-fraunces to system fallbacks, so sizes/rhythm are exact and glyph shapes are not.",
+  "in_app_context": "Screens are rendered as an isolated mount, not inside the live app, because the member routes need a signed-in session this sandbox does not hold."
+ },
+ "shots": [
+  "mobile-default",
+  "desktop-default",
+  "mobile-hover",
+  "mobile-focus",
+  "mobile-after-retry-click",
+  "mobile-hover-fine"
+ ],
+ "measured": {
+  "primaryHeight": 44,
+  "smHeight": 36,
+  "lgHeight": 52,
+  "radius": "16px",
+  "fontSize": "15px",
+  "fontWeight": "600",
+  "primaryBg": "rgb(251, 247, 242)",
+  "primaryColor": "rgb(5, 7, 13)",
+  "dangerBg": "rgb(255, 107, 122)",
+  "spinner": "fb-spin",
+  "cardRadius": "16px",
+  "h1": "34px",
+  "body": "15px"
+ },
+ "hoverOverlayAfter": "rgba(0, 0, 0, 0)",
+ "hoverOverlayWithFinePointer": "rgba(0, 0, 0, 0)",
+ "capabilityGate": {
+  "finePointerMediaMatches": false,
+  "gateCorrectlyClosed": true,
+  "gateCorrectlyOpen": false
+ },
+ "pressedState": {
+  "after": "rgba(0, 0, 0, 0)",
+  "hoverMatches": true,
+  "pointerFine": false,
+  "found": null
+ },
+ "focusRing": {
+  "tag": "BUTTON",
+  "cls": "fb-cta fb-cta--primary fb-ct",
+  "outline": "2px solid rgb(255, 155, 134)"
+ },
+ "failed": {
+  "count": 1,
+  "text": "\u25ccDidn\u2019t load \u2014 tap to retry",
+  "label": "Photo of Ada failed to load. Activate to try again"
+ },
+ "contrast": {
+  "bg": "rgb(251, 247, 242)",
+  "fg": "rgb(5, 7, 13)",
+  "ratio": 18.88
+ },
+ "pageErrors": [
+  "console: Failed to load resource: net::ERR_FILE_NOT_FOUND",
+  "console: Failed to load resource: net::ERR_FILE_NOT_FOUND",
+  "console: Failed to load resource: net::ERR_FILE_NOT_FOUND"
+ ]
+}

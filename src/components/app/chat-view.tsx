@@ -347,6 +347,7 @@ function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?
         style={{ width: size, height: size }}
         className="shrink-0 overflow-hidden rounded-full border border-white/10"
         imgClassName="object-cover"
+        compact
       />
     );
   }
