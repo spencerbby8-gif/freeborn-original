@@ -61,7 +61,8 @@
 ### git push origin arena/rea-media-match-lifecycle
     fatal: could not read Username for 'https://github.com': terminal prompts disabled
     [exit 128]
-    No credential exists in this sandbox: no gh CLI, no ~/.git-credentials, no
+    (Superseded below by the successful push; kept as the record of what was true when written.)
+No credential exists in this sandbox: no gh CLI, no ~/.git-credentials, no
     ~/.config/gh/hosts.yml, no GITHUB_* env var. The token file used for the earlier push
     was shredded at the owner's instruction, so the push cannot be authenticated from here.
     Consequence: commits 4277842..0390280 exist ONLY in this workspace. PR #26 still points at
@@ -83,3 +84,35 @@
 Pre-push diff review: `--diff-filter=D` empty (no accidental deletions); 15 new files, all
 substantial; every import in the changed modules resolves; the only added console.* calls are
 QA/harness reporters, none in product source; no token-shaped string in the 3,653-line diff.
+
+=== PUSHED 2026-10-30, after the owner supplied a fresh PAT for this purpose ===
+  git push origin arena/rea-media-match-lifecycle  ->  ec05172..538e4da  (fast-forward, no force)
+  remote tip confirmed by `git ls-remote`: 538e4dae66f46db32a3112689bff89d375d1c4fc
+  PR #26 head is now 538e4da: 21 commits, 81 files, +11,256/-184, state open,
+      mergeable=true, mergeable_state=CLEAN (was "unstable" while checks ran), base=main.
+  Nothing was pushed to main. No commit was rewritten. The token lived only in a 0600 file
+  under /tmp (outside the workspace) and is deleted at the end of the session; it appears in
+  no file in this repository (`git grep` + `npm run check:secrets` both clean: 322 tracked files).
+
+Checks on 538e4da (all read from the API, not inferred):
+  verify (CI: typecheck / lint / secret scan / build, Node 24)   completed  SUCCESS
+      run 41132562609
+  Vercel Preview Comments                                         completed  SUCCESS  (0 unresolved)
+  Redirect rules - freeborn                                       completed  SUCCESS  (3 rules)
+  Header rules - freeborn                                         completed  SUCCESS  (1 rule)
+  Pages changed - freeborn                                        completed  NEUTRAL  (15 assets, 0 generated pages)
+  combined commit status                                          SUCCESS  (Vercel, netlify/freeborn/deploy-preview)
+
+Deployment preview, probed rather than trusted from a badge:
+  https://freeborn-git-arena-rea-media-7b35f2-spencerbby8-5225s-projects.vercel.app
+    GET /             200  186,397 bytes   (Next SSR html, lang="en")
+    GET /terms        200   96,716 bytes
+    GET /discover     200   18,665 bytes
+    GET /api/health   200       11 bytes   {"ok":true}   <- server functions execute in the preview
+
+Still true after the push: the PR is unmerged, so PRODUCTION is unchanged, and
+db/migrations/2026-10-30-unmatch-detach.sql and 2026-10-30-chat-signals.sql are applied to NO
+database. Required order on the owner's side: apply both migrations (unmatch-detach first — the
+code writes status='unmatched', which today's three-value CHECK rejects), verify with
+scripts/qa/pg-migration-verify.sh, then merge and deploy. The Netlify checks above are the
+leftover GitHub App integration, not the deployment target (DNS went Cloudflare -> Vercel).
