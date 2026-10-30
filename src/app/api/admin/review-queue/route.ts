@@ -36,6 +36,15 @@ function redact(s: string | null, n: number) {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
+/** FNV-1a, 32-bit, hex. For log diagnostics only: short enough to be non-reversible in
+ *  practice, stable enough to compare two strings without either one being written down.
+ *  Pure: no clock, no randomness, no I/O. */
+function gateTrace(value: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, "0");
+}
+
 export async function GET(request: Request) {
   const allowlist = (process.env.FREEBORN_ADMIN_EMAILS ?? "")
     .split(",")
@@ -49,15 +58,41 @@ export async function GET(request: Request) {
        on 2026-10-30 that the Vercel project's Development target does not carry
        FREEBORN_ADMIN_EMAILS (it is assigned to Production and Preview only), which made that
        combination live rather than theoretical. */
+  /* An empty allowlist stays a bare one-line fail-closed return, unqualified by environment. The
+     harness pins this exact shape (scripts/trust/harness.ts, "[11] the queue is gated fail-closed
+     in EVERY environment") precisely so that nobody reintroduces the `isProduction &&` guard that
+     once served the whole queue to any signed-in member on a preview. The diagnostic is a separate
+     statement so the pinned line is never edited into something softer. */
+  const env = process.env.VERCEL_ENV ?? process.env.NODE_ENV;
+  if (allowlist.length === 0) console.warn(`admin-review-queue: fail-closed, FREEBORN_ADMIN_EMAILS empty (env=${env})`);
   if (allowlist.length === 0) return new Response("Not found", { status: 404 });
   const member = await getMember(request);
   if (!member) {
+    /* Anonymous callers keep the indistinguishable 404 — they learn nothing about whether the
+       route exists, which is the entire point of the fail-closed posture. */
     return isProduction
       ? new Response("Not found", { status: 404 })
       : Response.json({ error: "Not signed in." }, { status: 401 });
   }
-  if (allowlist.length > 0 && !allowlist.includes(member.email.toLowerCase())) {
-    return new Response("Not found", { status: 404 });
+  if (!allowlist.includes(member.email.toLowerCase())) {
+    /* Authentication already succeeded on this branch: the caller is a signed-in member who is
+       simply not an operator. A 403 here, instead of the old bare 404, is what makes "the admin
+       route is broken" separable from "your address is not on the list" — which is the exact
+       ambiguity that cost an operator a production investigation on 2026-10-30. No queue data is
+       returned, and not one check was relaxed or reordered. The detail goes to the runtime log;
+       the body stays a single word.
+
+       `gateTrace` is a non-reversible 32-bit digest used so the operator can match the address
+       they are signed in as against the entries they configured without either one landing in a
+       shared log. */
+    console.warn(
+      `admin-review-queue: 403 session=${gateTrace(member.email.toLowerCase())} ` +
+        `allowlist_entries=${allowlist.length} allowlist=[${allowlist.map(gateTrace).join(",")}] (env=${env})`
+    );
+    return Response.json(
+      { error: "Not authorized." },
+      { status: 403, headers: { "cache-control": "private, no-store" } }
+    );
   }
 
   const [openReports, cases, appealsRows, trustRows] = await Promise.all([
