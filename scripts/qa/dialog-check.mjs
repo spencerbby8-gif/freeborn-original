@@ -139,6 +139,20 @@ const afterEsc = await result();
 ok("Escape closes the sheet and routes to onCancel",
   (await dialog.count()) === 0 && afterEsc.cancels === 1, afterEsc);
 
+// ---------------------------------------------------------------- 2b. each case is a real fresh mount
+// The first version of this script re-opened the sheet without remounting it, so a chip click
+// TOGGLED the selection left over from the previous case and the "report branch" screenshot
+// photographed the opposite of what it claimed. `open()` bumps the React key; prove it.
+await open("unmatch");
+await chips().nth(0).click();
+await page.waitForTimeout(140);
+ok("a reason can be selected at all", (await chips().nth(0).getAttribute("aria-pressed")) === "true");
+await open("unmatch");
+const stale = await page.evaluate(() =>
+  [...document.querySelectorAll('[role="dialog"] button[aria-pressed]')].filter((b) => b.getAttribute("aria-pressed") === "true").length);
+ok("the next case starts with NO stale selection — each case is a fresh mount, not a reused one",
+  stale === 0, { pressedOnReopen: stale });
+
 // ---------------------------------------------------------------- 3. the payload that used to be lost
 await open("unmatch");
 const chipCount = await chips().count();
@@ -158,6 +172,22 @@ ok("the reason reaches onConfirm — the value the route persists",
   JSON.stringify(sent.confirms) === JSON.stringify(["not_interested"]), sent.confirms);
 ok("the sheet stays open while the parent works (no optimistic close)",
   (await dialog.count()) === 1);
+
+// ---------------------------------------------------------------- 3b. double-fire
+await open("unmatch");
+await page.locator(`${D} .fb-cta--danger`).click();
+await page.waitForTimeout(60);
+const dbl = await page.evaluate(() => {
+  const b = document.querySelector('[role="dialog"] .fb-cta--danger');
+  b.click();
+  b.click();
+  return { disabled: b.disabled === true, busy: b.getAttribute("aria-busy") };
+});
+const afterDbl = await result();
+ok("a second and third activation cannot fire a second request",
+  afterDbl.confirms.length === 1 && dbl.disabled === true && dbl.busy === "true",
+  { confirms: afterDbl.confirms.length, ...dbl });
+
 
 // ---------------------------------------------------------------- 4. report-instead branch
 await open("unmatch");

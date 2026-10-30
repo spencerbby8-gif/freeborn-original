@@ -151,7 +151,13 @@ function App() {
             setBusy(false);
           }}
           onConfirm={(reason) => {
+            /* Mirrors profile-view.runUnmatch exactly: `if (actionBusy) return` and then
+               `setActionBusy("unmatch")`, with the sheet left open until the request resolves.
+               Without the same shape here, a double-click test would measure a harness that is
+               more forgiving than the product and pass for the wrong reason. */
+            if (busy) return;
             rec.current.confirms.push(reason ?? null);
+            setBusy(true);
           }}
           onReport={() => {
             rec.current.reports += 1;

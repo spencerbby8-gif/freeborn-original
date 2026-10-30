@@ -88,6 +88,17 @@
       }
     },
     {
+      "name": "a reason can be selected at all",
+      "pass": true
+    },
+    {
+      "name": "the next case starts with NO stale selection — each case is a fresh mount, not a reused one",
+      "pass": true,
+      "detail": {
+        "pressedOnReopen": 0
+      }
+    },
+    {
       "name": "every unmatch reason is offered",
       "pass": true,
       "detail": 6
@@ -110,6 +121,15 @@
     {
       "name": "the sheet stays open while the parent works (no optimistic close)",
       "pass": true
+    },
+    {
+      "name": "a second and third activation cannot fire a second request",
+      "pass": true,
+      "detail": {
+        "confirms": 1,
+        "disabled": true,
+        "busy": "true"
+      }
     },
     {
       "name": "a safety-shaped reason turns the sheet toward reporting",
@@ -159,10 +179,10 @@
       "name": "the sheet fits the 390px viewport without horizontal overflow",
       "pass": true,
       "detail": {
-        "x": 16.044326782226562,
-        "y": 287.11651611328125,
-        "w": 357.911376953125,
-        "h": 540.8660278320312,
+        "x": 16.064788818359375,
+        "y": 287.1702575683594,
+        "w": 357.87042236328125,
+        "h": 540.80419921875,
         "vw": 390,
         "vh": 844,
         "scrollable": false,
@@ -173,10 +193,10 @@
       "name": "and reaches the bottom edge as a sheet, scrolling internally if content grows",
       "pass": true,
       "detail": {
-        "x": 16.044326782226562,
-        "y": 287.11651611328125,
-        "w": 357.911376953125,
-        "h": 540.8660278320312,
+        "x": 16.064788818359375,
+        "y": 287.1702575683594,
+        "w": 357.87042236328125,
+        "h": 540.80419921875,
         "vw": 390,
         "vh": 844,
         "scrollable": false,
@@ -223,7 +243,7 @@
       "name": "on desktop it is a centred modal, not a sheet stuck to the bottom",
       "pass": true,
       "detail": {
-        "w": 417.96832275390625,
+        "w": 419.84783935546875,
         "centred": true,
         "top": true
       }
@@ -242,8 +262,8 @@
     }
   ],
   "summary": {
-    "passed": 34,
+    "passed": 37,
     "failed": 0,
-    "total": 34
+    "total": 37
   }
 }

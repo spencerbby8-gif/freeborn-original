@@ -67,3 +67,19 @@
     Consequence: commits 4277842..0390280 exist ONLY in this workspace. PR #26 still points at
     ec05172 (state open, mergeable true, mergeable_state unstable — Netlify's leftover check).
     Nothing is deployed; both 2026-10-30 migrations are applied to no database.
+
+--- Second run, after the QA state-leak proof (harness-only change; product source untouched) ---
+### npx tsc --noEmit                                              [exit 0]
+### npm run lint                                                  [exit 0]
+### npm run test:harness          ALL PASS (425/425)             [exit 0]
+### bash scripts/qa/pg-migration-verify.sh
+                                  ALL PASS (38/38, real Postgres 17) [exit 0]
+### node scripts/qa/build.mjs                                     [exit 0]
+### PLAYWRIGHT_BROWSERS_PATH=0 node scripts/qa/dialog-check.mjs
+                                  ALL PASS (37/37)                [exit 0]
+### npm run build                                                 [exit 0]
+### npm run check:secrets   secret scan OK - 322 tracked files    [exit 0]
+
+Pre-push diff review: `--diff-filter=D` empty (no accidental deletions); 15 new files, all
+substantial; every import in the changed modules resolves; the only added console.* calls are
+QA/harness reporters, none in product source; no token-shaped string in the 3,653-line diff.
