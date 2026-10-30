@@ -49,6 +49,26 @@ import {
   retryDelayMs,
   retrySrcFor,
 } from "@/lib/api-response";
+import {
+  SYNC_LIMITS,
+  ackPending,
+  chatChannelName,
+  detectGap,
+  markPendingFailed,
+  mergeMessages,
+  nextPhase,
+  noteFailureCount,
+  pendingToMessage,
+  pollIntervalMs,
+  queuePending,
+  reconnectDelayMs,
+  reconcilePending,
+  shouldFetchNow,
+  shouldGiveUpReconnecting,
+  signalFilter,
+  type ChannelPhase,
+  type SyncEvent,
+} from "@/lib/chat-sync";
 
 let pass = 0;
 let total = 0;
@@ -1693,6 +1713,275 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     /NOT YET APPLIED/.test(mig) && /Verify with:/.test(mig) && /must not move/.test(mig));
   ok("[17] the schema and the migration agree on the same vocabulary",
     src("src/db/schema.ts").includes("in ('active','archived','blocked','unmatched')"));
+}
+
+
+/* ---------- 18. chat sync: notify / poll / resync, executed as a fact space ---------- */
+console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, every combination run");
+{
+  const phases: ChannelPhase[] = ["idle", "connecting", "joined", "errored", "closed"];
+  const events: SyncEvent[] = [
+    { t: "start" }, { t: "subscribed" }, { t: "error" }, { t: "offline" }, { t: "online" },
+    { t: "visible" }, { t: "hidden" }, { t: "notice" }, { t: "close" },
+  ];
+  let closedTerminal = true, joinedNeedsSubscribe = true, total_machine = true;
+  for (const ph of phases) {
+    for (const ev of events) {
+      const nx = nextPhase(ph, ev);
+      if (typeof nx !== "string" || !phases.includes(nx)) total_machine = false;
+      if (ph === "closed" && nx !== "closed") closedTerminal = false;
+      // only a TRANSITION into joined requires the subscribe callback; holding joined is not a claim
+      if (nx === "joined" && ph !== "joined" && ev.t !== "subscribed") joinedNeedsSubscribe = false;
+    }
+  }
+  ok("[18] 45 phase×event combos: every result is a real phase (no undefined, no invented state)", total_machine);
+  ok("[18] a disposed channel is never revived by a late event", closedTerminal);
+  ok("[18] only a real SUBSCRIBED callback may claim the channel is live", joinedNeedsSubscribe,
+    "otherwise a flapping network shows 'connected' and the widened heartbeat drops messages");
+
+  const ctxs: { phase: ChannelPhase; visible: boolean; online: boolean; failures: number }[] = [];
+  for (const phase of phases) for (const visible of [true, false]) for (const online of [true, false])
+    for (const failures of [0, 1, 4]) ctxs.push({ phase, visible, online, failures });
+  let quietOnlyWhenIdleLooking = true, alwaysPollsWhenAble = true, heartbeatIsSlower = true, floorHeld = true;
+  for (const c of ctxs) {
+    const ms = pollIntervalMs(c);
+    if (ms === null) { if (c.visible && c.online && c.failures === 0) quietOnlyWhenIdleLooking = false; }
+    else {
+      if (ms < SYNC_LIMITS.pollRecoveringMs) floorHeld = false;
+      if (c.phase === "joined" && c.failures === 0 && ms <= SYNC_LIMITS.pollLiveMs) heartbeatIsSlower = false;
+    }
+    if (ms === null && c.visible && c.online && c.failures === 0) alwaysPollsWhenAble = false;
+  }
+  ok("[18] 60 poll contexts: never silent while visible, online and healthy", alwaysPollsWhenAble);
+  ok("[18] the timer stops only when nothing could render (hidden tab or offline)", quietOnlyWhenIdleLooking);
+  ok("[18] a healthy realtime path widens polling instead of replacing it", heartbeatIsSlower);
+  ok("[18] no context schedules tighter than the recovery interval", floorHeld);
+  ok("[18] joined→heartbeat, errored→tight-but-not-storming, failure→recovery",
+    pollIntervalMs({ phase: "joined", visible: true, online: true, failures: 0 }) === SYNC_LIMITS.pollHeartbeatMs &&
+    pollIntervalMs({ phase: "errored", visible: true, online: true, failures: 0 }) === SYNC_LIMITS.pollNotifiedMs &&
+    pollIntervalMs({ phase: "joined", visible: true, online: true, failures: 2 }) === SYNC_LIMITS.pollRecoveringMs &&
+    pollIntervalMs({ phase: "joined", visible: false, online: true, failures: 0 }) === null &&
+    pollIntervalMs({ phase: "joined", visible: true, online: false, failures: 9 }) === null);
+  ok("[18] a failure counter resets on the first good fetch",
+    noteFailureCount(4, false) === 5 && noteFailureCount(5, true) === 0);
+  ok("[18] a notice fetches only when the page can use it, and never after teardown",
+    shouldFetchNow({ phase: "joined", visible: true, online: true }, { t: "notice" }) === true &&
+    shouldFetchNow({ phase: "joined", visible: false, online: true }, { t: "notice" }) === false &&
+    shouldFetchNow({ phase: "closed", visible: true, online: true }, { t: "notice" }) === false);
+
+  ok("[18] reconnect waits are bounded, doubling from the floor",
+    reconnectDelayMs(0) === 250 && reconnectDelayMs(1) === 500 && reconnectDelayMs(2) === 1000 &&
+    reconnectDelayMs(9) === SYNC_LIMITS.maxRetryMs);
+  ok("[18] jitter is added and capped by jitterMs, and never negative (the Hinge stampede fix)",
+    reconnectDelayMs(3, () => 0) === 2000 && reconnectDelayMs(3, () => 0.5) === 2050 &&
+    reconnectDelayMs(3, () => 0.999) === 2100);
+  ok("[18] any rand() an integration could hand us stays finite and inside the bounded window",
+    [0, 0.5, 0.999, 1, -3, NaN, Infinity].every((r) => {
+      const d = reconnectDelayMs(4, () => r);
+      return Number.isFinite(d) && d >= 4000 && d <= SYNC_LIMITS.maxRetryMs + SYNC_LIMITS.jitterMs;
+    }),
+    "a NaN delay is setTimeout(fn, NaN) = fire now, forever");
+  ok("[18] a nonsense attempt number cannot escape the cap either",
+    reconnectDelayMs(NaN) === 250 && reconnectDelayMs(-5) === 250 &&
+    reconnectDelayMs(1e9) <= SYNC_LIMITS.maxRetryMs + SYNC_LIMITS.jitterMs);
+  ok("[18] retrying gives up at a fixed ceiling — polling is the guarantee, not the socket",
+    !shouldGiveUpReconnecting(SYNC_LIMITS.maxReconnectAttempts - 1) &&
+    shouldGiveUpReconnecting(SYNC_LIMITS.maxReconnectAttempts) && shouldGiveUpReconnecting(99));
+
+  type M = { id: string; body: string; at: string; mine: boolean };
+  const remote: M[] = [
+    { id: "a", body: "hey", at: "2026-10-30T10:00:00.000Z", mine: false },
+    { id: "b", body: "ok", at: "2026-10-30T10:00:05.000Z", mine: true },
+  ];
+  const merged = mergeMessages(remote, [remote[1]!, { id: "tmp-1", body: "ok", at: "2026-10-30T10:00:06.000Z", mine: true }]);
+  ok("[18] the server list is authoritative: its order and its ids, duplicates dropped, echoes appended",
+    merged.map((m) => m.id).join(",") === "a,b,tmp-1");
+  ok("[18] a duplicate id from any source renders once, never twice",
+    mergeMessages(remote, remote).length === 2 && mergeMessages([...remote, ...remote], []).length === 2);
+  const temp = pendingToMessage({ tempId: "tmp-9", body: "hi", at: Date.parse("2026-10-30T10:00:00.000Z"), attempts: 0, failed: false });
+  ok("[18] an un-acked echo is mine, unread, pending, and stamped with its own clock",
+    temp.id === "tmp-9" && temp.mine === true && temp.read === false && temp.pending === true &&
+    temp.failed === false && temp.at === "2026-10-30T10:00:00.000Z");
+
+  const P = (over: Partial<{ tempId: string; body: string; at: number; attempts: number; failed: boolean; ackId: string }> = {}) => ({
+    tempId: "t1", body: "ok", at: Date.now(), attempts: 0, failed: false, ...over,
+  });
+  const now = Date.now();
+  ok("[18] an ack by tempId retires exactly the echo it answers",
+    reconcilePending([P(), P({ tempId: "t2" })], { tempId: "t1" }).map((x) => x.tempId).join(",") === "t2");
+  ok("[18] an ack by server id retires the echo it was attached to",
+    reconcilePending([P({ ackId: "srv-7" })], { ackId: "srv-7" }).length === 0);
+  ok("[18] two identical messages retire against two server rows — one-to-one, not 'any match'",
+    reconcilePending([P({ tempId: "x" }), P({ tempId: "y" })], {
+      serverRows: [{ body: "ok", mine: true, at: new Date(now).toISOString() }],
+    }).map((x) => x.tempId).join(",") === "y",
+    "a naive .some() over server rows deletes the second 'ok' the member never got an answer for");
+  ok("[18] a refused send is never garbage-collected by the sync loop",
+    reconcilePending([P({ failed: true, at: now - 10 * 60_000 })], {}).length === 1);
+  ok("[18] an echo older than the TTL without an ack stops being shown (the server copy wins)",
+    reconcilePending([P({ at: now - SYNC_LIMITS.pendingTtlMs - 1 })], {}).length === 0);
+  ok("[18] a server row for a DIFFERENT body never retires an echo",
+    reconcilePending([P({ body: "hello?" })], { serverRows: [{ body: "nope", mine: true }] }).length === 1);
+  ok("[18] a send from the other member never retires mine",
+    reconcilePending([P()], { serverRows: [{ body: "ok", mine: false }] }).length === 1);
+  ok("[18] ackPending binds the stored id, markPendingFailed keeps the body and counts attempts",
+    ackPending([P()], "t1", "srv-1")[0]!.ackId === "srv-1" &&
+    markPendingFailed([P()], "t1")[0]!.failed === true &&
+    markPendingFailed(markPendingFailed([P()], "t1"), "t1")[0]!.attempts === 2);
+  let q = [] as ReturnType<typeof queuePending>;
+  for (let i = 0; i < 40; i++) q = queuePending(q, { tempId: `t${i}`, body: `m${i}`, at: now + i });
+  ok("[18] the outbox is bounded and keeps the newest, so a dead connection cannot grow it forever",
+    q.length === SYNC_LIMITS.maxPendingPerThread && q[q.length - 1]!.tempId === "t39" && q[0]!.tempId === `t${40 - SYNC_LIMITS.maxPendingPerThread}`);
+
+  ok("[18] gap detection: new rows, a shrinking thread, and a notice that produced nothing are three different answers",
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 0 }, { count: 5, newestAt: null }) === "new-rows" &&
+    detectGap({ lastFetchAt: now, knownCount: 5, noticesSinceFetch: 0 }, { count: 2, newestAt: null }) === "older-than-known" &&
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 3 }, { count: 2, newestAt: null }) === "silence" &&
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 0 }, { count: 2, newestAt: null }) === "ok");
+  ok("[18] a signal older than the newest message we hold is stale, and unparseable dates are not",
+    detectGap({ lastFetchAt: 0, knownCount: 0, noticesSinceFetch: 0 }, { count: 0, newestAt: null }) === "ok" &&
+    (await import("@/lib/chat-sync")).noticeIsStale("2026-10-30T09:00:00Z", "2026-10-30T10:00:00Z") === true &&
+    (await import("@/lib/chat-sync")).noticeIsStale("garbage", "2026-10-30T10:00:00Z") === false &&
+    (await import("@/lib/chat-sync")).noticeIsStale(null, null) === false);
+  ok("[18] channel and filter names are derived, never hand-typed at call sites",
+    chatChannelName("m1") === "fb-chat:m1" && signalFilter("m1") === "match_id=eq.m1");
+
+  const chat = src("src/components/app/chat-view.tsx");
+  ok("[18] the blind 2.5 s interval is gone, replaced by the bus + adaptive timer",
+    !/setInterval\(\(\) => void load\(\), 2500\)/.test(chat) && /joinChatChannel\(/.test(chat) && /armPoll/.test(chat));
+  // judge CODE, not prose: the block contains a comment that names res.json() to explain why
+  // it is gone, and a pin that matches an explanation is a pin that can never fail.
+  const loadBody = chat
+    .slice(chat.indexOf("const load = useCallback("), chat.indexOf("const armPoll"))
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+  ok("[18] the thread fetch parses tolerantly and counts a failed fetch as a failure",
+    /readJsonSafe/.test(loadBody) && !/res\.json\(\)/.test(loadBody) &&
+    /syncRef\.current\.failures \+= 1/.test(chat),
+    "scoped to load(): uploadMedia parses its own JSON, which is not this pin's business");
+  ok("[18] a refused send is surfaced and retryable instead of vanishing on the next poll",
+    /retrySend/.test(chat) && /Not delivered — retry/.test(chat) && /markPendingFailed\(pendingRef\.current, tempId\)/.test(chat));
+  const msgRoute = src("src/app/api/chat/messages/route.ts");
+  ok("[18] POST stores the signal AFTER the message, so a client that reacts cannot read a half-written thread",
+    /insert\(messages\)[\s\S]*insert\(chatSignals\)/.test(msgRoute));
+  ok("[18] the signal is best-effort: its failure is caught and the send still succeeds",
+    /try \{[\s\S]{0,400}chatSignals[\s\S]{0,200}catch \{/.test(msgRoute));
+  ok("[18] POST returns the stored id so the echo retires by identity",
+    /returning\(\{ id: messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
+  ok("[18] unmatching also signals, so the other member's open thread updates now and not on a poll",
+    /kind: "severed"/.test(src("src/app/api/chat/unmatch/route.ts")));
+  const sig = readFileSync(new URL("../../db/migrations/2026-10-30-chat-signals.sql", import.meta.url), "utf8");
+  ok("[18] the signal table is RLS-forced with ONE read policy and no write policy",
+    /enable row level security/.test(sig) && /force row level security/.test(sig) &&
+    /create policy "Participants may read chat signals"/.test(sig) &&
+    !/for insert|for update|for delete|for all/i.test(sig));
+  ok("[18] the read policy is participation-scoped and status-blind on purpose",
+    /m\.user_a = auth\.uid\(\) or m\.user_b = auth\.uid\(\)/.test(sig) && !/status\s*=/ .test(sig.split("create policy")[1] ?? ""));
+  ok("[18] it is added to the realtime publication only if not already there, and it says NOT YET APPLIED",
+    /if exists \(select 1 from pg_publication where pubname = 'supabase_realtime'\)/.test(sig) &&
+    /NOT YET APPLIED/.test(sig) && /Rollback with/.test(sig));
+  ok("[18] the signal carries no message text, by construction",
+    /kind\s+text/.test(sig) && !/body\s+text/.test(sig) &&
+    /no message text/.test(src("src/db/schema.ts").slice(src("src/db/schema.ts").indexOf("CHAT SIGNALS"))));
+}
+
+/* ---------- 19. component ↔ stylesheet contract ---------- */
+console.log("\n[19] every class a shipped component emits must exist in the stylesheet");
+{
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, ""); // judge rules, never prose
+  const fs = await import("node:fs");
+  const root = new URL("../../src", import.meta.url).pathname;
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const full = `${dir}/${d.name}`;
+      if (d.isDirectory()) return d.name === "node_modules" ? [] : walk(full);
+      return /\.(tsx|ts)$/.test(d.name) ? [full] : [];
+    });
+  const all = walk(root).map((f) => fs.readFileSync(f, "utf8")).join("\n");
+  const emitted = new Set<string>();
+  for (const m of all.matchAll(/\bfb-(?:cta|photo)[a-z0-9_-]*/g)) emitted.add(m[0]);
+  const missing = [...emitted].filter((c) => !new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9_-])`).test(code));
+  ok("[19] no component emits a fb-cta/fb-photo class the stylesheet does not define",
+    missing.length === 0, missing.slice(0, 4).join(" "));
+  const defined = new Set<string>();
+  for (const m of code.matchAll(/\.(fb-cta[a-z0-9_-]*)/g)) defined.add(m[1]!);
+  const unused = [...defined].filter((c) => !emitted.has(c));
+  ok("[19] and no fb-cta rule ships that no component emits (drift cuts both ways)",
+    unused.length === 0, unused.slice(0, 4).join(" "));
+  const btn = readFileSync(new URL("../../src/components/ui/button.tsx", import.meta.url), "utf8");
+  ok("[19] regression: the label span carries the renamed class, not the pre-rename one",
+    /fb-cta__label/.test(btn) && !/fb-btn__/.test(btn),
+    "button.tsx shipped emitting fb-btn__label while the CSS defined .fb-cta__label, so the loading dim and the label's inline-flex layout were dead rules");
+  ok("[19] the pre-existing pill system is still defined, untouched, and not reused by the kit",
+    /\.fb-btn \{/.test(css) && !/className="fb-btn"/.test(btn));
+}
+
+/* ---------- 20. the end-of-conversation confirmation is the only thing that confirms ---------- */
+console.log("\n[20] unmatch/delete confirmation: the destructive flag must cost the member a decision");
+{
+  const pv = src("src/components/app/profile-view.tsx");
+  const dlg = src("src/components/app/unmatch-dialog.tsx");
+  const unmatchCall = pv.slice(pv.indexOf("const runUnmatch"), pv.indexOf("const runDeleteConversation"));
+  ok("[20] the overflow menu no longer fires either destructive action itself",
+    /setEndKind\("unmatch"\)/.test(pv) && /setEndKind\("delete"\)/.test(pv) &&
+    !/onClick=\{\(\) => void runUnmatch\(\)\}/.test(pv) &&
+    !/onClick=\{\(\) => void runDeleteConversation\(\)\}/.test(pv));
+  ok("[20] destructive:true exists on exactly the two paths the API demands it on",
+    (pv.match(/destructive: true/g) ?? []).length === 2,
+    "fewer = the route refuses with 409; more = something is auto-confirming again");
+  ok("[20] unmatch is driven by the sheet's confirm, and carries the optional reason",
+    /const runUnmatch = async \(reason: UnmatchReason \| null\)/.test(unmatchCall) &&
+    /\.\.\.\(reason \? \{ reason \} : \{\}\)/.test(unmatchCall));
+  ok("[20] the sheet states each decided consequence in its own words",
+    /can\u2019t be undone/.test(dlg) && /read-only copy/.test(dlg) && /match with them again/.test(dlg) &&
+    /Reason — optional/.test(dlg));
+  ok("[20] its reason chips render from the shared list, not a copy of it",
+    /UNMATCH_REASONS\.map/.test(dlg) && /from "@\/lib\/match-lifecycle"/.test(dlg) &&
+    !/const (UNMATCH_)?REASONS: \[/.test(dlg) &&
+    /import \{ UNMATCH_REASONS, type UnmatchReason \}/.test(dlg));
+  ok("[20] a behavioural reason offers the report path, because ending a thread is not moderation",
+    /flaggedReason/.test(dlg) && /does not tell our moderators/.test(dlg) && /onReport/.test(dlg) &&
+    /setReportOpen\(true\)/.test(pv));
+  ok("[20] cancel is the focused control and Escape closes it; the danger action is never the default",
+    /cancelRef\.current\?\.focus\(\)/.test(dlg) &&
+    /if \(e\.key === "Escape" && !busy\) onCancel\(\);/.test(dlg) &&
+    /variant="danger"/.test(dlg) && /onClick=\{\(\) => onConfirm\(reason\)\}/.test(dlg) &&
+    /ref=\{cancelRef\}/.test(dlg));
+  ok("[20] the sheet is a real dialog to a screen reader",
+    /role="dialog"/.test(dlg) && /aria-modal="true"/.test(dlg) && /aria-labelledby="fb-end-conv-title"/.test(dlg));
+  ok("[20] and it runs on the shared Button contract, not a hand-rolled class string",
+    /from "@\/components\/ui\/button"/.test(dlg) && !/className="fb-btn/.test(dlg));
+}
+
+/* ---------- 21. account deletion, measured against the live FK graph ---------- */
+console.log("\n[21] the erasure path covers what the schema cannot cascade");
+{
+  const acct = src("src/app/api/account/route.ts");
+  const deletes = [...acct.matchAll(/delete from ([a-z_]+)\.([a-z_]+)/g)].map((m) => `${m[1]}.${m[2]}`);
+  const set = new Set(deletes);
+  ok("[21] moderation_actions is deleted by BOTH its member identifiers, because it has no FK to cascade",
+    set.has("public.moderation_actions") &&
+    /delete from public\.moderation_actions where subject_id = \$\{id\} or subject_email = \$\{email\}/.test(acct));
+  ok("[21] the sender-only chat_media blob is deleted explicitly (no FK covers match_id NULL rows)",
+    set.has("public.chat_media") && /delete from public\.chat_media where sender_id = \$\{id\}/.test(acct));
+  // match_messages is deliberately absent: `match_messages.match_id -> matches.id` is
+  // on delete cascade (pg_constraint, 2026-10-30), so the schema covers it. This list is
+  // for what the schema CANNOT cover plus what the erasure contract promises anyway.
+  const REQUIRED = ["public.messages","public.matches","public.profile_photos",
+    "public.user_swipes","public.blocked_users","public.reports","public.chat_media","public.message_reactions",
+    "public.verification_requests","public.verification_selfie_checks","public.verification_challenges",
+    "public.verification_audit_logs","public.verification_rate_limits","public.user_private_settings",
+    "public.user_private_locations","public.discovery_preferences","public.notification_preferences",
+    "public.user_trust_history","public.support_requests","public.event_interests","public.sessions",
+    "public.accounts","public.user_profiles","auth.users","auth.identities","auth.refresh_tokens",
+    "public.moderation_actions"];
+  const absent = REQUIRED.filter((t) => !set.has(t));
+  ok("[21] every table the 2026-10-30 FK audit named is in the delete list", absent.length === 0, absent.join(","));
+  ok("[21] and the auth rows go LAST, so a failed child delete cannot orphan an auth account",
+    deletes.indexOf("auth.users") === deletes.length - 1 && deletes.indexOf("public.user_profiles") < deletes.indexOf("auth.users"));
+  ok("[21] the bucket sweep runs before the row deletes (objects first, or the paths are unreadable afterwards)",
+    acct.indexOf("list(") < acct.indexOf("delete from public.profile_photos"));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
