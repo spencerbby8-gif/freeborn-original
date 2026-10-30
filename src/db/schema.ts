@@ -1156,3 +1156,46 @@ export const humanChallenges = pgTable(
     index("human_challenges_email_idx").on(t.email, sql`${t.issuedAt} desc`),
   ]
 );
+
+
+/**
+ * CHAT SIGNALS — a content-free "look again" channel for realtime chat (2026-10-30).
+ *
+ * Why a table at all: `messages`, `matches` and `chat_media` are RLS-forced with ZERO policies,
+ * so a member client cannot subscribe to their changes — `postgres_changes` applies the same RLS
+ * that denies the direct read, and would deliver nothing. The app also has no service-role key,
+ * so a route cannot publish to Realtime's broadcast API either. A tiny table with ONE narrow
+ * policy (participants may read, nobody may write) is the way to carry a notification through
+ * the same Postgres the message itself was just written to.
+ *
+ * It holds no message text, no ids of messages, no member data — only which conversation
+ * changed and in what way. That is deliberate: this table is readable by any authenticated
+ * participant of a match, so anything in it must be safe to see, and a leak of content through
+ * a side channel would undo the private-media design.
+ *
+ * Rows are disposable by construction. Losing every row in this table costs latency, never a
+ * message, because the HTTP fetch is the source of truth and polling remains the floor.
+ */
+export const chatSignals = pgTable(
+  "chat_signals",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    matchId: uuid("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // The client's filter is always `match_id=eq.<uuid>`, and the catch-up read orders by this.
+    index("chat_signals_match_created_idx").on(t.matchId, t.createdAt.desc()),
+    // Declared here as well as in db/migrations/2026-10-30-chat-signals.sql: the two ways this
+    // table gets created (migration, or `drizzle-kit push` from this schema) have to agree, or
+    // a pushed database silently lacks the closed vocabulary the migration promises.
+    // 'joined'/'left'/'off'/'seen'/'unread' are DELIBERATELY absent — those are relayed to the
+    // peer's realtime channel by the client and never written to a table.
+    check("chat_signals_kind_check", sql`"kind" in ('message', 'typing', 'severed', 'cleared')`),
+  ]
+);
