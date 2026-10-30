@@ -234,6 +234,12 @@ export async function POST(request: Request) {
     await del(sql`delete from public.appeals where email = ${email}`);
     await del(sql`delete from public.suspensions where email = ${email}`);
     await del(sql`delete from public.security_events where email = ${email}`);
+    /* moderation_actions has a member subject_id and a denormalised subject_email but NO
+       foreign key into user_profiles (pg_constraint, 2026-10-30), so nothing cascades it:
+       a staff note about a member — including their email address — would outlive the account
+       forever. Match on either identifier, because the column pair is written by hand in
+       /api/admin/review-queue and either half can be the only one present. */
+    await del(sql`delete from public.moderation_actions where subject_id = ${id} or subject_email = ${email}`);
     await del(sql`delete from public.chat_media where sender_id = ${id}`);
     await del(sql`delete from public.message_reactions where message_id in (select id from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id}))`);
     await del(sql`delete from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id})`);

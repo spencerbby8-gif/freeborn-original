@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
+import { chatSignals, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
@@ -206,9 +206,11 @@ export async function POST(request: Request) {
     .limit(1);
   const scam = scoreScamMessage(clean, Number(priorHist?.flags ?? 0));
   const scamFlag = scam.shouldWarn;
-  await db
+  const rows = await db
     .insert(messages)
-    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag });
+    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag })
+    .returning({ id: messages.id, createdAt: messages.createdAt });
+  const [stored] = rows;
   if (scamFlag) await recordScamFlag(member.id);
   if (scam.shouldEscalate) {
     try {
@@ -242,7 +244,39 @@ export async function POST(request: Request) {
   // member — fake activity is exactly what destroyed the platforms we're
   // here to beat.
 
-  return Response.json({ ok: true });
+  /* REALTIME SIGNAL (2026-10-30) — see db/migrations/2026-10-30-chat-signals.sql.
+     A content-free row in `chat_signals` is the only notification path this deployment can
+     use: the chat tables are RLS-forced with zero policies, so `postgres_changes` on
+     `messages` would deliver nothing to a client, and there is no service-role key to call
+     Realtime's broadcast REST API with. It carries the match id and a kind, never message
+     text, and it is written AFTER the message is stored — so a client that reacts to the
+     signal and refetches cannot read a half-written conversation.
+
+     Whole block is best-effort on purpose: a signal failure must never turn a delivered
+     message into a failed send. The recipient's poll (and their resync on wake/online) still
+     finds the message, so the worst case is latency. */
+  try {
+    // One pending 'message' signal per conversation is enough — a signal means "fetch", not
+    // "fetch N times". 'severed'/'cleared' rows are never pruned, only appended, because they
+    // mark a state change rather than a delta.
+    await db.delete(chatSignals).where(
+      and(eq(chatSignals.matchId, matchId), eq(chatSignals.kind, "message"))
+    );
+    await db.insert(chatSignals).values({ matchId, kind: "message" });
+  } catch {
+    /* notification is an accelerator */
+  }
+
+  /* The stored id comes back so the client can retire its optimistic echo by IDENTITY.
+     Matching by body text within a window (what this route used to force on the client) makes
+     a member's second identical message vanish, and makes a slow server drop the bubble and
+     then re-render it. See src/lib/chat-sync.ts:reconcilePending. */
+  return Response.json({
+    ok: true,
+    message: stored
+      ? { id: stored.id, at: stored.createdAt instanceof Date ? stored.createdAt.toISOString() : String(stored.createdAt) }
+      : null,
+  });
 }
 
 /**
@@ -284,5 +318,14 @@ export async function DELETE(request: Request) {
     );
 
   const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
+  // The other member's open thread has to learn this happened. Same optional-signal contract
+  // as the send path: if the insert fails, their poll still refetches and finds an empty
+  // conversation — the signal buys immediacy, never correctness. `cleared` is in the table's
+  // kind CHECK specifically so a wipe is distinguishable from "there were never messages".
+  try {
+    await db.insert(chatSignals).values({ matchId, kind: "cleared" });
+  } catch (err) {
+    console.warn("[chat] cleared signal skipped:", (err as Error).message);
+  }
   return Response.json({ ok: true, deleted: removed.length });
 }

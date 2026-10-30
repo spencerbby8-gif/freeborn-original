@@ -1,6 +1,6 @@
 import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { matches } from "@/db/schema";
+import { chatSignals, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUnmatchReason } from "@/lib/match-lifecycle";
@@ -100,6 +100,15 @@ export async function POST(request: Request) {
         : { ok: true, unmatched: false, alreadyEnded: false, status: null },
       { status: 200 }
     );
+  }
+
+  /* Tell the other member's client, now, that this ended — rather than leaving them staring at
+     a thread whose state changed until the next poll. Same best-effort rule as a message
+     signal: the UPDATE above is the truth, and it already happened. */
+  try {
+    await db.insert(chatSignals).values({ matchId: updated.id, kind: "severed" });
+  } catch {
+    /* notification is an accelerator */
   }
 
   return Response.json({ ok: true, unmatched: true, matchId: updated.id });
