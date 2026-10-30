@@ -205,7 +205,12 @@ function MediaPacket({
                 aria-label="Open photo full size"
                 className="block overflow-hidden rounded-xl transition active:scale-[0.98]"
               >
-                <img src={item.url} alt="Shared photo" className="max-h-[300px] w-full object-cover" />
+                <PhotoImage
+                  src={item.url}
+                  alt="Shared photo"
+                  className="block max-h-[300px] w-full rounded-xl"
+                  imgClassName="max-h-[300px] w-full object-cover"
+                />
               </button>
             ) : (
               <button
