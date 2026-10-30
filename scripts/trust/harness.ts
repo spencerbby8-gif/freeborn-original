@@ -1945,13 +1945,28 @@ console.log("\n[20] unmatch/delete confirmation: the destructive flag must cost 
     /setReportOpen\(true\)/.test(pv));
   ok("[20] cancel is the focused control and Escape closes it; the danger action is never the default",
     /cancelRef\.current\?\.focus\(\)/.test(dlg) &&
-    /if \(e\.key === "Escape" && !busy\) onCancel\(\);/.test(dlg) &&
+    /* Written as a block now that the same handler also traps Tab: Escape returns early
+       whether or not it acts, so a `busy` sheet ignores Escape and STILL swallows Tab.
+       Match the shape that ships, keep the meaning that was pinned. */
+    /if \(e\.key === "Escape"\) \{\s*if \(!busy\) onCancel\(\);\s*return;/.test(dlg) &&
     /variant="danger"/.test(dlg) && /onClick=\{\(\) => onConfirm\(reason\)\}/.test(dlg) &&
     /ref=\{cancelRef\}/.test(dlg));
   ok("[20] the sheet is a real dialog to a screen reader",
     /role="dialog"/.test(dlg) && /aria-modal="true"/.test(dlg) && /aria-labelledby="fb-end-conv-title"/.test(dlg));
   ok("[20] and it runs on the shared Button contract, not a hand-rolled class string",
     /from "@\/components\/ui\/button"/.test(dlg) && !/className="fb-btn/.test(dlg));
+  // A reason is scoped to the act it was chosen for. Proven in Chromium on 2026-10-30
+  // (DIALOG-QA-2026-10-30.json): with this reset absent, switching sheets carried
+  // "inappropriate" into a delete-conversation confirmation the route would store
+  // against the wrong action.
+  ok("[20] the sheet traps Tab, so the page behind it cannot be activated unseen",
+    /e\.key !== "Tab"/.test(dlg) && /last\.focus\(\{ preventScroll: true \}\)/.test(dlg) &&
+      /first\.focus\(\{ preventScroll: true \}\)/.test(dlg));
+  ok("[20] the dialog does not hand-roll focus utilities over the app-wide :focus-visible rule",
+    !/focus-visible:outline/.test(dlg));
+  ok("[20] the reason is stored per ACT, so a wipe can never be confirmed with an unmatch's reason",
+    /reasons\[kind\]/.test(dlg) && /useState<Partial<Record<"unmatch" \| "delete", UnmatchReason \| null>>>\(\{\}\)/.test(dlg) &&
+      !/setReason\(null\)/.test(dlg));
 }
 
 /* ---------- 21. account deletion, measured against the live FK graph ---------- */

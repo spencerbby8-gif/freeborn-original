@@ -81,14 +81,52 @@ export function EndConversationDialog({
   /** Only rendered when the member says this was about behaviour, not preference. */
   onReport?: () => void;
 }) {
-  const [reason, setReason] = useState<UnmatchReason | null>(null);
+  /* Keyed by the ACT, not a single slot that gets reset. A `kind`-change effect would have to
+     remember to clear the previous choice (and `react-hooks/set-state-in-effect` rightly
+     rejects that shape); keying it makes leakage structurally impossible — and a
+     "delete every message" confirmation can only ever carry `null`, because no reason is ever
+     stored for that kind. */
+  const [reasons, setReasons] = useState<Partial<Record<"unmatch" | "delete", UnmatchReason | null>>>({});
+  const reason = reasons[kind] ?? null;
+  const setReason = (next: UnmatchReason | null) =>
+    setReasons((prev) => ({ ...prev, [kind]: next }));
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+
+  const sheetRef = useRef<HTMLDivElement | null>(null);
 
   /* Escape closes; the destructive action is never the keyboard default here. */
   useEffect(() => {
     cancelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onCancel();
+      if (e.key === "Escape") {
+        if (!busy) onCancel();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      /* Without this, Tab past the last control lands on the page BEHIND the sheet — visible
+         still as a blurred backdrop — so a member can activate something they could not see,
+         and Shift+Tab from the first control escapes backwards. The sheet is modal to a screen
+         reader via aria-modal; this makes it modal to a keyboard too. Disabled controls are
+         skipped because the whole sheet is disabled while a request is in flight, and wrapping
+         onto an inert control would look like a focus trap that eats Tab. */
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      const items = [
+        ...sheet.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ),
+      ].filter((el) => el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !sheet.contains(active))) {
+        e.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!e.shiftKey && (active === last || !sheet.contains(active))) {
+        e.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -105,6 +143,7 @@ export function EndConversationDialog({
       onClick={() => !busy && onCancel()}
     >
       <div
+        ref={sheetRef}
         className="animate-scale-in w-full max-w-[420px] rounded-[24px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -136,6 +175,14 @@ export function EndConversationDialog({
                     aria-pressed={on}
                     disabled={busy}
                     onClick={() => setReason(on ? null : r)}
+                    /* No focus utility here on purpose: `src/app/globals.css` sets
+                       `:where(a, button, select, [role="button"]):focus-visible { outline: none; box-shadow: 0 0 0 2px … }`,
+                       which owns outline-style app-wide, so `outline-2` on the chip only ever moved
+                       the width and left the style `none`. The chips already carry a visible ring from
+                       that rule — measured in Chromium on 2026-10-30 (gold box-shadow, where the
+                       shared Button uses an ember outline; a cosmetic inconsistency in the design
+                       layer, noted rather than silently "fixed" by overriding an app-wide focus rule
+                       from inside one dialog). */
                     className={`rounded-full border px-3 py-1.5 text-[12px] font-bold transition ${
                       on
                         ? "border-[var(--color-ember-400)] bg-[var(--color-ember-500)]/18 text-[var(--color-pearl)]"
