@@ -1113,7 +1113,24 @@ export const humanChallenges = pgTable(
       "human_challenges_status_check",
       sql`${t.status} in ('issued','solved','failed','expired')`
     ),
-    uniqueIndex("human_challenges_single_live").on(t.email, t.purpose, t.status),
+    /* ONE LIVE CHALLENGE PER (email, purpose) — enforced as a PARTIAL unique index.
+     *
+     * This used to be `unique(email, purpose, status)`, which is not the same rule and
+     * locked members out. `/api/verification/challenge` and `/api/human/issue` both
+     * "expire my previous issued row, then insert a new one"; with `status` inside the
+     * key, the second abandoned attempt left TWO rows that both read
+     * (email,'verification','expired'), so the UPDATE that expires previous rows threw
+     * 23505 unique_violation and the member could never obtain a token again — no
+     * try/catch anywhere on that path, and the tables are shared with appeals and
+     * password resets, so one stale row stranded all three flows.
+     *
+     * The rule the code actually wants: any number of historical rows, at most one in
+     * 'issued'. Say exactly that, in the index predicate. Purposes in play today:
+     * 'verification' (this route) and 'appeal' | 'signup' | 'reset' (/api/human/issue,
+     * which runs the same expire-then-insert statement and is equally unwrapped). */
+    uniqueIndex("human_challenges_single_live")
+      .on(t.email, t.purpose)
+      .where(sql`${t.status} = 'issued'`),
     index("human_challenges_email_idx").on(t.email, sql`${t.issuedAt} desc`),
   ]
 );
