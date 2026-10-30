@@ -169,6 +169,49 @@ export async function POST(request: Request) {
     const id = user.id;
     const email = user.email;
     const del = (q: ReturnType<typeof sql>) => db.execute(q);
+
+    /* Storage FIRST, then the rows that name it — the reverse order is how the
+       orphans got made. `profile-photos` is a PUBLIC bucket with a bucket-wide read
+       policy, so a row deleted without its object leaves that image retrievable by
+       URL indefinitely; once the account is gone there is no row left to say whose it
+       was, which turns a leak into an untraceable one. `verification-selfies` is
+       private but holds face scans, the single most sensitive thing the deletion
+       promise covers.
+       Three rules keep this safe:
+         * every path is read back from the database, so a member cannot queue an
+           arbitrary object for deletion through the request body;
+         * only the bucket-relative shape is sent (no leading slash, no scheme) —
+           `/api/chat/media/…` blobs are the `chat_media` delete below, and mirrored
+           `/uploads/…` paths have no object behind them;
+         * removal is best-effort and logged. An object the provider refuses to
+           delete must not abort the cascade and strand the account half-deleted,
+           which would be a worse outcome for the member than one orphan to clean up.
+       The bucket DELETE policy is owner-scoped (`storage.foldername(name))[1] =
+       auth.uid()::text`), and this client carries this member's session, so removal
+       can never reach another member's folder. */
+    const listBucketPaths = async (table: string): Promise<string[]> => {
+      try {
+        const { data } = await supabase.from(table).select("storage_path").eq("user_id", id);
+        return ((data ?? []) as Array<{ storage_path: string | null }>)
+          .map((row) => row.storage_path)
+          .filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\/\//.test(p));
+      } catch (err) {
+        console.warn(`[account-delete] could not enumerate ${table}:`, (err as Error).message);
+        return [];
+      }
+    };
+    for (const [bucket, table] of [
+      ["profile-photos", "profile_photos"],
+      ["verification-selfies", "verification_selfie_checks"],
+    ] as const) {
+      const objects = await listBucketPaths(table);
+      if (objects.length === 0) continue;
+      const { error } = await supabase.storage.from(bucket).remove(objects);
+      if (error) {
+        console.warn(`[account-delete] ${bucket} objects survived the deletion:`, error.message);
+      }
+    }
+
     await del(sql`delete from public.verification_audit_logs where user_id = ${id}`);
     await del(sql`delete from public.profile_photos where user_id = ${id}`);
     await del(sql`delete from public.event_interests where user_id = ${id}`);

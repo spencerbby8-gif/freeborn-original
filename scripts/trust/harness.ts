@@ -1294,6 +1294,25 @@ ok("[15] only bucket-relative paths are sent to storage",
   photosApiSrc.includes('storage.from("profile-photos").remove'));
 ok("[15] a failed object removal is logged, not reported as a failed delete",
   photosApiSrc.includes('console.warn("[profile-photos] deleted row but the object remains:'));
+/* Right to erasure is the same defect with higher stakes: deleting an account used to
+   drop profile_photos rows and leave every image in a public bucket, with no row left
+   to attribute it. Pinned as an ORDER property, because sweeping after the delete loses
+   the only index that points at the objects. */
+const accountSrc = readFileSync(new URL("../../src/app/api/account/route.ts", import.meta.url), "utf8");
+ok("[15] account deletion sweeps both media buckets",
+  accountSrc.includes('["profile-photos", "profile_photos"]') &&
+  accountSrc.includes('["verification-selfies", "verification_selfie_checks"]'));
+ok("[15] the sweep runs before the rows that name the objects are dropped",
+  accountSrc.indexOf("listBucketPaths") < accountSrc.indexOf("delete from public.profile_photos") &&
+  accountSrc.indexOf("listBucketPaths") > 0);
+ok("[15] enumerated paths are filtered to bucket shapes, never taken from the request body",
+  accountSrc.includes('.filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("/")') &&
+  !accountSrc.includes("remove([path]") && !accountSrc.includes("remove(path)") && !accountSrc.includes("remove([body") &&
+  !/const \{[^}]*\bpath\b[^}]*\} = \(body/.test(accountSrc));
+ok("[15] a refused object removal warns and lets the cascade finish",
+  accountSrc.includes("objects survived the deletion:") &&
+  !/objects survived the deletion[\s\S]{0,120}return Response\.json/.test(accountSrc));
+
 ok("[15] the unremovable-path wording is preserved verbatim",
   photosApiSrc.includes("That photo lives in your original upload store, so it can't be removed from this preview room."));
 
