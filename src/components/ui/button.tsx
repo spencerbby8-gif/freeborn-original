@@ -76,9 +76,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ].filter(Boolean).join(" ")}
       {...rest}
     >
-      <span className="fb-btn__label">
+      <span className="fb-cta__label">
         {children}
-        {trailing ? <span className="fb-btn__trailing" aria-hidden="true">{trailing}</span> : null}
+        {trailing ? <span aria-hidden="true">{trailing}</span> : null}
       </span>
       {loading ? <span className="sr-only">{loadingLabel ?? "Working\u2026"}</span> : null}
     </button>

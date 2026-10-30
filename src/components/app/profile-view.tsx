@@ -5,6 +5,9 @@ import Link from "next/link";
 import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
 import { PhotoLightbox } from "./photo-lightbox";
+import { EndConversationDialog, type EndConversationKind } from "./unmatch-dialog";
+import { readJsonSafe } from "@/lib/api-response";
+import type { UnmatchReason } from "@/lib/match-lifecycle";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { prettyText } from "@/lib/pretty-text";
 import { genderOptions } from "@/lib/onboarding-data";
@@ -291,7 +294,11 @@ export function ProfileView({
     void ensureMatchId();
   };
 
-  const runUnmatch = async () => {
+  /* Runs ONLY from the confirm sheet's danger button, which is what supplies `destructive`.
+     The API refuses the call without it (409 needsConfirmation), so an auto-confirmed client
+     would be the same as no confirmation at all — that is exactly what this component used to
+     do, and `runDeleteConversation` used to omit the flag entirely and therefore always fail. */
+  const runUnmatch = async (reason: UnmatchReason | null) => {
     if (!profile || actionBusy) return;
     setActionBusy("unmatch");
     try {
@@ -299,14 +306,20 @@ export function ProfileView({
       const res = await fetch("/api/chat/unmatch", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ with: profile.id, destructive: true }),
+        body: JSON.stringify({ with: profile.id, ...(reason ? { reason } : {}), destructive: true }),
       });
+      const json = await readJsonSafe<{ error?: string; alreadyEnded?: boolean }>(res);
       if (res.ok) {
-        showToast({ tone: "success", title: "Unmatched", body: `${profile.name} has been removed from your matches.` });
+        setEndKind(null);
+        showToast({ tone: "success", title: "Conversation ended", body: `${profile.name} is no longer in your matches, and this thread is gone from your view.` });
         setMenuOpen(false);
         onClose();
+      } else if (json?.alreadyEnded) {
+        setEndKind(null);
+        showToast({ tone: "info", title: "Already ended", body: `${profile.name} ended this conversation first. It stays readable for you.` });
+        setMenuOpen(false);
       } else {
-        showToast({ tone: "error", title: "Couldn't unmatch", body: "Try again in a moment." });
+        showToast({ tone: "error", title: "Couldn't unmatch", body: json?.error ?? "Try again in a moment." });
       }
     } catch {
       showToast({ tone: "error", title: "Couldn't unmatch", body: "Check your connection and try again." });
@@ -322,9 +335,14 @@ export function ProfileView({
       const token = await getAccessToken().catch(() => null);
       const res = await fetch(`/api/chat/messages?match=${encodeURIComponent(theirMatchId)}`, {
         method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        // Required by the route: wiping a shared thread is irreversible, so it answers
+        // 409 needsConfirmation until a client says it showed the member what that means.
+        body: JSON.stringify({ destructive: true }),
       });
+      const delJson = await readJsonSafe<{ error?: string; deleted?: number }>(res);
       if (res.ok) {
+        setEndKind(null);
         showToast({ tone: "success", title: "Conversation deleted", body: "Every message in this chat was removed." });
         setMenuOpen(false);
       } else {
@@ -362,6 +380,9 @@ export function ProfileView({
   };
 
   /* --- Report this member ---------------------------------------------------- */
+  /* The end-of-conversation sheet: `null` = closed. Nothing destructive runs from the menu
+     itself any more — the menu only opens this. */
+  const [endKind, setEndKind] = useState<EndConversationKind | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
@@ -479,7 +500,7 @@ export function ProfileView({
                       <button
                         type="button"
                         disabled={actionBusy !== null}
-                        onClick={() => void runDeleteConversation()}
+                        onClick={() => { setMenuOpen(false); setEndKind("delete"); }}
                         className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -490,14 +511,14 @@ export function ProfileView({
                       <button
                         type="button"
                         disabled={actionBusy !== null}
-                        onClick={() => void runUnmatch()}
+                        onClick={() => { setMenuOpen(false); setEndKind("unmatch"); }}
                         className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M18.6 6.6a5 5 0 010 7.1L12 20.3l-6.6-6.6a5 5 0 117.1-7.1l-.7.7" />
                           <path d="M4 4l16 16" />
                         </svg>
-                        {actionBusy === "unmatch" ? "Unmatching…" : "Unmatch"}
+                        {"Unmatch"}
                       </button>
                     </>
                   ) : null}
@@ -937,6 +958,22 @@ export function ProfileView({
       </div>
 
       {/* Report dialog */}
+      {endKind && profile ? (
+        <EndConversationDialog
+          kind={endKind}
+          name={profile.name ?? "this member"}
+          busy={actionBusy !== null}
+          onCancel={() => setEndKind(null)}
+          onConfirm={(reason) =>
+            endKind === "unmatch" ? void runUnmatch(reason) : void runDeleteConversation()
+          }
+          onReport={() => {
+            setEndKind(null);
+            setReportOpen(true);
+          }}
+        />
+      ) : null}
+
       {reportOpen && profile ? (
         <div
           className="fixed inset-0 z-[170] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"

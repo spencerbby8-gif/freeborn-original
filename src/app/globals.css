@@ -1182,6 +1182,17 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   align-items: center;
   gap: 0.5rem;
 }
+/* The default appearance lives on the base `.fb-cta` rule. Naming the primary variant keeps
+   the contract honest — every class this kit emits is a class this file defines (see the
+   [19] pin, which exists because button.tsx once shipped emitting `fb-btn__label` while the
+   stylesheet had `.fb-cta__label`, and the loading state was silently dead) — and gives a
+   theming hook. Values restate the base, so nothing repaints. */
+.fb-cta--primary {
+  --button-background-color: var(--color-pearl);
+  --button-color: var(--color-ink);
+  --button-border-color: transparent;
+  --button-border-width: 0px;
+}
 .fb-cta--block { display: flex; width: 100%; }
 .fb-cta--sm { min-height: var(--control-h-sm); font-size: var(--text-ui-xs); padding: 0 0.875rem; border-radius: 0.75rem; }
 .fb-cta--md { min-height: var(--control-h-md); }
