@@ -241,7 +241,7 @@ export async function GET(request: Request) {
     const myMatches = await db
       .select({ userA: matches.userA, userB: matches.userB })
       .from(matches)
-      .where(or(eq(matches.userA, viewerId), eq(matches.userB, viewerId)));
+      .where(and(or(eq(matches.userA, viewerId), eq(matches.userB, viewerId)), eq(matches.status, "active")));
     for (const m of myMatches) {
       mutualIds.add(m.userA === viewerId ? m.userB : m.userA);
     }

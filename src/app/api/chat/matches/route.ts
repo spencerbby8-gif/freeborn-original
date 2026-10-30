@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { blockedUsers, matches, messages, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 
 export async function GET(request: Request) {
   const member = await getMember(request);
@@ -22,6 +23,9 @@ export async function GET(request: Request) {
       id: matches.id,
       userA: matches.userA,
       userB: matches.userB,
+      status: matches.status,
+      unmatchedBy: matches.unmatchedBy,
+      unmatchedAt: matches.unmatchedAt,
       lastMessageAt: matches.lastMessageAt,
       createdAt: matches.createdAt,
     })
@@ -33,6 +37,19 @@ export async function GET(request: Request) {
   for (const row of rows) {
     const otherId = row.userA === member.id ? row.userB : row.userA;
     if (blockedSet.has(otherId)) continue;
+
+    /* An ended thread is not deleted — it is visible to the member who did NOT end it, so
+       they can still read and report what was sent, and hidden from the member who did
+       (src/lib/match-lifecycle.ts). Hiding is a list decision, never a data decision. */
+    const listed = decideMatchAccess({
+      status: row.status as MatchLifecycleStatus,
+      isParticipant: true,
+      isActor: row.unmatchedBy === member.id,
+      hasMessages: true,
+      action: "appear_in_chat_list",
+    });
+    if (!listed.allow) continue;
+    const ended = row.status === "unmatched" || row.status === "blocked";
     const [other] = await db
       .select()
       .from(userProfiles)
@@ -66,6 +83,13 @@ export async function GET(request: Request) {
           sql`${messages.readAt} is null`
         )
       );
+    const unreadAllowed = decideMatchAccess({
+      status: row.status as MatchLifecycleStatus,
+      isParticipant: true,
+      isActor: row.unmatchedBy === member.id,
+      hasMessages: true,
+      action: "count_unread",
+    }).allow;
 
     const active =
       other.lastActiveAt != null && Date.now() - other.lastActiveAt.getTime() < 15 * 60 * 1000;
@@ -86,8 +110,14 @@ export async function GET(request: Request) {
             at: last.createdAt,
           }
         : null,
-      unread,
+      // An ended conversation never nags, but the read state is still recorded underneath.
+      unread: unreadAllowed ? unread : 0,
       createdAt: row.createdAt,
+      ended,
+      endedBy: ended ? (row.unmatchedBy === member.id ? "me" : "them") : null,
+      endedAt: ended ? row.unmatchedAt : null,
+      readOnly: ended,
+      canReport: ended && row.unmatchedBy === member.id ? false : ended,
     });
   }
 

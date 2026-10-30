@@ -3,10 +3,15 @@ import { db } from "@/db";
 import { matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
+import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
-async function ownsMatch(matchId: string, memberId: string) {
+async function ownsMatch(
+  matchId: string,
+  memberId: string,
+  action: "view_conversation" | "send_message"
+) {
   const [row] = await db
     .select()
     .from(matches)
@@ -14,6 +19,18 @@ async function ownsMatch(matchId: string, memberId: string) {
     .limit(1);
   if (!row) return null;
   if (row.userA !== memberId && row.userB !== memberId) return null;
+  /* Read and send are decided separately, on purpose. The member who was unmatched keeps read
+     access so they can still quote and report what was sent to them (Bumble documents exactly
+     this); the member who ended it loses access to their own copy, because that was their
+     choice to make. Neither may send. */
+  const decision = decideMatchAccess({
+    status: row.status as MatchLifecycleStatus,
+    isParticipant: true,
+    isActor: row.unmatchedBy === memberId,
+    hasMessages: false,
+    action,
+  });
+  if (!decision.allow) return { denied: decision.reason as string, row } as const;
   return row;
 }
 
@@ -28,8 +45,14 @@ export async function GET(request: Request) {
   const matchId = url.searchParams.get("match");
   if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const viewed = await ownsMatch(matchId, member.id, "view_conversation");
+  if (!viewed) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in viewed)
+    return Response.json(
+      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true },
+      { status: 403 }
+    );
+  const match = viewed;
 
   await db
     .update(messages)
@@ -122,8 +145,11 @@ export async function POST(request: Request) {
   if (clean.length > 2000)
     return Response.json({ error: "Keep messages under 2000 characters." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const sent = await ownsMatch(matchId, member.id, "send_message");
+  if (!sent) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in sent)
+    return Response.json({ error: severedMessage(sent.row.status as MatchLifecycleStatus) }, { status: 403 });
+  const match = sent;
 
   /* Privacy rules keep applying inside an open conversation too. */
   const otherId = match.userA === member.id ? match.userB : match.userA;
@@ -233,8 +259,29 @@ export async function DELETE(request: Request) {
   const matchId = url.searchParams.get("match");
   if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const target = await ownsMatch(matchId, member.id, "send_message");
+  if (!target) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in target)
+    return Response.json(
+      {
+        error:
+          target.denied === "deny:thread-not-open"
+            ? "This conversation has ended, so its history is kept for the member who did not end it. Deleting it here would remove their ability to report what was sent."
+            : "This conversation isn't available.",
+      },
+      { status: 409 }
+    );
+  let body: unknown = {};
+  try {
+    body = await request.json();
+  } catch {
+    /* DELETE with no body is fine; a malformed one is not a reason to refuse a member. */
+  }
+  if (((body ?? {}) as { destructive?: unknown }).destructive !== true)
+    return Response.json(
+      { error: "Deleting a whole conversation cannot be undone. Confirm first.", needsConfirmation: true },
+      { status: 409 }
+    );
 
   const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
   return Response.json({ ok: true, deleted: removed.length });

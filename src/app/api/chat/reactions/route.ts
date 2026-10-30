@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const [match] = await db
     .select()
     .from(matches)
-    .where(eq(matches.id, msg.matchId))
+    .where(and(eq(matches.id, msg.matchId), eq(matches.status, "active")))
     .limit(1);
   if (!match || (match.userA !== member.id && match.userB !== member.id)) {
     return Response.json({ error: "Not allowed." }, { status: 403 });

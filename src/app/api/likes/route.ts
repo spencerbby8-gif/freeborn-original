@@ -1,9 +1,11 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { undoMayDeleteMatchRow } from "@/lib/match-lifecycle";
 import {
   blockedUsers,
   matches,
+  messages,
   profilePhotos,
   userProfiles,
   userSwipes,
@@ -139,11 +141,30 @@ export async function POST(request: Request) {
     let unmatched = false;
     if (last.action === "like" || last.action === "superlike") {
       const [userA, userB] = [member.id, last.likedId].sort();
-      const removed = await db
-        .delete(matches)
+      /* "Undo" means *as if it never happened* — but only while nothing was actually said.
+         Once the thread has messages, deleting the match row would cascade a real
+         conversation away, and the other member never asked to lose it. So: delete when the
+         thread is empty, sever (retain) when it is not. */
+      const [anyMessage] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .innerJoin(matches, eq(matches.id, messages.matchId))
         .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
-        .returning({ id: matches.id });
-      unmatched = removed.length > 0;
+        .limit(1);
+      if (undoMayDeleteMatchRow(Boolean(anyMessage))) {
+        const removed = await db
+          .delete(matches)
+          .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
+          .returning({ id: matches.id });
+        unmatched = removed.length > 0;
+      } else {
+        const severed = await db
+          .update(matches)
+          .set({ status: "unmatched", unmatchedBy: member.id, unmatchedAt: new Date(), unmatchReason: "other" })
+          .where(and(eq(matches.userA, userA), eq(matches.userB, userB), eq(matches.status, "active")))
+          .returning({ id: matches.id });
+        unmatched = severed.length > 0;
+      }
     }
     return Response.json({ ok: true, undone: last.likedId, unmatched });
   }
@@ -217,10 +238,20 @@ export async function POST(request: Request) {
 
   const [userA, userB] = [member.id, profileId].sort();
   const existing = await db
-    .select({ id: matches.id })
+    .select({ id: matches.id, status: matches.status, unmatchedBy: matches.unmatchedBy })
     .from(matches)
     .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
     .limit(1);
+
+  /* A severed pair never becomes a match again — including by both members liking each other
+     a second time. `matches_pair_unique` makes a second row impossible, so without this branch
+     the route would report `matched: true` and hand the client a thread whose status is
+     'unmatched': a match badge that opens an unwritable conversation. Every app studied treats
+     unmatch as terminal (Tinder's and Hinge's help centres say so outright), and in a community
+     built on "no means no" a second mutual like is not a licence to reopen. */
+  if (existing.length && existing[0].status !== "active" && existing[0].status !== "archived") {
+    return Response.json({ ok: true, likes: count, matched: false, endedPreviously: true });
+  }
 
   let matched = false;
   if (!existing.length) {

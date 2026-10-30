@@ -299,7 +299,7 @@ export function ProfileView({
       const res = await fetch("/api/chat/unmatch", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ with: profile.id }),
+        body: JSON.stringify({ with: profile.id, destructive: true }),
       });
       if (res.ok) {
         showToast({ tone: "success", title: "Unmatched", body: `${profile.name} has been removed from your matches.` });

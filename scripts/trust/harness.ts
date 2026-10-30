@@ -31,6 +31,15 @@ import {
   type MediaAccessFacts,
 } from "@/lib/media-access";
 import { createHash } from "node:crypto";
+import {
+  decideMatchAccess,
+  isUnmatchReason,
+  severedMessage,
+  undoMayDeleteMatchRow,
+  UNMATCH_REASONS,
+  type MatchAction,
+  type MatchLifecycleStatus,
+} from "@/lib/match-lifecycle";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import {
   describeFailure,
@@ -1488,6 +1497,185 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
     "an effect would paint one frame of the previous photo's state onto the new src");
   ok("[16] a failed photo is said out loud and offers a way out",
     /didn/.test(photo) && /Tap to try again/.test(photo));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [17] UNMATCH DETACHES, IT DOES NOT DESTROY (2026-10-30, competitor-driven)
+   ──────────────────────────────────────────────────────────────────────────
+   Freeborn's unmatch was `delete(matches)` while messages.match_id AND
+   chat_media.match_id are `on delete cascade`: one member's tap destroyed a shared
+   history for the other member and orphaned the thread's photo bytes with no row left
+   to find them. The evidence (docs/research/2026-10-30/UNMATCH-EVIDENCE.md) shows
+   Tinder keeping `matches`, `messages` and an optimistic `unmatchedIds` as three
+   separate state slices; Bumble publishing that the *recipient* keeps the conversation
+   visible "so you can still report them"; and Hinge splitting Hide (visibility) from
+   Unmatch (severance). So the fix is a status change plus per-member visibility, and
+   account deletion stays the only cascade. The full fact space is executed below.
+   ══════════════════════════════════════════════════════════════════════════ */
+const ML_STATUSES: MatchLifecycleStatus[] = ["active", "archived", "blocked", "unmatched"];
+const ML_ACTIONS: MatchAction[] = [
+  "view_conversation", "send_message", "read_media", "appear_in_chat_list", "count_unread",
+  "create_or_rematch", "export_own_data",
+];
+const ml = (status: MatchLifecycleStatus | null, isParticipant: boolean, isActor: boolean, action: MatchAction, hasMessages = false) =>
+  decideMatchAccess({ status, isParticipant, isActor, hasMessages, action });
+
+{
+  /* A stranger may never reach another pair's conversation, in any state, for any action. */
+  let strangerLeak: string[] = [];
+  for (const status of ML_STATUSES)
+    for (const action of ML_ACTIONS)
+      for (const isActor of [false, true])
+        if (ml(status, false, isActor, action).allow) strangerLeak.push(`${status}/${action}/actor=${isActor}`);
+  ok("[17] a non-participant is denied every action on every status",
+    strangerLeak.length === 0, strangerLeak.join(","));
+}
+
+{
+  /* Both members, forever, on a severed thread: cannot send. This is the invariant that
+     makes "keep the rows" safe to ship at all. */
+  let sendable: string[] = [];
+  for (const status of ["blocked", "unmatched"] as MatchLifecycleStatus[])
+    for (const isActor of [false, true])
+      if (ml(status, true, isActor, "send_message").allow) sendable.push(`${status}/actor=${isActor}`);
+  ok("[17] neither member of a severed pair can ever send again", sendable.length === 0, sendable.join(","));
+  ok("[17] an active participant can send", ml("active", true, false, "send_message").allow === true);
+  ok("[17] a severed pair can never be re-opened as a match, by either side",
+    ml("unmatched", true, false, "create_or_rematch").allow === false &&
+    ml("unmatched", true, true, "create_or_rematch").allow === false &&
+    ml("blocked", true, false, "create_or_rematch").allow === false &&
+    ml("unmatched", true, false, "create_or_rematch").reason === "deny:severed-is-permanent");
+  ok("[17] an existing active pair is not re-creatable either (no duplicate thread rows)",
+    ml("active", true, false, "create_or_rematch").reason === "deny:already-matched");
+}
+
+{
+  /* The asymmetry, stated as an invariant rather than a vibe: the person who ended it loses
+     the conversation from their view; the person it was ended with keeps reading it. */
+  ok("[17] the actor loses the thread; the recipient keeps it read-only",
+    ml("unmatched", true, true, "view_conversation").allow === false &&
+    ml("unmatched", true, false, "view_conversation").allow === true &&
+    ml("unmatched", true, false, "view_conversation").reason === "grant:read-only-for-report");
+  ok("[17] the same asymmetry drives the chat list, so nothing is destroyed to be hidden",
+    ml("unmatched", true, true, "appear_in_chat_list").reason === "hide:actor-severed-it" &&
+    ml("unmatched", true, false, "appear_in_chat_list").reason === "show:read-only-ended");
+  ok("[17] a blocked thread is hidden from the blocker too (they chose the severance)",
+    ml("blocked", true, true, "appear_in_chat_list").allow === false &&
+    ml("blocked", true, false, "appear_in_chat_list").allow === true);
+  ok("[17] an ended thread never nags with an unread badge, but that is display-only",
+    ml("unmatched", true, false, "count_unread").allow === false &&
+    ml("active", true, false, "count_unread").allow === true);
+  ok("[17] both sides keep opening attachments they were party to — the report path needs the bytes",
+    ml("unmatched", true, true, "read_media").allow === true &&
+    ml("unmatched", true, false, "read_media").allow === true &&
+    ml("blocked", true, false, "read_media").allow === true);
+  ok("[17] a data export is unaffected by severance (it is the member's own record)",
+    ml("unmatched", true, true, "export_own_data").allow === true &&
+    ml("unmatched", true, false, "export_own_data").allow === true);
+  ok("[17] a missing row denies everything, including 'read media'",
+    ml(null, true, false, "view_conversation").reason === "deny:missing-row" &&
+    ml(null, true, false, "read_media").reason === "deny:missing-row");
+  ok("[17] archived stays readable and writable (it is a soft hide, not an end)",
+    ml("archived", true, false, "view_conversation").allow === true &&
+    ml("archived", true, false, "send_message").allow === true);
+}
+
+ok("[17] every decision carries a machine-readable reason (no silent denies in the API)",
+  ML_STATUSES.every((st) => ML_ACTIONS.every((ac) => /^[a-z]+:[a-z0-9-]+$/.test(ml(st, true, false, ac).reason))));
+
+{
+  /* Monotonicity in the one direction the routes rely on: for a participant, becoming the
+     actor never GRANTS anything. (Denying more is the safe direction.) */
+  let widened: string[] = [];
+  for (const st of ML_STATUSES)
+    for (const ac of ML_ACTIONS)
+      if (ml(st, true, true, ac).allow && !ml(st, true, false, ac).allow) widened.push(`${st}/${ac}`);
+  ok("[17] being the member who ended it never unlocks extra access", widened.length === 0, widened.join(","));
+}
+
+ok("[17] the reason vocabulary is closed, and empty/absent stays legal",
+  UNMATCH_REASONS.every((r) => isUnmatchReason(r)) &&
+  isUnmatchReason("stalking_harassment_x") === false &&
+  isUnmatchReason(undefined) === false && isUnmatchReason("") === false);
+
+ok("[17] an ended thread still explains itself in one sentence, and names the report path",
+  /permanent/i.test(severedMessage("unmatched")) && /report/i.test(severedMessage("unmatched")) &&
+  /can't message/i.test(severedMessage("blocked")));
+
+ok("[17] undo may only delete the match row while the thread is empty",
+  undoMayDeleteMatchRow(false) === true && undoMayDeleteMatchRow(true) === false);
+
+/* ── the shipped code must actually consult the table ── */
+const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), "utf8");
+{
+  const unmatchSrc = src("src/app/api/chat/unmatch/route.ts");
+  ok("[17] unmatch no longer deletes the match row",
+    !/\.delete\(matches\)/.test(unmatchSrc) && /\.update\(matches\)/.test(unmatchSrc) &&
+    /status: "unmatched"/.test(unmatchSrc),
+    "the delete is what cascaded the conversation away");
+  ok("[17] unmatch requires an explicit confirmation and validates the reason",
+    /destructive !== true/.test(unmatchSrc) && /isUnmatchReason/.test(unmatchSrc));
+  ok("[17] unmatch is idempotent and race-safe (only an active row may be severed)",
+    /eq\(matches\.status, "active"\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc));
+
+  const blockSrc = src("src/app/api/blocks/route.ts");
+  ok("[17] blocking preserves the thread instead of cascading the evidence away",
+    !/\.delete\(matches\)/.test(blockSrc) && /status: "blocked"/.test(blockSrc),
+    "a block is exactly when the report needs the history to survive");
+
+  const startSrc = src("src/app/api/chat/start/route.ts");
+  ok("[17] chat/start cannot hand back a severed matchId",
+    /create_or_rematch/.test(startSrc) && /decideMatchAccess/.test(startSrc));
+
+  const msgSrc = src("src/app/api/chat/messages/route.ts");
+  ok("[17] read and send are decided by two different actions on one choke point",
+    /"view_conversation"/.test(msgSrc) && /"send_message"/.test(msgSrc) &&
+    (msgSrc.match(/ownsMatch\(matchId, member\.id, "/g) || []).length >= 3);
+  ok("[17] wiping a whole conversation now needs confirmation and refuses a severed thread",
+    /needsConfirmation: true/.test(msgSrc) && /kept for the member who did not end it/.test(msgSrc));
+
+  const reactSrc = src("src/app/api/chat/reactions/route.ts");
+  ok("[17] a reaction is a write, so it requires an open thread",
+    /eq\(matches\.status, "active"\)/.test(reactSrc));
+
+  const likeSrc = src("src/app/api/likes/route.ts");
+  ok("[17] a second mutual like cannot resurrect a severed pair",
+    /endedPreviously: true/.test(likeSrc) && /status !== "active"/.test(likeSrc));
+  ok("[17] undo detaches when the thread has messages, deletes only when empty",
+    /undoMayDeleteMatchRow\(Boolean\(anyMessage\)\)/.test(likeSrc) && /unmatchReason: "other"/.test(likeSrc));
+
+  const deckSrc = src("src/app/api/profiles/route.ts");
+  ok("[17] a severed match no longer grants incognito visibility",
+    /eq\(matches\.status, "active"\)/.test(deckSrc));
+
+  const mediaSrc = src("src/app/api/chat/media/[id]/route.ts");
+  ok("[17] media authorisation stays participation-only and deliberately ignores status",
+    !/matches\.status/.test(mediaSrc) && /requesterIsParticipant = Boolean\(participant\)/.test(mediaSrc),
+    "the read of a former conversation's bytes is the point of retaining the rows");
+}
+
+{
+  const mig = src("db/migrations/2026-10-30-unmatch-detach.sql");
+  ok("[17] the migration is additive and destroys nothing",
+    !/delete from/i.test(mig) && !/truncate/i.test(mig) &&
+    /add column if not exists unmatched_by/.test(mig) && /add column if not exists unmatched_at/.test(mig) &&
+    /add column if not exists unmatch_reason/.test(mig));
+  ok("[17] the status vocabulary is widened, not silently replaced",
+    /check \(status in \('active','archived','blocked','unmatched'\)\)/.test(mig));
+  ok("[17] an unmatched row must carry provenance",
+    /matches_unmatched_has_actor/.test(mig) && /unmatched_by is not null and unmatched_at is not null/.test(mig));
+  ok("[17] the cascade foreign keys are kept on purpose (account deletion still purges)",
+    // The migration must not ADD or DROP any foreign key: the cascades on messages.match_id
+    // and chat_media.match_id are what make account deletion complete, and unmatch no longer
+    // pulls that lever. Checked structurally, not by phrase — the prose mentions both.
+    !/add constraint[\s\S]{0,120}foreign key/i.test(mig) &&
+    !/drop constraint[\s\S]{0,80}_fkey/i.test(mig) &&
+    /on delete set null/.test(mig) && /account deletion/i.test(mig) &&
+    /deliberately LEFT ALONE/.test(mig));
+  ok("[17] it is marked NOT YET APPLIED and carries verification queries",
+    /NOT YET APPLIED/.test(mig) && /Verify with:/.test(mig) && /must not move/.test(mig));
+  ok("[17] the schema and the migration agree on the same vocabulary",
+    src("src/db/schema.ts").includes("in ('active','archived','blocked','unmatched')"));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

@@ -586,6 +586,19 @@ export const matches = pgTable(
       onDelete: "set null",
     }),
     status: text("status").notNull().default("active"),
+    /* --- End-of-conversation provenance (2026-10-30) -------------------------
+       Unmatch used to be `delete(matches)`, and because messages.match_id and
+       chat_media.match_id are both `on delete cascade`, that one statement
+       destroyed the shared history for BOTH members and orphaned the thread's
+       attachment bytes with no row left to find them. The row is now retained with
+       status='unmatched' plus these columns, so visibility is a per-member decision
+       (src/lib/match-lifecycle.ts) and account deletion stays the only thing
+       allowed to cascade. */
+    unmatchedBy: uuid("unmatched_by").references(() => userProfiles.id, {
+      onDelete: "set null",
+    }),
+    unmatchedAt: timestamp("unmatched_at", { withTimezone: true }),
+    unmatchReason: text("unmatch_reason"),
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
@@ -593,7 +606,16 @@ export const matches = pgTable(
     unique("matches_pair_unique").on(t.userA, t.userB),
     check("matches_no_self", sql`${t.userA} <> ${t.userB}`),
     check("matches_ordered", sql`${t.userA} < ${t.userB}`),
-    check("matches_status_check", sql`${t.status} in ('active','archived','blocked')`),
+    check("matches_status_check", sql`${t.status} in ('active','archived','blocked','unmatched')`),
+    check(
+      "matches_unmatch_reason_check",
+      sql`${t.unmatchReason} is null or ${t.unmatchReason} in ('not_interested','met_someone','moved_off_app','inappropriate','safety','other')`
+    ),
+    /* An 'unmatched' row with no actor/timestamp is a bug, not a state. */
+    check(
+      "matches_unmatched_has_actor",
+      sql`${t.status} <> 'unmatched' or (${t.unmatchedBy} is not null and ${t.unmatchedAt} is not null)`
+    ),
   ]
 );
 
