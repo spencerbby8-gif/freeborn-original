@@ -123,3 +123,35 @@ Evidence class per cell: **[C]** confirmed string/mechanism in acquired bytes wi
 `rea/SHA256SUMS` · `rea/MINING-PRECISE.json` (+ `.public.json` without quoted bytes) · `rea/perfile-index.json` · `rea/perfile/*.xz`, `rea/perfile-derived/*.xz` · `rea/commands/{npm-ci.log,restore-*.log,extract-4101.log,perfile-campaign.txt}` · `rea/tinder-recovered/rea-tinder-main.json` (partial-observation evidence from the earlier run; its two 10 MB logs were the timeout text and were dropped, originals remain `xz`-ed in `re/`) · scripts `re/rea-perfile.sh`, `re/rea-extract-modules.py`, `re/rea-mine.py`, `re/rea-mine2.py`, `re/resume-rea.sh` · `analysis-2026-10-30/sql/account-delete-fk-coverage.sql` (not yet run — see below).
 
 **Open verification item, saved rather than guessed at:** account deletion enumerates 29 tables by hand. Which tables have FKs to `user_profiles`/`accounts`/`auth.users` that the list omits (candidates seen this session: `human_challenges`, `moderation_cases`, `moderation_notes`, `duplicate_photo_hits`, `profile_moments`, `moment_comments`, `moment_reactions`, `open_questions`, `profile_prompts`, `user_visibility_windows`, `verification_integrity_events`, `verification_pose_attempts`, `free_quota_grants`) is a one-query question I could not run this turn because the Supabase connector is unavailable in this reply. The query is in `sql/account-delete-fk-coverage.sql`. **Until it runs, "account deletion removes all member data" is unproven**, and rows that are neither deleted nor FK-blocked would silently persist.
+
+
+---
+
+## Addendum 2026-10-30T19:40Z — a FIFTH media mechanism, found in our own schema
+
+Verified by reading the shipped schema and the two unmatch call sites (not inferred):
+
+* `src/db/schema.ts` → `messages.matchId = uuid("match_id").references(() => matches.id, { onDelete: "cascade" })`
+* `db/migrations/2026-10-16-rls-and-media-ownership.sql:130` → `chat_media.match_id … references public.matches(id) on delete cascade`
+* `src/app/api/chat/unmatch/route.ts` and `src/app/api/likes/route.ts:143` both `delete(matches)` — no bucket call anywhere in the unmatch path.
+
+Therefore **unmatching destroys the conversation**: Postgres deletes the `messages` rows, then the
+`chat_media` rows for that match, while the JPEGs in the private `chat-media` bucket keep living with
+no row, no owner and no path to find them. Consequences, in order of seriousness:
+
+1. **Privacy, not just durability.** For a community that stays in touch with an ex for legitimate
+   reasons (co-parenting, shared mutual-aid, a safety plan), an unmatch is currently a *mutual,
+   irreversible deletion of shared history* — and one member can trigger it alone. Nothing in the UI
+   says so. That asymmetry is a product defect independent of any competitor's rules.
+2. **Unbounded storage retention.** Orphaned blobs in a private bucket are invisible to every query
+   we have written, so no sweep will ever find them.
+3. `sender_id → set null` on `chat_media` but `→ cascade` on `messages` means account deletion
+   removes the message rows and therefore cascade-removes the media rows for that member's matches —
+   the row half is right; the bytes half is not swept on either path.
+
+Deliberately NOT decided here (owner's call, because it is product semantics, not a bug fix): whether
+unmatch should (a) keep rows and hide the conversation (`status = 'archived'` already exists on
+`matches`), (b) delete rows and sweep the match's objects, or (c) keep today's semantics and say so in
+the confirm dialog. Recommendation: (a) + (b) for reports-only cases, and a confirm dialog either way.
+A migration for (b) is the safe first increment: it is pure garbage collection, needs no product
+decision, and is blocked only on a `match_id`-scoped object listing that does not exist yet.
