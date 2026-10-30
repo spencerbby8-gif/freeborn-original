@@ -17,7 +17,20 @@
 -- `drizzle-kit push` in review environments; both may land on a database that already
 -- carries the fixed shape.
 
+-- SHAPE MATTERS, AND IT DIFFERS BETWEEN ENVIRONMENTS. A review database built with
+-- `drizzle-kit push` carries this as a standalone UNIQUE INDEX; the live Supabase
+-- database carries it as a table CONSTRAINT (added by 20260713120000), and
+-- `drop index` on a constraint-backed index fails with
+--   2BP01 cannot drop index ... because constraint ... requires it.
+-- Verified against production on 2026-10-30: the first version of this file, which only
+-- said `drop index if exists`, was refused by the production database. Both forms are
+-- therefore removed here, and the replacement is created as an index because a
+-- constraint cannot be partial. Same name, so an ORM push swaps the shape and not the
+-- identity of the constraint.
 begin;
+
+alter table if exists public.human_challenges
+  drop constraint if exists human_challenges_single_live;
 
 drop index if exists public.human_challenges_single_live;
 
