@@ -1,14 +1,17 @@
 "use client";
 
 import { PhotoImage } from "@/components/ui/photo-image";
+import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { readJsonSafe } from "@/lib/api-response";
 import {
   ackPending,
+  classifySendFailure,
   markPendingFailed,
   mergeMessages,
+  offersRetryAfter,
   pendingToMessage,
   pollIntervalMs,
   queuePending,
@@ -50,6 +53,9 @@ type MessageRow = {
   pending?: boolean;
   /** the send was refused or lost; the bubble offers a retry instead of vanishing silently */
   failed?: boolean;
+  /** …but the refusal was POLICY (403/409/400), so a retry would be refused again and the
+   *  affordance is withheld: see classifySendFailure in src/lib/chat-sync.ts */
+  blocked?: boolean;
 };
 
 const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
@@ -461,6 +467,15 @@ function Thread({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busRef = useRef<ChatBus | null>(null);
 
+  /* What the server says about THIS member's ability to write, not what the client guesses from
+     `status`. A thread can be readable and unwritable at once — the member who was unmatched
+     keeps the history to report from, and cannot type into it. */
+  const [threadAccess, setThreadAccess] = useState<{
+    canSend: boolean;
+    notice: string | null;
+    reason: string | null;
+  } | null>(null);
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/chat/messages?match=${match.id}`, {
       headers: authHeaders(token),
@@ -468,12 +483,20 @@ function Thread({
     }).catch(() => null);
     // readJsonSafe, not res.json(): a 502 from the proxy is an HTML error page, and the
     // SyntaxError it throws used to escape into the interval callback once per tick.
-    const json = res ? await readJsonSafe<{ messages?: MessageRow[] }>(res) : null;
+    const json = res
+      ? await readJsonSafe<{
+          messages?: MessageRow[];
+          thread?: { canSend: boolean; status?: string; notice?: string | null; reason?: string | null };
+        }>(res)
+      : null;
     if (!res || !res.ok || !json || !Array.isArray(json.messages)) {
       syncRef.current.failures += 1;
       return false;
     }
     const real = json.messages;
+    // The thread's writability can change while it is open (the other member ends it, a moderator
+    // blocks it), so it is re-read on every fetch rather than remembered from mount time.
+    if (json.thread) setThreadAccess({ canSend: !!json.thread.canSend, notice: json.thread.notice ?? null, reason: json.thread.reason ?? null });
     syncRef.current.failures = 0;
     const prev = syncRef.current;
     // A thread that SHRANK under us was emptied or severed by the other member (or by a
@@ -626,6 +649,17 @@ function Thread({
   /** One POST for one bubble. `tempId` ties the reply to the echo it answers. */
   const deliver = useCallback(
     async (body: string, tempId: string): Promise<boolean> => {
+      /* ONE choke point for every write — the composer, a staged upload and retrySend all come
+         through here — so the read-only verdict is enforced in code, not only in the markup that
+         hid itself. Returning false (never true) matters: `true` would tell the caller the
+         message went out, which is the exact lie this whole path exists to stop telling.
+         `threadAccess` is a real dependency below, so this cannot read a stale verdict. */
+      if (threadAccess && !threadAccess.canSend) {
+        pendingRef.current = markPendingFailed(pendingRef.current, tempId);
+        setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true, blocked: true } : m)));
+        flash(threadAccess.notice ?? "This conversation is read-only, so nothing can be sent here.");
+        return false;
+      }
       const res = await fetch("/api/chat/messages", {
         method: "POST",
         headers: authHeaders(token),
@@ -637,9 +671,15 @@ function Thread({
            thread, 403 from the other member's message privacy, 401 on an expired session) was
            silently discarded: the bubble stayed, then the next poll made it disappear, and the
            member had no idea their message was never delivered. */
+        const kind = classifySendFailure(res ? res.status : null);
+        const retryable = offersRetryAfter(kind);
         pendingRef.current = markPendingFailed(pendingRef.current, tempId);
-        setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true } : m)));
-        flash(json?.error ?? "Couldn't send. Check your connection.");
+        setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true, blocked: !retryable } : m)));
+        flash(json?.error ?? (retryable ? "Couldn't send. Check your connection." : "This message can't be delivered here."));
+        /* A refusal is also information about the thread: if the server declined on policy
+           grounds, stop offering the input that produced the refusal. Self-healing beats a
+           disabled-by-poll-only UI. */
+        if (!retryable) setThreadAccess((prev) => ({ canSend: false, notice: json?.error ?? prev?.notice ?? null, reason: "denied" }));
         armPoll();
         return false;
       }
@@ -651,7 +691,7 @@ function Thread({
       onChanged();
       return true;
     },
-    [match.id, token, load, onChanged, armPoll]
+    [armPoll, load, match.id, onChanged, threadAccess, token]
   );
 
   const postMessage = useCallback(
@@ -673,7 +713,7 @@ function Thread({
       pendingRef.current = pendingRef.current.map((x) =>
         x.tempId === tempId ? { ...x, failed: false, attempts: x.attempts + 1 } : x
       );
-      setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: false } : m)));
+      setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: false, blocked: false } : m)));
       await deliver(item.body, tempId);
     },
     [deliver]
@@ -919,7 +959,14 @@ function Thread({
     rows.push(
       <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
-          {m.failed ? (
+          {m.failed && m.blocked ? (
+            <span
+              title="The server declined this message on purpose. Sending it again would be declined again."
+              className="order-last shrink-0 rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-1 text-[10px] font-bold leading-none text-[var(--color-mist)]"
+            >
+              Not delivered
+            </span>
+          ) : m.failed ? (
             <button
               type="button"
               onClick={() => void retrySend(m.id)}
@@ -1227,7 +1274,12 @@ function Thread({
       ) : null}
 
 
+      {threadAccess && !threadAccess.canSend ? (
+        <ReadOnlyThreadNotice notice={threadAccess.notice} />
+      ) : null}
+
       {/* Composer — voice recording overlays it Telegram-style */}
+      {threadAccess && !threadAccess.canSend ? null : (
       <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
         <div className="relative shrink-0">
           <button
@@ -1341,6 +1393,7 @@ function Thread({
           )}
         </button>
       </div>
+      )}
 
       {/* Hold-to-react picker (double-tap = instant love) */}
       {pickerFor

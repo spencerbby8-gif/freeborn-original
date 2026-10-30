@@ -112,6 +112,27 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
+    /* `thread` exists because visibility and sendability are DIFFERENT questions, and the client
+       cannot derive the second one: `view_conversation` was just granted (so the thread renders)
+       while `send_message` may still be denied — that is exactly the read-only-for-report state a
+       member keeps after being unmatched. Without this the UI shows a composer into every refusal
+       arrives as a 403, which reads to the member like a broken network. Computed by the same
+       decideMatchAccess the POST path uses, so there is one table, not two. */
+    thread: (() => {
+      const send = decideMatchAccess({
+        status: match.status as MatchLifecycleStatus,
+        isParticipant: true,
+        isActor: match.unmatchedBy === member.id,
+        hasMessages: rows.length > 0,
+        action: "send_message",
+      });
+      return {
+        canSend: send.allow,
+        status: match.status,
+        reason: send.allow ? null : send.reason,
+        notice: send.allow ? null : severedMessage(match.status as MatchLifecycleStatus),
+      };
+    })(),
     messages: rows.map((m) => ({
       id: m.id,
       body: m.body,

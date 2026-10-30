@@ -355,3 +355,36 @@ export function chatChannelName(matchId: string): string {
 export function signalFilter(matchId: string): string {
   return `match_id=eq.${matchId}`;
 }
+/**
+ * A refused send is not one kind of event. Retrying a transport failure is right; retrying a
+ * policy refusal is a lie that burns the member's time, because the same bytes will be refused
+ * again. Kept pure (no fetch, no DOM) so every branch is asserted in the harness.
+ *
+ *  - `null`    → the request never answered: offline, aborted, DNS. Retryable.
+ *  - 401       → the session expired. A silent refresh can make the SAME text deliverable, so
+ *                it is retryable — but it is not the same as a network blip, hence its own kind.
+ *  - 429       → rate limited. Retryable after a backoff the caller already owns.
+ *  - 5xx       → server/edge failure. Retryable.
+ *  - 4xx else  → 400 (text too long / malformed), 403 (thread severed, or the other member's
+ *                message privacy), 409 (thread not open / needs confirmation). The request is
+ *                understood and declined on purpose. No amount of retrying changes the answer.
+ */
+export type SendFailureKind = "retryable" | "session" | "permanent";
+
+export function classifySendFailure(status: number | null): SendFailureKind {
+  /* Anything that is not a deliberate 4xx decline must stay retryable, so the permanent branch is
+     the narrow one. `status < 100` covers 0 (an opaque/aborted response some stacks surface that
+     way) and the Number.isFinite guard covers NaN — a NaN reaching `>= 500` is false, which would
+     otherwise strand a recoverable send with no retry. */
+  if (status === null || !Number.isFinite(status) || status < 100) return "retryable";
+  if (status === 401) return "session";
+  if (status === 429) return "retryable";
+  if (status >= 400 && status < 500) return "permanent";
+  return "retryable"; // 1xx, 2xx, 3xx and 5xx: never suppress a retry on these
+}
+
+/** What the bubble may offer. A permanent refusal keeps the text visible (the member must never
+ *  wonder whether it sent) but must not offer a retry, which would imply it might work. */
+export function offersRetryAfter(kind: SendFailureKind): boolean {
+  return kind !== "permanent";
+}
