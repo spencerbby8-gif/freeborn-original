@@ -48,3 +48,32 @@ de809e9ded1266044dbb8feb93aa49dde0f0a768001b92aa3953d03cdb333b0e  hinge/298-fd2f
 ee80b12e7ada74c3bf9709fe0c14adc0b2d04d0d3e80d1925b83262aabdfe2fb  hinge/487-c89d8ac1c56f4891.js
 ef64aa8a1aa447bafa9eaf574ad719c92d248d3b87fcd104092799957639cb8d  hinge/620-90f8e15ecc063856.js
 f9016d310504d8f93efa62a9203eddeeb92149ad8ec79af829854da827ef3052  hinge/870-bfaf586cb29ee09b.js
+
+
+# Appended 2026-10-30T19:30Z for the second acquisition round. Paths are relative to re/ (NOT to the
+# 2026-10-29 root used above), because these bundles live in the 2026-10-30 workspace folder and are
+# deliberately not committed. 23 files / 5,744,053 bytes; the authoritative list with sizes and fetch
+# status is ACQUIRED-2026-10-30T.manifest.json in this directory.
+b889194b14197861d4fc5299727885237f60280b10bac8b1aa240a6dd82bd081  analysis-2026-10-30/acquired-2026-10-30T/bumble.4101edefd833a9ef.js
+491d09bc4418899c764906d7186f2520b14b3338fe827e7fc560df8668522c08  analysis-2026-10-30/acquired-2026-10-30T/bumble.5bb89c3037642114.js
+a211e3940d4adadd1aae1ed4b860e8d0a712de2106aa9136bd2b2fe203285eee  analysis-2026-10-30/acquired-2026-10-30T/bumble.7050c3776fb2414d.css
+ceb959d1bc651a60231c4abe14fdee1fe22b3ff84846ae3d7a22c4d17b03abd7  analysis-2026-10-30/acquired-2026-10-30T/bumble.7baa63ca4f39942f.js
+b686e3528b15593d663441c3f2d5762660a59f96c7694fcf6158bd0a41b290b7  analysis-2026-10-30/acquired-2026-10-30T/bumble.84285cd15339b1a6.js
+1b31ce3299ac380c86aced6cadda69bd45abcf7f93ac8c602d7780d7ee6698cd  analysis-2026-10-30/acquired-2026-10-30T/bumble.9246b388839924e4.js
+504e7fea970929b843a590cbdaf0bb9b3cb246c5d95a18bc46057e2256ee55e2  analysis-2026-10-30/acquired-2026-10-30T/bumble.973dca4db395beb0.js
+66a66d6d5bc99819e7712b1f243a4657af60a95c72f5c12383c7f2dd0465d058  analysis-2026-10-30/acquired-2026-10-30T/bumble.9fab77bf4fc366ef.js
+8554eca85c70ed3aa91aae2d5f4810d0b8e8424031ffe6254bb198f8e88fb376  analysis-2026-10-30/acquired-2026-10-30T/bumble._buildManifest.js
+1b7eaaf96fc33bb19bc4d3fa6a059e449f14de858b7431b2dafe552fe9e29c26  analysis-2026-10-30/acquired-2026-10-30T/bumble.af4e10453a764913.js
+c9c2b4a39374f16d90a1971c310916951573361a0855c273d7e463d786c49280  analysis-2026-10-30/acquired-2026-10-30T/bumble.e6ec843947d31f93.js
+aaf82fce112735865506d4e7a7894b2d51a8c5f64938eb89ca86fd0580354d37  analysis-2026-10-30/acquired-2026-10-30T/bumble.e96e875596392b2a.js
+9195f0c73a2a5bb29589587a3155f1766b58da113c5391e07974b768a53b9365  analysis-2026-10-30/acquired-2026-10-30T/bumble.effe7c444ad84d2a.css
+ad572d13c593d2b3a40e34aeaec53f07dabcfcf81e95533af8d84ddd5fd50f6f  analysis-2026-10-30/acquired-2026-10-30T/bumble.fonts-bumble.css
+0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683  analysis-2026-10-30/acquired-2026-10-30T/bumble.polyfills-42372ed130431b0a.js
+0ad1f735583b4b8356ee1bd93df306c5f6c9486d2253ee340ec2b6e2354bba07  analysis-2026-10-30/acquired-2026-10-30T/tinder.79047-fd15ebba71088abd6652.js
+b40ebb8fddf871d14ae7767f526caa865bfc735ec6c56e63f082301c1db850f5  analysis-2026-10-30/acquired-2026-10-30T/tinder.atomic.032d2311a30cd98d8799.css
+00fb7745dcacc693edcd2c3c8210c60a0e4fcca35f260a9c2e8c9d27149c4347  analysis-2026-10-30/acquired-2026-10-30T/tinder.main-dc2addb81fed3c105970.js
+0a20dac8bc3c0a650371b8d2d6a7c9b4338ab201c0842eaa308f8ed002da900e  analysis-2026-10-30/acquired-2026-10-30T/tinder.main.8d45a23e97c7ef997deb.css
+e741f62ce53f66bf2a0f0cc2c0e53a028e87ff066aa75910a5cd4e0972fd69bb  analysis-2026-10-30/acquired-2026-10-30T/tinder.pc-webpack-runtime-338625c720b811f8f1e6.js
+4249a73fbffde52baae4994e9982fc4fd9ee86071fa9df32766fd285268d5eda  analysis-2026-10-30/acquired-2026-10-30T/tinder.tinderapp-cfb387acc7e482a3547b.js
+ae6d7d653f61d5fdf2cbf3c3e11faaefe8e5780298a77041bf2995dd1f9bfc03  analysis-2026-10-30/acquired-2026-10-30T/tinder.tinderapp.99d25c3a4205870cbe02.css
+34fe04f849ccf3d0eb4bc5352f9122eeb102dab64359791fd63355f77d618815  analysis-2026-10-30/acquired-2026-10-30T/tinder.vendor-5a05cf0d48eac6631043.js

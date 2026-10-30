@@ -32,6 +32,14 @@ import {
 } from "@/lib/media-access";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
+import {
+  describeFailure,
+  fetchWithRetry,
+  isRateLimited,
+  readJsonSafe,
+  retryDelayMs,
+  retrySrcFor,
+} from "@/lib/api-response";
 
 let pass = 0;
 let total = 0;
@@ -1344,6 +1352,143 @@ ok("[15] the migration deletes no member data",
 ok("[15] the public bucket now has a measured mime and size bound",
   mediaMigSrc.includes("BOUND THE PUBLIC BUCKET — APPLIED 2026-10-30") &&
   mediaMigSrc.includes("array['image/jpeg','image/png','image/webp']"));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [16] MEDIA RESILIENCE + SHARED UI CONTRACT (2026-10-30, competitor-driven)
+   ──────────────────────────────────────────────────────────────────────────
+   (a) src/lib/api-response.ts is pinned as BEHAVIOUR: the tolerant parse, the
+       retry bound, the idempotency rule and the backoff clock. These exist because
+       a proxy 502 is an HTML page — `await res.json()` threw a SyntaxError that
+       either reached the member as "unexpected end of JSON input" or, in
+       getIceConfig, was swallowed and silently downgraded every call to STUN-only.
+       The 60s 429 floor, the bounded default and the retry-only-idempotent shape
+       are what Tinder's and Hinge's own shipped clients were measured doing
+       (docs/research/2026-10-30/MINING-API-STATE.json, cited by byte offset);
+       the offsets are evidence for a MECHANISM, not for their server behaviour.
+   (b) The photo renderer and button contract are pinned as STRUCTURE: that the
+       two most-seen photo surfaces route through the resilient component at all,
+       and that hover/pressed stay overlay-painted and capability-gated. Those
+       properties are invisible in a screenshot and easy to "simplify" away.
+   ══════════════════════════════════════════════════════════════════════════ */
+const res = (status: number, body: BodyInit | null, headers: Record<string, string> = {}) =>
+  new Response(body, { status, headers });
+
+ok("[16] a non-JSON body parses to null instead of throwing",
+  (await readJsonSafe(res(502, "<html><title>502 Bad Gateway</title></html>"))) === null &&
+  (await readJsonSafe(res(200, ""))) === null &&
+  JSON.stringify(await readJsonSafe(res(200, JSON.stringify({ a: 1 }), { "content-type": "application/json" }))) === '{"a":1}',
+  "an HTML error page must not raise SyntaxError, and an empty body is not an error");
+
+ok("[16] real JSON still parses",
+  (await readJsonSafe(res(200, JSON.stringify({ iceServers: [{ urls: "stun:x" }] })))) !== null);
+
+{
+  const own = await describeFailure(res(413, JSON.stringify({ error: "That photo is too large." })));
+  const proxy = await describeFailure(res(502, "<html>502</html>"));
+  const anon = await describeFailure(res(418, "{}"));
+  ok("[16] the server's own message wins over the generic one", own.message === "That photo is too large." && own.status === 413);
+  ok("[16] an unparseable 502 still yields a sentence a person can read", /unreachable/i.test(proxy.message), proxy.message);
+  ok("[16] no status may fall through to an empty message", anon.message.trim().length > 0, JSON.stringify(anon));
+}
+
+ok("[16] only 429 counts as a throttle (503 has no window to honour)",
+  isRateLimited({ status: 429 }) === true && isRateLimited({ status: 503 }) === false);
+
+ok("[16] Retry-After wins over the local guess, and is clamped to a survivable wait",
+  retryDelayMs({ status: 429, retryAfterHeader: "3", attempt: 1 }) === 3000 &&
+  retryDelayMs({ status: 429, retryAfterHeader: "99999", attempt: 1 }) === 60000,
+  "a hostile or buggy header cannot park a member's screen for an hour");
+
+ok("[16] a 429 with no header gets the measured 60s floor",
+  retryDelayMs({ status: 429, attempt: 1 }) === 60000,
+  "mechanism observed in Tinder's client as 429===t&&(o.all=s+6e4)");
+
+ok("[16] a 5xx backs off exponentially from the base and respects the cap",
+  retryDelayMs({ status: 500, attempt: 1, baseMs: 400, capMs: 20000 }) === 400 &&
+  retryDelayMs({ status: 500, attempt: 3, baseMs: 400, capMs: 20000 }) === 1600 &&
+  retryDelayMs({ status: 500, attempt: 9, baseMs: 400, capMs: 20000 }) === 20000);
+
+{
+  let calls = 0; const slept: number[] = [];
+  const out = await fetchWithRetry("/api/x", { method: "GET" },
+    { maxAttempts: 3, baseMs: 100, sleep: async (ms) => { slept.push(ms); } },
+    async () => { calls++; return res(503, "{}"); });
+  ok("[16] a failing GET is retried to the bound, then the response is returned not thrown",
+    calls === 3 && out.attempts === 3 && out.res?.status === 503 && slept.length === 2,
+    `calls=${calls} attempts=${out.attempts} sleeps=${slept.length}`);
+}
+
+{
+  let post = 0, bad = 0;
+  await fetchWithRetry("/api/likes", { method: "POST" }, { maxAttempts: 5, sleep: async () => {} },
+    async () => { post++; return res(502, "{}"); });
+  await fetchWithRetry("/api/x", { method: "GET" }, { maxAttempts: 5, sleep: async () => {} },
+    async () => { bad++; return res(400, "{}"); });
+  ok("[16] a POST is never retried — a duplicate like, report or message is the worse bug",
+    post === 1, `post calls=${post}`);
+  ok("[16] a 400 is a decision, not a hiccup: no retry", bad === 1, `400 calls=${bad}`);
+}
+
+{
+  let calls = 0;
+  const okOut = await fetchWithRetry("/api/x", {}, { maxAttempts: 5, sleep: async () => {} }, async () => {
+    calls++; return calls < 3 ? res(500, "{}") : res(200, JSON.stringify({ iceServers: [] }));
+  });
+  let boom = 0;
+  const net = await fetchWithRetry("/api/x", {}, { maxAttempts: 2, sleep: async () => {} }, async () => {
+    boom++; throw new TypeError("Failed to fetch");
+  });
+  ok("[16] the first success stops the loop", calls === 3 && okOut.res?.status === 200, `calls=${calls}`);
+  ok("[16] a network error is retried and the original error still reaches the caller",
+    boom === 2 && net.res === null && net.error instanceof TypeError, `boom=${boom}`);
+}
+
+ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreign ones",
+  retrySrcFor("/api/chat/media/abc", 1) === "/api/chat/media/abc?r=1" &&
+  retrySrcFor("/api/chat/media/abc?r=2", 3) === "/api/chat/media/abc?r=3" &&
+  retrySrcFor("/api/x?token=abc", 2) === "/api/x?token=abc&r=2" &&
+  retrySrcFor("https://cdn.example/i.jpg", 1) === null &&
+  retrySrcFor("//example.com/i.jpg", 1) === null &&
+  retrySrcFor("data:image/jpeg;base64,AAA", 1) === null,
+  "a signed URL must not be rewritten and an inline preview is already in memory");
+
+{
+  const deck = readFileSync(new URL("../../src/components/app/home-deck.tsx", import.meta.url), "utf8");
+  const chat = readFileSync(new URL("../../src/components/app/chat-view.tsx", import.meta.url), "utf8");
+  const bus = readFileSync(new URL("../../src/lib/call-bus.ts", import.meta.url), "utf8");
+  ok("[16] the deck photo renders through the resilient component, not a bare <img>",
+    /<PhotoImage\b/.test(deck) && !/<img\s+src=\{profile\.photos/.test(deck));
+  ok("[16] chat avatars render through it too", /<PhotoImage\b/.test(chat));
+  ok("[16] the ICE fetch no longer parses unguardedly",
+    !/await res\.json\(\)/.test(bus) && /readJsonSafe/.test(bus),
+    "an HTML 502 here used to be caught and silently downgrade every call to STUN-only");
+}
+
+{
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const btn = readFileSync(new URL("../../src/components/ui/button.tsx", import.meta.url), "utf8");
+  const photo = readFileSync(new URL("../../src/components/ui/photo-image.tsx", import.meta.url), "utf8");
+  ok("[16] hover and pressed are overlay layers, so label contrast cannot drift per state",
+    /--button-overlay-background-hover/.test(css) && /--button-overlay-background-pressed/.test(css) &&
+    /\.fb-btn::after/.test(css),
+    "Bumble's mechanism, read off its stylesheet — not its appearance");
+  ok("[16] hover styling is capability-gated, so it cannot stick after a tap",
+    /@media \(hover: hover\) and \(pointer: fine\)/.test(css), "as Tinder's stylesheet does");
+  ok("[16] focus is explicit and motion is respected",
+    /\.fb-btn:focus-visible/.test(css) && /@media \(prefers-reduced-motion: reduce\)/.test(css));
+  ok("[16] the measured type scale lives in @theme so the utilities exist",
+    /--text-ui-xs: 0\.8125rem/.test(css) && /--text-ui-sm: 0\.9375rem/.test(css) &&
+    /--text-ui-md: 1\.0625rem/.test(css) && /--radius-card: 1rem/.test(css) &&
+    /--control-h-md: 2\.75rem/.test(css),
+    "13/15/17px + 16px radius + 44px control floor, from bumble.7050c3776fb2414d.css");
+  ok("[16] a loading button is disabled and announced, not merely styled",
+    /disabled \|\| loading/.test(btn) && /aria-busy/.test(btn));
+  ok("[16] a new src resets render state in-render, not in an effect",
+    /setPrevSrc\(src\)[\s\S]{0,120}setState\("loading"\)/.test(photo) && !/useEffect\(\(\) => \{\s*setState\("loading"\)/.test(photo),
+    "an effect would paint one frame of the previous photo's state onto the new src");
+  ok("[16] a failed photo is said out loud and offers a way out",
+    /didn/.test(photo) && /Tap to try again/.test(photo));
+}
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */

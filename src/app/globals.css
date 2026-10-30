@@ -36,6 +36,31 @@
 
   --font-display: var(--font-fraunces), "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* ── Type scale, radius and control rhythm ─────────────────────────────────
+     Values are MEASURED, not invented. Bumble's stylesheet declares exactly six
+     working sizes (13/15/17/20/34/49px) with 15px and 17px dominating at 224
+     declarations each, radii clustered on 16px with a 1000px pill and 50%
+     circles, and a 4px gap lattice (8/12/16/20/24/32/40). Re-derived
+     2026-10-30 from bumble.7050c3776fb2414d.css (822,045 bytes, sha256
+     a211e3940d4adadd…) via docs/research/2026-10-30/DESIGN-TOKENS.json.
+     Sizes are set in rem against the 16px root, and every one is clamp()ed with a
+     `--fb-text-scale` multiplier so a user's font preference moves the whole
+     surface at once — the mechanism behind Bumble's `--resize-speed`
+     (`--font-size: clamp(17px,(17px + 0vw) * var(--resize-speed,1),17px)`,
+     112 occurrences), whose three settings 1 / .9 / .8 are how it compresses
+     type on small screens without redeclaring a scale. */
+  --text-ui-xs: 0.8125rem; /* 13px — meta, timestamps */
+  --text-ui-sm: 0.9375rem; /* 15px — body default */
+  --text-ui-md: 1.0625rem; /* 17px — deck card name, primary label */
+  --text-ui-lg: 1.25rem;   /* 20px — screen title */
+  --text-ui-xl: 2.125rem;  /* 34px — display */
+  --fb-text-scale: 1;
+  --radius-card: 1rem;     /* 16px, Bumble's dominant radius */
+  --radius-pill: 9999px;
+  --control-h-sm: 2.25rem; /* 36px */
+  --control-h-md: 2.75rem; /* 44px — the touch-target floor */
+  --control-h-lg: 3.25rem; /* 52px */
 }
 
 :root {
@@ -1090,3 +1115,130 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 .fb-section-head { display: grid; gap: 8px; }
 .fb-section-head .fb-h-title { letter-spacing: -0.01em; }
 .fb-section-head .fb-meta { max-width: 62ch; }
+
+/* ==========================================================================
+   BUTTON CONTRACT — token-themed, overlay interaction states, capability-gated
+   ==========================================================================
+   Mechanism sources, all from acquired bytes (offsets in
+   docs/research/2026-10-30/DESIGN-TOKENS.json and MINING-API-STATE.json):
+     * Bumble themes a button through custom properties and paints hover/pressed as an
+       OVERLAY (`--button-overlay-background-hover` / `-pressed`, 15-20 declarations
+       each) instead of recolouring the surface — so label contrast cannot drift per
+       state, which is the failure mode of ad-hoc `hover:bg-*` classes.
+     * Tinder gates hover behind `(hover:hover) and (pointer:fine)`; on touch, a sticky
+       :hover after tap reads as a broken control.
+     * Tinder styles `:focus-visible` explicitly rather than relying on the UA ring.
+   Sizes/radii are Freeborn's own; the palette is Freeborn's. This is a shared contract,
+   not a reskin. */
+.fb-btn {
+  --button-background-color: var(--color-pearl);
+  --button-color: var(--color-ink);
+  --button-border-color: transparent;
+  --button-border-width: 0px;
+  --button-overlay-background-hover: rgba(255, 255, 255, 0.14);
+  --button-overlay-background-pressed: rgba(0, 0, 0, 0.14);
+  --button-shadow: 0 18px 36px -18px rgba(251, 247, 242, 0.34);
+
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: var(--control-h-md);
+  padding: 0 1.25rem;
+  border: var(--button-border-width) solid var(--button-border-color);
+  border-radius: var(--radius-card);
+  background: var(--button-background-color);
+  color: var(--button-color);
+  font-family: var(--font-body);
+  font-size: var(--text-ui-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 160ms ease, opacity 160ms ease, transform 120ms ease;
+}
+/* The overlay. Rendered as a sibling layer so the base colour — and therefore the
+   label contrast — is identical in every state. */
+.fb-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: transparent;
+  transition: background-color 160ms ease;
+}
+.fb-btn__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fb-btn--block { display: flex; width: 100%; }
+.fb-btn--sm { min-height: var(--control-h-sm); font-size: var(--text-ui-xs); padding: 0 0.875rem; border-radius: 0.75rem; }
+.fb-btn--md { min-height: var(--control-h-md); }
+.fb-btn--lg { min-height: var(--control-h-lg); font-size: var(--text-ui-md); padding: 0 1.5rem; }
+.fb-btn--secondary {
+  --button-background-color: rgba(251, 247, 242, 0.06);
+  --button-color: var(--color-pearl);
+  --button-border-color: rgba(251, 247, 242, 0.18);
+  --button-border-width: 1px;
+  --button-shadow: none;
+}
+.fb-btn--ghost {
+  --button-background-color: transparent;
+  --button-color: var(--color-mist);
+  --button-border-color: transparent;
+  --button-border-width: 0px;
+  --button-shadow: none;
+}
+.fb-btn--danger {
+  --button-background-color: var(--color-danger);
+  --button-color: #2b0710;
+  --button-shadow: 0 18px 36px -18px rgba(255, 107, 122, 0.42);
+}
+.fb-btn--quiet {
+  --button-background-color: transparent;
+  --button-color: var(--color-pearl);
+  --button-border-color: rgba(251, 247, 242, 0.28);
+  --button-border-width: 1px;
+  --button-shadow: none;
+  border-radius: var(--radius-pill);
+}
+@media (hover: hover) and (pointer: fine) {
+  .fb-btn:not(:disabled):hover::after { background: var(--button-overlay-background-hover); }
+  .fb-btn:not(:disabled):hover { box-shadow: 0 22px 40px -18px rgba(251, 247, 242, 0.4); }
+}
+.fb-btn:not(:disabled):active::after { background: var(--button-overlay-background-pressed); }
+.fb-btn:not(:disabled):active { transform: translateY(1px); }
+.fb-btn:focus-visible {
+  outline: 2px solid var(--color-ember-300);
+  outline-offset: 3px;
+}
+.fb-btn:disabled,
+.fb-btn[aria-busy="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+.fb-btn--loading { cursor: progress; }
+.fb-btn--loading .fb-btn__label { opacity: 0.72; }
+.fb-btn--loading::before {
+  content: "";
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: fb-spin 0.7s linear infinite;
+}
+@keyframes fb-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fb-btn, .fb-btn::after { transition: none; }
+  .fb-btn--loading::before { animation-duration: 1.6s; }
+}
+/* One place to lower the type scale instead of per-breakpoint redeclarations. */
+@media (max-width: 599px) { :root { --fb-text-scale: 0.94; } }

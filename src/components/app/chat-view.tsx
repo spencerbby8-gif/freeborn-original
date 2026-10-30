@@ -1,5 +1,7 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { ProfileView } from "./profile-view";
@@ -334,11 +336,12 @@ function DayDivider({ label }: { label: string }) {
 function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?: number }) {
   if (photo) {
     return (
-      <img
+      <PhotoImage
         src={photo}
         alt={name}
         style={{ width: size, height: size }}
-        className="shrink-0 rounded-full border border-white/10 object-cover"
+        className="shrink-0 overflow-hidden rounded-full border border-white/10"
+        imgClassName="object-cover"
       />
     );
   }
