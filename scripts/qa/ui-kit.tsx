@@ -1,9 +1,11 @@
 import { createRoot } from "react-dom/client";
+import { useEffect, useRef, useState } from "react";
 /* The stylesheet is supplied by scripts/qa/build.mjs as ./qa.css — the file Next actually
    emitted from src/app/globals.css, so this harness photographs production CSS, not a
    re-implementation of it. */
 import { Button } from "@/components/ui/button";
 import { PhotoImage } from "@/components/ui/photo-image";
+import { EndConversationDialog } from "@/components/app/unmatch-dialog";
 
 /**
  * Visual QA mount for the design layer — NOT a product route and not shipped.
@@ -22,6 +24,34 @@ const ok =
   );
 
 function App() {
+  const [kind, setKind] = useState<null | "unmatch" | "delete">(null);
+  const [busy, setBusy] = useState(false);
+  /* Every open() bumps this and it becomes the dialog's React `key`, so each QA pass mounts a
+     genuinely fresh sheet — which is what the product does too (profile-view renders the dialog
+     conditionally, so closing unmounts it). Without the key, a second open() reuses the mounted
+     component and its internal reason selection survives: the first run of this script then
+     toggled the chip OFF instead of on and photographed the wrong state. */
+  const [epoch, setEpoch] = useState(0);
+  /* What the product's handlers would have received. The QA page owns the callbacks so the
+     browser script can assert the PAYLOAD (which reason reached onConfirm), not only that a
+     button was clickable — the client defect this dialog exists to fix was exactly a payload
+     that never arrived. */
+  const rec = useRef<{ confirms: (string | null)[]; cancels: number; reports: number }>({
+    confirms: [],
+    cancels: 0,
+    reports: 0,
+  });
+  useEffect(() => {
+    (window as unknown as { __qaEnd: unknown }).__qaEnd = {
+      open: (k: "unmatch" | "delete", b = false) => {
+        rec.current = { confirms: [], cancels: 0, reports: 0 };
+        setBusy(b);
+        setKind(k);
+        setEpoch((e) => e + 1);
+      },
+      result: () => rec.current,
+    };
+  }, []);
   return (
     <main className="min-h-screen bg-ink px-6 py-8 text-pearl" style={{ fontFamily: "var(--font-body)" }}>
       <p className="text-ui-xs uppercase tracking-[0.2em] text-mist">Freeborn design layer</p>
@@ -90,6 +120,44 @@ function App() {
           <p className="text-ui-xs text-mist">compact failure in a 44px avatar — glyph only, label kept for screen readers</p>
         </div>
       </section>
+      <section className="mt-10">
+        <h2 className="font-display text-lg">EndConversationDialog — mounted for real</h2>
+        <p className="mt-1 text-ui-xs text-mist">
+          The product component, its own Escape/focus/reason state, against the stylesheet Next
+          emitted. No API is called; the callbacks below only record what a handler received.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button id="qa-open-unmatch" variant="secondary" size="sm" onClick={() => (window as never as { __qaEnd: { open: (k: string, b?: boolean) => void } }).__qaEnd.open("unmatch")}>
+            Open unmatch sheet
+          </Button>
+          <Button id="qa-open-busy" variant="secondary" size="sm" onClick={() => (window as never as { __qaEnd: { open: (k: string, b?: boolean) => void } }).__qaEnd.open("unmatch", true)}>
+            Open busy
+          </Button>
+          <Button id="qa-open-delete" variant="secondary" size="sm" onClick={() => (window as never as { __qaEnd: { open: (k: string, b?: boolean) => void } }).__qaEnd.open("delete")}>
+            Open delete-conversation sheet
+          </Button>
+        </div>
+      </section>
+
+      {kind ? (
+        <EndConversationDialog
+          key={epoch}
+          kind={kind}
+          name="Ada"
+          busy={busy}
+          onCancel={() => {
+            rec.current.cancels += 1;
+            setKind(null);
+            setBusy(false);
+          }}
+          onConfirm={(reason) => {
+            rec.current.confirms.push(reason ?? null);
+          }}
+          onReport={() => {
+            rec.current.reports += 1;
+          }}
+        />
+      ) : null}
     </main>
   );
 }
