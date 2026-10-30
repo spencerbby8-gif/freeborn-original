@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { EndConversationDialog } from "@/components/app/unmatch-dialog";
+import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
 /**
  * Visual QA mount for the design layer — NOT a product route and not shipped.
@@ -120,6 +121,17 @@ function App() {
           <p className="text-ui-xs text-mist">compact failure in a 44px avatar — glyph only, label kept for screen readers</p>
         </div>
       </section>
+      <section id="read-only-thread" className="mt-10">
+        <h2 className="font-display text-lg">ReadOnlyThreadNotice — the state a severed thread renders in</h2>
+        {/* Wrapped exactly as chat-view wraps it (`mx-auto max-w-[680px]`, line 1633), because the
+            bubble has no intrinsic width on purpose — the chat column owns that. Mounting it
+            unconstrained here would measure the harness, not the product. */}
+        <div className="mx-auto max-w-[680px]">
+          <ReadOnlyThreadNotice />
+          <ReadOnlyThreadNotice notice="This conversation has ended, so its history is kept for the member who did not end it." />
+        </div>
+      </section>
+
       <section className="mt-10">
         <h2 className="font-display text-lg">EndConversationDialog — mounted for real</h2>
         <p className="mt-1 text-ui-xs text-mist">

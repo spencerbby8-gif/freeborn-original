@@ -57,6 +57,8 @@ import {
   markPendingFailed,
   mergeMessages,
   nextPhase,
+  classifySendFailure,
+  offersRetryAfter,
   noteFailureCount,
   pendingToMessage,
   pollIntervalMs,
@@ -1997,6 +1999,109 @@ console.log("\n[21] the erasure path covers what the schema cannot cascade");
     deletes.indexOf("auth.users") === deletes.length - 1 && deletes.indexOf("public.user_profiles") < deletes.indexOf("auth.users"));
   ok("[21] the bucket sweep runs before the row deletes (objects first, or the paths are unreadable afterwards)",
     acct.indexOf("list(") < acct.indexOf("delete from public.profile_photos"));
+}
+
+
+/* ---------- 22. a refused send is not one kind of event ---------- */
+console.log("\n[22] policy refusals are permanent; transport failures are not");
+{
+  /* Executed, not described: the shipped classifier is called with every status that the
+     messages route can actually produce, plus the whole legal HTTP space. */
+  const byStatus: [number | null, string][] = [
+    [null, "retryable"], // fetch rejected: offline, aborted, DNS
+    [0, "retryable"], // an opaque/aborted response some stacks surface as 0
+    [NaN, "retryable"], // NaN must not fall through the comparisons into "permanent"
+    [400, "permanent"], // text too long / malformed body — same bytes, same answer
+    [401, "session"], // an expired token; a refresh can deliver the SAME text
+    [403, "permanent"], // thread severed, or the other member's message privacy
+    [404, "permanent"],
+    [409, "permanent"], // thread not open / needs confirmation
+    [413, "permanent"],
+    [422, "permanent"],
+    [429, "retryable"], // rate limited — backoff already owns the wait
+    [431, "permanent"],
+    [500, "retryable"],
+    [502, "retryable"], // the proxy's HTML error page is exactly this path
+    [503, "retryable"],
+    [599, "retryable"],
+  ];
+  for (const [status, want] of byStatus) {
+    ok(`[22] classifySendFailure(${status}) === "${want}"`, classifySendFailure(status) === want, classifySendFailure(status));
+  }
+
+  // The property that makes the table more than a list: no 4xx policy code may ever offer a
+  // retry, and no server-side or transport failure may ever withhold one.
+  let violations: string[] = [];
+  for (let st = 100; st <= 599; st++) {
+    const kind = classifySendFailure(st);
+    const is4xx = st >= 400 && st < 500;
+    if (kind === "retryable" && is4xx && st !== 401 && st !== 429) violations.push(`${st}:retryable`);
+    if (kind === "permanent" && st >= 500) violations.push(`${st}:permanent`);
+    if (kind === "permanent" && st < 400) violations.push(`${st}:permanent`);
+    if (kind === "session" && st !== 401) violations.push(`${st}:session`);
+  }
+  ok("[22] over all 500 statuses: 4xx policy refusals never offer retry, 5xx/transport always do",
+    violations.length === 0, violations.slice(0, 6).join(","));
+  ok("[22] only 401 is given its own kind — a silent refresh can rescue it, a 403 cannot",
+    classifySendFailure(401) === "session" && classifySendFailure(403) !== "session" &&
+      classifySendFailure(null) !== "session");
+
+  ok("[22] retry is offered for exactly the retryable kinds",
+    offersRetryAfter("retryable") === true && offersRetryAfter("session") === true &&
+      offersRetryAfter("permanent") === false);
+  ok("[22] and the UI path uses that predicate rather than re-deriving the status code",
+    /offersRetryAfter\(kind\)/.test(src("src/components/app/chat-view.tsx")) &&
+      !/if \(res\.status === 403\)/.test(src("src/components/app/chat-view.tsx")));
+
+  /* The server half: `thread` must be computed by the ONE access table, never re-derived in the
+     route (that is how the last two drift bugs happened — hardened API, unupdated UI). */
+  const get = src("src/app/api/chat/messages/route.ts");
+  const threadBlock = get.slice(get.indexOf("    thread: (() => {"), get.indexOf("    messages: rows.map("));
+  ok("[22] GET tells the client whether THIS member may write, decided by decideMatchAccess",
+    /thread: \(\(\) => \{/.test(get) && threadBlock.includes('action: "send_message"') &&
+      /decideMatchAccess\(\{[\s\S]*?\}\);/.test(threadBlock));
+  ok("[22] the thread facts are derived from the row the view permission already returned (no second query)",
+    /status: match\.status as MatchLifecycleStatus/.test(threadBlock) &&
+      /isActor: match\.unmatchedBy === member\.id/.test(threadBlock));
+  ok("[22] the route does not hand-roll lifecycle rules the table already owns",
+    !/status === "unmatched"/.test(threadBlock) && !/status !== "active"/.test(threadBlock));
+
+  const cv = src("src/components/app/chat-view.tsx");
+  ok("[22] writability is re-read on every fetch, so a thread that ends while it is open updates",
+    /if \(json\.thread\) setThreadAccess\(\{ canSend: !!json\.thread\.canSend/.test(cv));
+  const notice = src("src/components/app/read-only-thread-notice.tsx");
+  ok("[22] a read-only thread replaces the composer with a real component, not a field that will fail",
+    /data-readonly-thread=""/.test(notice) && /This conversation is read-only\./.test(notice) &&
+      /\{threadAccess && !threadAccess\.canSend \? <ReadOnlyThreadNotice/.test(cv.replace(/\n\s*/g, " ")) === false &&
+      /<ReadOnlyThreadNotice notice=\{threadAccess\.notice\} \/>/.test(cv) &&
+      /\{threadAccess && !threadAccess\.canSend \? null : \(/.test(cv));
+  // The component's own doc comment contains the word "connection" (it explains why the copy
+  // must not). Judging prose would fail on a correct file — strip comments first, always.
+  const noticeCode = notice.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("[22] the notice never blames the connection, because this is a decision and not a failure",
+    !/connection|Check your|retry/i.test(noticeCode));
+  /* The third condition is ORDER, not presence: a guard written after the fetch would be a
+     comment. And `threadAccess` must be a dependency of `deliver`, or the closure reads a verdict
+     from mount time and the gate silently stops working the moment the thread ends. */
+  const deliverBody = cv.slice(cv.indexOf("const deliver = useCallback("), cv.indexOf("const retrySend"));
+  const guardAt = deliverBody.indexOf("if (threadAccess && !threadAccess.canSend) {");
+  const postAt = deliverBody.indexOf('method: "POST"');
+  /* ORDER, not presence — a guard written after the fetch is a comment. Slice to `retrySend`
+     because other POSTs exist earlier in this file, and a file-wide indexOf found the wrong one. */
+  ok("[22] the write choke point enforces the verdict BEFORE the request, not after it",
+    guardAt > 0 && postAt > guardAt && /return false;/.test(deliverBody.slice(guardAt, postAt)));
+  ok("[22] the guard marks the bubble blocked and returns false — it never reports success",
+    /blocked: true \} : m\)\)\);/.test(deliverBody) &&
+      !/return true/.test(deliverBody.slice(guardAt, guardAt + 500)));
+  ok("[22] deliver depends on threadAccess, so the verdict cannot go stale in the closure",
+    /\[armPoll, load, match\.id, onChanged, threadAccess, token\]/.test(cv));
+  ok("[22] a policy-declined bubble stays visible WITHOUT a retry affordance",
+    /m\.failed && m\.blocked \?[\s\S]{0,900}?Not delivered[\s\S]{0,120}?\) : m\.failed \? \(/.test(cv) &&
+      !/blocked[\s\S]{0,400}retrySend/.test(cv));
+  ok("[22] a refusal on policy grounds also closes the composer, so it cannot be tried again",
+    /if \(!retryable\) setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
+  ok("[22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked",
+    /\{ \.\.\.m, failed: false, blocked: false \}/.test(cv));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

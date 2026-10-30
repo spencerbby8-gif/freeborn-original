@@ -294,6 +294,62 @@ const desktop = await page.evaluate(() => {
 ok("on desktop it is a centred modal, not a sheet stuck to the bottom",
   desktop.centred && desktop.top && desktop.w <= 421, desktop);
 
+// ---------------------------------------------------------- 8b. the read-only thread state
+// A severed thread is VISIBLE but not WRITABLE. Before this change the composer stayed armed
+// for the member who was unmatched, every send returned 403, and the UI told them to check
+// their connection. The notice replaces the composer, so assert what it says and does not say.
+/* Measure at the phone width FIRST. The section above leaves the page at 1280, and a first run
+   reported the notice as `w: 1232` and still "passed" the viewport check — at desktop width,
+   which is not the layout that can break. */
+await page.setViewportSize({ width: 390, height: 844 });
+await page.waitForTimeout(250);
+const notice = page.locator("#read-only-thread [data-readonly-thread=\"\"]").first();
+ok("the read-only notice renders", (await notice.count()) === 1);
+ok("it states the constraint in plain words", /read-only/i.test((await notice.innerText()) || ""));
+ok("and never blames the connection — this is a decision, not a failure",
+  !/connection|network|retry/i.test((await notice.innerText()) || ""), (await notice.innerText())?.slice(0, 60));
+const noticeFacts = await page.evaluate(() => {
+  const els = [...document.querySelectorAll('#read-only-thread [data-readonly-thread=""]')];
+  const box = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, w: r.width, h: r.height }; };
+  const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { const x = +v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x); return +((l1 + 0.05) / (l2 + 0.05)).toFixed(2); };
+  const first = els[0];
+  const p = first.querySelector("p");
+  return {
+    count: els.length,
+    defaultCopy: p.textContent.includes("no new messages can be delivered"),
+    serverCopy: els[1] ? els[1].querySelector("p").textContent.includes("member who did not end it") : false,
+    boxes: els.map(box),
+    vw: innerWidth,
+    contrast: ratio(getComputedStyle(p).color, getComputedStyle(first).backgroundColor),
+    size: getComputedStyle(p).fontSize,
+  };
+});
+ok("the server's own wording wins when it supplies one (two instances, two texts)",
+  noticeFacts.defaultCopy && noticeFacts.serverCopy, { defaultCopy: noticeFacts.defaultCopy, serverCopy: noticeFacts.serverCopy });
+ok("the copy inside the bubble is legible (>=4.5:1) at the app's small-text size",
+  noticeFacts.contrast >= 4.5 && parseFloat(noticeFacts.size) >= 12, { contrast: noticeFacts.contrast, size: noticeFacts.size });
+ok("neither notice overflows the 390px viewport",
+  noticeFacts.vw === 390 &&
+    noticeFacts.boxes.every((b) => b.x >= -0.5 && b.x + b.w <= 390 + 1) &&
+    noticeFacts.boxes.every((b) => b.h > 30) &&
+    noticeFacts.boxes.every((b) => b.w > 300),
+  { vw: noticeFacts.vw, ...noticeFacts.boxes[0] });
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.waitForTimeout(250);
+const wide = await page.evaluate(() => {
+  const el = document.querySelector('#read-only-thread [data-readonly-thread=""]');
+  const r = el.getBoundingClientRect();
+  return { w: r.width, left: r.left, vw: innerWidth, parentMax: getComputedStyle(el.parentElement).maxWidth };
+});
+ok("and on desktop it obeys the chat column (max-w-[680px], centred), not the page",
+  wide.vw === 1280 && wide.w >= 320 && wide.w <= 681 && wide.left > 0 && Math.abs(wide.left + wide.w / 2 - 640) < 2, wide);
+await page.setViewportSize({ width: 390, height: 844 });
+await page.waitForTimeout(200);
+// Element screenshot, not a clipped page shot: the notice sits ~2000px down this QA page, so a
+// clip computed from its bounding box landed outside the viewport image and threw.
+await notice.screenshot({ path: `${shots}/dialog-readonly-notice.png` });
+
 // ---------------------------------------------------------------- 9. the photographs
 // Taken at the member's own viewport, before the desktop resize below, so the PNGs document the
 // phone case that the layout is written for (a desktop-only screenshot would flatter it).
@@ -315,7 +371,7 @@ await page.setViewportSize({ width: 1280, height: 900 });
 await open("unmatch");
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${shots}/dialog-desktop.png` });
-for (const f of ["dialog-unmatch", "dialog-report-branch", "dialog-busy", "dialog-delete", "dialog-desktop"])
+for (const f of ["dialog-unmatch", "dialog-report-branch", "dialog-busy", "dialog-delete", "dialog-desktop", "dialog-readonly-notice"])
   await copyFile(`${shots}/${f}.png`, `${report}/${f}.png`);
 
 ok("no page errors while all of that ran", errors.length === 0, errors.slice(0, 4));
