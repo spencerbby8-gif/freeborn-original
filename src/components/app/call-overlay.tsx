@@ -13,6 +13,7 @@
  * tells you exactly where it stopped.
  */
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   callChannel,
@@ -591,11 +592,14 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         {!(kind === "video" && state === "live") ? (
         <div className="relative z-10 flex flex-col items-center gap-4">
           {peer.photo ? (
-            <img
+            <PhotoImage
               src={peer.photo}
               alt={peer.name}
-              className={`rounded-full border-2 border-white/15 object-cover ${
-                state === "ringing" || state === "negotiating" ? "h-36 w-36 animate-pulse" : "h-32 w-32"
+              className={`rounded-full border-2 border-white/15 ${
+                state === "ringing" || state === "negotiating" ? "h-36 w-36" : "h-32 w-32"
+              }`}
+              imgClassName={`object-cover ${
+                state === "ringing" || state === "negotiating" ? "animate-pulse" : ""
               }`}
             />
           ) : (
