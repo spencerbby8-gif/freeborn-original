@@ -1688,8 +1688,19 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     /eq\(matches\.status, "active"\)/.test(deckSrc));
 
   const mediaSrc = src("src/app/api/chat/media/[id]/route.ts");
+  /* Rewritten 2026-10-30. It used to assert the route's shape (`= Boolean(participant)`), which
+     the delegation to decideMatchAccess legitimately changed. What actually has to stay true is a
+     PROPERTY of the decision, so it is now executed rather than grepped: a participant may read a
+     conversation's media in EVERY lifecycle state, for either member, and the route must not
+     re-filter on status itself. */
+  const readMediaAllStates = ["active", "archived", "blocked", "unmatched"].every(
+    (s) => ml(s as MatchLifecycleStatus, true, false, "read_media").allow === true &&
+            ml(s as MatchLifecycleStatus, true, true, "read_media").allow === true
+  );
   ok("[17] media authorisation stays participation-only and deliberately ignores status",
-    !/matches\.status/.test(mediaSrc) && /requesterIsParticipant = Boolean\(participant\)/.test(mediaSrc),
+    readMediaAllStates && /action: "read_media"/.test(mediaSrc) &&
+      !/conversation\.status === "active"/.test(mediaSrc) &&
+      ml(null, false, false, "read_media").allow === false,
     "the read of a former conversation's bytes is the point of retaining the rows");
 }
 
@@ -2102,6 +2113,64 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
     /if \(!retryable\) setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
   ok("[22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked",
     /\{ \.\.\.m, failed: false, blocked: false \}/.test(cv));
+}
+
+/* ---------- 23. one authority per question, and no decorative rules ---------- */
+console.log("\n[23] media access delegates to the lifecycle table, and every rule in it is reachable");
+{
+  const mediaSrc = src("src/app/api/chat/media/[id]/route.ts");
+  ok("[23] the media route asks the table for `read_media` instead of answering with a bare membership boolean",
+    /requesterIsParticipant = decideMatchAccess\(\{[\s\S]{0,260}?action: "read_media"/.test(mediaSrc));
+  ok("[23] and it loads the facts the table needs (status + who severed it), not just an id",
+    /select\(\{ id: matches\.id, status: matches\.status, unmatchedBy: matches\.unmatchedBy \}\)/.test(mediaSrc));
+  ok("[23] no independent membership-to-grant shortcut survives in the route (that was the second authority)",
+    !/requesterIsParticipant = Boolean\(/.test(mediaSrc));
+
+  /* A rule nothing calls is a rule that will drift: the last two defects on this branch were both
+     "the table says X, the call site does Y". So the table's own vocabulary is checked against
+     the codebase, with exactly one documented exception. */
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = `${d}/${e.name}`;
+      if (e.isDirectory()) walk(f);
+      else if(/\.(ts|tsx)$/.test(e.name)) files.push(f);
+    }
+  };
+  walk(new URL("../../src", import.meta.url).pathname);
+  const corpus = files.map((f) => ({ f, s: readFileSync(f, "utf8") }));
+  const requested = new Set<string>();
+  for (const { s } of corpus) for (const m of s.matchAll(/action:\s*"([a-z_]+)"/g)) requested.add(m[1]);
+  /* One action is deliberately not called from a route, and an exception that lives only in a
+     test is how a dead rule hides. The allow-list is therefore checked against the table's own
+     documentation: no entry may exist here that the source does not explain. */
+  const AUTHORITY_ONLY: Record<string, string> = {
+    export_own_data:
+      "the export route authorises by identity equality (member.id) rather than per match",
+  };
+  const lifecycleSrc = src("src/lib/match-lifecycle.ts");
+  const unreachable = ML_ACTIONS.filter((a) => !requested.has(a) && !(a in AUTHORITY_ONLY));
+  ok("[23] every MatchAction is either requested by a caller or explicitly excused",
+    unreachable.length === 0, unreachable.join(","));
+  ok("[23] and every excuse is justified at the table, not only in this test",
+    Object.keys(AUTHORITY_ONLY).every((a) => lifecycleSrc.includes(a)) &&
+      Object.entries(AUTHORITY_ONLY).every(([a]) =>
+        new RegExp(`case "${a}"`).test(lifecycleSrc)));
+  /* Sensitivity proof for the property above: the same shape applied to an action that DOES vary
+     by status must come out false. Without this, a predicate over a table that ignores the axis is
+     indistinguishable from a predicate that was never evaluating anything. */
+  const unreadVaries = !["active", "archived", "blocked", "unmatched"].every(
+    (s) => ml(s as MatchLifecycleStatus, true, false, "count_unread").allow === true
+  );
+  const readMediaAllHere = ML_STATUSES.every(
+    (s) => ml(s, true, false, "read_media").allow === true && ml(s, true, true, "read_media").allow === true
+  );
+  ok("[23] sensitivity: the same all-states predicate is false for count_unread, so it can fail",
+    unreadVaries === true && readMediaAllHere === true,
+    `unreadVaries=${unreadVaries} readMediaAllHere=${readMediaAllHere}`);
+  ok("[23] read_media is exercised through the media route itself, not merely defined",
+    corpus.some(({ f, s }) => /chat\/media\/\[id\]\/route\.ts$/.test(f) && /"read_media"/.test(s)));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
