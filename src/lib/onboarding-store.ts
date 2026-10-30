@@ -1,10 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   accounts,
-  profilePhotos as localProfilePhotos,
+  chatMedia,
+  profilePhotos as localProfilePhotos, // same table as `profilePhotos`; the alias predates the storage fallback
   userProfiles as localUserProfiles,
 } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -202,23 +201,72 @@ export async function draftFromDb(
 
 /* --- photos --------------------------------------------------------------- */
 
-async function persistPhotoDataUrlToLocal(id: string, dataUrl: string): Promise<string> {
+/**
+ * Storage refused the upload (or is down) — keep the photo, and keep it SERVED.
+ *
+ * This function used to write the bytes to `public/uploads/<id>.<ext>` and store
+ * that path in `profile_photos.storage_path`. That could never work where the
+ * product actually runs: a Vercel deployment has a read-only, per-invocation
+ * filesystem, and src/lib/photo-url.ts hands `/uploads/...` straight back to the
+ * browser — which asks a Next.js server for a file that exists, if at all, only
+ * on the instance that took the upload. The row is healthy, the image is
+ * missing, and there is nothing to recover. Every storage hiccup during
+ * onboarding would have minted another permanently broken photo, silently,
+ * because the caller ignored the upload error.
+ *
+ * So mirror the store the photo manager already uses successfully: bytes go into
+ * `chat_media` (Postgres, replicated with the database, no filesystem involved)
+ * and the row points at `/api/chat/media/<id>`, which `GET /api/chat/media/:id`
+ * authorizes for exactly this shape of row — including the "published as a
+ * profile photo" branch added for it. Returns null when the draft holds nothing
+ * image-shaped, so the caller can say so instead of inventing a path.
+ */
+async function storePhotoBytesInDatabase(userId: string, dataUrl: string): Promise<string | null> {
   const match = /^data:image\/(jpeg|jpg|png);base64,(.+)$/.exec(dataUrl);
-  if (!match) return dataUrl;
-  const ext = match[1] === "png" ? "png" : "jpg";
-  const fileName = `${id}.${ext}`;
-  const dir = join(process.cwd(), "public", "uploads");
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, fileName), Buffer.from(match[2], "base64"));
-  return `/uploads/${fileName}`;
+  if (!match) return null;
+  const mime = match[1] === "png" ? "image/png" : "image/jpeg";
+  const bytes = Buffer.from(match[2], "base64");
+
+  // These two rows exist to satisfy the foreign keys the mirror relied on; both
+  // are no-ops for a member who already has them.
+  await db
+    .insert(accounts)
+    .values({ id: userId, email: `${userId}@mirror.local` })
+    .onConflictDoNothing({ target: accounts.id });
+  await db
+    .insert(localUserProfiles)
+    .values({ id: userId, email: `${userId}@mirror.local`, discoverable: false })
+    .onConflictDoNothing({ target: localUserProfiles.id });
+
+  const [media] = await db
+    .insert(chatMedia)
+    .values({ senderId: userId, kind: "image", mime, data: bytes })
+    .returning({ id: chatMedia.id });
+  if (!media) return null;
+  return `/api/chat/media/${media.id}`;
 }
 
 async function savePhotos(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   userId: string,
-  email: string,
   photos: OnboardingDraft["photos"]
 ) {
+  /* Re-saving onboarding replaces the whole set. Deleting the rows without
+     deleting their objects leaks a public, permanently retrievable bucket object
+     on every re-save — production held exactly one such orphan when this was
+     measured (11 objects vs 10 rows). Paths come from the database, never from
+     the draft, so a caller cannot name an arbitrary object, and the bucket's
+     owner-scoped DELETE policy limits removal to this member's own folder. */
+  const { data: previous } = await supabase
+    .from("profile_photos")
+    .select("storage_path")
+    .eq("user_id", userId);
+  const removable = ((previous ?? []) as Array<{ storage_path: string }>)
+    .map((row) => row.storage_path)
+    .filter((p) => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\/\//.test(p));
+  if (removable.length > 0) {
+    await supabase.storage.from("profile-photos").remove(removable);
+  }
   await supabase.from("profile_photos").delete().eq("user_id", userId);
 
   let position = 0;
@@ -236,7 +284,11 @@ async function savePhotos(
           contentType: match[1] === "png" ? "image/png" : "image/jpeg",
           upsert: true,
         });
-      if (!error) storagePath = path;
+      if (!error) {
+        storagePath = path;
+      } else {
+        console.warn(`[onboarding] photo ${photo.id} was not stored: ${error.message}`);
+      }
     } else if (/^https?:\/\//.test(photo.src)) {
       storagePath = photo.src;
     }
@@ -249,22 +301,19 @@ async function savePhotos(
         is_primary: photo.isCover,
       });
     } else {
-      // Storage unavailable — keep onboarding alive via the local mirror.
-      const localPath = await persistPhotoDataUrlToLocal(photo.id, photo.src);
-      await db
-        .insert(accounts)
-        .values({ id: userId, email: email || `${userId}@mirror.local` })
-        .onConflictDoNothing({ target: accounts.id });
-      await db
-        .insert(localUserProfiles)
-        .values({ id: userId, email: email || `${userId}@mirror.local`, discoverable: false })
-        .onConflictDoNothing({ target: localUserProfiles.id });
-      await db.insert(localProfilePhotos).values({
-        userId,
-        storagePath: localPath,
-        position: position++,
-        isPrimary: photo.isCover,
-      });
+      // No bucket object — store the bytes where they can still be served, and
+      // never write a path the deployment cannot read back.
+      const mirrored = await storePhotoBytesInDatabase(userId, photo.src);
+      if (mirrored) {
+        await db.insert(localProfilePhotos).values({
+          userId,
+          storagePath: mirrored,
+          position: position++,
+          isPrimary: photo.isCover,
+        });
+      } else {
+        console.warn(`[onboarding] photo ${photo.id} could not be stored; it is not on the profile.`);
+      }
     }
   }
 
@@ -365,13 +414,19 @@ export async function applyStepPatch(
     // reminder comes back no matter which upload path was used.
     await supabase.from("user_profiles").update({ is_verified: false }).eq("id", userId);
 
-    // Photos must never block onboarding: storage hiccup → local mirror.
+    /* Photos must never block onboarding — but the retry has to land the bytes
+       somewhere a browser can read back. The previous version of this catch
+       wrote them to `public/uploads/` and stored that path, which on a read-only
+       serverless filesystem means the profile shows a broken image forever. It
+       now mirrors into Postgres via the same helper savePhotos uses. */
     try {
-      await savePhotos(supabase, userId, email, patch.photos ?? []);
-    } catch {
+      await savePhotos(supabase, userId, patch.photos ?? []);
+    } catch (err) {
+      console.warn("[onboarding] photo save failed, mirroring to the database:", (err as Error).message);
       let position = 0;
       for (const photo of (patch.photos ?? []).slice(0, 6)) {
-        const localPath = await persistPhotoDataUrlToLocal(photo.id, photo.src);
+        const mirrored = await storePhotoBytesInDatabase(userId, photo.src);
+        if (!mirrored) continue;
         await db
           .insert(accounts)
           .values({ id: userId, email: email || `${userId}@mirror.local` })
@@ -382,7 +437,7 @@ export async function applyStepPatch(
           .onConflictDoNothing({ target: localUserProfiles.id });
         await db.insert(localProfilePhotos).values({
           userId,
-          storagePath: localPath,
+          storagePath: mirrored,
           position: position++,
           isPrimary: photo.isCover,
         });

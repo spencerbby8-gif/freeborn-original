@@ -1,6 +1,6 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
-import { chatMedia, matches } from "@/db/schema";
+import { chatMedia, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { badIdResponse, isUuid } from "@/lib/uuid";
 
@@ -69,6 +69,38 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     // Legacy row uploaded before chat_media.match_id existed. The only person
     // we can prove a relationship for is the sender.
     allowed = row.senderId === member.id;
+  }
+
+  /* A third audience, and the one that fixes disappearing profile photos:
+     `/api/profile/photos` stores profile images as chat_media blobs when the
+     photo manager is used (see that route's POST). Those rows have no
+     conversation, so the two branches above leave them readable by their owner
+     ONLY — the owner sees their own photo everywhere and every other member
+     sees a broken image, which is exactly how "my photos disappeared" is
+     reported. An `<img>` for a profile photo is a *member* request, so the
+     correct rule is the one RLS already enforces on `profile_photos` itself:
+     serve the bytes when the row is published as the profile photo of a member
+     who is active and discoverable. The predicate below is copied from policy
+     "Discoverable members' photos are visible" (db/migrations/
+     2026-10-16-rls-and-media-ownership.sql) so the two cannot drift, and it is
+     no wider than the public `profile-photos` bucket this media substitutes
+     for. It never widens a private conversation attachment: a blob counts only
+     if the owner put it on their own profile. */
+  if (!allowed) {
+    const published = await db
+      .select({ id: profilePhotos.id })
+      .from(profilePhotos)
+      .innerJoin(userProfiles, eq(userProfiles.id, profilePhotos.userId))
+      .where(
+        and(
+          eq(profilePhotos.storagePath, `/api/chat/media/${id}`),
+          eq(userProfiles.profileStatus, "active"),
+          eq(userProfiles.discoverable, true),
+          inArray(userProfiles.onboardingStage, ["profile_setup", "ready"])
+        )
+      )
+      .limit(1);
+    allowed = published.length > 0;
   }
 
   if (!allowed) return new Response("Not found", { status: 404 });

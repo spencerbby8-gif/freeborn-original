@@ -24,6 +24,7 @@ import {
   type BrowserObservations,
 } from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
+import { resolvePhotoUrl } from "@/lib/photo-url";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 
@@ -1141,6 +1142,96 @@ ok("[13] only the live CHECK's three states are ever written",
   ok("[14] the index keeps its name, so production swaps shape and not identity",
     (singleLiveMig.match(/human_challenges_single_live/g) ?? []).length >= 4);
 }
+
+/* ------------------------------------------------------------------ [15] media recovery -- */
+/* Three production-verified ways member media disappeared or outlived its owner, found
+   2026-10-30 by querying the live database (see the migration for the numbers). Each pin
+   below names the mechanism it protects, and the ordering pins exist because these are
+   authorization paths: a branch in the wrong place is a hole, not a cosmetic issue. */
+const mediaGetSrc = readFileSync(new URL("../../src/app/api/chat/media/[id]/route.ts", import.meta.url), "utf8");
+const photosApiSrc = readFileSync(new URL("../../src/app/api/profile/photos/route.ts", import.meta.url), "utf8");
+const onboardSrc = readFileSync(new URL("../../src/lib/onboarding-store.ts", import.meta.url), "utf8");
+const mediaMigSrc = readFileSync(new URL("../../db/migrations/2026-10-30-media-recovery.sql", import.meta.url), "utf8");
+const rls1Src = readFileSync(new URL("../../db/migrations/2026-10-16-rls-and-media-ownership.sql", import.meta.url), "utf8");
+
+/* Contracts the whole fix stands on, executed rather than pattern-matched: an
+   indirection-shaped row is passed to the browser unchanged (which is why it needed
+   an authorization branch), and a mirrored /uploads row is likewise passed through —
+   which is exactly how it stayed broken forever. */
+ok("[15] an /api/chat/media path reaches the browser unchanged", resolvePhotoUrl("/api/chat/media/aa11") === "/api/chat/media/aa11");
+ok("[15] a bucket path is prefixed with the public object URL", resolvePhotoUrl("u1/p.jpg").endsWith("/storage/v1/object/public/profile-photos/u1/p.jpg"));
+ok("[15] a mirrored /uploads path resolves as-is, so it can only ever 404", resolvePhotoUrl("/uploads/x.jpg") === "/uploads/x.jpg");
+ok("[15] no path yields no URL, never a guessed one", resolvePhotoUrl(null) === "" && resolvePhotoUrl("") === "");
+
+/* The disappearing-profile-photo fix: a blob the owner published as their own profile
+   photo is readable by any signed-in member, because RLS already shows that photo to
+   every discoverable profile. It must stay (a) after the participant checks so it can
+   only ADD an audience the owner chose, and (b) equivalent to the RLS-1 predicate. */
+const idxMember = mediaGetSrc.indexOf("getMember(request)");
+const idxPub = mediaGetSrc.indexOf("const published = await db");
+const idxBail = mediaGetSrc.indexOf('if (!allowed) return new Response("Not found"');
+ok("[15] the media route authenticates before consulting any branch", idxMember >= 0 && idxMember < idxPub);
+ok("[15] the published-photo lookup runs only when the conversation checks failed", idxPub > 0 && idxPub < idxBail && idxBail > 0);
+/* One deny, and the new branch can only ever flip !allowed into allowed. That is the
+   whole safety argument of the change, so it is pinned structurally: if anyone adds a
+   `return` inside the published-photo block, it stops being a grant and becomes a
+   second, independent authorization decision — which is how these things rot. */
+const denyGates = (mediaGetSrc.match(/if \(!allowed\) return/g) ?? []).length;
+const grantBranch = mediaGetSrc.slice(idxPub, mediaGetSrc.indexOf("allowed = published.length > 0;"));
+ok("[15] exactly one deny statement guards the whole route", denyGates === 1, `gates=${denyGates}`);
+ok("[15] the added branch can only grant, never deny", grantBranch.length > 50 && !grantBranch.includes("return") && !grantBranch.includes("404"));
+ok("[15] it is keyed on the exact path the photo row publishes", /eq\(profilePhotos\.storagePath, `\/api\/chat\/media\/\$\{id\}`\)/.test(mediaGetSrc));
+ok("[15] the branch mirrors RLS-1 (active + discoverable + stage)",
+  /eq\(userProfiles\.profileStatus, "active"\)/.test(mediaGetSrc) &&
+  /eq\(userProfiles\.discoverable, true\)/.test(mediaGetSrc) &&
+  /inArray\(userProfiles\.onboardingStage, \["profile_setup", "ready"\]\)/.test(mediaGetSrc));
+ok("[15] the policy it imitates still says the same three things",
+  ["profile_status = 'active'", "discoverable = true", "onboarding_stage = any (array['profile_setup','ready'])"].every((frag) => rls1Src.includes(frag)));
+ok("[15] denial is still an indistinguishable 404 with no reason given",
+  !mediaGetSrc.includes("Not authorized") && !mediaGetSrc.includes("not the participant"));
+ok("[15] served media stays uncacheable and un-sniffable",
+  mediaGetSrc.includes('"Cache-Control": "private, no-store"') && mediaGetSrc.includes('"X-Content-Type-Options": "nosniff"'));
+
+/* Orphan bytes: the row and the object must die together, and the object name must
+   never come from the request body. */
+ok("[15] deleting a photo deletes its object, addressed from the row", /\.remove\(\[row\.storagePath\]\)/.test(photosApiSrc));
+ok("[15] the request body can never name an object to delete", !/\.remove\(\[?path\]/.test(photosApiSrc));
+ok("[15] only bucket-relative paths are sent to storage",
+  /if \(!row\.storagePath\.startsWith\("\/"\) && !\/\^https\?:/.test(photosApiSrc) &&
+  photosApiSrc.includes('storage.from("profile-photos").remove'));
+ok("[15] a failed object removal is logged, not reported as a failed delete",
+  photosApiSrc.includes('console.warn("[profile-photos] deleted row but the object remains:'));
+ok("[15] the unremovable-path wording is preserved verbatim",
+  photosApiSrc.includes("That photo lives in your original upload store, so it can't be removed from this preview room."));
+
+/* The silent-breakage generator: a storage failure used to write bytes to disk and
+   store /uploads/<name> in the live table. It must not come back. */
+ok("[15] the disk mirror is gone from the onboarding store",
+  !onboardSrc.includes("persistPhotoDataUrlToLocal") && !/`\/uploads\/\$\{/.test(onboardSrc) &&
+  !onboardSrc.includes('from "node:fs/promises"'));
+ok("[15] a storage failure falls back to Postgres bytes at a served path",
+  /storePhotoBytesInDatabase\(userId, photo\.src\)/.test(onboardSrc) &&
+  /`\/api\/chat\/media\/\$\{media\.id\}`/.test(onboardSrc));
+ok("[15] both fallback sites were converted, not just the first", (onboardSrc.match(/storePhotoBytesInDatabase/g) ?? []).length >= 3);
+ok("[15] replace-all onboarding removes old objects before deleting old rows",
+  onboardSrc.indexOf(".remove(removable)") > 0 &&
+  onboardSrc.indexOf('from("profile_photos").delete()') > onboardSrc.indexOf(".remove(removable)"));
+ok("[15] the removal list is filtered to bucket paths only",
+  onboardSrc.includes('.filter((p) => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\\/\\//.test(p));'));
+ok("[15] an upload failure is named in the log instead of swallowed",
+  /console\.warn\(`\[onboarding\] photo \$\{photo\.id\} was not stored: /.test(onboardSrc));
+
+/* The SQL half: repair from proven links only, never destroy, never re-diverge. */
+ok("[15] the backfill refuses media referenced from two conversations",
+  /having count\(distinct match_id\) = 1/.test(mediaMigSrc));
+ok("[15] the backfill can only link a conversation that still exists",
+  /join public\.matches mt on mt\.id = ms\.match_id/.test(mediaMigSrc));
+ok("[15] the backfill is idempotent", /and cm\.match_id is null;/.test(mediaMigSrc));
+ok("[15] the migration deletes no member data",
+  !/\bdelete from\b/i.test(mediaMigSrc) && !/\btruncate\b/i.test(mediaMigSrc));
+ok("[15] the public bucket now has a measured mime and size bound",
+  mediaMigSrc.includes("BOUND THE PUBLIC BUCKET — APPLIED 2026-10-30") &&
+  mediaMigSrc.includes("array['image/jpeg','image/png','image/webp']"));
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
