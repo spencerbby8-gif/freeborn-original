@@ -67,6 +67,10 @@ export function startGateway(): Promise<{ url: string; close: () => Promise<void
     log: [] as CallLog[],
     stage2: "approve" as Stage2Mode,
     stage1: "ok" as Stage1Mode,
+    /* Stage-1 transport status. 502 is what the real free gateway answers when the model id
+       does not exist behind it - the failure that used to reach a member as "your photo is
+       unreadable". Kept as a number so a 401/429 can be scripted too. */
+    stage1Status: 200 as number,
     /** The pose label this server has SEEN, per engine. If the product ever sends the client's
      *  string instead of the server's, the suite finds it here rather than guessing. */
     seen: { stage1: [] as (string | null)[], stage2: [] as (string | null)[] },
@@ -185,6 +189,18 @@ export function startGateway(): Promise<{ url: string; close: () => Promise<void
       });
       return;
     }
+    if (req.method === "POST" && url.pathname === "/__e2e_stage1_status") {
+      void readJson(req).then((b) => {
+        try {
+          const j = JSON.parse(b.toString("utf8")) as { code?: number };
+          if (typeof j.code === "number") state.stage1Status = j.code;
+        } catch {
+          /* keep the previous script */
+        }
+        send(200, { ok: true, stage1Status: state.stage1Status });
+      });
+      return;
+    }
     if (req.method === "GET" && (url.pathname === "/__e2e_photo" || url.pathname.startsWith("/storage/"))) {
       return send(200, PNG_1x1, "image/png");
     }
@@ -230,6 +246,11 @@ export function startGateway(): Promise<{ url: string; close: () => Promise<void
             chars: text.length,
           });
 
+          if (!isStage2 && state.stage1Status !== 200) {
+            return send(state.stage1Status, {
+              error: { message: `backend 404: Requested entity was not found (scripted ${state.stage1Status})` },
+            });
+          }
           const content = isStage2 ? stage2Reply(asked) : stage1Reply(asked);
           if (!content) return send(200, { error: { message: "empty completion" } });
           return send(200, {

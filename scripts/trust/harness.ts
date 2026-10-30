@@ -515,13 +515,31 @@ ok("the outcome is written into the audit row, so it is reconstructable later",
   verifSrc.includes("freshnessTag(freshness.state)"));
 ok("a malformed token id cannot reach the database at all",
   liveSrc.includes("/^[0-9a-f-]{36}$/i.test(tokenId)"));
+/* Added 2026-10-30, after production evidence: the stage-1 call answered 502 for every member
+   (the configured model id does not exist behind the free gateway) and each one was written up as
+   a REJECTED selfie. The route must distinguish "the call failed" from "the photo was unreadable". */
+ok("stage 1 reports WHY it has no answer, instead of returning a bare null",
+  verifSrc.includes("reason: Stage1Failure | null") && verifSrc.includes("return { text: null, reason: lastReason };"));
+ok("an unavailable engine parks the attempt as pending rather than rejecting the member",
+  verifSrc.includes("if (stage1.reason !== null) {") &&
+    verifSrc.includes("stage1: unavailable (") &&
+    verifSrc.includes('status: "review"'));
+ok("a model verdict we could not read stays the member's own readable outcome",
+  verifSrc.includes("dual_model+stage1:unparseable"));
+ok("the stage-1 model id is an operator setting, since it is a property of the gateway",
+  /process\.env\.ANTIGRAVITY_MODEL/.test(verifSrc));
 ok("the client sends the token once and clears it, so retries re-challenge",
   /setLivenessToken\(null\)/.test(readFileSync(new URL("../../src/components/app/verify-modal.tsx", import.meta.url), "utf8")));
 
 /* -- review queue: read-only, gated, non-leaking -------------------------------- */
 const { queuePriority } = await import("@/lib/review-queue-priority");
-ok("the queue is gated fail-closed in production and readable in review environments",
-  queueSrc.includes("if (isProduction && allowlist.length === 0) return new Response(\"Not found\", { status: 404 })"));
+/* This pin used to require `isProduction && allowlist.length === 0`, i.e. it *pinned the
+   fail-open*: a development-mode deployment of the same code with no allowlist answered the
+   whole review queue to any signed-in member. Retargeted 2026-10-30 to the stronger policy,
+   and it asserts the old spelling is gone, so the pin cannot be satisfied by keeping both. */
+ok("the queue is gated fail-closed in EVERY environment, and the dev-mode exception is gone",
+  queueSrc.includes("if (allowlist.length === 0) return new Response(\"Not found\", { status: 404 })") &&
+    !/isProduction && allowlist\.length === 0/.test(queueSrc));
 ok("the queue declares and implements read-only (no POST handler)",
   queueSrc.includes("read_only: true") && !/export async function POST/.test(queueSrc));
 ok("member accusations outrank identity-gate receipts",
@@ -1109,6 +1127,15 @@ ok("[13] only the live CHECK's three states are ever written",
     /drop index if exists public\.human_challenges_single_live;/.test(singleLiveMig) &&
       /create unique index if not exists human_challenges_single_live/.test(singleLiveMig) &&
       /where status = 'issued';/.test(singleLiveMig));
+  /* Production holds this uniqueness as a table CONSTRAINT, not a standalone index, and
+     `drop index` on a constraint-backed index is refused (2BP01). The first version of the
+     migration only said `drop index if exists` and was rejected by the live database on
+     2026-10-30 — a review DB built by `drizzle-kit push` cannot catch that. So the file
+     must carry BOTH removal forms; a future "simplification" that keeps one of them
+     re-breaks the only environment that matters. */
+  ok("[14] the migration removes BOTH shapes (constraint in production, index under drizzle push)",
+    /drop constraint if exists human_challenges_single_live;/.test(singleLiveMig) &&
+      /drop index if exists public\.human_challenges_single_live;/.test(singleLiveMig));
   ok("[14] the migration keeps history rather than deleting the member's rows",
     !/delete from human_challenges/i.test(singleLiveMig));
   ok("[14] the index keeps its name, so production swaps shape and not identity",

@@ -42,7 +42,14 @@ export async function GET(request: Request) {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
   const isProduction = process.env.NODE_ENV === "production";
-  if (isProduction && allowlist.length === 0) return new Response("Not found", { status: 404 });
+  /* Fail closed with NO environment qualifier. The old guard was `isProduction && ...`, so a
+       deployment running with NODE_ENV=development (or `vercel dev`, which reads the project's
+       Development environment variables) and an unset FREEBORN_ADMIN_EMAILS served the whole
+       review queue - reports, cases, appeals, trust history - to ANY signed-in member. Verified
+       on 2026-10-30 that the Vercel project's Development target does not carry
+       FREEBORN_ADMIN_EMAILS (it is assigned to Production and Preview only), which made that
+       combination live rather than theoretical. */
+  if (allowlist.length === 0) return new Response("Not found", { status: 404 });
   const member = await getMember(request);
   if (!member) {
     return isProduction

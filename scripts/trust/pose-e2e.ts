@@ -931,6 +931,37 @@ async function runOneEngine(): Promise<void> {
     });
   }
 
+  await test("a stage-1 transport failure parks the attempt instead of refusing the member", async () => {
+    /* The 2026-10-30 production state, reproduced deliberately: the gateway answers 502 because
+       the configured model id does not exist behind it. Before the fix every member got
+       "The verification service couldn't read the photo" and an audit row recording a REJECTED
+       member for what was our configuration. A parked attempt must be pending, unreviewed,
+       carry the class in `method` for an operator to query, and keep the selfie for the retry. */
+    const m = await nextMember();
+    await gw("/__e2e_stage1_status", { method: "POST", body: JSON.stringify({ code: 502 }) });
+    const f = await flow(m);
+    const r = await check(m, f.token, f.label);
+    eqv(String(r.json.status), "review", "an engine outage is not a decision about the member");
+    eqv(String(r.json.stage), "engine-unavailable", "and it names the leg that failed");
+    const row = await rowOf(m, r, "this attempt");
+    eqv(String(row!.status), "pending", "the audit row is pending, not rejected");
+    match(String(row!.method), /\+stage1:http-502/, "the class an operator can query is in the method: " + row!.method);
+    eqv(row!.reviewed_at == null ? "null" : "set", "null", "nobody reviewed it, so reviewed_at stays null");
+    match(String(row!.selfie_media ?? "").slice(0, 200), /^data:image\//, "the selfie is held for the retry, not dropped as refused evidence");
+    await gw("/__e2e_stage1_status", { method: "POST", body: JSON.stringify({ code: 200 }) });
+  });
+
+  await test("a 200 whose completion came back empty is also our failure, not the member's", async () => {
+    const m = await nextMember();
+    await scriptStage1("empty");
+    const f = await flow(m);
+    const r = await check(m, f.token, f.label);
+    eqv(String(r.json.status), "review", "no answer is not an answer about the member");
+    const row = await rowOf(m, r, "this attempt");
+    match(String(row!.method), /\+stage1:empty/, "and the row says so: " + row!.method);
+    await scriptStage1("ok");
+  });
+
   await test("an unreadable selfie is a rejection with an actionable reason", async () => {
     const m = await nextMember();
     await scriptStage1("unparseable");

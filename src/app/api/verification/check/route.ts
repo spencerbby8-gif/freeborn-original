@@ -103,9 +103,34 @@ const MIN_VERIFY_MS = 14_000;
 const ATTEMPT_TIMEOUT_MS = Math.max(3_000, Math.floor((ENGINE_BUDGET_MS - 1_500) / 3));
 const MAX_ATTEMPTS = 2;
 
-const MODEL = "gemini-3.6-flash-high";
+/* The id must exist on the GATEWAY in front of ANTIGRAVITY_BASE_URL, not just in a model list
+   somewhere. Measured 2026-10-30 against the production gateway with a temporary probe route
+   (branch arena/engine-probe-20261030, since deleted): `gemini-3.6-flash-high` -> 502 wrapping a
+   backend 404 "Requested entity was not found", `gemini-3.6-flash` / `gemini-3.5-flash` /
+   `gemini-2.0-flash` / `gemini-flash-latest` -> 404 "not found on this gateway", while
+   `gemini-3-flash` and `gemini-2.5-flash` returned 200 BOTH text-only and with an image
+   attached - which is the only distinction that matters here, since a model that answers text
+   but cannot see the photo is worthless for this route. So the default is the working id, and
+   the override exists because a gateway rotation would otherwise need a code change. */
+const MODEL = (process.env.ANTIGRAVITY_MODEL ?? "").trim() || "gemini-3-flash";
 const BASE = (process.env.ANTIGRAVITY_BASE_URL ?? "").replace(/\/$/, "");
 const KEY = process.env.ANTIGRAVITY_FREE_API_KEY ?? "";
+
+/* Stage 1 used to report every failure as `null`, and `null` reached the member as
+ * "The verification service couldn't read the photo." That single string covered the model
+ * answering in prose, the gateway dropping our images, a timeout, and a 404 because the
+ * configured model id does not exist on the gateway in front of `ANTIGRAVITY_BASE_URL` -
+ * which on 2026-10-30 was the actual production state, so every member's verification was
+ * being refused for our configuration while they were told their photograph was the problem.
+ * The classes are named now, they are carried into the audit row, and only the honest ones
+ * count as a decision about the member. */
+type Stage1Failure = "timeout" | "image-dropped" | "empty" | `http-${number}`;
+interface Stage1Reply {
+  text: string | null;
+  /** null ONLY when a usable answer came back. Non-null means the CALL failed, which is
+   *  never a judgement about the member and must not be recorded as one. */
+  reason: Stage1Failure | null;
+}
 
 /* --- In-memory rate limiting ------------------------------------------------ */
 
@@ -124,7 +149,8 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
 const IMAGE_DROPPED_RE =
   /no (reference )?image|please upload|cannot see|can't see|image (was )?(not )?(provided|missing|available)|provide (an? )?image/i;
 
-async function askGemini(content: Array<Record<string, unknown>>): Promise<string | null> {
+async function askGemini(content: Array<Record<string, unknown>>): Promise<Stage1Reply> {
+  let lastReason: Stage1Failure = "empty";
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
@@ -146,22 +172,29 @@ async function askGemini(content: Array<Record<string, unknown>>): Promise<strin
           temperature: 0,
         }),
       });
-      if (!res.ok) throw new Error(`http ${res.status}`);
+      if (!res.ok) {
+        lastReason = `http-${res.status}` as Stage1Failure;
+        throw new Error(`http ${res.status}`);
+      }
       const json = (await res.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
       };
       const text = json.choices?.[0]?.message?.content ?? "";
       if (!text) throw new Error("empty");
-      if (IMAGE_DROPPED_RE.test(text)) throw new Error("image-dropped");
-      return text;
-    } catch {
+      if (IMAGE_DROPPED_RE.test(text)) {
+        lastReason = "image-dropped";
+        throw new Error("image-dropped");
+      }
+      return { text, reason: null };
+    } catch (err) {
+      if (ctrl.signal.aborted) lastReason = "timeout";
       /* Back off for at most the time the remaining budget allows. */
       await new Promise((r) => setTimeout(r, 700));
     } finally {
       clearTimeout(timer);
     }
   }
-  return null;
+  return { text: null, reason: lastReason };
 }
 
 function parseVerdict<T>(text: string | null): T | null {
@@ -390,7 +423,7 @@ export async function POST(request: Request) {
      judged leniently and is NEVER a hard reject at this stage — a real
      attempt always moves on to the second engine. ---------------------------- */
 
-  const poseText = await askGemini([
+  const stage1 = await askGemini([
     {
       type: "text",
       text:
@@ -403,13 +436,34 @@ export async function POST(request: Request) {
     },
     { type: "image_url", image_url: { url: selfie } },
   ]);
+  const poseText = stage1.text;
   const pose = parseVerdict<PoseVerdict>(poseText);
 
   if (pose == null) {
+    /* An unavailable engine parks the attempt instead of refusing the member, and it says so.
+       Mirrors the "no engine configured" branch above, which already answers `pending` /
+       `engine:"none"`; what it never did was cover a *configured* engine that failed. */
+    if (stage1.reason !== null) {
+      await db.insert(verificationRequests).values({
+        accountId: member.id,
+        status: "pending",
+        method: `dual_model+stage1:${stage1.reason}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
+        selfieMedia: selfie,
+        rejectReason: `stage1: unavailable (${stage1.reason})`,
+        reviewedAt: null,
+      });
+      return finish({
+        status: "review",
+        stage: "engine-unavailable",
+        engine: lm7Configured() ? "dual" : "single",
+        reason:
+          "We could not reach the verification service, so nothing was decided about your selfie. Please try again in a few minutes.",
+      });
+    }
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "rejected",
-      method: `dual_model${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
+      method: `dual_model+stage1:unparseable${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
       /* Privacy Policy clause 7. A rejected request's selfie has no further use,
          so it is never written to the database in the first place: appeals do not
          read it, re-verification creates a fresh request with a fresh image, and
