@@ -16,6 +16,13 @@ import { scoreScamMessage, SCAM_RULE_COUNT, SCAM_ESCALATE_AT, SCAM_WARN_AT, SCAM
 import { meetsDifficultyHex, runHumanChallenge, solveChallenge } from "@/lib/human-challenge-client";
 import { POSES, poseIdFor, poseTag, POSE_TTL_SECONDS, type PoseState } from "@/lib/pose-pool";
 import { assignPose, consumePose, type PoseStore } from "@/lib/pose-store";
+import {
+  evaluateIntegrity,
+  memberVisibleIntegrity,
+  persistableDetail,
+  NEVER_COLLECTED,
+  type BrowserObservations,
+} from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, rm } from "node:fs/promises";
@@ -491,8 +498,13 @@ ok("the token is consumed, not looked up twice, and bound to one member",
 ok("replay, expiry and absence are distinct states rather than one boolean",
   /missing\|expired\|replayed\|foreign/.test(liveSrc.replace(/[`\s]/g, "")) ||
   (liveSrc.includes('"missing"') && liveSrc.includes('"expired"') && liveSrc.includes('"replayed"') && liveSrc.includes('"foreign"')));
+/* Retargeted 2026-10-30: the two engine chains now share named proofs (freshnessProven /
+   poseProven) instead of each spelling the condition inline, so the pin follows the name and
+   ALSO pins the definition — otherwise renaming a variable would silently un-pin the rule.
+   The guarantee is unchanged: no badge without a token we issued, consumed once, minutes ago. */
 ok("the badge from the single-engine path now requires a verified freshness token",
-  verifSrc.includes("pose.matchesAsked === true && freshness.state === \"verified\""));
+  verifSrc.includes("pose.matchesAsked === true && freshnessProven && poseProven") &&
+    verifSrc.includes('const freshnessProven = freshness.state === "verified";'));
 ok("freshness is consumed BEFORE any engine call (no budget burn on a replay)",
   verifSrc.indexOf("consumeLivenessChallenge") <
     (verifSrc.indexOf("askLm7(") === -1 ? Infinity : verifSrc.indexOf("askEngine(") === -1 ? Infinity : verifSrc.indexOf("askEngine(")),
@@ -630,7 +642,10 @@ ok("[13] client-fallback text is neutralised before prompting",
 ok("[13] pose is consumed with the member + token it was issued to",
    /consumePoseChallenge\(\s*member\.id,\s*typeof bodyLivenessToken[^)]*\)\s*\.catch/.test(verifSrc));
 ok("[13] single-engine badge needs the SERVER pose, not just the engine's yes",
-   /pose\.matchesAsked === true && freshness\.state === "verified" && poseServed/.test(verifSrc));
+   /* `poseProven` reduces to `poseServed` unless the operator opens the bounded hatch, so the
+      definition is pinned alongside the use: renaming or widening it fails HERE, not silently. */
+   /pose\.matchesAsked === true && freshnessProven && poseProven/.test(verifSrc) &&
+     /const poseProven = poseMode === "legacy" \? true : poseServed;/.test(verifSrc));
 ok("[13] poseServed is derived from the challenge state only",
    /const poseServed = poseChallenge\.state === "verified";/.test(verifSrc));
 ok("[13] every request row records which pose path decided it",
