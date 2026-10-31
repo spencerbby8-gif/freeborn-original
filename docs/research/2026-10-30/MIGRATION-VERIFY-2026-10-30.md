@@ -1,5 +1,14 @@
 # Migration verification against a real Postgres 17 — 2026-10-30
 
+> **Superseded in one respect on 2026-10-31.** This run proved the migrations against a scratch
+> cluster built by `drizzle-kit generate`, which has no row-level security on `matches`; the
+> caveat is named below this file, but a documented limitation is not a gate. Production was
+> locked, so the `chat_signals` SELECT policy that read `matches` directly evaluated to zero rows
+> for a real participant and every client would have been denied signals. The gate now mirrors
+> production (RLS enabled + forced, zero policies, plus a control proving the pre-fix predicate
+> form fails here too) and stands at **41/41**; the application record and the production results
+> are in `docs/research/2026-10-31/PRODUCTION-MIGRATIONS-2026-10-31.md`.
+
 **What this is.** Both migrations dated 2026-10-30 were executed against a real Postgres
 server, not read as text. Command:
 

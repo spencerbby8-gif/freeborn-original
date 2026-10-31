@@ -275,6 +275,12 @@ do $roles$
 begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  -- service_role too, not just the two client roles: 2026-10-30-chat-signals.sql grants the
+  -- definer helper EXECUTE to `authenticated, service_role`, and on a vanilla cluster that
+  -- GRANT aborted the whole migration — the policy was then never created and every read test
+  -- below failed for a reason that had nothing to do with RLS. A fixture must know every role
+  -- the shipped DDL names.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if;
   -- Supabase owns the `auth` schema and its auth.uid(); the shipped policy calls it, so a
   -- cluster without it cannot evaluate the policy at all. Stub it the same way: a stable
   -- function reading the request-scoped claim.
@@ -287,7 +293,7 @@ end
 $roles$;
 SQL
 psql -X -q -d fbtest -f "$WORK/roles.sql" > "$WORK/roles.log" 2>&1 \
-  && pass "Supabase's anon/authenticated roles emulated (a policy that targets a missing role would silently apply to nobody)" \
+  && pass "Supabase's anon/authenticated/service_role roles emulated (a policy that targets a missing role would silently apply to nobody)" \
   || { fail "role bootstrap failed"; sed 's/^/         /' "$WORK/roles.log" | head -3; }
 
 psql -X -q -v ON_ERROR_STOP=1 -d fbtest -f "$SIG" > "$WORK/sig.log" 2>&1 \
@@ -381,6 +387,20 @@ psql -X -q -d fbtest -c "insert into public.matches (id,user_a,user_b,status) va
 psql -X -q -v ON_ERROR_STOP=1 -d fbtest -c "delete from public.chat_signals; insert into public.chat_signals (match_id,kind) values ('11111111-1111-1111-1111-111111111111','message')" > "$WORK/seed.log" 2>&1 \
   || { fail "could not seed the signal row"; sed 's/^/         /' "$WORK/seed.log" | head -3; }
 
+# ---------------------------------------------------------------------------
+# Mirror PRODUCTION's enforcement on `matches` before any client-role read runs.
+#
+# The scratch schema comes from drizzle-kit, which encodes NO row-level security, and
+# production's RLS came from migrations this script never applies. That gap let the
+# original policy — `exists (select 1 from public.matches ...)` — read as `authenticated`
+# and PASS here while returning ZERO rows in production (measured 2026-10-31:
+# sees_matches=0 sees_signals=0). A fixture that is more permissive than production cannot
+# detect a policy that depends on a locked table. So: enable + FORCE row security on
+# `matches`, which has no policies in either database, exactly as production has it.
+psql -X -q -v ON_ERROR_STOP=1 -d fbtest -c "alter table public.matches enable row level security; alter table public.matches force row level security" >/dev/null 2>&1 \
+  && pass "matches locked to production's shape (RLS enabled + forced, zero policies) before client reads" \
+  || fail "could not apply production's RLS shape to the fixture"
+
 count_is "precondition: the seeded conversation has Ada as user_a and Ben as user_b" \
   "select count(*) from public.matches where id='11111111-1111-1111-1111-111111111111' and user_a='00000000-0000-0000-0000-00000000000a' and user_b='00000000-0000-0000-0000-00000000000b'" "1"
 count_is "precondition: and the signal row the reads below depend on exists" \
@@ -417,9 +437,17 @@ Q='select count(*) from public.chat_signals'
 [ "$(read_as "" fb_client "$Q")" = "0" ] \
   && pass "no auth.uid (signed-out) reads nothing" \
   || fail "an anonymous request read signals"
-[ "$(read_as "$CY" fb_client "select count(*) from public.matches")" = "2" ] \
-  && pass "sanity: the fixture really has two conversations, so the 0 above is the policy and not an empty table" \
-  || fail "fixture sanity broken — every read assertion above is untrustworthy"
+[ "$(read_as "$CY" fb_client "select count(*) from public.matches")" = "0" ] \
+  && pass "a client reads ZERO rows from matches even holding SELECT — the locked-table shape production has" \
+  || fail "fixture does not mirror production: matches should read 0 rows to a client role, got $(read_as "$CY" fb_client "select count(*) from public.matches")"
+
+# The control that makes the assertion above meaningful: the OLD predicate form, evaluated by
+# hand as the same member, must find nothing now that matches is locked. If this returned 1,
+# the fixture would still be too permissive to have caught the production bug.
+NAIVE=$(read_as "$ADA" authenticated "select count(*) from public.chat_signals cs where exists (select 1 from public.matches m where m.id = cs.match_id and (m.user_a = auth.uid() or m.user_b = auth.uid()))" | tail -1 | tr -d '[:space:]')
+[ "$NAIVE" = "0" ] \
+  && pass "control: the pre-fix predicate form reads 0 rows for a real participant — the bug is now detectable" \
+  || fail "control broken: the pre-fix form reads $NAIVE rows, so this fixture cannot catch an unsatisfiable policy"
 
 denials=0
 for stmt in "insert into public.chat_signals (match_id,kind) values ('11111111-1111-1111-1111-111111111111','message')" \
@@ -433,6 +461,37 @@ for stmt in "insert into public.chat_signals (match_id,kind) values ('11111111-1
   fi
 done
 [ "$denials" = "3" ] && pass "clients can neither insert, delete, nor update a signal row (nobody can spam, mute or rewrite a peer's channel)"
+
+# ------------------------------------------------------ 6b. the flaw class, generally
+# Any policy whose predicate reads an RLS-locked table (enabled, zero policies) directly is
+# unsatisfiable for the role it guards. This is the shape of the bug that reached production.
+# `match_messages`' two legacy policies are listed as known-inert exceptions on purpose: the
+# table has no writer in this codebase, so pinning them here would force unrelated churn.
+cat > "$WORK/policyscan.sql" <<'SQL'
+with locked as (
+  select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+  where n.nspname='public' and c.relkind='r' and c.relrowsecurity
+    and not exists (select 1 from pg_policies p where p.tablename=c.relname and p.schemaname='public')
+),
+scan as (
+  select p.tablename, p.policyname,
+    (select string_agg(l.relname, ', ' order by l.relname) from locked l
+      where position(l.relname in coalesce(p.qual,'') || ' ' || coalesce(p.with_check,'')) > 0) as refs_locked
+  from pg_policies p where p.schemaname='public'
+)
+select case
+  when count(*) filter (where refs_locked is not null
+        and not (tablename='match_messages' and policyname in
+          ('Match participants can read messages','Match participants can send messages'))) > 0
+  then 'FAIL: ' || (select string_agg(tablename||'.'||policyname||' -> '||refs_locked, '; ')
+                      from scan where refs_locked is not null
+                        and not (tablename='match_messages' and policyname in
+                          ('Match participants can read messages','Match participants can send messages')))
+  else 'PASS'
+end as verdict
+from scan;
+SQL
+assert_sql "no policy anywhere reads an RLS-locked table directly (the unsatisfiable-policy class)" "$WORK/policyscan.sql"
 
 # --------------------------------------------------------- 7. the old tables
 say "-- the design claim that the LIVE chat tables must stay unreadable from a client"
