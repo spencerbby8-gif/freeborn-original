@@ -40,6 +40,17 @@ jobs:
       - name: Lint (blocking — F10)
         run: npm run lint
 
+      # The trust harness is this repo's only gate on what TypeScript cannot see: migration text
+      # vs schema, RLS predicates, component <-> stylesheet pairings, the design contract. It was
+      # not wired here, and `main` paid for it — two assertions were red for a full cycle because the
+      # pins still demanded the string "NOT YET APPLIED" from migrations that had since been applied
+      # to production and had their headers rewritten. Nothing ran the suite, so a failing self-check
+      # shipped. It reads source only (no .next, no public/qa, no secrets), which is why it sits
+      # before the build and outside its env block; `npm ci` above has already installed esbuild and
+      # sharp, the only two tools it shells out to.
+      - name: Trust harness (blocking)
+        run: npm run test:harness
+
       - name: Production build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

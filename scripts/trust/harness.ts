@@ -1518,10 +1518,45 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
     /* The class name must not collide with the app's pre-existing pill button system. */
     /* My own comments inside the block deliberately NAME the old class, so the check strips
        comments and inspects selectors only — testing the prose would pass a real collision. */
+    /* This pin used to read `!/\.fb-btn\s*[{:,_]/.test(block)` — "the text `.fb-btn` must not
+       appear anywhere after the CTA contract". That proxy was sound while the only thing appended
+       after the contract was the contract itself. The 2026-10-31 unification broke it on purpose:
+       it adds `:focus-visible` / `:disabled` / min-height rules for the LEGACY families, which
+       necessarily name `.fb-btn` below that point. What must actually stay true — the collision
+       the headless pass originally found, "my rules overrode the onboarding pill" — is that the
+       CTA's VISUAL rules never select a legacy class. That is the property, so that is what is
+       pinned now, one assertion below; the naming of a class in a behavioural rule is not a
+       collision. Rewritten rather than deleted, and the new pin fails if `.fb-btn` is added to a
+       `--button-*` or pill-radius rule. */
+    const namesLegacy = (sel: string, cls: string) => {
+      /* Escaping matters twice over: `new RegExp("\\." + cls[1])` (the first attempt) turned into
+         `\f` for `.fb-btn` and `\b` for `.btn-ghost` — a form-feed and a word boundary — which
+         matched nearly every selector and failed the pin for the wrong reason. Escape the dot, then
+         require a real class boundary so `.fb-btn--sm` is not counted as `.fb-btn`. */
+      const esc = cls.replace(/\./g, "\\.");
+      return new RegExp(`(^|[\\s,>+~])${esc}(?![-\\w])`).test(sel);
+    };
+    const ctaVisualRules = (() => {
+      const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
+      const out: Array<{ sels: string[]; body: string }> = [];
+      for (const m of stripped.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const sel = m[1].trim();
+        if (!sel || sel.startsWith("@")) continue;
+        if (/border-radius:\s*var\(--radius-pill\)|--button-background-color:|--button-color:/.test(m[2]) &&
+            /\.fb-cta/.test(sel))
+          out.push({ sels: sel.split(",").map((x) => x.trim()), body: m[2] });
+      }
+      return out;
+    })();
+    ok("[24] the CTA visual rules never reach a legacy selector (the collision the headless pass found)",
+      ctaVisualRules.length > 0 &&
+        ctaVisualRules.every((r) => !r.sels.some((sel) =>
+          [".fb-btn", ".btn-ember", ".btn-ghost", ".magic-button", ".btn-shine"].some((c) => namesLegacy(sel, c)))),
+      `${ctaVisualRules.length} visual rules checked`);
     const block = css.slice(css.indexOf("CTA CONTRACT")).replace(/\/\*[\s\S]*?\*\//g, "");
     ok("[16] the new contract owns a distinct class name, so neither system restyles the other",
-      block.includes(".fb-cta") && !/\.fb-btn\s*[{:,_]/.test(block) && /\.fb-btn\s*\{/.test(css),
-      "found by the headless pass: the shared name made my rules override the onboarding pill");
+      block.includes(".fb-cta") && /\.fb-btn\s*\{/.test(css),
+      "behaviour is shared on purpose; the VISUAL non-overlap is pinned directly above");
     ok("[16] the pre-existing pill system is still defined after the rename",
       /\.fb-btn\s*\{[\s\S]{0,500}?border-radius:\s*999px/.test(css));
   }
@@ -1722,8 +1757,16 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     !/drop constraint[\s\S]{0,80}_fkey/i.test(mig) &&
     /on delete set null/.test(mig) && /account deletion/i.test(mig) &&
     /deliberately LEFT ALONE/.test(mig));
-  ok("[17] it is marked NOT YET APPLIED and carries verification queries",
-    /NOT YET APPLIED/.test(mig) && /Verify with:/.test(mig) && /must not move/.test(mig));
+  /* This pin demanded the literal "NOT YET APPLIED". The migration was applied to production on
+     2026-10-31 and its header rewritten to say so, which left the suite red ON MAIN while CI
+     stayed green — ci.yml runs install / secrets / typecheck / lint / build and never ran the
+     harness. Reworded to what actually protects a reader: the file must state which environment it
+     was applied to, and carry the queries that prove the outcome. No `STATUS:` prefix — the sibling
+     file writes "STATUS: APPLIED", this one writes "APPLIED", and pinning the prose would make the
+     gate depend on a word that carries no information. */
+  ok("[17] it records the exact production project it was applied to, and carries verification queries",
+    /APPLIED 2026-10-31 to production `ihwtpwlszegrjgakqsxx` as migration/.test(mig) &&
+    /Verify with:/.test(mig) && /must not move/.test(mig) && !/NOT YET APPLIED/.test(mig));
   ok("[17] the schema and the migration agree on the same vocabulary",
     src("src/db/schema.ts").includes("in ('active','archived','blocked','unmatched')"));
 }
@@ -1890,9 +1933,10 @@ console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, ever
     !/for insert|for update|for delete|for all/i.test(sig));
   ok("[18] the read policy is participation-scoped and status-blind on purpose",
     /m\.user_a = auth\.uid\(\) or m\.user_b = auth\.uid\(\)/.test(sig) && !/status\s*=/ .test(sig.split("create policy")[1] ?? ""));
-  ok("[18] it is added to the realtime publication only if not already there, and it says NOT YET APPLIED",
+  ok("[18] it is added to the realtime publication only if not already there, and says what was applied",
     /if exists \(select 1 from pg_publication where pubname = 'supabase_realtime'\)/.test(sig) &&
-    /NOT YET APPLIED/.test(sig) && /Rollback with/.test(sig));
+    /APPLIED 2026-10-31 to production `ihwtpwlszegrjgakqsxx`/.test(sig) &&
+    /Rollback with/.test(sig) && /2026_10_31_chat_signals_participant_predicate/.test(sig));
   ok("[18] the signal carries no message text, by construction",
     /kind\s+text/.test(sig) && !/body\s+text/.test(sig) &&
     /no message text/.test(src("src/db/schema.ts").slice(src("src/db/schema.ts").indexOf("CHAT SIGNALS"))));
@@ -2171,6 +2215,148 @@ console.log("\n[23] media access delegates to the lifecycle table, and every rul
     `unreadVaries=${unreadVaries} readMediaAllHere=${readMediaAllHere}`);
   ok("[23] read_media is exercised through the media route itself, not merely defined",
     corpus.some(({ f, s }) => /chat\/media\/\[id\]\/route\.ts$/.test(f) && /"read_media"/.test(s)));
+}
+
+/* ---------- 24. design system: one control contract, on the shipped bytes ---------- */
+console.log("\n[24] design system — the shared control contract, the migration ceiling");
+{
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const root = new URL("../../", import.meta.url);
+  const rd = (f: string) => readFileSync(new URL(f, root), "utf8");
+  const css = rd("src/app/globals.css");
+  const btnSrc = rd("src/components/ui/button.tsx");
+  const iconSrc = rd("src/components/ui/icon-button.tsx");
+  const chipSrc = rd("src/components/ui/chip.tsx");
+  const stateSrc = rd("src/components/ui/states.tsx");
+  const settingsSrc = rd("src/components/app/settings-view.tsx");
+
+  /* Comments are stripped before anything is matched. globals.css carries its own evidence as
+     prose — the sentences explaining a rule contain the rule's name and its properties — so a
+     grep-style pin would pass on documentation alone. This parses rules. */
+  const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules: Array<{ sels: string[]; body: string }> = [];
+  for (const m of cssNoComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (!sel || sel.startsWith("@")) continue;
+    rules.push({ sels: sel.split(",").map((x) => x.trim()), body: m[2] });
+  }
+  const hasRule = (sel: string, prop: RegExp) =>
+    rules.some((r) => r.sels.includes(sel) && prop.test(r.body));
+  /* Every block of a media query, not the first: globals.css already carried several
+     reduced-motion blocks, and reading only the first would have "proved" that .fb-cta's guard
+     covered .btn-ember. */
+  const collectMedia = (prelude: string) => {
+    let from = 0;
+    const out: string[] = [];
+    for (;;) {
+      const i = cssNoComments.indexOf(prelude, from);
+      if (i < 0) break;
+      const open = cssNoComments.indexOf("{", i);
+      let depth = 0;
+      let done = false;
+      for (let j = open; j < cssNoComments.length; j++) {
+        if (cssNoComments[j] === "{") depth++;
+        else if (cssNoComments[j] === "}") {
+          depth--;
+          if (depth === 0) { out.push(cssNoComments.slice(open, j)); from = j + 1; done = true; break; }
+        }
+      }
+      if (!done) break;
+    }
+    return out.join("\n");
+  };
+
+  /* The bug this change fixes was not aesthetics. `.fb-btn`, `.btn-ember`, `.btn-ghost` and
+     `.magic-button` had NO `:focus-visible` and NO `:disabled` rule at all (only `.fb-cta` did), so
+     a disabled "Delete my account" looked fully enabled and a keyboard user got whatever ring the
+     UA felt like. The fix pulls those behaviours onto the legacy selectors, so the ~190 remaining
+     call sites gain them without a markup change. Each behaviour is asserted per family, because
+     "the CSS file got bigger" is not a gate. */
+  for (const cls of [".btn-ember", ".btn-ghost", ".magic-button"]) {
+    ok(`[24] ${cls} takes the touch floor from the token instead of from padding`,
+      hasRule(cls, /min-height:\s*var\(--control-h-md\)/));
+    ok(`[24] ${cls}:focus-visible has an explicit ring, matching .fb-cta`,
+      rules.some((r) => r.sels.some((s) => s.includes(cls) && s.includes(":focus-visible")) &&
+        /outline:\s*2px\s+solid\s+var\(--color-ember-300\)/.test(r.body) && /outline-offset:\s*3px/.test(r.body)));
+    ok(`[24] ${cls}:disabled is visibly inert`,
+      rules.some((r) => r.sels.some((s) => s.includes(cls) && s.includes(":disabled")) &&
+        /opacity:/.test(r.body) && /cursor:\s*not-allowed/.test(r.body)));
+  }
+  /* The other half of the same decision: the unification must not LOWER a control that already
+     clears the floor. Pinned so a future "tidy-up" that puts `.fb-btn` in the token rule fails. */
+  ok("[24] .fb-btn keeps its own 48px height — a floor raises, it does not reskin",
+    hasRule(".fb-btn", /min-height:\s*48px/) && !hasRule(".fb-btn", /min-height:\s*var\(--control-h-md\)/));
+  ok("[24] the 40px small pill is raised to the 44px floor by shedding padding, not height",
+    hasRule(".fb-btn-sm", /min-height:\s*var\(--control-h-md\)/) && hasRule(".fb-btn-sm", /padding:/));
+  const rm = collectMedia("@media (prefers-reduced-motion: reduce)");
+  ok("[24] reduced motion neutralises the legacy lift/shine, which had no guard",
+    [".btn-ember", ".btn-ghost", ".magic-button", ".btn-shine"].every((c) => rm.includes(c)));
+  const coarse = collectMedia("@media not all and (hover: hover) and (pointer: fine)");
+  ok("[24] coarse pointers get transform:none on every legacy hover rule",
+    [".fb-btn-primary:hover", ".btn-ember:hover", ".btn-ghost:hover", ".magic-button:hover"].every((c) => coarse.includes(c)));
+
+  /* The two-primaries drift, turned into a check. button.tsx offered `primary` (pearl) while ~100
+     member CTAs hand-wrote the ember gradient, so "the primary button" meant two things. `brand`
+     names the gradient instead of silently recolouring it — and these two assertions make sure the
+     TS variant map and the stylesheet can never disagree in EITHER direction, which is how a variant
+     with no CSS (unstyled button, green build) would otherwise ship. */
+  const variantClasses = [...btnSrc.matchAll(/\b[a-z]+:\s*"(fb-cta--[a-z-]+)"/g)].map((m) => "." + m[1]);
+  ok("[24] every Button variant resolves to a CSS rule that exists",
+    variantClasses.length >= 6 && variantClasses.every((c) => rules.some((r) => r.sels.includes(c))),
+    variantClasses.join(" "));
+  const cssVariants = rules.flatMap((r) => r.sels).filter((s) => /^\.fb-cta--[a-z-]+$/.test(s));
+  ok("[24] no orphan .fb-cta--* class the component cannot reach",
+    cssVariants.every((c) => variantClasses.includes(c) || /--(block|loading|xs|sm|md|lg)$/.test(c)),
+    cssVariants.join(" "));
+  ok("[24] brand pairs the ember gradient with a dark label (white on ember measured ~3.3:1, under AA at 13px)",
+    hasRule(".fb-cta--brand", /--button-background-color:\s*var\(--gradient-ember-warm\)/) &&
+      hasRule(".fb-cta--brand", /--button-color:\s*#2b0710/));
+
+  /* Primitives are only reusable if the props that make them accessible are compulsory. */
+  ok("[24] IconButton requires aria-label at the type level",
+    iconSrc.includes('"aria-label": string') &&
+      iconSrc.includes('Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label">'));
+  ok("[24] IconButton md is the 44px floor and xs keeps a 44px hit area while painting 28px",
+    hasRule(".fb-icon-btn", /width:\s*var\(--control-h-md\)/) &&
+      hasRule(".fb-icon-btn--xs", /width:\s*1\.75rem/) &&
+      hasRule(".fb-icon-btn--xs::before", /inset:\s*calc/) &&
+      hasRule(".fb-icon-btn--xs::before", /position:\s*absolute/));
+  ok("[24] Chip takes the touch floor at md and buys it back as a hit area at sm",
+    hasRule(".fb-chip", /min-height:\s*var\(--control-h-md\)/) &&
+      hasRule(".fb-chip--sm::before", /inset:\s*calc/) && hasRule(".fb-chip--sm", /position:\s*relative/));
+  ok("[24] Chip must state its own pressed value (the reason-picker dialog could not)",
+    chipSrc.includes('"aria-pressed": boolean') && hasRule('.fb-chip[aria-pressed="true"]', /background/));
+  ok("[24] loading and error states are announced, not merely coloured",
+    /role="status"/.test(stateSrc) && /aria-live="polite"/.test(stateSrc) && /role="alert"/.test(stateSrc));
+
+  /* Off-palette red. `bg-red-500` + `text-white` was Tailwind's scale, not the product's, and it sat
+     on the single most destructive control in the app. */
+  ok("[24] the settings surface has no Tailwind red left outside the danger token",
+    !/(?:bg|text|border|ring)-red-\d/.test(settingsSrc));
+  ok("[24] account deletion routes through the shared danger variant and reports progress",
+    /variant="danger"/.test(settingsSrc) && /loading=\{busy\}/.test(settingsSrc));
+
+  /* The ceiling: raw <button> may only fall, and the number is printed every run so a follow-up PR
+     has a figure to beat. Both halves of the scanner are proved first — otherwise "191 <= 191" is
+     indistinguishable from a scan that found nothing at all. */
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(new URL(dir, root), { withFileTypes: true }) as Array<{ name: string; isDirectory(): boolean }>) {
+      const next = dir + e.name;
+      if (e.isDirectory()) walk(next + "/");
+      else if (next.endsWith(".tsx")) files.push(next);
+    }
+  };
+  walk("src/");
+  const rawIn = (f: string) => (rd(f).match(/<button\b/g) ?? []).length;
+  const rawTotal = files.reduce((a, f) => a + rawIn(f), 0);
+  ok("[24] the raw-button scanner counts a primitive and not a migrated consumer",
+    rawIn("src/components/ui/chip.tsx") === 1 && rawIn("src/components/ui/states.tsx") === 0);
+  ok("[24] raw <button> count is at or below the recorded ceiling (may only shrink)",
+    rawTotal <= 191, `count=${rawTotal} ceiling=191 files=${files.length}`);
+  ok("[24] settings-view is below its own recorded baseline",
+    rawIn("src/components/app/settings-view.tsx") <= 19,
+    `count=${rawIn("src/components/app/settings-view.tsx")} baseline=24 ceiling=19`);
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

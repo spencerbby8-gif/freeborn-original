@@ -1258,3 +1258,247 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 }
 /* One place to lower the type scale instead of per-breakpoint redeclarations. */
 @media (max-width: 599px) { :root { --fb-text-scale: 0.94; } }
+
+/* ============================================================================
+   FREEBORN · 2026-10-31 · LEGACY CONTROL UNIFICATION
+   ----------------------------------------------------------------------------
+   The measured debt, extracted from the JSX at `da6abd4` (not counted by line, which cannot tell a
+   photo-reorder control from a call to action): 194 raw <button> occurrences against 5 uses of the
+   shared <Button>, and three parallel vocabularies — `.fb-btn*` (pill),
+   `.btn-ember` / `.btn-ghost` / `.btn-shine` / `.magic-button` (marketing), and inline
+   Tailwind utilities. Heights were declared per component: min-height 40/44/48/52/56/65/88px plus
+   fixed h-8..h-16 (32/36/40/44/48/64px), 16 of the fixed ones inside src/components/app/ alone —
+   i.e. sixteen controls pinned below the 44px floor by their own markup.
+
+   Rewriting ~190 call sites in one PR would have been a layout-rearrangement PR wearing a
+   design-system costume, and a blind sweep would have "migrated" the photo-reorder, deck
+   and lightbox controls — which are legitimately raw — into pill CTAs. So the fix lands
+   where all three vocabularies already agree to meet: the stylesheet. Every behaviour that
+   ONLY `.fb-cta` had is now shared by the legacy families, so ~190 sites gain it with no
+   markup change, and a per-screen sweep can then be judged on composition instead of reset.
+
+   Evidence for what was missing (greps of the file as it stood at `da6abd4`): `.fb-btn`,
+   `.btn-ember`, `.btn-ghost` and `.magic-button` had no `:focus-visible` rule and no
+   `:disabled` rule at all — only `.fb-cta` did (lines 1233-1240). A disabled "Delete my
+   account" therefore looked exactly like an enabled one, and keyboard focus depended on
+   whatever ring the UA felt like. That is an access bug, not a taste gap.
+   ========================================================================== */
+
+/* --- the touch floor is a token, not a per-file number -------------------
+   `.fb-btn` already carried a hard `min-height: 48px`; the marketing families had no min-height
+   at all and took their height from padding. So the token goes on the families that LACK a floor,
+   and `.fb-btn` keeps its 48px. Appending `min-height: var(--control-h-md)` to `.fb-btn` as well
+   would have been a regression wearing a refactor's clothes: equal specificity, later in the file,
+   so it would have won and silently shrunk the most-seen call to action in the app (auth, onboarding)
+   from 48px to 44px. A floor raises what is below it; it does not lower what is above it. */
+.btn-ember,
+.btn-ghost,
+.magic-button {
+  box-sizing: border-box;
+  min-height: var(--control-h-md);
+}
+/* `.fb-btn-sm` was 40px — 4px under the floor. It keeps its compact look by shedding
+   horizontal padding instead of height, which is the only dimension a finger needs. */
+.fb-btn-sm,
+.magic-button--sm { min-height: var(--control-h-md); padding: 0 0.875rem; }
+
+/* --- focus, for every family --------------------------------------------
+   Same declaration as `.fb-cta:focus-visible` above (`2px --color-ember-300`, 3px offset), so the
+   two button systems cannot disagree about what "focused" looks like. Deliberately NOT inherited
+   from the `:where()` app ring at line 666, which has zero specificity and loses to any component
+   rule — that is why a `.fb-btn` on the same page had a different ring than a `.fb-cta`. */
+.fb-btn:focus-visible,
+.btn-ember:focus-visible,
+.btn-ghost:focus-visible,
+.magic-button:focus-visible,
+.fb-icon-btn:focus-visible,
+.fb-chip:focus-visible {
+  outline: 2px solid var(--color-ember-300);
+  outline-offset: 3px;
+}
+
+/* --- disabled, for every family -----------------------------------------
+   `.fb-btn:disabled` recoloured the surface; nothing conveyed "inert", and the marketing
+   families did not respond at all. Opacity plus a refusal cursor, matching `.fb-cta`. */
+.fb-btn:disabled,
+.btn-ember:disabled,
+.btn-ghost:disabled,
+.magic-button:disabled,
+.fb-icon-btn:disabled,
+.fb-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* --- hover is a fine-pointer affordance, everywhere ---------------------
+   `(hover:hover) and (pointer:fine)` is what `.fb-cta` already gates on. An ungated
+   `:hover { transform: translateY(-2px) }` sticks after a tap on touch and reads as a
+   permanently selected button. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .fb-btn:hover,
+  .fb-btn-primary:hover,
+  .btn-ember:hover,
+  .btn-ghost:hover,
+  .btn-shine:hover::after,
+  .magic-button:hover {
+    transform: none;
+    filter: none;
+  }
+  .btn-ember:hover { box-shadow: var(--shadow-primary-btn); }
+}
+
+/* --- motion that the user has asked not to have -------------------------
+   The marketing families animate unconditionally: a 2px lift, a sweeping shine, and a
+   40s marquee. Under prefers-reduced-motion those become still. */
+@media (prefers-reduced-motion: reduce) {
+  .fb-btn,
+  .fb-btn:hover,
+  .btn-ember,
+  .btn-ember:hover,
+  .btn-ghost,
+  .btn-ghost:hover,
+  .magic-button,
+  .magic-button:hover {
+    transition-duration: 0.01ms;
+    transform: none;
+  }
+  .btn-shine::after,
+  .btn-shine:hover::after { animation: none; opacity: 0; }
+  .magic-marquee { animation-duration: 120s; }
+}
+
+/* ============================================================================
+   primitives those ~190 sites were each re-inventing
+   ============================================================================ */
+
+/* An icon-only control has no label to lean on, so it is its own component with a
+   compulsory `aria-label` (see ui/icon-button.tsx). Sizes are tokens: `md` is the 44px
+   floor, `xs` is the 28px disc a photo tile needs — which stays a 44px target because the
+   hit area, not the paint, is what a finger meets. */
+.fb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid rgba(251, 247, 242, 0.18);
+  border-radius: var(--radius-pill);
+  background: rgba(251, 247, 242, 0.06);
+  color: var(--color-ivory);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.fb-icon-btn:hover { background: rgba(251, 247, 242, 0.12); }
+.fb-icon-btn--bare { border-color: transparent; background: transparent; }
+.fb-icon-btn--bare:hover { background: rgba(251, 247, 242, 0.1); }
+.fb-icon-btn--danger { color: var(--color-danger); border-color: rgba(255, 107, 122, 0.35); }
+.fb-icon-btn--sm { width: var(--control-h-sm); height: var(--control-h-sm); }
+.fb-icon-btn--lg { width: var(--control-h-lg); height: var(--control-h-lg); }
+.fb-icon-btn--xs {
+  width: 1.75rem;   /* 28px — the size a tile overlay can occupy without eating the photo */
+  height: 1.75rem;
+  background: rgba(16, 12, 24, 0.62);
+  backdrop-filter: blur(6px);
+  border-color: transparent;
+  position: relative;
+}
+/* The extra -1px is not a rounding habit. An absolutely positioned pseudo-element resolves `inset`
+   against the PADDING box, so a 1px border silently shortens the resulting target by 2px: measured
+   42px instead of 44px in Chromium. Adding the border width back is what makes the claim true. */
+.fb-icon-btn--xs::before {
+  content: "";
+  position: absolute;
+  inset: calc((1.75rem - var(--control-h-md)) / 2 - 1px);
+}
+
+/* The hit-area extender needs `position: absolute` on the pseudo-element: `inset` has no effect on
+   a static box, so without it this rule computes to `inset: auto` and the target is still 28px — a
+   defect found by measuring getComputedStyle(el,'::before') in a browser, not by reading the file. */
+.fb-icon-btn--xs::before,
+.fb-chip--sm::before { position: absolute; }
+
+/* Selectable chip — the filter panel, interest grid and reason picker each hand-rolled a
+   version of this, and only one of them set `aria-pressed`. */
+.fb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  box-sizing: border-box;
+  min-height: var(--control-h-md);
+  padding: 0 0.875rem;
+  border: 1px solid rgba(251, 247, 242, 0.18);
+  border-radius: var(--radius-pill);
+  background: rgba(251, 247, 242, 0.04);
+  color: var(--color-ivory);
+  font-size: var(--text-ui-xs);
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.fb-chip[aria-pressed="true"] {
+  background: rgba(246, 215, 154, 0.16);
+  border-color: var(--color-gold-300);
+  color: #2b0710;
+}
+/* Dense multi-select rows (interest grid, filter panel) keep a 32px paint for the same reason
+   `.fb-icon-btn--xs` does: the row is the layout, not the finger. The 44px target is restored by
+   the positioned ::before above. */
+.fb-chip--sm {
+  min-height: 2rem;
+  padding: 0 0.625rem;
+  font-size: 0.6875rem;
+  position: relative;
+}
+.fb-chip--sm::before {
+  content: "";
+  position: absolute;
+  inset: calc((2rem - var(--control-h-md)) / 2 - 1px);
+}
+
+/* Loading, empty and error, so a screen with nothing to show still says so in the same voice. */
+.fb-skeleton {
+  border-radius: var(--radius-card);
+  background: linear-gradient(90deg, rgba(251, 247, 242, 0.05) 0%, rgba(251, 247, 242, 0.11) 50%, rgba(251, 247, 242, 0.05) 100%);
+  background-size: 200% 100%;
+  animation: fb-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes fb-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fb-skeleton { animation: none; background-size: 100% 100%; }
+}
+.fb-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid rgba(251, 247, 242, 0.14);
+  border-radius: var(--radius-card);
+  background: rgba(251, 247, 242, 0.03);
+  text-align: center;
+}
+.fb-state__title { font-size: var(--text-ui-sm); font-weight: 800; color: var(--color-ivory); }
+.fb-state__body { font-size: var(--text-ui-xs); color: var(--color-ash); max-width: 44ch; }
+.fb-state__action { margin-top: 0.25rem; }
+.fb-state--error { border-color: rgba(255, 107, 122, 0.4); background: rgba(255, 107, 122, 0.07); }
+.fb-state--error .fb-state__action { color: var(--color-danger); }
+.fb-state__action--danger { color: var(--color-danger); font-weight: 800; }
+
+/* The second primary, named instead of silently merged.
+   Roughly a hundred member-facing CTAs are `.btn-ember` (the warm gradient) while
+   `Button variant="primary"` is pearl `.fb-cta--primary` — two "primaries" is the drift, but
+   recoloring ~100 call sites to pearl is an unowned redesign, not a refactor. So the gradient
+   gets a name inside the shared contract; the sweep moves call sites onto it screen by screen.
+   The label is ink, not #fff7f2: white on the pale end of `--gradient-ember-warm` measures
+   ~3.3:1, under AA at the 13px sizes these buttons actually use. */
+.fb-cta--brand {
+  --button-background-color: var(--gradient-ember-warm);
+  --button-color: #2b0710;
+  --button-border-color: transparent;
+}
+

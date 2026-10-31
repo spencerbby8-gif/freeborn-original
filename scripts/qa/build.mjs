@@ -20,6 +20,19 @@ execFileSync(
   { stdio: "inherit" }
 );
 
+/* Staleness guard, added the hard way: this script reads `.next`, so if `npm run build` was not
+   re-run after a stylesheet edit it will happily package the PREVIOUS build's CSS and every
+   measurement then passes or fails on bytes that are no longer the product's. That is what actually
+   happened once — a chip fix read back as "still 36px" — and a "real CSS" test that silently tests a
+   stale build is worse than no test, because it is believed. */
+{
+  const { stat } = await import("node:fs/promises");
+  const src = await stat("src/app/globals.css").catch(() => null);
+  const next = await stat(".next").catch(() => null);
+  if (src && next && src.mtimeMs > next.mtimeMs)
+    throw new Error("src/app/globals.css is newer than .next — run `npm run build` first, or public/qa gets photographed against a stale stylesheet");
+}
+
 /* The CSS Next built for the app — same bytes a member's browser receives. Turbopack emits
    it under .next/static/chunks/, not .next/static/css/, so walk the tree and take every
    stylesheet largest-first. */

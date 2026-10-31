@@ -20,11 +20,19 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
  *
  * Palette, type and radii are Freeborn's own. Same contract, not Bumble's appearance.
  */
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "quiet";
+/**
+ * `primary` is the pearl CTA. `brand` is the ember gradient that roughly a hundred member-facing
+ * CTAs already use through `.btn-ember` — two "primaries" is the drift itself, and renaming the
+ * call sites is a per-screen design decision, so the gradient is given a name inside the shared
+ * contract instead of being silently recoloured to pearl. Both inherit the focus, disabled,
+ * touch-height and motion behaviour from the stylesheet.
+ */
+export type ButtonVariant = "primary" | "brand" | "secondary" | "ghost" | "danger" | "quiet";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "fb-cta--primary",
+  brand: "fb-cta--brand",
   secondary: "fb-cta--secondary",
   ghost: "fb-cta--ghost",
   danger: "fb-cta--danger",

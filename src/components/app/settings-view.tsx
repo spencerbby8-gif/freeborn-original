@@ -1,6 +1,7 @@
 "use client";
 
 import { PhotoImage } from "@/components/ui/photo-image";
+import { Button } from "@/components/ui/button";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
@@ -348,7 +349,7 @@ function Disclosure({
   const danger = tone === "danger";
   return (
     <div
-      className={`fb-card ${danger ? "border-red-400/25 bg-red-500/[0.05]" : ""}`}
+      className={`fb-card ${danger ? "border-[var(--color-danger)]/25 bg-[var(--color-danger)]/[0.05]" : ""}`}
       data-search={search}
     >
       <button
@@ -359,7 +360,7 @@ function Disclosure({
         className="flex w-full items-center gap-3 text-left"
       >
         <span className="min-w-0 flex-1">
-          <span className={`fb-row-title ${danger ? "text-red-200" : ""}`}>{title}</span>
+          <span className={`fb-row-title ${danger ? "text-[var(--color-danger)]" : ""}`}>{title}</span>
           <span className="fb-row-desc">{summary}</span>
         </span>
         <svg
@@ -681,23 +682,22 @@ function DeleteAccount() {
   };
 
   return (
-    <div className="rounded-2xl border border-red-400/30 bg-red-500/[0.06] p-4" data-search="delete account permanently erase remove destroy">
-      <p className="text-[12px] font-bold uppercase tracking-wider text-red-300">Delete account (permanent)</p>
+    <div
+      className="rounded-2xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/[0.06] p-4"
+      data-search="delete account permanently erase remove destroy"
+    >
+      <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-danger)]">Delete account (permanent)</p>
       <p className="mt-1 text-[12px] leading-4 text-[var(--color-ash)]">
         Deletion is forever: your profile, photos, messages, matches, and sign-in are removed.
         This cannot be undone. (Pausing above is the reversible option.)
       </p>
       {!confirming ? (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className="mt-3 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-2.5 text-[12.5px] font-bold text-red-200 transition hover:bg-red-500/20"
-        >
+        <Button variant="danger" size="sm" className="mt-3" onClick={() => setConfirming(true)}>
           Delete my account permanently
-        </button>
+        </Button>
       ) : (
         <div className="mt-3 space-y-2">
-          <p className="text-[12px] font-bold text-red-200">
+          <p className="text-[12px] font-bold text-[var(--color-danger)]">
             Type <span className="font-black">DELETE</span> to confirm. This cannot be undone.
           </p>
           <input
@@ -705,27 +705,29 @@ function DeleteAccount() {
             onChange={(e) => setTyped(e.target.value)}
             placeholder="DELETE"
             aria-label="Type DELETE to confirm account deletion"
-            className="min-h-[44px] w-full rounded-xl border border-red-400/30 bg-white/[0.03] px-4 text-[13.5px] font-bold tracking-widest text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-red-400"
+            className="min-h-[44px] w-full rounded-xl border border-[var(--color-danger)]/30 bg-white/[0.03] px-4 text-[13.5px] font-bold tracking-widest text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)] focus:border-[var(--color-danger)]"
           />
           <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={busy || typed !== "DELETE"}
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={typed !== "DELETE"}
+              loading={busy}
+              loadingLabel="Deleting your account"
               onClick={() => void runDelete()}
-              className="rounded-xl bg-red-500 px-4 py-2.5 text-[12.5px] font-black text-white transition hover:bg-red-400 disabled:opacity-50"
             >
-              {busy ? "Deleting…" : "Delete forever"}
-            </button>
-            <button
-              type="button"
+              Delete forever
+            </Button>
+            <Button
+              variant="quiet"
+              size="sm"
               onClick={() => {
                 setConfirming(false);
                 setTyped("");
               }}
-              className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
             >
               Keep my account
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1080,7 +1082,7 @@ export function SettingsView() {
                 <input className={inputClass} value={p.displayName} maxLength={40} onChange={(e) => setP({ displayName: e.target.value })} />
                 <span
                   className={`block text-right text-[11px] font-semibold tabular-nums ${
-                    nameTooShort ? "text-red-300" : "text-[var(--color-ash)]"
+                    nameTooShort ? "text-[var(--color-danger)]" : "text-[var(--color-ash)]"
                   }`}
                 >
                   {nameTooShort ? "Needs 2 characters, or clear it" : `${p.displayName.length}/40`}
@@ -1498,7 +1500,7 @@ export function SettingsView() {
                 className={`rounded-xl border px-4 py-2.5 text-[12.5px] font-bold ${
                   accountMsg.ok
                     ? "border-[var(--color-teal-500)]/35 bg-[var(--color-teal-500)]/[0.08] text-[var(--color-teal-300)]"
-                    : "border-red-400/30 bg-red-500/[0.08] text-red-300"
+                    : "border-[var(--color-danger)]/30 bg-[var(--color-danger)]/[0.08] text-[var(--color-danger)]"
                 }`}
               >
                 {accountMsg.text}
@@ -1618,30 +1620,25 @@ export function SettingsView() {
               tone="danger"
             >
               {!confirmDeactivate ? (
+                /* Left on the shared `.fb-btn` pill on purpose: deactivating is REVERSIBLE, and
+                   `variant="danger"` is a solid red reserved for the irreversible thing. It keeps
+                   its tinted styling and gains the focus/disabled/44px behaviour from the
+                   stylesheet, so "migrated" here means tokenised, not re-skinned. */
                 <button
                   type="button"
                   onClick={() => setConfirmDeactivate(true)}
-                  className="fb-btn fb-btn-sm border border-red-400/30 bg-red-500/10 font-bold text-red-200 hover:bg-red-500/20"
+                  className="fb-btn fb-btn-sm border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 font-bold text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20"
                 >
                   Deactivate my account
                 </button>
               ) : (
                 <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void deactivate()}
-                    className="rounded-xl bg-red-500 px-4 py-2.5 text-[12.5px] font-black text-white transition hover:bg-red-400 disabled:opacity-50"
-                  >
+                  <Button variant="danger" size="sm" loading={busy} loadingLabel="Deactivating your account" onClick={() => void deactivate()}>
                     Yes, hide me now
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDeactivate(false)}
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12.5px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
-                  >
+                  </Button>
+                  <Button variant="quiet" size="sm" onClick={() => setConfirmDeactivate(false)}>
                     Keep my account
-                  </button>
+                  </Button>
                 </div>
               )}
             </Disclosure>
