@@ -1,5 +1,8 @@
 -- ============================================================================
--- UNMATCH DETACHES, IT DOES NOT DESTROY.  Authored 2026-10-30.  NOT YET APPLIED.
+-- UNMATCH DETACHES, IT DOES NOT DESTROY.  Authored 2026-10-30.
+-- APPLIED 2026-10-31 to production `ihwtpwlszegrjgakqsxx` as migration
+-- `2026_10_30_unmatch_detach`, verified against the live catalog and data; see
+-- docs/research/2026-10-31/PRODUCTION-MIGRATIONS-2026-10-31.md. Do not re-run blind.
 -- ============================================================================
 -- Problem (measured, not assumed):
 --   * src/app/api/chat/unmatch/route.ts ran `delete(matches)`;
@@ -23,7 +26,8 @@
 -- deletion must still purge a member's messages and media rows, and that is what
 -- they are for. Unmatch simply stops pulling that lever.
 --
--- Apply with:  psql "$DATABASE_URL" -f db/migrations/2026-10-30-unmatch-detach.sql
+-- Apply with (other environments; every statement is idempotent, so re-running is inert):
+--   psql "$DATABASE_URL" -f db/migrations/2026-10-30-unmatch-detach.sql
 -- Reversible:  yes, every statement is additive; the DROP lines at the bottom.
 
 begin;

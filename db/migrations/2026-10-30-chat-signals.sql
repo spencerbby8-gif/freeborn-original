@@ -1,8 +1,13 @@
 -- ============================================================================
 -- FREEBORN · 2026-10-30 · chat signals for reliable realtime delivery
--- STATUS: NOT YET APPLIED to any database. Written and reviewed locally; it is
---         part of PR #26 and must be run BEFORE the code that writes to it
---         (same migration-before-deployment order as 2026-10-30-unmatch-detach.sql).
+-- STATUS: APPLIED 2026-10-31 to production `ihwtpwlszegrjgakqsxx` as migration
+--         `2026_10_30_chat_signals`, plus the corrective `2026_10_31_chat_signals_participant_predicate`
+--         (the original SELECT policy read `matches` directly, which is RLS-locked, so it
+--         could never be satisfied — see §4 of
+--         docs/research/2026-10-31/PRODUCTION-MIGRATIONS-2026-10-31.md). The corrective change is
+--         folded into this file so a fresh environment gets the working predicate in one step.
+--         It must be run BEFORE the code that writes to it (same migration-before-deployment
+--         order as 2026-10-30-unmatch-detach.sql).
 -- ============================================================================
 -- PURPOSE
 --   Give the chat screen a notification path that this deployment can actually use.
@@ -68,19 +73,74 @@ $sig_check$;
 alter table public.chat_signals enable row level security;
 alter table public.chat_signals force row level security;
 
+/* The predicate has to be a function, and the reason is measured, not theoretical.
+
+   Written first as a bare `exists (select 1 from public.matches ...)` and run against
+   production on 2026-10-31, it returned ZERO rows for a member who is in the match:
+
+     DIAG uid=772a1827-... sees_matches=0 sees_signals=0 forced=true/true
+
+   `public.matches` is itself RLS-enabled AND force-enabled with no policies, so when
+   PostgREST/Realtime evaluates this policy as `authenticated`, the subquery inside the
+   policy is itself filtered to nothing. A policy that reads a locked table can never be
+   satisfied: every client would have been denied, silently, forever — and a deny-all
+   policy passes a test that only checks strangers are refused. The participant-allowed
+   direction is the one that has to be asserted (scripts/qa/pg-migration-verify.sh),
+   which is why the flaw survived locally.
+
+   SECURITY DEFINER, owned by `postgres`, is the narrow way out: `postgres` carries
+   rolbypassrls = true, so the function sees `matches` while no caller ever gains
+   readable access to it. It returns one boolean about the caller's own membership, is
+   revoked from public, and is granted only to `authenticated` (and service_role, so a
+   route can ask the same question). Nothing here widens what a client can read.
+
+   The same flaw exists in two pre-existing policies on the legacy `match_messages`
+   table; that table has no writer in this codebase (no route touches it; the trust
+   harness pins it out of scope) so those policies are inert and are left alone here
+   rather than churned in a media changeset. */
+create or replace function public.is_match_participant(p_match uuid)
+  returns boolean
+  language sql
+  stable
+  security definer
+  set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1
+    from public.matches m
+    where m.id = p_match
+      and (m.user_a = auth.uid() or m.user_b = auth.uid())
+  );
+$$;
+
+do $own$
+begin
+  -- On Supabase the connecting role is `postgres`, which carries rolbypassrls = true (measured
+  -- on ihwtpwlszegrjgakqsxx: postgres|super=false|bypass=true), so a function owned by it can
+  -- read the RLS-locked `matches`. In a scratch cluster there may be no role named `postgres`
+  -- at all, and the bootstrap superuser already owns the function and bypasses RLS anyway.
+  -- pg_proc + regprocedure, not pg_class/regclass: a function is not a relation, and
+  -- `'public.is_match_participant'::regclass` fails with "relation does not exist" (which is
+  -- how this very guard failed its first run against a real cluster).
+  if exists (select 1 from pg_roles where rolname = 'postgres')
+     and (select r.rolname from pg_proc pr join pg_roles r on r.oid = pr.proowner
+           where pr.oid = 'public.is_match_participant(uuid)'::regprocedure) <> 'postgres'
+  then
+    execute 'alter function public.is_match_participant(uuid) owner to postgres';
+  end if;
+end
+$own$;
+comment on function public.is_match_participant(uuid) is
+  'Does the current member belong to this match? SECURITY DEFINER so the check can read matches, which is RLS-locked for clients. Returns a boolean about the caller only; no row data.';
+revoke all on function public.is_match_participant(uuid) from public;
+grant execute on function public.is_match_participant(uuid) to authenticated, service_role;
+
 drop policy if exists "Participants may read chat signals" on public.chat_signals;
 create policy "Participants may read chat signals"
   on public.chat_signals
   for select
   to authenticated
-  using (
-    exists (
-      select 1
-      from public.matches m
-      where m.id = chat_signals.match_id
-        and (m.user_a = auth.uid() or m.user_b = auth.uid())
-    )
-  );
+  using ( public.is_match_participant(match_id) );
 
 -- Deliberately NO insert/update/delete policy: the client cannot write here even to spam a
 -- peer. Only the app's own role (the transaction pooler, which bypasses RLS) produces signals.
@@ -122,6 +182,12 @@ $$;
 --    where relname = 'chat_signals';                                   -- t, t
 --   select policyname, cmd from pg_policies where tablename = 'chat_signals';
 --                                                                      -- exactly 1 SELECT policy
+--   -- and the direction that actually broke on first contact with production: the
+--   -- participant must see rows. Run as the member, not as postgres:
+--   --   begin; set local role authenticated;
+--   --   set local request.jwt.claims = '{"sub":"<member in the match>"}';
+--   --   select count(*) from public.chat_signals;   -- must be > 0  (was 0 before the fix)
+--   --   reset role; rollback;
 --   select count(*) from pg_publication_rel pr
 --     join pg_class c on c.oid = pr.prrelid
 --    where pr.prpubid = (select oid from pg_publication where pubname = 'supabase_realtime')
