@@ -1,0 +1,118 @@
+# Gate evidence, 2026-10-30 — one authoritative run of every check on the committed tree
+# tree: d26af947dcc22f83507b7de8a0efa5073da90ed3 (branch arena/rea-media-match-lifecycle)
+# node v20.20.2 · npm 10.8.2 · postgres (PostgreSQL) 17.11 (Debian 17.11-0+deb13u1)
+# remote tip: ec05172fe4378d4891d736e739b033f70cd8c8f2 — 8 commits behind HEAD; nothing pushed, nothing deployed
+
+### npx tsc --noEmit
+    [exit 0]
+
+### npm run lint
+    
+    > lint
+    > eslint .
+    
+    [exit 0]
+
+### npm run test:harness
+      ok   [21] the sender-only chat_media blob is deleted explicitly (no FK covers match_id NULL rows)
+      ok   [21] every table the 2026-10-30 FK audit named is in the delete list
+      ok   [21] and the auth rows go LAST, so a failed child delete cannot orphan an auth account
+      ok   [21] the bucket sweep runs before the row deletes (objects first, or the paths are unreadable afterwards)
+    
+    ALL PASS  (425/425 assertions, 0 failed)
+    [exit 0]
+
+### node scripts/qa/build.mjs
+    
+      public/qa/qa.js  1.1mb ⚠️
+    
+    ⚡ Done in 98ms
+    built public/qa/ from 2 emitted stylesheet(s), 149277 bytes of CSS
+    [exit 0]
+
+### env PLAYWRIGHT_BROWSERS_PATH=0 node scripts/qa/dialog-check.mjs
+      ok   its confirm carries NO reason rather than a fabricated one  [null]
+      ok   on desktop it is a centred modal, not a sheet stuck to the bottom  {"w":417.96832275390625,"centred":true,"top":true}
+      ok   no page errors while all of that ran  []
+      ok   and the only console noise is the deliberate missing-asset fixture  {"expected":2}
+    
+    ALL PASS (34/34) → docs/research/2026-10-30/DIALOG-QA-2026-10-30.json
+    [exit 0]
+
+### bash scripts/qa/pg-migration-verify.sh
+      ok   clients can neither insert, delete, nor update a signal row (nobody can spam, mute or rewrite a peer's channel)
+    -- the design claim that the LIVE chat tables must stay unreadable from a client
+      ok   messages is not selectable by any client role — which is WHY chat_signals exists (postgres_changes on messages would deliver nothing)
+    
+    ───────────────────────────────────────────────
+    ALL PASS  (38/38 migration assertions executed against real Postgres)
+    [exit 0]
+
+### npm run build
+    
+    ƒ Proxy (Middleware)
+    
+    ○  (Static)   prerendered as static content
+    ƒ  (Dynamic)  server-rendered on demand
+    
+    [exit 0]
+
+
+### git push origin arena/rea-media-match-lifecycle
+    fatal: could not read Username for 'https://github.com': terminal prompts disabled
+    [exit 128]
+    (Superseded below by the successful push; kept as the record of what was true when written.)
+No credential exists in this sandbox: no gh CLI, no ~/.git-credentials, no
+    ~/.config/gh/hosts.yml, no GITHUB_* env var. The token file used for the earlier push
+    was shredded at the owner's instruction, so the push cannot be authenticated from here.
+    Consequence: commits 4277842..0390280 exist ONLY in this workspace. PR #26 still points at
+    ec05172 (state open, mergeable true, mergeable_state unstable — Netlify's leftover check).
+    Nothing is deployed; both 2026-10-30 migrations are applied to no database.
+
+--- Second run, after the QA state-leak proof (harness-only change; product source untouched) ---
+### npx tsc --noEmit                                              [exit 0]
+### npm run lint                                                  [exit 0]
+### npm run test:harness          ALL PASS (425/425)             [exit 0]
+### bash scripts/qa/pg-migration-verify.sh
+                                  ALL PASS (38/38, real Postgres 17) [exit 0]
+### node scripts/qa/build.mjs                                     [exit 0]
+### PLAYWRIGHT_BROWSERS_PATH=0 node scripts/qa/dialog-check.mjs
+                                  ALL PASS (37/37)                [exit 0]
+### npm run build                                                 [exit 0]
+### npm run check:secrets   secret scan OK - 322 tracked files    [exit 0]
+
+Pre-push diff review: `--diff-filter=D` empty (no accidental deletions); 15 new files, all
+substantial; every import in the changed modules resolves; the only added console.* calls are
+QA/harness reporters, none in product source; no token-shaped string in the 3,653-line diff.
+
+=== PUSHED 2026-10-30, after the owner supplied a fresh PAT for this purpose ===
+  git push origin arena/rea-media-match-lifecycle  ->  ec05172..538e4da  (fast-forward, no force)
+  remote tip confirmed by `git ls-remote`: 538e4dae66f46db32a3112689bff89d375d1c4fc
+  PR #26 head is now 538e4da: 21 commits, 81 files, +11,256/-184, state open,
+      mergeable=true, mergeable_state=CLEAN (was "unstable" while checks ran), base=main.
+  Nothing was pushed to main. No commit was rewritten. The token lived only in a 0600 file
+  under /tmp (outside the workspace) and is deleted at the end of the session; it appears in
+  no file in this repository (`git grep` + `npm run check:secrets` both clean: 322 tracked files).
+
+Checks on 538e4da (all read from the API, not inferred):
+  verify (CI: typecheck / lint / secret scan / build, Node 24)   completed  SUCCESS
+      run 41132562609
+  Vercel Preview Comments                                         completed  SUCCESS  (0 unresolved)
+  Redirect rules - freeborn                                       completed  SUCCESS  (3 rules)
+  Header rules - freeborn                                         completed  SUCCESS  (1 rule)
+  Pages changed - freeborn                                        completed  NEUTRAL  (15 assets, 0 generated pages)
+  combined commit status                                          SUCCESS  (Vercel, netlify/freeborn/deploy-preview)
+
+Deployment preview, probed rather than trusted from a badge:
+  https://freeborn-git-arena-rea-media-7b35f2-spencerbby8-5225s-projects.vercel.app
+    GET /             200  186,397 bytes   (Next SSR html, lang="en")
+    GET /terms        200   96,716 bytes
+    GET /discover     200   18,665 bytes
+    GET /api/health   200       11 bytes   {"ok":true}   <- server functions execute in the preview
+
+Still true after the push: the PR is unmerged, so PRODUCTION is unchanged, and
+db/migrations/2026-10-30-unmatch-detach.sql and 2026-10-30-chat-signals.sql are applied to NO
+database. Required order on the owner's side: apply both migrations (unmatch-detach first — the
+code writes status='unmatched', which today's three-value CHECK rejects), verify with
+scripts/qa/pg-migration-verify.sh, then merge and deploy. The Netlify checks above are the
+leftover GitHub App integration, not the deployment target (DNS went Cloudflare -> Vercel).

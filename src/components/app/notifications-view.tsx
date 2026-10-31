@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -97,11 +98,7 @@ export function NotificationsView() {
             }`}
           >
             {n.photo ? (
-              <img
-                src={n.photo}
-                alt=""
-                className="h-11 w-11 shrink-0 rounded-full border border-white/10 object-cover"
-              />
+              <PhotoImage src={n.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/10" imgClassName="object-cover" compact />
             ) : (
               <span
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${

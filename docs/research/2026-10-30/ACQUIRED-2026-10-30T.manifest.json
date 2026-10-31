@@ -1,0 +1,231 @@
+{
+ "generated_utc": "2026-10-30T19:20:00Z",
+ "method": "curl -sSL --max-time 60 --proto '=https' against the asset URLs listed in each app's saved entry HTML (re/analysis-2026-10-29/<app>/_entry.html); every row below returned HTTP 200. Stubs under 77 bytes were deleted, not recorded.",
+ "totals": {
+  "files": 23,
+  "bytes": 5744053
+ },
+ "gaps": [
+  {
+   "app": "hinge",
+   "gap": "no production CSS or JS reachable from this sandbox",
+   "evidence": "curl of https://hinge.com/... and https://www.hinge.com/... both exit 000 (connection failure), retried twice on 2026-10-30",
+   "consequence": "Hinge's UI token layer, focus styling and hover gating are UNKNOWN here, not absent. Every Hinge claim in this folder is scoped to its 2026-10-29 JS bundles."
+  },
+  {
+   "app": "bumble",
+   "gap": "12 asset rows from the entry HTML failed (Hinge host unreachable + <77 B stubs)",
+   "evidence": "29 fetch-plan rows failed of 52",
+   "consequence": "Bumble's coverage is 11 of its listed assets, including the full stylesheet and font sheet."
+  }
+ ],
+ "files": [
+  {
+   "file": "bumble.4101edefd833a9ef.js",
+   "app": "bumble",
+   "bytes": 376898,
+   "sha256": "b889194b14197861d4fc5299727885237f60280b10bac8b1aa240a6dd82bd081",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.4101edefd833a9ef.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.5bb89c3037642114.js",
+   "app": "bumble",
+   "bytes": 638,
+   "sha256": "491d09bc4418899c764906d7186f2520b14b3338fe827e7fc560df8668522c08",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.5bb89c3037642114.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.7050c3776fb2414d.css",
+   "app": "bumble",
+   "bytes": 822045,
+   "sha256": "a211e3940d4adadd1aae1ed4b860e8d0a712de2106aa9136bd2b2fe203285eee",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.7050c3776fb2414d.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.7baa63ca4f39942f.js",
+   "app": "bumble",
+   "bytes": 1596261,
+   "sha256": "ceb959d1bc651a60231c4abe14fdee1fe22b3ff84846ae3d7a22c4d17b03abd7",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.7baa63ca4f39942f.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.84285cd15339b1a6.js",
+   "app": "bumble",
+   "bytes": 13553,
+   "sha256": "b686e3528b15593d663441c3f2d5762660a59f96c7694fcf6158bd0a41b290b7",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.84285cd15339b1a6.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.9246b388839924e4.js",
+   "app": "bumble",
+   "bytes": 25139,
+   "sha256": "1b31ce3299ac380c86aced6cadda69bd45abcf7f93ac8c602d7780d7ee6698cd",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.9246b388839924e4.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.973dca4db395beb0.js",
+   "app": "bumble",
+   "bytes": 73115,
+   "sha256": "504e7fea970929b843a590cbdaf0bb9b3cb246c5d95a18bc46057e2256ee55e2",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.973dca4db395beb0.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.9fab77bf4fc366ef.js",
+   "app": "bumble",
+   "bytes": 4032,
+   "sha256": "66a66d6d5bc99819e7712b1f243a4657af60a95c72f5c12383c7f2dd0465d058",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.9fab77bf4fc366ef.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble._buildManifest.js",
+   "app": "bumble",
+   "bytes": 5097,
+   "sha256": "8554eca85c70ed3aa91aae2d5f4810d0b8e8424031ffe6254bb198f8e88fb376",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble._buildManifest.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.af4e10453a764913.js",
+   "app": "bumble",
+   "bytes": 146137,
+   "sha256": "1b7eaaf96fc33bb19bc4d3fa6a059e449f14de858b7431b2dafe552fe9e29c26",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.af4e10453a764913.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.e6ec843947d31f93.js",
+   "app": "bumble",
+   "bytes": 15460,
+   "sha256": "c9c2b4a39374f16d90a1971c310916951573361a0855c273d7e463d786c49280",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.e6ec843947d31f93.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.e96e875596392b2a.js",
+   "app": "bumble",
+   "bytes": 19622,
+   "sha256": "aaf82fce112735865506d4e7a7894b2d51a8c5f64938eb89ca86fd0580354d37",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.e96e875596392b2a.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.effe7c444ad84d2a.css",
+   "app": "bumble",
+   "bytes": 585,
+   "sha256": "9195f0c73a2a5bb29589587a3155f1766b58da113c5391e07974b768a53b9365",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.effe7c444ad84d2a.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.fonts-bumble.css",
+   "app": "bumble",
+   "bytes": 624,
+   "sha256": "ad572d13c593d2b3a40e34aeaec53f07dabcfcf81e95533af8d84ddd5fd50f6f",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.fonts-bumble.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "bumble.polyfills-42372ed130431b0a.js",
+   "app": "bumble",
+   "bytes": 112594,
+   "sha256": "0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/bumble.polyfills-42372ed130431b0a.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.79047-fd15ebba71088abd6652.js",
+   "app": "tinder",
+   "bytes": 382476,
+   "sha256": "0ad1f735583b4b8356ee1bd93df306c5f6c9486d2253ee340ec2b6e2354bba07",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.79047-fd15ebba71088abd6652.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.atomic.032d2311a30cd98d8799.css",
+   "app": "tinder",
+   "bytes": 156970,
+   "sha256": "b40ebb8fddf871d14ae7767f526caa865bfc735ec6c56e63f082301c1db850f5",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.atomic.032d2311a30cd98d8799.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.main-dc2addb81fed3c105970.js",
+   "app": "tinder",
+   "bytes": 752764,
+   "sha256": "00fb7745dcacc693edcd2c3c8210c60a0e4fcca35f260a9c2e8c9d27149c4347",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.main-dc2addb81fed3c105970.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.main.8d45a23e97c7ef997deb.css",
+   "app": "tinder",
+   "bytes": 63993,
+   "sha256": "0a20dac8bc3c0a650371b8d2d6a7c9b4338ab201c0842eaa308f8ed002da900e",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.main.8d45a23e97c7ef997deb.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.pc-webpack-runtime-338625c720b811f8f1e6.js",
+   "app": "tinder",
+   "bytes": 271861,
+   "sha256": "e741f62ce53f66bf2a0f0cc2c0e53a028e87ff066aa75910a5cd4e0972fd69bb",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.pc-webpack-runtime-338625c720b811f8f1e6.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.tinderapp-cfb387acc7e482a3547b.js",
+   "app": "tinder",
+   "bytes": 445987,
+   "sha256": "4249a73fbffde52baae4994e9982fc4fd9ee86071fa9df32766fd285268d5eda",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.tinderapp-cfb387acc7e482a3547b.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.tinderapp.99d25c3a4205870cbe02.css",
+   "app": "tinder",
+   "bytes": 20232,
+   "sha256": "ae6d7d653f61d5fdf2cbf3c3e11faaefe8e5780298a77041bf2995dd1f9bfc03",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.tinderapp.99d25c3a4205870cbe02.css",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  },
+  {
+   "file": "tinder.vendor-5a05cf0d48eac6631043.js",
+   "app": "tinder",
+   "bytes": 437970,
+   "sha256": "34fe04f849ccf3d0eb4bc5352f9122eeb102dab64359791fd63355f77d618815",
+   "kept_at": "/home/user/re/analysis-2026-10-30/acquired-2026-10-30T/tinder.vendor-5a05cf0d48eac6631043.js",
+   "in_repository": false,
+   "why_excluded": "third-party production bundle: not Freeborn IP, not redistributable; retained in the analysis workspace and hashed so every citation resolves to a byte-exact artifact"
+  }
+ ]
+}

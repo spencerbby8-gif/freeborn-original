@@ -6,6 +6,7 @@
  * whether the member is on chat, discover, or anywhere in the app.
  */
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { callChannel, destroyChannel, publish, traceCall, type RingPayload } from "@/lib/call-bus";
@@ -110,11 +111,7 @@ export function CallListener() {
           </p>
           <div className="flex flex-col items-center gap-4">
             {incoming.from.photo ? (
-              <img
-                src={incoming.from.photo}
-                alt={incoming.from.name}
-                className="h-36 w-36 animate-pulse rounded-full border-2 border-white/15 object-cover"
-              />
+              <PhotoImage src={incoming.from.photo} alt={incoming.from.name} className="h-36 w-36 rounded-full border-2 border-white/15" imgClassName="animate-pulse object-cover" />
             ) : (
               <span className="flex h-36 w-36 animate-pulse items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-5xl font-bold text-white">
                 {(incoming.from.name || "?").charAt(0)}

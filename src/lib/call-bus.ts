@@ -11,6 +11,7 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { readJsonSafe } from "@/lib/api-response";
 
 /** Fallback (STUN-only) — used only if the ICE endpoint is unreachable. */
 export const ICE_SERVERS: RTCConfiguration = {
@@ -29,7 +30,10 @@ export async function getIceConfig(): Promise<RTCConfiguration> {
   try {
     const res = await fetch("/api/calls/ice", { cache: "no-store" });
     if (!res.ok) return ICE_SERVERS;
-    const json = (await res.json()) as RTCConfiguration;
+    // readJsonSafe, not res.json(): a 502 from the proxy is an HTML page, and a
+    // SyntaxError thrown here would be caught by the block below and silently downgrade
+    // every call to STUN-only — which fails on carrier networks without saying so.
+    const json = (await readJsonSafe<RTCConfiguration>(res)) as RTCConfiguration | null;
     if (json && Array.isArray(json.iceServers) && json.iceServers.length > 0) {
       iceCache = json;
       return json;

@@ -1,7 +1,25 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
+import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { readJsonSafe } from "@/lib/api-response";
+import {
+  ackPending,
+  classifySendFailure,
+  markPendingFailed,
+  mergeMessages,
+  offersRetryAfter,
+  pendingToMessage,
+  pollIntervalMs,
+  queuePending,
+  reconcilePending,
+  type ChannelPhase,
+  type PendingMessage,
+} from "@/lib/chat-sync";
+import { joinChatChannel, relayMessageNotice, type ChatBus } from "@/lib/chat-bus";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import { CallOverlay } from "./call-overlay";
@@ -31,6 +49,13 @@ type MessageRow = {
   read: boolean;
   flagged?: boolean;
   reactions: ReactionChip[];
+  /** typed by me, not yet acknowledged by the server (see src/lib/chat-sync.ts) */
+  pending?: boolean;
+  /** the send was refused or lost; the bubble offers a retry instead of vanishing silently */
+  failed?: boolean;
+  /** …but the refusal was POLICY (403/409/400), so a retry would be refused again and the
+   *  affordance is withheld: see classifySendFailure in src/lib/chat-sync.ts */
+  blocked?: boolean;
 };
 
 const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
@@ -203,7 +228,12 @@ function MediaPacket({
                 aria-label="Open photo full size"
                 className="block overflow-hidden rounded-xl transition active:scale-[0.98]"
               >
-                <img src={item.url} alt="Shared photo" className="max-h-[300px] w-full object-cover" />
+                <PhotoImage
+                  src={item.url}
+                  alt="Shared photo"
+                  className="block max-h-[300px] w-full rounded-xl"
+                  imgClassName="max-h-[300px] w-full object-cover"
+                />
               </button>
             ) : (
               <button
@@ -334,11 +364,13 @@ function DayDivider({ label }: { label: string }) {
 function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?: number }) {
   if (photo) {
     return (
-      <img
+      <PhotoImage
         src={photo}
         alt={name}
         style={{ width: size, height: size }}
-        className="shrink-0 rounded-full border border-white/10 object-cover"
+        className="shrink-0 overflow-hidden rounded-full border border-white/10"
+        imgClassName="object-cover"
+        compact
       />
     );
   }
@@ -420,44 +452,123 @@ function Thread({
     })();
   }, []);
 
-  /* Optimistic echo: my messages appear INSTANTLY, then reconcile with the
-     server on the next poll — no waiting round-trip to see your own words. */
-  const pendingRef = useRef<Array<{ body: string; at: number }>>([]);
+  /* OPTIMISTIC ECHO + SYNC — rewritten 2026-10-30 (see src/lib/chat-sync.ts).
+     This used to be `setInterval(load, 2500)` with an echo reconciled by matching message TEXT
+     inside a 20 s window. Both halves were wrong in ways members hit: the poll ran at full rate
+     whether anything happened or not, and re-sending the same words ("ok" twice) made a bubble
+     vanish, while a slow server made one disappear and reappear. Now:
+       · the echo is retired by IDENTITY, using the stored id POST returns;
+       · a refused or lost send stays visible and retryable instead of silently disappearing;
+       · the poll widens to a heartbeat while the realtime channel is live and tightens back
+         down the moment it is not, so a lost notification costs latency, never a message. */
+  const pendingRef = useRef<PendingMessage[]>([]);
+  const syncRef = useRef({ knownCount: 0, lastFetchAt: 0, notices: 0, failures: 0 });
+  const phaseRef = useRef<ChannelPhase>("idle");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const busRef = useRef<ChatBus | null>(null);
+
+  /* What the server says about THIS member's ability to write, not what the client guesses from
+     `status`. A thread can be readable and unwritable at once — the member who was unmatched
+     keeps the history to report from, and cannot type into it. */
+  const [threadAccess, setThreadAccess] = useState<{
+    canSend: boolean;
+    notice: string | null;
+    reason: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/chat/messages?match=${match.id}`, {
       headers: authHeaders(token),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      const real = json.messages as MessageRow[];
-      const pending = pendingRef.current.filter(
-        (p) =>
-          Date.now() - p.at < 20_000 &&
-          !real.some((m) => m.mine && m.body === p.body)
-      );
-      pendingRef.current = pending;
-      if (pending.length > 0) {
-        const temps: MessageRow[] = pending.map((p, i) => ({
-          id: `tmp-${p.at}-${i}`,
-          body: p.body,
-          mine: true,
-          at: new Date(p.at).toISOString(),
-          read: false,
-          reactions: [],
-        }));
-        setMessages([...real, ...temps]);
-      } else {
-        setMessages(real);
-      }
+      cache: "no-store",
+    }).catch(() => null);
+    // readJsonSafe, not res.json(): a 502 from the proxy is an HTML error page, and the
+    // SyntaxError it throws used to escape into the interval callback once per tick.
+    const json = res
+      ? await readJsonSafe<{
+          messages?: MessageRow[];
+          thread?: { canSend: boolean; status?: string; notice?: string | null; reason?: string | null };
+        }>(res)
+      : null;
+    if (!res || !res.ok || !json || !Array.isArray(json.messages)) {
+      syncRef.current.failures += 1;
+      return false;
     }
+    const real = json.messages;
+    // The thread's writability can change while it is open (the other member ends it, a moderator
+    // blocks it), so it is re-read on every fetch rather than remembered from mount time.
+    if (json.thread) setThreadAccess({ canSend: !!json.thread.canSend, notice: json.thread.notice ?? null, reason: json.thread.reason ?? null });
+    syncRef.current.failures = 0;
+    const prev = syncRef.current;
+    // A thread that SHRANK under us was emptied or severed by the other member (or by a
+    // moderation action). Reset the bookkeeping rather than trusting a delta.
+    if (real.length < prev.knownCount) pendingRef.current = [];
+    pendingRef.current = reconcilePending(pendingRef.current, { serverRows: real });
+    syncRef.current = {
+      knownCount: real.length,
+      lastFetchAt: Date.now(),
+      notices: 0,
+      failures: 0,
+    };
+    const temps = pendingRef.current.map((pm) => pendingToMessage(pm) as unknown as MessageRow & { reactions: never[] });
+    setMessages(
+      mergeMessages(real, temps.map((t) => ({ ...t, reactions: [] }))) as MessageRow[]
+    );
+    return true;
   }, [match.id, token]);
+
+  const armPoll = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    const ms = pollIntervalMs({
+      phase: phaseRef.current,
+      visible: typeof document === "undefined" || document.visibilityState === "visible",
+      online: typeof navigator === "undefined" || navigator.onLine !== false,
+      failures: syncRef.current.failures,
+    });
+    // null = do not poll at all (hidden tab, offline). Both paths end in an immediate resync.
+    if (ms === null) return;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      void load().then(() => armPoll());
+    }, ms);
+  }, [load]);
 
   useEffect(() => {
     void load();
-    const iv = setInterval(() => void load(), 2500);
-    return () => clearInterval(iv);
-  }, [load]);
+    const bus = joinChatChannel(match.id, {
+      onPhase: (ph) => {
+        phaseRef.current = ph;
+        armPoll();
+      },
+      onNotice: () => {
+        syncRef.current.notices += 1;
+        // One fetch per wake-up, however many signals arrived: the thread is the unit of truth.
+        void load().then(() => armPoll());
+      },
+    });
+    busRef.current = bus;
+    armPoll();
+    const rearm = () => {
+      // Coming back to the app is when a phone has the most to catch up on.
+      void load().then(() => armPoll());
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", rearm);
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", rearm);
+      window.addEventListener("offline", rearm);
+    }
+    return () => {
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", rearm);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("online", rearm);
+        window.removeEventListener("offline", rearm);
+      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = null;
+      bus.dispose();
+      busRef.current = null;
+    };
+  }, [match.id, load, armPoll]);
 
   /* Instant snap to the latest message — the chat always opens AT the
      current conversation, never hanging at the top. */
@@ -535,20 +646,77 @@ function Thread({
     setTimeout(() => setBurstId(null), 900);
   };
 
-  const postMessage = useCallback(
-    async (body: string) => {
-      await fetch("/api/chat/messages", {
+  /** One POST for one bubble. `tempId` ties the reply to the echo it answers. */
+  const deliver = useCallback(
+    async (body: string, tempId: string): Promise<boolean> => {
+      /* ONE choke point for every write — the composer, a staged upload and retrySend all come
+         through here — so the read-only verdict is enforced in code, not only in the markup that
+         hid itself. Returning false (never true) matters: `true` would tell the caller the
+         message went out, which is the exact lie this whole path exists to stop telling.
+         `threadAccess` is a real dependency below, so this cannot read a stale verdict. */
+      if (threadAccess && !threadAccess.canSend) {
+        pendingRef.current = markPendingFailed(pendingRef.current, tempId);
+        setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true, blocked: true } : m)));
+        flash(threadAccess.notice ?? "This conversation is read-only, so nothing can be sent here.");
+        return false;
+      }
+      const res = await fetch("/api/chat/messages", {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({ match: match.id, text: body }),
-      }).catch(() => flash("Couldn't send. Check your connection."));
-      setTimeout(() => void load(), 500);
-      setTimeout(() => {
-        void load();
-        onChanged();
-      }, 3000);
+      }).catch(() => null);
+      const json = res ? await readJsonSafe<{ error?: string; restricted?: boolean; message?: { id?: string } }>(res) : null;
+      if (!res || !res.ok) {
+        /* The old code only caught a network rejection, so a REFUSED send (403 from a severed
+           thread, 403 from the other member's message privacy, 401 on an expired session) was
+           silently discarded: the bubble stayed, then the next poll made it disappear, and the
+           member had no idea their message was never delivered. */
+        const kind = classifySendFailure(res ? res.status : null);
+        const retryable = offersRetryAfter(kind);
+        pendingRef.current = markPendingFailed(pendingRef.current, tempId);
+        setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true, blocked: !retryable } : m)));
+        flash(json?.error ?? (retryable ? "Couldn't send. Check your connection." : "This message can't be delivered here."));
+        /* A refusal is also information about the thread: if the server declined on policy
+           grounds, stop offering the input that produced the refusal. Self-healing beats a
+           disabled-by-poll-only UI. */
+        if (!retryable) setThreadAccess((prev) => ({ canSend: false, notice: json?.error ?? prev?.notice ?? null, reason: "denied" }));
+        armPoll();
+        return false;
+      }
+      if (json?.message?.id) pendingRef.current = ackPending(pendingRef.current, tempId, json.message.id);
+      // Relay a content-free hint to the other member from this client: instant while both are
+      // online, and harmless to lose, because the server also wrote a chat_signals row.
+      relayMessageNotice(match.id);
+      void load();
+      onChanged();
+      return true;
     },
-    [match.id, token, load, onChanged]
+    [armPoll, load, match.id, onChanged, threadAccess, token]
+  );
+
+  const postMessage = useCallback(
+    async (body: string) => {
+      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      pendingRef.current = queuePending(pendingRef.current, { tempId, body });
+      setMessages((ms) => mergeMessages(ms, [{ ...(pendingToMessage(pendingRef.current[pendingRef.current.length - 1]!) as object), id: tempId, reactions: [] } as unknown as MessageRow]));
+      await deliver(body, tempId);
+    },
+    [deliver]
+  );
+
+  /** Retry keeps the original text and the original bubble — the member must never wonder
+      whether the message went out twice. */
+  const retrySend = useCallback(
+    async (tempId: string) => {
+      const item = pendingRef.current.find((x) => x.tempId === tempId);
+      if (!item) return;
+      pendingRef.current = pendingRef.current.map((x) =>
+        x.tempId === tempId ? { ...x, failed: false, attempts: x.attempts + 1 } : x
+      );
+      setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: false, blocked: false } : m)));
+      await deliver(item.body, tempId);
+    },
+    [deliver]
   );
 
   const buildBody = (content: string) => {
@@ -607,12 +775,9 @@ function Thread({
     setText("");
     setReplyTo(null);
     const body = buildBody(clean);
-    /* Optimistic echo — your words appear instantly, zero round-trip wait. */
-    pendingRef.current.push({ body, at: Date.now() });
-    setMessages((prev) => [
-      ...prev,
-      { id: `tmp-${Date.now()}`, body, mine: true, at: new Date().toISOString(), read: false, reactions: [] },
-    ]);
+    /* One path owns the echo: postMessage queues it, renders it, retires it by server id and
+       marks it retryable if the send is refused. Pushing a second copy here is how the same
+       text could appear twice until the next fetch. */
     await postMessage(body);
     setSending(false);
   };
@@ -794,6 +959,26 @@ function Thread({
     rows.push(
       <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
+          {m.failed && m.blocked ? (
+            <span
+              title="The server declined this message on purpose. Sending it again would be declined again."
+              className="order-last shrink-0 rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-1 text-[10px] font-bold leading-none text-[var(--color-mist)]"
+            >
+              Not delivered
+            </span>
+          ) : m.failed ? (
+            <button
+              type="button"
+              onClick={() => void retrySend(m.id)}
+              className="order-last shrink-0 rounded-full border border-[var(--color-ember-400)]/50 bg-[var(--color-ember-500)]/15 px-2 py-1 text-[10px] font-bold leading-none text-[var(--color-ember-300)] transition-colors hover:bg-[var(--color-ember-500)]/25"
+            >
+              Not delivered — retry
+            </button>
+          ) : m.pending ? (
+            <span className="order-last shrink-0 text-[10px] font-semibold leading-none text-white/45">
+              Sending…
+            </span>
+          ) : null}
           {quoteArmedId === m.id ? (
             <span className="order-last text-[var(--color-gold-300)]">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1089,7 +1274,12 @@ function Thread({
       ) : null}
 
 
+      {threadAccess && !threadAccess.canSend ? (
+        <ReadOnlyThreadNotice notice={threadAccess.notice} />
+      ) : null}
+
       {/* Composer — voice recording overlays it Telegram-style */}
+      {threadAccess && !threadAccess.canSend ? null : (
       <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
         <div className="relative shrink-0">
           <button
@@ -1203,6 +1393,7 @@ function Thread({
           )}
         </button>
       </div>
+      )}
 
       {/* Hold-to-react picker (double-tap = instant love) */}
       {pickerFor

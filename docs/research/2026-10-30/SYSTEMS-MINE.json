@@ -1,0 +1,815 @@
+{
+ "files": 67,
+ "bytes": 11530553,
+ "patterns": {
+  "realtime": "(\\bnew WebSocket\\(|socket\\.io|pusher|ably|Ably|mqtt|EventSource\\(|server-sent|\\bSSE\\b|subscribeTo\\(|graphql-subscription|subscriptions-transport)",
+  "ranking": "(recommendationScore|rankingScore|\\bscore\\b\\s*[:=]|\\breloadDeck\\b|deckQueue|candidatesPerPage|prefetch\\(|infiniteQuery|useInfiniteQuery|cursor:\\s*|offset:\\s*)",
+  "matching": "(mutualLike|isMatch\\b|matchId|superlike|superLike|swipeLeft|swipeRight|swipe_action|instant-match)",
+  "messaging": "(typingIndicator|isTyping|markSeen|readReceipt|deliveredAt|messageStatus|\\boptimistic\\b|pendingMessage|retryQueue|outbox)",
+  "verification": "(selfie|liveness|face[Ss]can|poseChallenge|documentScan|jumio|onfido|veriff|persona|yoti|idV[ei]rification|photoVerification|deviceAttest|playIntegrity|Safety[Ss]core)",
+  "privacy": "(incognito|invisibleMode|hideDistance|hideAge|hideLikedMe|lastActive|discoveryPaused|travelMode|blurPhotos|privatePhotos|profileVisibility)",
+  "moderation": "(reportUser|\\breport\\b[A-Z]?|blockUser|appeal|moderation|ban[A-Z]?[a-z]*|shadowban|safetyTips|photoEvidence|nudityFilter|imageBlur|unsafeContent)",
+  "lifecycle": "(deleteAccount|deactivate|gdpr|dataExport|downloadYourData|exportData|cancelSubscription|unsubscribe|restorePurchases|deletionRequest|anonymi[sz])",
+  "media_pipeline": "(createObjectURL|exif|EXIF|orientation|\\bquality\\b\\s*:|maxFileSize|file_size_limit|allowedMime|uploadProgress|multipart|partNumber|blobToDataUrl)",
+  "failure": "(retryDelay|shouldRetry|maxRetries|attemptNumber|backoff|resource_exhausted|Retry-After|timed?[ _]?out|offline|degradedMode|circuitBreaker)"
+ },
+ "results": {
+  "realtime": {
+   "hinge": {
+    "count": 4,
+    "distinct": [
+     "ably"
+    ],
+    "samples": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "offset": 62513,
+      "m": "ably",
+      "w": "of e)throw Error(\"Tried to add middleware that was a function. It probably expects you to pass options to it.\");if(e.onReturn&&i.onReturn.length"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "offset": 530831,
+      "m": "ably",
+      "w": "deo/mpegurl\",\"application/mpegurl\"].some(function(t){return/maybe|probably/i.test(e.canPlayType(t))})}(),on.supportsNativeDash=!!c()&&!!c().crea"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "offset": 530964,
+      "m": "ably",
+      "w": "&!!c().createElement&&!!ry.getTech(\"Html5\").isSupported()&&/maybe|probably/i.test(c().createElement(\"video\").canPlayType(\"application/dash+xml\")"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 3,
+    "distinct": [
+     "ably"
+    ],
+    "samples": [
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 111729,
+      "m": "ably",
+      "w": "&&r.Yz.log(\"[Profiling] Discarding invalid profile chunk (this is probably a bug in the SDK):\",n.reason));this._sendProfileChunk(t),a.T&&r.Yz.lo"
+     },
+     {
+      "file": "tinder.index.html",
+      "offset": 482538,
+      "m": "ably",
+      "w": "nder if fate would have brought us together without Tinder. We'll probably never know.\\\",\\\"SwipeStories.huyAndAn\\\":\\\"Huy & \\u00C2n\\\",\\\"SwipeStor"
+     },
+     {
+      "file": "tinder.index.html",
+      "offset": 485070,
+      "m": "ably",
+      "w": "\\nI (Morgan) was nervous - my friends and family even joked I was probably being catfished because he was \\u201Ctoo handsome to be real.\\u201D B"
+     }
+    ]
+   }
+  },
+  "ranking": {
+   "hinge": {
+    "count": 69,
+    "distinct": [
+     "offset:",
+     "prefetch(",
+     "score:",
+     "score="
+    ],
+    "samples": [
+     {
+      "file": "441-8a8a64a04d71c32a.js",
+      "offset": 16137,
+      "m": "offset:",
+      "w": "tion W(t,e,r){return\"string\"==typeof t?t:F.px.transform(e+r*t)}let z={offset:\"stroke-dashoffset\",array:\"stroke-dasharray\"},q={offset:\"strokeDashoff"
+     },
+     {
+      "file": "441-8a8a64a04d71c32a.js",
+      "offset": 16193,
+      "m": "offset:",
+      "w": "e+r*t)}let z={offset:\"stroke-dashoffset\",array:\"stroke-dasharray\"},q={offset:\"strokeDashoffset\",array:\"strokeDasharray\"};function H(t,{attrX:e,attr"
+     },
+     {
+      "file": "441-8a8a64a04d71c32a.js",
+      "offset": 43720,
+      "m": "offset:",
+      "w": ",y:t.y-e.y}}function eK({point:t},e){return{point:t,delta:eX(t,eZ(e)),offset:eX(t,e[0]),velocity:function(t,e){if(t.length<2)return{x:0,y:0};let r="
+     }
+    ]
+   },
+   "bumble": {
+    "count": 60,
+    "distinct": [
+     "cursor:",
+     "offset:",
+     "prefetch("
+    ],
+    "samples": [
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 26452,
+      "m": "offset:",
+      "w": "(3===r.nodeType){if(n=e+r.textContent.length,e<=t&&n>=t)return{node:r,offset:t-e};e=n}e:{for(;r;){if(r.nextSibling){r=r.nextSibling;break e}r=r.par"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 1387119,
+      "m": "cursor:",
+      "w": "or-rendering\":\"colorRendering\",contentScriptType:1,contentStyleType:1,cursor:0,cx:0,cy:0,d:0,datatype:0,decelerate:0,descent:0,diffuseConstant:1,di"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 1388896,
+      "m": "offset:",
+      "w": "k:0,maskContentUnits:1,maskUnits:1,mathematical:0,mode:0,numOctaves:1,offset:0,opacity:0,operator:0,order:0,orient:0,orientation:0,origin:0,overflo"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 72,
+    "distinct": [
+     "cursor:",
+     "offset:",
+     "score:"
+    ],
+    "samples": [
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 60284,
+      "m": "cursor:",
+      "w": "\u00bb\"}.Cnt\\(cq\\)\\:\\:b:before{content:close-quote}.Cur\\(p\\),.StyledButton{cursor:pointer}.Cur\\(nd\\){cursor:no-drop}.Cur\\(na\\){cursor:not-allowed}.Cur\\("
+     },
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 60310,
+      "m": "cursor:",
+      "w": "content:close-quote}.Cur\\(p\\),.StyledButton{cursor:pointer}.Cur\\(nd\\){cursor:no-drop}.Cur\\(na\\){cursor:not-allowed}.Cur\\(d\\){cursor:default}.Cur\\(t"
+     },
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 60336,
+      "m": "cursor:",
+      "w": "p\\),.StyledButton{cursor:pointer}.Cur\\(nd\\){cursor:no-drop}.Cur\\(na\\){cursor:not-allowed}.Cur\\(d\\){cursor:default}.Cur\\(t\\){cursor:text}.Cur\\(g\\){c"
+     }
+    ]
+   }
+  },
+  "matching": {
+   "hinge": {
+    "count": 19,
+    "distinct": [
+     "isMatch"
+    ],
+    "samples": [
+     {
+      "file": "452-b7236976f79ade40.js",
+      "offset": 9044,
+      "m": "isMatch",
+      "w": ".options;if(t=e?t:t.toLowerCase(),t=r?m(t):t,this.pattern===t){let e={isMatch:!0,score:0};return u&&(e.indices=[[0,t.length-1]]),e}let{location:n,d"
+     },
+     {
+      "file": "452-b7236976f79ade40.js",
+      "offset": 9290,
+      "m": "isMatch",
+      "w": ",f=!1;this.chunks.forEach(({pattern:e,alphabet:r,startIndex:d})=>{let{isMatch:g,score:p,indices:C}=function(t,e,r,{location:u=A.location,distance:n"
+     },
+     {
+      "file": "452-b7236976f79ade40.js",
+      "offset": 10514,
+      "m": "isMatch",
+      "w": "d,expectedLocation:d,distance:n,ignoreLocation:h})>g)break;y=A}let x={isMatch:p>=0,score:Math.max(.001,m)};if(C){let t=function(t=[],e=A.minMatchCh"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 106,
+    "distinct": [
+     "instant-match"
+    ],
+    "samples": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 62068,
+      "m": "instant-match",
+      "w": "unction(e){var a=e.qr_code;return n.ZP.get(\"bumblesite@pages.features.instant-match.hero.title\",{qr_code:a,__EOL__:n.n_.for(\"<br/>\")})},get lxInstantMatc"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 62210,
+      "m": "instant-match",
+      "w": "InstantMatchHeroSubtitle(){return n.ZP.get(\"bumblesite@pages.features.instant-match.hero.subtitle\")},get lxInstantMatchOneBlockTitle(){return n.ZP.get(\"b"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 62318,
+      "m": "instant-match",
+      "w": "nstantMatchOneBlockTitle(){return n.ZP.get(\"bumblesite@pages.features.instant-match.one.block.title\")},get lxInstantMatchOneBlockBodyText(){return n.ZP.g"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 96,
+    "distinct": [
+     "matchId",
+     "superLike",
+     "superlike",
+     "swipeRight"
+    ],
+    "samples": [
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 34514,
+      "m": "superlike",
+      "w": "}.Bgc\\(\\#000\\){background-color:#000}.Bgc\\(\\$c-ds-blue-40\\),.Bgc\\(\\$c-superlike-blue\\)\\:\\:a:after{background-color:var(--color--blue-40,inherit)}.Bgc"
+     },
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 56189,
+      "m": "superlike",
+      "w": "r:var(--color--yellow-orange-60,inherit)}.C\\(\\$c-ds-blue-40\\),.C\\(\\$c-superlike-blue\\){color:var(--color--blue-40,inherit)}.C\\(\\$c-ds-static-brand-fl"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 81223,
+      "m": "superlike",
+      "w": "erms\",!0),Et=Ve(He.default,\"superBoostMembersText\"),ut=Ve(He.default,\"superlikeAlcMode\"),pt=Ve(He.default,\"termsVersion\",!0),St=Ve(He.default,\"typing"
+     }
+    ]
+   }
+  },
+  "messaging": {
+   "bumble": {
+    "count": 12,
+    "distinct": [
+     "retryQueue"
+    ],
+    "samples": [
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 103701,
+      "m": "retryQueue",
+      "w": "eturn=t.return,t=t.sibling}4&r&&null!==(r=e.updateQueue)&&null!==(n=r.retryQueue)&&(r.retryQueue=null,ib(e,n));case 30:case 21:}}function iw(e){var t="
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 103717,
+      "m": "retryQueue",
+      "w": "=t.sibling}4&r&&null!==(r=e.updateQueue)&&null!==(n=r.retryQueue)&&(r.retryQueue=null,ib(e,n));case 30:case 21:}}function iw(e){var t=e.flags;if(2&t){"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 117082,
+      "m": "retryQueue",
+      "w": "4:(null===(t=n.updateQueue)?(t={transitions:null,markerInstances:null,retryQueue:new Set([r])},n.updateQueue=t):null===(n=t.retryQueue)?t.retryQueue=n"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 43,
+    "distinct": [
+     "optimistic",
+     "readReceipt",
+     "typingIndicator"
+    ],
+    "samples": [
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 85638,
+      "m": "typingIndicator",
+      "w": "=t.payload;e[a]=!1;break}case(0,Pe.$g)(t.type):return{}}}),yt.default.typingIndicators),Pt=(0,Ce.jM)(((e,t)=>{switch(t.type){case ft.SET_ACTIVE_CHANNEL:ret"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 85918,
+      "m": "typingIndicator",
+      "w": "Id),vt=(0,le.HY)({initialLoadStatus:Ot,channels:It,queryPagination:Nt,typingIndicators:Rt,activeChannelReferenceId:Pt});var bt=a(631463),Lt=a(249132),Mt=a("
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 110620,
+      "m": "typingIndicator",
+      "w": "ostMembersText:[\"superBoost\",\"membersOnlyText\"],typingPulseInterval:[\"typingIndicator\",\"typingHeartbeat\"],typingTimeout:[\"typingIndicator\",\"typingTtl\"],ter"
+     }
+    ]
+   }
+  },
+  "verification": {
+   "hinge": {
+    "count": 5,
+    "distinct": [
+     "persona",
+     "selfie"
+    ],
+    "samples": [
+     {
+      "file": "107-74b360892d40f6c4.js",
+      "offset": 8724,
+      "m": "persona",
+      "w": "erCtaBlock\",e.NARROW_TEXT=\"narrowTextBlock\",e.PERSONAL_PROFILE_BLOCK=\"personalProfileBlock\",e.PRESS_LINKS_BLOCK=\"pressLinksBlock\",e.PRINCIPLES_BLOC"
+     },
+     {
+      "file": "298-fd2f7dd5ebd20a78.js",
+      "offset": 17812,
+      "m": "persona",
+      "w": "cat(G,\",\\n _type == 'narrowTextBlock' => \").concat(R,\",\\n _type == 'personalProfileBlock' => \").concat(N,\",\\n _type == 'pressLinksBlock' => \").c"
+     },
+     {
+      "file": "_entry.html",
+      "offset": 72257,
+      "m": "selfie",
+      "w": "59b0fb7e1e\",\"_type\":\"accessibleImage\",\"alt\":\"Hinge employees taking a selfie\",\"asset\":{\"_id\":\"image-28bca069952ec64ea2cc24cce75191077c349e97-1599x"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 400,
+    "distinct": [
+     "persona",
+     "selfie"
+    ],
+    "samples": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 107655,
+      "m": "selfie",
+      "w": "ed badges med ID-verificering, inklusive en kvinde, der tager en spejlselfie i midten.\",\"Uanset om du er ny i dating eller klar til at pr\\xf8ve ig"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 178074,
+      "m": "persona",
+      "w": "ide\",\"Slide\",\"Slide {{number}} of {{total}}\",\"Do not sell or share my personal information\",\"Do not sell or share my personal information\",\"Send Co"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 178121,
+      "m": "persona",
+      "w": "o not sell or share my personal information\",\"Do not sell or share my personal information\",\"Send Compliments on Bumble to show you like their prof"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 161,
+    "distinct": [
+     "facescan",
+     "idVerification",
+     "jumio",
+     "liveness",
+     "persona",
+     "photoVerification",
+     "selfie"
+    ],
+    "samples": [
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 93141,
+      "m": "selfie",
+      "w": "onst{appealToken:a}=t.payload;e.appealToken=a;break}case Ae.cv:{const{selfieChallengeToken:a}=t.payload;e.selfieChallengeToken=a;break}case Ae.kw:"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 93177,
+      "m": "selfie",
+      "w": "alToken=a;break}case Ae.cv:{const{selfieChallengeToken:a}=t.payload;e.selfieChallengeToken=a;break}case Ae.kw:{const{selfieStatus:a}=t.payload;e.s"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 93224,
+      "m": "selfie",
+      "w": "geToken:a}=t.payload;e.selfieChallengeToken=a;break}case Ae.kw:{const{selfieStatus:a}=t.payload;e.selfieStatus=a;break}case Ae.hC:{const{idvChalle"
+     }
+    ]
+   }
+  },
+  "privacy": {
+   "bumble": {
+    "count": 146,
+    "distinct": [
+     "incognito",
+     "travelMode"
+    ],
+    "samples": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 50419,
+      "m": "incognito",
+      "w": "sCta(){return n.ZP.get(\"bumblesite@pages.features.compliments.cta\")}},incognitoMode:{get lxIncognitoModeHeroTitle(){return n.ZP.get(\"bumblesite@pages"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 50508,
+      "m": "incognito",
+      "w": "lxIncognitoModeHeroTitle(){return n.ZP.get(\"bumblesite@pages.features.incognito-mode.hero.title\")},get lxIncognitoModeHeroSubtitle(){return n.ZP.get("
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 50614,
+      "m": "incognito",
+      "w": "ncognitoModeHeroSubtitle(){return n.ZP.get(\"bumblesite@pages.features.incognito-mode.hero.subtitle\")},get lxIncognitoModeOneBlockTitle(){return n.ZP."
+     }
+    ]
+   },
+   "tinder": {
+    "count": 9,
+    "distinct": [
+     "incognito",
+     "lastActive"
+    ],
+    "samples": [
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 358290,
+      "m": "lastActive",
+      "w": "bled()&&er(e,t.trace_id,t.name||void 0)}}(e)),t.on(\"spanStart\",(t=>{e.lastActiveSpan=t})),t.on(\"spanEnd\",(t=>{e.lastActiveSpan=t})),t.on(\"beforeSendFe"
+     },
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 358332,
+      "m": "lastActive",
+      "w": "e)),t.on(\"spanStart\",(t=>{e.lastActiveSpan=t})),t.on(\"spanEnd\",(t=>{e.lastActiveSpan=t})),t.on(\"beforeSendFeedback\",(async(t,n)=>{const r=e.getSession"
+     },
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 370728,
+      "m": "lastActive",
+      "w": "umb\",payload:e,metric:!0}})))}return n}getCurrentRoute(){const e=this.lastActiveSpan||(0,m.Bk)(),t=e&&(0,m.zU)(e),n=(t&&(0,m.et)(t).data||{})[T.i_];if"
+     }
+    ]
+   }
+  },
+  "moderation": {
+   "hinge": {
+    "count": 119,
+    "distinct": [
+     "band",
+     "bandwidth",
+     "bandwidthupdate",
+     "bandwidthupdated",
+     "report",
+     "reportUser"
+    ],
+    "samples": [
+     {
+      "file": "634-9f906ff9c432c2ce.js",
+      "offset": 35941,
+      "m": "report",
+      "w": "ITION-REPORT:(.*)$/.exec(e))&&t[1]){(r={type:\"tag\",tagType:\"rendition-report\"}).attributes=u(t[1]),[\"LAST-MSN\",\"LAST-PART\"].forEach(function(e){r."
+     },
+     {
+      "file": "634-9f906ff9c432c2ce.js",
+      "offset": 47723,
+      "m": "report",
+      "w": "{t} has the same TYPE ${r.type} as preload hint #${e}`})}},\"rendition-report\"(){let t=d(e.attributes);this.manifest.renditionReports=this.manifest"
+     },
+     {
+      "file": "634-9f906ff9c432c2ce.js",
+      "offset": 221416,
+      "m": "bandwidth",
+      "w": "ESOLUTION:{width:e.width,height:e.height},CODECS:e.codecs,BANDWIDTH:e.bandwidth,\"PROGRAM-ID\":1},uri:\"\",endList:\"static\"===e.type,timeline:e.periodSta"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 55,
+    "distinct": [
+     "ban",
+     "banco",
+     "band",
+     "bandeja",
+     "bane",
+     "bank",
+     "banner",
+     "bano",
+     "bantr",
+     "report"
+    ],
+    "samples": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 91953,
+      "m": "report",
+      "w": "_BOOST=\"/the-buzz/bumble-boost\",o.BLOCKING_ON_BUMBLE=\"/the-buzz/block-report-bumble\",o)},2470:function(e,a,t){\"use strict\";t.d(a,{e:function(){ret"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 108946,
+      "m": "bane",
+      "w": "at vi kan opn\\xe5 hvad som helst.',\"To personer griner p\\xe5 en tennisbane, og en holder tennisbolde foran \\xf8jnene\",\"M\\xf8d hinanden IRL\",\"Bum"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 205059,
+      "m": "band",
+      "w": "er, She Met One of Her Bridesmaids There, Too\",\"Hannah Met Her Now-Husband on Bumble.\",\"Before building their tiny house together Car\\xe8ne and "
+     }
+    ]
+   },
+   "tinder": {
+    "count": 280,
+    "distinct": [
+     "appeal",
+     "ban",
+     "banAppeal",
+     "banPolicy",
+     "banReason",
+     "banRemoved",
+     "band",
+     "bank",
+     "banking",
+     "banned",
+     "banner",
+     "blockUser"
+    ],
+    "samples": [
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 251919,
+      "m": "report",
+      "w": "),u=t=>{(0,P.hP)(c,[\"client_report\"])?s.T&&i.Yz.warn(`Dropping client report. Will not send outcomes (reason: ${t}).`):(0,P.yH)(c,((n,r)=>{e.recor"
+     },
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 8571,
+      "m": "banner",
+      "w": "color:var(--color--text-primary-overlay,inherit)}.Bdc\\(\\$c-ds-divider-banner-default\\){border-color:var(--color--divider-banner-default,inherit)}."
+     },
+     {
+      "file": "tinder.atomic.032d2311a30cd98d8799.css",
+      "offset": 8622,
+      "m": "banner",
+      "w": "dc\\(\\$c-ds-divider-banner-default\\){border-color:var(--color--divider-banner-default,inherit)}.Bdtc\\(\\$c-ds-divider-primary\\){border-top-color:var"
+     }
+    ]
+   }
+  },
+  "lifecycle": {
+   "hinge": {
+    "count": 30,
+    "distinct": [
+     "unsubscribe"
+    ],
+    "samples": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "offset": 36281,
+      "m": "unsubscribe",
+      "w": "osed=!1,this._parentage=null,this._finalizers=null}return t.prototype.unsubscribe=function(){if(!this.closed){this.closed=!0;var e,t,r,n,i,o=this._pare"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "offset": 37821,
+      "m": "unsubscribe",
+      "w": "e){return e instanceof L||e&&\"closed\"in e&&F(e.remove)&&F(e.add)&&F(e.unsubscribe)}function W(e){F(e)?e():e.unsubscribe()}var B={onUnhandledError:null,"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "offset": 37859,
+      "m": "unsubscribe",
+      "w": "n e&&F(e.remove)&&F(e.add)&&F(e.unsubscribe)}function W(e){F(e)?e():e.unsubscribe()}var B={onUnhandledError:null,onStoppedNotification:null,Promise:voi"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 88,
+    "distinct": [
+     "anonymiz",
+     "deactivate",
+     "gdpr"
+    ],
+    "samples": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 196385,
+      "m": "deactivate",
+      "w": "ttings or your queue and switch Snooze off whenever you like.\",\"Can I deactivate Snooze Mode early?\",\"Go to settings, tap Snooze, and choose how long "
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 196753,
+      "m": "deactivate",
+      "w": "age telling you how long Snooze Mode will run for, with the option to deactivate it.\",\"Can I still explore profiles and chat in Snooze Mode?\",\"People "
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "offset": 199178,
+      "m": "deactivate",
+      "w": "the timeframe you initially chose, just return to Settings and tap \u00e2\u0080\u009cdeactivate Snooze Mode.\u00e2\u0080\u009d It\u00e2\u0080\u0099s as easy as that.\",\"Pause your chats\",\"Try Supe"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 20,
+    "distinct": [
+     "anonymiz",
+     "cancelSubscription",
+     "deleteAccount",
+     "restorePurchases",
+     "unsubscribe"
+    ],
+    "samples": [
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 73931,
+      "m": "anonymiz",
+      "w": ")).catch((()=>{}));const r={send_page_view:!1,transport_type:\"beacon\",anonymizeIp:!0};window[`ga-disable-${e}`]=!s[P.XP],gtag(\"js\",new Date),e&&gtag"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 159574,
+      "m": "deleteAccount",
+      "w": ".GG,Ti),(0,Cn.jP)(Pe.T_,as.logoutSaga),(0,Cn.jP)(fe.DELETE_ACCOUNT,as.deleteAccountSaga),(0,Cn.jP)(vs.MM,Hs),(0,Cn.jP)(vs.YT,xs),(0,Cn.jP)(vs.K_,ws),(0,C"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 428506,
+      "m": "unsubscribe",
+      "w": "a},t):t,this.emitChange())}subscribe(e=s()){return this.subscriber=e,{unsubscribe:()=>{this.subscriber=null}}}}},418065(e,t,a){\"use strict\";a.d(t,{_W:("
+     }
+    ]
+   }
+  },
+  "media_pipeline": {
+   "hinge": {
+    "count": 32,
+    "distinct": [
+     "createObjectURL",
+     "orientation",
+     "quality:"
+    ],
+    "samples": [
+     {
+      "file": "107-74b360892d40f6c4.js",
+      "offset": 17570,
+      "m": "quality:",
+      "w": "t e=(0,I.Q)(s.asset.url);o((0,w.R)({src:s.poster.asset.url,width:1280,quality:80}));let a={controls:!0,autoplay:!1,preload:\"auto\",fluid:!0,controlBa"
+     },
+     {
+      "file": "107-74b360892d40f6c4.js",
+      "offset": 114077,
+      "m": "quality:",
+      "w": "=(null==s?void 0:s.poster)||c,N=w?(0,d.R)({src:w.asset.url,width:1280,quality:80}):void 0,y=m&&p||!m;return((0,r.useEffect)(()=>{C&&y&&u.current&&(g"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "offset": 1123,
+      "m": "quality:",
+      "w": "7\",b=new Map([[\"default\",function(e){var t;let{config:r,src:n,width:i,quality:o}=e,s=o||(null==(t=r.qualities)?void 0:t.reduce((e,t)=>Math.abs(t-75)"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 46,
+    "distinct": [
+     "createObjectURL",
+     "orientation",
+     "quality:"
+    ],
+    "samples": [
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 16251,
+      "m": "orientation",
+      "w": "ght\"],[\"glyphName\",\"glyph-name\"],[\"glyphOrientationHorizontal\",\"glyph-orientation-horizontal\"],[\"glyphOrientationVertical\",\"glyph-orientation-vertical\""
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 16311,
+      "m": "orientation",
+      "w": "l\",\"glyph-orientation-horizontal\"],[\"glyphOrientationVertical\",\"glyph-orientation-vertical\"],[\"horizAdvX\",\"horiz-adv-x\"],[\"horizOriginX\",\"horiz-origin-"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 179284,
+      "m": "orientation",
+      "w": "ght\"],[\"glyphName\",\"glyph-name\"],[\"glyphOrientationHorizontal\",\"glyph-orientation-horizontal\"],[\"glyphOrientationVertical\",\"glyph-orientation-vertical\""
+     }
+    ]
+   },
+   "tinder": {
+    "count": 81,
+    "distinct": [
+     "createObjectURL",
+     "multipart",
+     "orientation"
+    ],
+    "samples": [
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 343650,
+      "m": "createObjectURL",
+      "w": ",success:!0,response:void 0});'],{type:\"text/javascript\"});return URL.createObjectURL(e)}();return\"\"}();if(!t)return;Ln&&Pn.log(\"Using compression worker\"+"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 80879,
+      "m": "orientation",
+      "w": "ceNeeded\",!0),nt=Ve(He.default,\"jobTitleMaxLength\"),it=Ve(He.default,\"orientationEnabled\"),st=Ve(He.default,\"orientations\"),rt=Ve(He.default,\"merchandi"
+     },
+     {
+      "file": "tinder.main-dc2addb81fed3c105970.js",
+      "offset": 80918,
+      "m": "orientation",
+      "w": "eMaxLength\"),it=Ve(He.default,\"orientationEnabled\"),st=Ve(He.default,\"orientations\"),rt=Ve(He.default,\"merchandisingFeatures\"),ot=Ve(He.default,\"messag"
+     }
+    ]
+   }
+  },
+  "failure": {
+   "hinge": {
+    "count": 97,
+    "distinct": [
+     "Retry-After",
+     "attemptNumber",
+     "backoff",
+     "maxRetries",
+     "offline",
+     "resource_exhausted",
+     "retryDelay",
+     "shouldRetry",
+     "timed out",
+     "timedout",
+     "timeout"
+    ],
+    "samples": [
+     {
+      "file": "13-76703151bf85c56c.js",
+      "offset": 1137,
+      "m": "timeout",
+      "w": "meout(()=>{this._update({pastDelay:!0})},t.delay)),\"number\"==typeof t.timeout&&(this._timeout=setTimeout(()=>{this._update({timedOut:!0})},t.timeou"
+     },
+     {
+      "file": "13-76703151bf85c56c.js",
+      "offset": 1153,
+      "m": "timeout",
+      "w": "_update({pastDelay:!0})},t.delay)),\"number\"==typeof t.timeout&&(this._timeout=setTimeout(()=>{this._update({timedOut:!0})},t.timeout))),this._res.p"
+     },
+     {
+      "file": "13-76703151bf85c56c.js",
+      "offset": 1208,
+      "m": "timeout",
+      "w": "imeout&&(this._timeout=setTimeout(()=>{this._update({timedOut:!0})},t.timeout))),this._res.promise.then(()=>{this._update({}),this._clearTimeouts()"
+     }
+    ]
+   },
+   "bumble": {
+    "count": 54,
+    "distinct": [
+     "offline",
+     "timeout"
+    ],
+    "samples": [
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 112638,
+      "m": "timeout",
+      "w": "&&10<(a=i3+300-el())){if(sd(r,t,iJ,!iU),0!==eP(r,0,!0))break e;st=t,r.timeoutHandle=ux(sf.bind(null,r,n,i1,i6,i2,t,iJ,iX,iZ,iU,l,\"Throttled\",-0,0),"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 112828,
+      "m": "timeout",
+      "w": "null,-0,0)}}break}sQ(e)}function sf(e,t,n,r,a,l,o,i,s,u,c,f,d,p){if(e.timeoutHandle=-1,8192&(f=t.subtreeFlags)||16785408==(16785408&f)){iz(t,l,f={s"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "offset": 114706,
+      "m": "timeout",
+      "w": "l!==e;)o1(e.alternate,e),e=e.return;iB=null}}function sm(e,t){var n=e.timeoutHandle;-1!==n&&(e.timeoutHandle=-1,uP(n)),null!==(n=e.cancelPendingCom"
+     }
+    ]
+   },
+   "tinder": {
+    "count": 96,
+    "distinct": [
+     "Retry-After",
+     "backoff",
+     "offline",
+     "resource_exhausted",
+     "timed out",
+     "timeout"
+    ],
+    "samples": [
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 110609,
+      "m": "timeout",
+      "w": "ctiveRootSpanIds.has(e)&&(a.T&&r.Yz.log(`[Profiling] Reached 5-minute timeout for root span ${e}. You likely started a manual root span that never "
+     },
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 115973,
+      "m": "timeout",
+      "w": "og(\"[Tracing] Discarding span since it finished after idle span final timeout\",e):i.Yz.log(\"[Tracing] Discarding span since it happened after idle "
+     },
+     {
+      "file": "tinder.79047-fd15ebba71088abd6652.js",
+      "offset": 181612,
+      "m": "resource_exhausted",
+      "w": "code:o,message:\"failed_precondition\"};case 429:return{code:o,message:\"resource_exhausted\"};case 499:return{code:o,message:\"cancelled\"};default:return{code:o,m"
+     }
+    ]
+   }
+  }
+ }
+}

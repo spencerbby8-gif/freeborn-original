@@ -1,5 +1,7 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
+
 import Link from "next/link";
 import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -772,11 +774,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
                 <div className="relative aspect-[3/3.2] w-full overflow-hidden">
                   {profile.photos[0] ?? profile.photo ? (
-                    <img
+                    <PhotoImage
                       src={profile.photos[0] ?? profile.photo}
                       alt={`${profile.name}, ${profile.age}`}
-                      draggable={false}
-                      className="h-full w-full select-none object-cover"
+                      className="h-full w-full"
+                      priority
                     />
                   ) : (
                     /* Placeholder card for a photoless profile (viewer allows them) */

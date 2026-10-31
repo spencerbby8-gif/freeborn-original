@@ -586,6 +586,19 @@ export const matches = pgTable(
       onDelete: "set null",
     }),
     status: text("status").notNull().default("active"),
+    /* --- End-of-conversation provenance (2026-10-30) -------------------------
+       Unmatch used to be `delete(matches)`, and because messages.match_id and
+       chat_media.match_id are both `on delete cascade`, that one statement
+       destroyed the shared history for BOTH members and orphaned the thread's
+       attachment bytes with no row left to find them. The row is now retained with
+       status='unmatched' plus these columns, so visibility is a per-member decision
+       (src/lib/match-lifecycle.ts) and account deletion stays the only thing
+       allowed to cascade. */
+    unmatchedBy: uuid("unmatched_by").references(() => userProfiles.id, {
+      onDelete: "set null",
+    }),
+    unmatchedAt: timestamp("unmatched_at", { withTimezone: true }),
+    unmatchReason: text("unmatch_reason"),
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
@@ -593,7 +606,16 @@ export const matches = pgTable(
     unique("matches_pair_unique").on(t.userA, t.userB),
     check("matches_no_self", sql`${t.userA} <> ${t.userB}`),
     check("matches_ordered", sql`${t.userA} < ${t.userB}`),
-    check("matches_status_check", sql`${t.status} in ('active','archived','blocked')`),
+    check("matches_status_check", sql`${t.status} in ('active','archived','blocked','unmatched')`),
+    check(
+      "matches_unmatch_reason_check",
+      sql`${t.unmatchReason} is null or ${t.unmatchReason} in ('not_interested','met_someone','moved_off_app','inappropriate','safety','other')`
+    ),
+    /* An 'unmatched' row with no actor/timestamp is a bug, not a state. */
+    check(
+      "matches_unmatched_has_actor",
+      sql`${t.status} <> 'unmatched' or (${t.unmatchedBy} is not null and ${t.unmatchedAt} is not null)`
+    ),
   ]
 );
 
@@ -1132,5 +1154,48 @@ export const humanChallenges = pgTable(
       .on(t.email, t.purpose)
       .where(sql`${t.status} = 'issued'`),
     index("human_challenges_email_idx").on(t.email, sql`${t.issuedAt} desc`),
+  ]
+);
+
+
+/**
+ * CHAT SIGNALS — a content-free "look again" channel for realtime chat (2026-10-30).
+ *
+ * Why a table at all: `messages`, `matches` and `chat_media` are RLS-forced with ZERO policies,
+ * so a member client cannot subscribe to their changes — `postgres_changes` applies the same RLS
+ * that denies the direct read, and would deliver nothing. The app also has no service-role key,
+ * so a route cannot publish to Realtime's broadcast API either. A tiny table with ONE narrow
+ * policy (participants may read, nobody may write) is the way to carry a notification through
+ * the same Postgres the message itself was just written to.
+ *
+ * It holds no message text, no ids of messages, no member data — only which conversation
+ * changed and in what way. That is deliberate: this table is readable by any authenticated
+ * participant of a match, so anything in it must be safe to see, and a leak of content through
+ * a side channel would undo the private-media design.
+ *
+ * Rows are disposable by construction. Losing every row in this table costs latency, never a
+ * message, because the HTTP fetch is the source of truth and polling remains the floor.
+ */
+export const chatSignals = pgTable(
+  "chat_signals",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    matchId: uuid("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull().default("message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // The client's filter is always `match_id=eq.<uuid>`, and the catch-up read orders by this.
+    index("chat_signals_match_created_idx").on(t.matchId, t.createdAt.desc()),
+    // Declared here as well as in db/migrations/2026-10-30-chat-signals.sql: the two ways this
+    // table gets created (migration, or `drizzle-kit push` from this schema) have to agree, or
+    // a pushed database silently lacks the closed vocabulary the migration promises.
+    // 'joined'/'left'/'off'/'seen'/'unread' are DELIBERATELY absent — those are relayed to the
+    // peer's realtime channel by the client and never written to a table.
+    check("chat_signals_kind_check", sql`"kind" in ('message', 'typing', 'severed', 'cleared')`),
   ]
 );

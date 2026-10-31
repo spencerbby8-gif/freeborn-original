@@ -12,6 +12,7 @@
  * for browser notification permission.
  */
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
@@ -253,7 +254,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
             className="fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md"
           >
             {b.photo ? (
-              <img src={b.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/15 object-cover" />
+              <PhotoImage src={b.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/15" imgClassName="object-cover" compact />
             ) : (
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

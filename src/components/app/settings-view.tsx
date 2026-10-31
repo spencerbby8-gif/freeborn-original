@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
@@ -468,7 +469,7 @@ function BlockedList() {
         <div key={b.id} className="fb-row">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--color-abyss)]">
             {b.photo ? (
-              <img src={b.photo} alt="" className="h-full w-full object-cover" />
+              <PhotoImage src={b.photo} alt="" className="h-full w-full" imgClassName="object-cover" compact />
             ) : (
               <span className="font-display text-sm font-bold text-[var(--color-pearl)]">
                 {b.name.charAt(0).toUpperCase()}

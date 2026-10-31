@@ -24,8 +24,53 @@ import {
   type BrowserObservations,
 } from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
+import { resolvePhotoUrl } from "@/lib/photo-url";
+import {
+  decideMediaAccess,
+  needsPublishedProfilePhotoLookup,
+  type MediaAccessFacts,
+} from "@/lib/media-access";
 import { createHash } from "node:crypto";
+import {
+  decideMatchAccess,
+  isUnmatchReason,
+  severedMessage,
+  undoMayDeleteMatchRow,
+  UNMATCH_REASONS,
+  type MatchAction,
+  type MatchLifecycleStatus,
+} from "@/lib/match-lifecycle";
 import { mkdir, writeFile, rm } from "node:fs/promises";
+import {
+  describeFailure,
+  fetchWithRetry,
+  isRateLimited,
+  readJsonSafe,
+  retryDelayMs,
+  retrySrcFor,
+} from "@/lib/api-response";
+import {
+  SYNC_LIMITS,
+  ackPending,
+  chatChannelName,
+  detectGap,
+  markPendingFailed,
+  mergeMessages,
+  nextPhase,
+  classifySendFailure,
+  offersRetryAfter,
+  noteFailureCount,
+  pendingToMessage,
+  pollIntervalMs,
+  queuePending,
+  reconnectDelayMs,
+  reconcilePending,
+  shouldFetchNow,
+  shouldGiveUpReconnecting,
+  signalFilter,
+  type ChannelPhase,
+  type SyncEvent,
+} from "@/lib/chat-sync";
 
 let pass = 0;
 let total = 0;
@@ -1140,6 +1185,992 @@ ok("[13] only the live CHECK's three states are ever written",
     !/delete from human_challenges/i.test(singleLiveMig));
   ok("[14] the index keeps its name, so production swaps shape and not identity",
     (singleLiveMig.match(/human_challenges_single_live/g) ?? []).length >= 4);
+}
+
+/* ------------------------------------------------------------------ [15] media recovery -- */
+/* Three production-verified ways member media disappeared or outlived its owner, found
+   2026-10-30 by querying the live database (see the migration for the numbers). Each pin
+   below names the mechanism it protects, and the ordering pins exist because these are
+   authorization paths: a branch in the wrong place is a hole, not a cosmetic issue. */
+const mediaGetSrc = readFileSync(new URL("../../src/app/api/chat/media/[id]/route.ts", import.meta.url), "utf8");
+const photosApiSrc = readFileSync(new URL("../../src/app/api/profile/photos/route.ts", import.meta.url), "utf8");
+const onboardSrc = readFileSync(new URL("../../src/lib/onboarding-store.ts", import.meta.url), "utf8");
+const mediaMigSrc = readFileSync(new URL("../../db/migrations/2026-10-30-media-recovery.sql", import.meta.url), "utf8");
+const rls1Src = readFileSync(new URL("../../db/migrations/2026-10-16-rls-and-media-ownership.sql", import.meta.url), "utf8");
+
+/* Contracts the whole fix stands on, executed rather than pattern-matched: an
+   indirection-shaped row is passed to the browser unchanged (which is why it needed
+   an authorization branch), and a mirrored /uploads row is likewise passed through —
+   which is exactly how it stayed broken forever. */
+ok("[15] an /api/chat/media path reaches the browser unchanged", resolvePhotoUrl("/api/chat/media/aa11") === "/api/chat/media/aa11");
+ok("[15] a bucket path is prefixed with the public object URL", resolvePhotoUrl("u1/p.jpg").endsWith("/storage/v1/object/public/profile-photos/u1/p.jpg"));
+ok("[15] a mirrored /uploads path resolves as-is, so it can only ever 404", resolvePhotoUrl("/uploads/x.jpg") === "/uploads/x.jpg");
+ok("[15] no path yields no URL, never a guessed one", resolvePhotoUrl(null) === "" && resolvePhotoUrl("") === "");
+
+/* The disappearing-profile-photo fix: a blob the owner published as their own profile
+   photo is readable by any signed-in member, because RLS already shows that photo to
+   every discoverable profile. It must stay (a) after the participant checks so it can
+   only ADD an audience the owner chose, and (b) equivalent to the RLS-1 predicate. */
+const idxMember = mediaGetSrc.indexOf("getMember(request)");
+const idxPub = mediaGetSrc.indexOf("const published = await db");
+const idxGate = mediaGetSrc.indexOf("if (needsPublishedProfilePhotoLookup(facts))");
+ok("[15] the media route authenticates before consulting any branch", idxMember >= 0 && idxMember < idxGate);
+ok("[15] the profile-photo lookup is the lazy last resort, not a per-request join",
+  idxGate > 0 && idxPub > idxGate, `gate=${idxGate} lookup=${idxPub}`);
+/* The route used to own the boolean; if it grows one back, the two copies are free to
+   disagree and only one of them is tested. One deny, one source of truth. */
+ok("[15] the route holds no authorization logic of its own",
+  !/\ballowed\b/.test(mediaGetSrc) && !mediaGetSrc.includes("if (!canRead"),
+  "route must delegate to decideMediaAccess");
+ok("[15] there is exactly one deny statement, and it is the delegated one",
+  (mediaGetSrc.match(/return new Response\("Not found", \{ status: 404 \}\)/g) ?? []).length === 2 &&
+  mediaGetSrc.includes("if (!decideMediaAccess(facts).allow) return new Response(\"Not found\", { status: 404 });"));
+ok("[15] it is keyed on the exact path the photo row publishes", /eq\(profilePhotos\.storagePath, `\/api\/chat\/media\/\$\{id\}`\)/.test(mediaGetSrc));
+ok("[15] the branch mirrors RLS-1 (active + discoverable + stage)",
+  /eq\(userProfiles\.profileStatus, "active"\)/.test(mediaGetSrc) &&
+  /eq\(userProfiles\.discoverable, true\)/.test(mediaGetSrc) &&
+  /inArray\(userProfiles\.onboardingStage, \["profile_setup", "ready"\]\)/.test(mediaGetSrc));
+ok("[15] the policy it imitates still says the same three things",
+  ["profile_status = 'active'", "discoverable = true", "onboarding_stage = any (array['profile_setup','ready'])"].every((frag) => rls1Src.includes(frag)));
+ok("[15] denial is still an indistinguishable 404 with no reason given",
+  !mediaGetSrc.includes("Not authorized") && !mediaGetSrc.includes("not the participant") &&
+  !/reason/.test(mediaGetSrc.slice(mediaGetSrc.indexOf("export async function GET"))));
+ok("[15] served media stays uncacheable and un-sniffable",
+  mediaGetSrc.includes('"Cache-Control": "private, no-store"') && mediaGetSrc.includes('"X-Content-Type-Options": "nosniff"'));
+
+/* ── the rule table, EXECUTED ──
+   The brief asks for testing across profile owners, eligible viewers, chat senders and
+   recipients. Two live member sessions are not available to me in this sandbox, so the
+   roles are enumerated as inputs instead — which is stronger than one hand-picked pair:
+   every combination of the five facts is asserted below, and the loop over the full
+   space follows. A case cannot be quietly dropped, because the exhaustive pass would
+   then contradict the named one. */
+const U = "member-sender";
+const V = "member-recipient";
+const X = "member-stranger";
+const M = "conversation-1";
+const EMPTY: MediaAccessFacts = {
+  requesterId: null,
+  mediaSenderId: null,
+  mediaMatchId: null,
+  requesterIsParticipant: false,
+  publishedAsVisibleProfilePhoto: false,
+};
+const decide = (over: Partial<MediaAccessFacts>) => decideMediaAccess({ ...EMPTY, ...over });
+const MEDIA_RULES: Array<[string, Partial<MediaAccessFacts>, boolean]> = [
+  ["sender opens their own unlinked (legacy) blob", { requesterId: U, mediaSenderId: U }, true],
+  ["recipient opens a linked blob", { requesterId: V, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, true],
+  ["sender opens a linked blob they are in", { requesterId: U, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, true],
+  ["stranger opens a linked blob", { requesterId: X, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: false }, false],
+  ["stranger opens an unlinked blob", { requesterId: X, mediaSenderId: U }, false],
+  ["anonymous opens a blob its own rules would otherwise grant", { requesterId: null, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true }, false],
+  ["sender is REFUSED a linked blob they no longer participate in — the sender fallback is legacy-only", { requesterId: U, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: false }, false],
+  ["eligible viewer opens a published profile photo", { requesterId: X, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
+  ["owner opens their own published profile photo", { requesterId: U, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
+  ["no row to decide on", { requesterId: X }, false],
+  ["a null sender id alone must not read as 'no relationship, allow'", { requesterId: X, mediaMatchId: M, requesterIsParticipant: false }, false],
+];
+for (const [name, facts, want] of MEDIA_RULES) {
+  const got = decide(facts);
+  ok(`[15] media rule: ${name}`, got.allow === want, `allow=${got.allow} reason=${got.reason}`);
+}
+ok("[15] every denial names a deny: reason, every grant a grant: reason",
+  MEDIA_RULES.every(([, facts, want]) => decide(facts).reason.startsWith(want ? "grant:" : "deny:")));
+
+/* Exhaustive pass. Two properties the whole design leans on:
+   monotonicity — a further fact never revokes a grant, which is what lets the route look
+   rule 3 up lazily — and deny-by-default, which keeps the grant set small enough to audit. */
+let combos = 0, grantsBeforeLookup = 0, monotone = true, lazySafe = true, anonCases = 0, anonDenied = 0;
+for (const requesterId of [U, V, X, null])
+  for (const mediaSenderId of [U, V, null])
+    for (const mediaMatchId of [null, M])
+      for (const requesterIsParticipant of [false, true])
+        for (const publishedAsVisibleProfilePhoto of [false, true]) {
+          const base = { requesterId, mediaSenderId, mediaMatchId, publishedAsVisibleProfilePhoto };
+          const asAsked = { ...base, requesterIsParticipant };
+          const noLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: false });
+          const withLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: true });
+          const weak = decideMediaAccess({ ...base, requesterIsParticipant: false, publishedAsVisibleProfilePhoto: false });
+          combos++;
+          /* Monotone in the granting facts: learning that the requester is a participant,
+             or that the owner published the blob, may only ever ADD a grant. */
+          if (weak.allow && !withLookup.allow) monotone = false;
+          if (noLookup.allow && !withLookup.allow) monotone = false;
+          /* And the route's shortcut is behaviour-preserving: it skips the profile-photo
+             query exactly when the answer is already "allow", so the answer cannot change.
+             Compared against `noLookup` (the flags as actually asked), not a weakened
+             baseline — an earlier draft of this pin compared the wrong pair and went red
+             on correct code. */
+          if (!needsPublishedProfilePhotoLookup({ ...asAsked, publishedAsVisibleProfilePhoto: false })) {
+            if (!noLookup.allow || withLookup.allow !== noLookup.allow) lazySafe = false;
+          }
+          if (noLookup.allow) grantsBeforeLookup++;
+          if (requesterId === null) {
+            anonCases++;
+            if (!withLookup.allow) anonDenied++;
+          }
+        }
+ok("[15] the rule is monotone over the full fact space", monotone, `${combos} combinations`);
+ok("[15] the lazy lookup gate cannot skip a grant the rule would have made", lazySafe);
+/* Two properties worth pinning. The first is the one an attacker probes: a missing
+   session must deny in EVERY case, whatever else is true about the row. The second is
+   deny-by-default measured BEFORE the profile-photo lookup — counting with the flag
+   forced true would be meaningless, since "this blob is somebody's published photo" is
+   the rarest fact in the space and the enumeration makes it always-true. An earlier
+   draft asserted the minority over that inflated denominator and went red on correct
+   code; the shape of the assertion, not the rule, was wrong. */
+ok("[15] no combination whatsoever grants media to an anonymous caller",
+  anonCases > 0 && anonDenied === anonCases, `${anonDenied}/${anonCases} anonymous cases denied`);
+ok("[15] before the lookup, a grant needs a real relationship (minority of the space)",
+  grantsBeforeLookup > 0 && grantsBeforeLookup < combos / 2, `grants=${grantsBeforeLookup}/${combos}`);
+
+/* Orphan bytes: the row and the object must die together, and the object name must
+   never come from the request body. */
+ok("[15] deleting a photo deletes its object, addressed from the row", /\.remove\(\[row\.storagePath\]\)/.test(photosApiSrc));
+ok("[15] the request body can never name an object to delete", !/\.remove\(\[?path\]/.test(photosApiSrc));
+ok("[15] only bucket-relative paths are sent to storage",
+  /if \(!row\.storagePath\.startsWith\("\/"\) && !\/\^https\?:/.test(photosApiSrc) &&
+  photosApiSrc.includes('storage.from("profile-photos").remove'));
+ok("[15] a failed object removal is logged, not reported as a failed delete",
+  photosApiSrc.includes('console.warn("[profile-photos] deleted row but the object remains:'));
+/* Right to erasure is the same defect with higher stakes: deleting an account used to
+   drop profile_photos rows and leave every image in a public bucket, with no row left
+   to attribute it. Pinned as an ORDER property, because sweeping after the delete loses
+   the only index that points at the objects. */
+const accountSrc = readFileSync(new URL("../../src/app/api/account/route.ts", import.meta.url), "utf8");
+ok("[15] account deletion sweeps both media buckets",
+  accountSrc.includes('["profile-photos", "profile_photos"]') &&
+  accountSrc.includes('["verification-selfies", "verification_selfie_checks"]'));
+ok("[15] the sweep runs before the rows that name the objects are dropped",
+  accountSrc.indexOf("listBucketPaths") < accountSrc.indexOf("delete from public.profile_photos") &&
+  accountSrc.indexOf("listBucketPaths") > 0);
+ok("[15] enumerated paths are filtered to bucket shapes, never taken from the request body",
+  accountSrc.includes('.filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("/")') &&
+  !accountSrc.includes("remove([path]") && !accountSrc.includes("remove(path)") && !accountSrc.includes("remove([body") &&
+  !/const \{[^}]*\bpath\b[^}]*\} = \(body/.test(accountSrc));
+ok("[15] a refused object removal warns and lets the cascade finish",
+  accountSrc.includes("objects survived the deletion:") &&
+  !/objects survived the deletion[\s\S]{0,120}return Response\.json/.test(accountSrc));
+
+ok("[15] the unremovable-path wording is preserved verbatim",
+  photosApiSrc.includes("That photo lives in your original upload store, so it can't be removed from this preview room."));
+
+/* The silent-breakage generator: a storage failure used to write bytes to disk and
+   store /uploads/<name> in the live table. It must not come back. */
+ok("[15] the disk mirror is gone from the onboarding store",
+  !onboardSrc.includes("persistPhotoDataUrlToLocal") && !/`\/uploads\/\$\{/.test(onboardSrc) &&
+  !onboardSrc.includes('from "node:fs/promises"'));
+ok("[15] a storage failure falls back to Postgres bytes at a served path",
+  /storePhotoBytesInDatabase\(userId, photo\.src\)/.test(onboardSrc) &&
+  /`\/api\/chat\/media\/\$\{media\.id\}`/.test(onboardSrc));
+ok("[15] both fallback sites were converted, not just the first", (onboardSrc.match(/storePhotoBytesInDatabase/g) ?? []).length >= 3);
+ok("[15] replace-all onboarding removes old objects before deleting old rows",
+  onboardSrc.indexOf(".remove(removable)") > 0 &&
+  onboardSrc.indexOf('from("profile_photos").delete()') > onboardSrc.indexOf(".remove(removable)"));
+ok("[15] the removal list is filtered to bucket paths only",
+  onboardSrc.includes('.filter((p) => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\\/\\//.test(p));'));
+ok("[15] an upload failure is named in the log instead of swallowed",
+  /console\.warn\(`\[onboarding\] photo \$\{photo\.id\} was not stored: /.test(onboardSrc));
+
+/* The SQL half: repair from proven links only, never destroy, never re-diverge. */
+ok("[15] the backfill refuses media referenced from two conversations",
+  /having count\(distinct match_id\) = 1/.test(mediaMigSrc));
+ok("[15] the backfill can only link a conversation that still exists",
+  /join public\.matches mt on mt\.id = ms\.match_id/.test(mediaMigSrc));
+ok("[15] the backfill is idempotent", /and cm\.match_id is null;/.test(mediaMigSrc));
+ok("[15] the migration deletes no member data",
+  !/\bdelete from\b/i.test(mediaMigSrc) && !/\btruncate\b/i.test(mediaMigSrc));
+ok("[15] the public bucket now has a measured mime and size bound",
+  mediaMigSrc.includes("BOUND THE PUBLIC BUCKET — APPLIED 2026-10-30") &&
+  mediaMigSrc.includes("array['image/jpeg','image/png','image/webp']"));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [16] MEDIA RESILIENCE + SHARED UI CONTRACT (2026-10-30, competitor-driven)
+   ──────────────────────────────────────────────────────────────────────────
+   (a) src/lib/api-response.ts is pinned as BEHAVIOUR: the tolerant parse, the
+       retry bound, the idempotency rule and the backoff clock. These exist because
+       a proxy 502 is an HTML page — `await res.json()` threw a SyntaxError that
+       either reached the member as "unexpected end of JSON input" or, in
+       getIceConfig, was swallowed and silently downgraded every call to STUN-only.
+       The 60s 429 floor, the bounded default and the retry-only-idempotent shape
+       are what Tinder's and Hinge's own shipped clients were measured doing
+       (docs/research/2026-10-30/MINING-API-STATE.json, cited by byte offset);
+       the offsets are evidence for a MECHANISM, not for their server behaviour.
+   (b) The photo renderer and button contract are pinned as STRUCTURE: that the
+       two most-seen photo surfaces route through the resilient component at all,
+       and that hover/pressed stay overlay-painted and capability-gated. Those
+       properties are invisible in a screenshot and easy to "simplify" away.
+   ══════════════════════════════════════════════════════════════════════════ */
+const res = (status: number, body: BodyInit | null, headers: Record<string, string> = {}) =>
+  new Response(body, { status, headers });
+
+ok("[16] a non-JSON body parses to null instead of throwing",
+  (await readJsonSafe(res(502, "<html><title>502 Bad Gateway</title></html>"))) === null &&
+  (await readJsonSafe(res(200, ""))) === null &&
+  JSON.stringify(await readJsonSafe(res(200, JSON.stringify({ a: 1 }), { "content-type": "application/json" }))) === '{"a":1}',
+  "an HTML error page must not raise SyntaxError, and an empty body is not an error");
+
+ok("[16] real JSON still parses",
+  (await readJsonSafe(res(200, JSON.stringify({ iceServers: [{ urls: "stun:x" }] })))) !== null);
+
+{
+  const own = await describeFailure(res(413, JSON.stringify({ error: "That photo is too large." })));
+  const proxy = await describeFailure(res(502, "<html>502</html>"));
+  const anon = await describeFailure(res(418, "{}"));
+  ok("[16] the server's own message wins over the generic one", own.message === "That photo is too large." && own.status === 413);
+  ok("[16] an unparseable 502 still yields a sentence a person can read", /unreachable/i.test(proxy.message), proxy.message);
+  ok("[16] no status may fall through to an empty message", anon.message.trim().length > 0, JSON.stringify(anon));
+}
+
+ok("[16] only 429 counts as a throttle (503 has no window to honour)",
+  isRateLimited({ status: 429 }) === true && isRateLimited({ status: 503 }) === false);
+
+ok("[16] Retry-After wins over the local guess, and is clamped to a survivable wait",
+  retryDelayMs({ status: 429, retryAfterHeader: "3", attempt: 1 }) === 3000 &&
+  retryDelayMs({ status: 429, retryAfterHeader: "99999", attempt: 1 }) === 60000,
+  "a hostile or buggy header cannot park a member's screen for an hour");
+
+ok("[16] a 429 with no header gets the measured 60s floor",
+  retryDelayMs({ status: 429, attempt: 1 }) === 60000,
+  "mechanism observed in Tinder's client as 429===t&&(o.all=s+6e4)");
+
+ok("[16] a 5xx backs off exponentially from the base and respects the cap",
+  retryDelayMs({ status: 500, attempt: 1, baseMs: 400, capMs: 20000 }) === 400 &&
+  retryDelayMs({ status: 500, attempt: 3, baseMs: 400, capMs: 20000 }) === 1600 &&
+  retryDelayMs({ status: 500, attempt: 9, baseMs: 400, capMs: 20000 }) === 20000);
+
+{
+  let calls = 0; const slept: number[] = [];
+  const out = await fetchWithRetry("/api/x", { method: "GET" },
+    { maxAttempts: 3, baseMs: 100, sleep: async (ms) => { slept.push(ms); } },
+    async () => { calls++; return res(503, "{}"); });
+  ok("[16] a failing GET is retried to the bound, then the response is returned not thrown",
+    calls === 3 && out.attempts === 3 && out.res?.status === 503 && slept.length === 2,
+    `calls=${calls} attempts=${out.attempts} sleeps=${slept.length}`);
+}
+
+{
+  let post = 0, bad = 0;
+  await fetchWithRetry("/api/likes", { method: "POST" }, { maxAttempts: 5, sleep: async () => {} },
+    async () => { post++; return res(502, "{}"); });
+  await fetchWithRetry("/api/x", { method: "GET" }, { maxAttempts: 5, sleep: async () => {} },
+    async () => { bad++; return res(400, "{}"); });
+  ok("[16] a POST is never retried — a duplicate like, report or message is the worse bug",
+    post === 1, `post calls=${post}`);
+  ok("[16] a 400 is a decision, not a hiccup: no retry", bad === 1, `400 calls=${bad}`);
+}
+
+{
+  let calls = 0;
+  const okOut = await fetchWithRetry("/api/x", {}, { maxAttempts: 5, sleep: async () => {} }, async () => {
+    calls++; return calls < 3 ? res(500, "{}") : res(200, JSON.stringify({ iceServers: [] }));
+  });
+  let boom = 0;
+  const net = await fetchWithRetry("/api/x", {}, { maxAttempts: 2, sleep: async () => {} }, async () => {
+    boom++; throw new TypeError("Failed to fetch");
+  });
+  ok("[16] the first success stops the loop", calls === 3 && okOut.res?.status === 200, `calls=${calls}`);
+  ok("[16] a network error is retried and the original error still reaches the caller",
+    boom === 2 && net.res === null && net.error instanceof TypeError, `boom=${boom}`);
+}
+
+ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreign ones",
+  retrySrcFor("/api/chat/media/abc", 1) === "/api/chat/media/abc?r=1" &&
+  retrySrcFor("/api/chat/media/abc?r=2", 3) === "/api/chat/media/abc?r=3" &&
+  retrySrcFor("/api/x?token=abc", 2) === "/api/x?token=abc&r=2" &&
+  retrySrcFor("https://cdn.example/i.jpg", 1) === null &&
+  retrySrcFor("//example.com/i.jpg", 1) === null &&
+  retrySrcFor("data:image/jpeg;base64,AAA", 1) === null,
+  "a signed URL must not be rewritten and an inline preview is already in memory");
+
+{
+  const deck = readFileSync(new URL("../../src/components/app/home-deck.tsx", import.meta.url), "utf8");
+  const chat = readFileSync(new URL("../../src/components/app/chat-view.tsx", import.meta.url), "utf8");
+  const bus = readFileSync(new URL("../../src/lib/call-bus.ts", import.meta.url), "utf8");
+  ok("[16] the deck photo renders through the resilient component, not a bare <img>",
+    /<PhotoImage\b/.test(deck) && !/<img\s+src=\{profile\.photos/.test(deck));
+  ok("[16] chat avatars render through it too", /<PhotoImage\b/.test(chat));
+  ok("[16] the ICE fetch no longer parses unguardedly",
+    !/await res\.json\(\)/.test(bus) && /readJsonSafe/.test(bus),
+    "an HTML 502 here used to be caught and silently downgrade every call to STUN-only");
+}
+
+{
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const btn = readFileSync(new URL("../../src/components/ui/button.tsx", import.meta.url), "utf8");
+  const photo = readFileSync(new URL("../../src/components/ui/photo-image.tsx", import.meta.url), "utf8");
+  ok("[16] hover and pressed are overlay layers, so label contrast cannot drift per state",
+    /--button-overlay-background-hover/.test(css) && /--button-overlay-background-pressed/.test(css) &&
+    /\.fb-cta::after/.test(css),
+    "Bumble's mechanism, read off its stylesheet — not its appearance");
+  ok("[16] hover styling is capability-gated, so it cannot stick after a tap",
+    /@media \(hover: hover\) and \(pointer: fine\)/.test(css), "as Tinder's stylesheet does");
+  ok("[16] focus is explicit and motion is respected",
+    /\.fb-cta:focus-visible/.test(css) && /@media \(prefers-reduced-motion: reduce\)/.test(css));
+  ok("[16] the measured type scale lives in @theme so the utilities exist",
+    /--text-ui-xs: 0\.8125rem/.test(css) && /--text-ui-sm: 0\.9375rem/.test(css) &&
+    /--text-ui-md: 1\.0625rem/.test(css) && /--radius-card: 1rem/.test(css) &&
+    /--control-h-md: 2\.75rem/.test(css),
+    "13/15/17px + 16px radius + 44px control floor, from bumble.7050c3776fb2414d.css");
+  ok("[16] a loading button is disabled and announced, not merely styled",
+    /disabled \|\| loading/.test(btn) && /aria-busy/.test(btn));
+  {
+    /* The class name must not collide with the app's pre-existing pill button system. */
+    /* My own comments inside the block deliberately NAME the old class, so the check strips
+       comments and inspects selectors only — testing the prose would pass a real collision. */
+    const block = css.slice(css.indexOf("CTA CONTRACT")).replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("[16] the new contract owns a distinct class name, so neither system restyles the other",
+      block.includes(".fb-cta") && !/\.fb-btn\s*[{:,_]/.test(block) && /\.fb-btn\s*\{/.test(css),
+      "found by the headless pass: the shared name made my rules override the onboarding pill");
+    ok("[16] the pre-existing pill system is still defined after the rename",
+      /\.fb-btn\s*\{[\s\S]{0,500}?border-radius:\s*999px/.test(css));
+  }
+  ok("[16] a new src resets render state in-render, not in an effect",
+    /setPrevSrc\(src\)[\s\S]{0,120}setState\("loading"\)/.test(photo) && !/useEffect\(\(\) => \{\s*setState\("loading"\)/.test(photo),
+    "an effect would paint one frame of the previous photo's state onto the new src");
+  ok("[16] a failed photo is said out loud and offers a way out",
+    /Didn&rsquo;t load/.test(photo) && /tap to retry/i.test(photo) &&
+    /aria-label=\{`Photo of \$\{alt\} failed to load/.test(photo));
+  ok("[16] the failure state fits inside the caller's tile instead of overflowing it",
+    /min-h-0[\s\S]{0,200}?overflow-hidden/.test(photo) && /line-clamp-2/.test(photo),
+    "a real render clipped 'again.' mid-word; a truncated error message is still a hidden error");
+  ok("[16] compact mode drops the sentence a 44px circle cannot carry, and keeps the label",
+    /compact\?: boolean/.test(photo) && /compact \? null :/.test(photo));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   [17] UNMATCH DETACHES, IT DOES NOT DESTROY (2026-10-30, competitor-driven)
+   ──────────────────────────────────────────────────────────────────────────
+   Freeborn's unmatch was `delete(matches)` while messages.match_id AND
+   chat_media.match_id are `on delete cascade`: one member's tap destroyed a shared
+   history for the other member and orphaned the thread's photo bytes with no row left
+   to find them. The evidence (docs/research/2026-10-30/UNMATCH-EVIDENCE.md) shows
+   Tinder keeping `matches`, `messages` and an optimistic `unmatchedIds` as three
+   separate state slices; Bumble publishing that the *recipient* keeps the conversation
+   visible "so you can still report them"; and Hinge splitting Hide (visibility) from
+   Unmatch (severance). So the fix is a status change plus per-member visibility, and
+   account deletion stays the only cascade. The full fact space is executed below.
+   ══════════════════════════════════════════════════════════════════════════ */
+const ML_STATUSES: MatchLifecycleStatus[] = ["active", "archived", "blocked", "unmatched"];
+const ML_ACTIONS: MatchAction[] = [
+  "view_conversation", "send_message", "read_media", "appear_in_chat_list", "count_unread",
+  "create_or_rematch", "export_own_data",
+];
+const ml = (status: MatchLifecycleStatus | null, isParticipant: boolean, isActor: boolean, action: MatchAction, hasMessages = false) =>
+  decideMatchAccess({ status, isParticipant, isActor, hasMessages, action });
+
+{
+  /* A stranger may never reach another pair's conversation, in any state, for any action. */
+  let strangerLeak: string[] = [];
+  for (const status of ML_STATUSES)
+    for (const action of ML_ACTIONS)
+      for (const isActor of [false, true])
+        if (ml(status, false, isActor, action).allow) strangerLeak.push(`${status}/${action}/actor=${isActor}`);
+  ok("[17] a non-participant is denied every action on every status",
+    strangerLeak.length === 0, strangerLeak.join(","));
+}
+
+{
+  /* Both members, forever, on a severed thread: cannot send. This is the invariant that
+     makes "keep the rows" safe to ship at all. */
+  let sendable: string[] = [];
+  for (const status of ["blocked", "unmatched"] as MatchLifecycleStatus[])
+    for (const isActor of [false, true])
+      if (ml(status, true, isActor, "send_message").allow) sendable.push(`${status}/actor=${isActor}`);
+  ok("[17] neither member of a severed pair can ever send again", sendable.length === 0, sendable.join(","));
+  ok("[17] an active participant can send", ml("active", true, false, "send_message").allow === true);
+  ok("[17] a severed pair can never be re-opened as a match, by either side",
+    ml("unmatched", true, false, "create_or_rematch").allow === false &&
+    ml("unmatched", true, true, "create_or_rematch").allow === false &&
+    ml("blocked", true, false, "create_or_rematch").allow === false &&
+    ml("unmatched", true, false, "create_or_rematch").reason === "deny:severed-is-permanent");
+  ok("[17] an existing active pair is not re-creatable either (no duplicate thread rows)",
+    ml("active", true, false, "create_or_rematch").reason === "deny:already-matched");
+}
+
+{
+  /* The asymmetry, stated as an invariant rather than a vibe: the person who ended it loses
+     the conversation from their view; the person it was ended with keeps reading it. */
+  ok("[17] the actor loses the thread; the recipient keeps it read-only",
+    ml("unmatched", true, true, "view_conversation").allow === false &&
+    ml("unmatched", true, false, "view_conversation").allow === true &&
+    ml("unmatched", true, false, "view_conversation").reason === "grant:read-only-for-report");
+  ok("[17] the same asymmetry drives the chat list, so nothing is destroyed to be hidden",
+    ml("unmatched", true, true, "appear_in_chat_list").reason === "hide:actor-severed-it" &&
+    ml("unmatched", true, false, "appear_in_chat_list").reason === "show:read-only-ended");
+  ok("[17] a blocked thread is hidden from the blocker too (they chose the severance)",
+    ml("blocked", true, true, "appear_in_chat_list").allow === false &&
+    ml("blocked", true, false, "appear_in_chat_list").allow === true);
+  ok("[17] an ended thread never nags with an unread badge, but that is display-only",
+    ml("unmatched", true, false, "count_unread").allow === false &&
+    ml("active", true, false, "count_unread").allow === true);
+  ok("[17] both sides keep opening attachments they were party to — the report path needs the bytes",
+    ml("unmatched", true, true, "read_media").allow === true &&
+    ml("unmatched", true, false, "read_media").allow === true &&
+    ml("blocked", true, false, "read_media").allow === true);
+  ok("[17] a data export is unaffected by severance (it is the member's own record)",
+    ml("unmatched", true, true, "export_own_data").allow === true &&
+    ml("unmatched", true, false, "export_own_data").allow === true);
+  ok("[17] a missing row denies everything, including 'read media'",
+    ml(null, true, false, "view_conversation").reason === "deny:missing-row" &&
+    ml(null, true, false, "read_media").reason === "deny:missing-row");
+  ok("[17] archived stays readable and writable (it is a soft hide, not an end)",
+    ml("archived", true, false, "view_conversation").allow === true &&
+    ml("archived", true, false, "send_message").allow === true);
+}
+
+ok("[17] every decision carries a machine-readable reason (no silent denies in the API)",
+  ML_STATUSES.every((st) => ML_ACTIONS.every((ac) => /^[a-z]+:[a-z0-9-]+$/.test(ml(st, true, false, ac).reason))));
+
+{
+  /* Monotonicity in the one direction the routes rely on: for a participant, becoming the
+     actor never GRANTS anything. (Denying more is the safe direction.) */
+  let widened: string[] = [];
+  for (const st of ML_STATUSES)
+    for (const ac of ML_ACTIONS)
+      if (ml(st, true, true, ac).allow && !ml(st, true, false, ac).allow) widened.push(`${st}/${ac}`);
+  ok("[17] being the member who ended it never unlocks extra access", widened.length === 0, widened.join(","));
+}
+
+ok("[17] the reason vocabulary is closed, and empty/absent stays legal",
+  UNMATCH_REASONS.every((r) => isUnmatchReason(r)) &&
+  isUnmatchReason("stalking_harassment_x") === false &&
+  isUnmatchReason(undefined) === false && isUnmatchReason("") === false);
+
+ok("[17] an ended thread still explains itself in one sentence, and names the report path",
+  /permanent/i.test(severedMessage("unmatched")) && /report/i.test(severedMessage("unmatched")) &&
+  /can't message/i.test(severedMessage("blocked")));
+
+ok("[17] undo may only delete the match row while the thread is empty",
+  undoMayDeleteMatchRow(false) === true && undoMayDeleteMatchRow(true) === false);
+
+/* ── the shipped code must actually consult the table ── */
+const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.url), "utf8");
+{
+  const unmatchSrc = src("src/app/api/chat/unmatch/route.ts");
+  ok("[17] unmatch no longer deletes the match row",
+    !/\.delete\(matches\)/.test(unmatchSrc) && /\.update\(matches\)/.test(unmatchSrc) &&
+    /status: "unmatched"/.test(unmatchSrc),
+    "the delete is what cascaded the conversation away");
+  ok("[17] unmatch requires an explicit confirmation and validates the reason",
+    /destructive !== true/.test(unmatchSrc) && /isUnmatchReason/.test(unmatchSrc));
+  ok("[17] unmatch is idempotent and race-safe (only an active row may be severed)",
+    /eq\(matches\.status, "active"\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc));
+
+  const blockSrc = src("src/app/api/blocks/route.ts");
+  ok("[17] blocking preserves the thread instead of cascading the evidence away",
+    !/\.delete\(matches\)/.test(blockSrc) && /status: "blocked"/.test(blockSrc),
+    "a block is exactly when the report needs the history to survive");
+
+  const startSrc = src("src/app/api/chat/start/route.ts");
+  ok("[17] chat/start cannot hand back a severed matchId",
+    /create_or_rematch/.test(startSrc) && /decideMatchAccess/.test(startSrc));
+
+  const msgSrc = src("src/app/api/chat/messages/route.ts");
+  ok("[17] read and send are decided by two different actions on one choke point",
+    /"view_conversation"/.test(msgSrc) && /"send_message"/.test(msgSrc) &&
+    (msgSrc.match(/ownsMatch\(matchId, member\.id, "/g) || []).length >= 3);
+  ok("[17] wiping a whole conversation now needs confirmation and refuses a severed thread",
+    /needsConfirmation: true/.test(msgSrc) && /kept for the member who did not end it/.test(msgSrc));
+
+  const reactSrc = src("src/app/api/chat/reactions/route.ts");
+  ok("[17] a reaction is a write, so it requires an open thread",
+    /eq\(matches\.status, "active"\)/.test(reactSrc));
+
+  const likeSrc = src("src/app/api/likes/route.ts");
+  ok("[17] a second mutual like cannot resurrect a severed pair",
+    /endedPreviously: true/.test(likeSrc) && /status !== "active"/.test(likeSrc));
+  ok("[17] undo detaches when the thread has messages, deletes only when empty",
+    /undoMayDeleteMatchRow\(Boolean\(anyMessage\)\)/.test(likeSrc) && /unmatchReason: "other"/.test(likeSrc));
+
+  const deckSrc = src("src/app/api/profiles/route.ts");
+  ok("[17] a severed match no longer grants incognito visibility",
+    /eq\(matches\.status, "active"\)/.test(deckSrc));
+
+  const mediaSrc = src("src/app/api/chat/media/[id]/route.ts");
+  /* Rewritten 2026-10-30. It used to assert the route's shape (`= Boolean(participant)`), which
+     the delegation to decideMatchAccess legitimately changed. What actually has to stay true is a
+     PROPERTY of the decision, so it is now executed rather than grepped: a participant may read a
+     conversation's media in EVERY lifecycle state, for either member, and the route must not
+     re-filter on status itself. */
+  const readMediaAllStates = ["active", "archived", "blocked", "unmatched"].every(
+    (s) => ml(s as MatchLifecycleStatus, true, false, "read_media").allow === true &&
+            ml(s as MatchLifecycleStatus, true, true, "read_media").allow === true
+  );
+  ok("[17] media authorisation stays participation-only and deliberately ignores status",
+    readMediaAllStates && /action: "read_media"/.test(mediaSrc) &&
+      !/conversation\.status === "active"/.test(mediaSrc) &&
+      ml(null, false, false, "read_media").allow === false,
+    "the read of a former conversation's bytes is the point of retaining the rows");
+}
+
+{
+  const mig = src("db/migrations/2026-10-30-unmatch-detach.sql");
+  ok("[17] the migration is additive and destroys nothing",
+    !/delete from/i.test(mig) && !/truncate/i.test(mig) &&
+    /add column if not exists unmatched_by/.test(mig) && /add column if not exists unmatched_at/.test(mig) &&
+    /add column if not exists unmatch_reason/.test(mig));
+  ok("[17] the status vocabulary is widened, not silently replaced",
+    /check \(status in \('active','archived','blocked','unmatched'\)\)/.test(mig));
+  ok("[17] an unmatched row must carry provenance",
+    /matches_unmatched_has_actor/.test(mig) && /unmatched_by is not null and unmatched_at is not null/.test(mig));
+  ok("[17] the cascade foreign keys are kept on purpose (account deletion still purges)",
+    // The migration must not ADD or DROP any foreign key: the cascades on messages.match_id
+    // and chat_media.match_id are what make account deletion complete, and unmatch no longer
+    // pulls that lever. Checked structurally, not by phrase — the prose mentions both.
+    !/add constraint[\s\S]{0,120}foreign key/i.test(mig) &&
+    !/drop constraint[\s\S]{0,80}_fkey/i.test(mig) &&
+    /on delete set null/.test(mig) && /account deletion/i.test(mig) &&
+    /deliberately LEFT ALONE/.test(mig));
+  ok("[17] it is marked NOT YET APPLIED and carries verification queries",
+    /NOT YET APPLIED/.test(mig) && /Verify with:/.test(mig) && /must not move/.test(mig));
+  ok("[17] the schema and the migration agree on the same vocabulary",
+    src("src/db/schema.ts").includes("in ('active','archived','blocked','unmatched')"));
+}
+
+
+/* ---------- 18. chat sync: notify / poll / resync, executed as a fact space ---------- */
+console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, every combination run");
+{
+  const phases: ChannelPhase[] = ["idle", "connecting", "joined", "errored", "closed"];
+  const events: SyncEvent[] = [
+    { t: "start" }, { t: "subscribed" }, { t: "error" }, { t: "offline" }, { t: "online" },
+    { t: "visible" }, { t: "hidden" }, { t: "notice" }, { t: "close" },
+  ];
+  let closedTerminal = true, joinedNeedsSubscribe = true, total_machine = true;
+  for (const ph of phases) {
+    for (const ev of events) {
+      const nx = nextPhase(ph, ev);
+      if (typeof nx !== "string" || !phases.includes(nx)) total_machine = false;
+      if (ph === "closed" && nx !== "closed") closedTerminal = false;
+      // only a TRANSITION into joined requires the subscribe callback; holding joined is not a claim
+      if (nx === "joined" && ph !== "joined" && ev.t !== "subscribed") joinedNeedsSubscribe = false;
+    }
+  }
+  ok("[18] 45 phase×event combos: every result is a real phase (no undefined, no invented state)", total_machine);
+  ok("[18] a disposed channel is never revived by a late event", closedTerminal);
+  ok("[18] only a real SUBSCRIBED callback may claim the channel is live", joinedNeedsSubscribe,
+    "otherwise a flapping network shows 'connected' and the widened heartbeat drops messages");
+
+  const ctxs: { phase: ChannelPhase; visible: boolean; online: boolean; failures: number }[] = [];
+  for (const phase of phases) for (const visible of [true, false]) for (const online of [true, false])
+    for (const failures of [0, 1, 4]) ctxs.push({ phase, visible, online, failures });
+  let quietOnlyWhenIdleLooking = true, alwaysPollsWhenAble = true, heartbeatIsSlower = true, floorHeld = true;
+  for (const c of ctxs) {
+    const ms = pollIntervalMs(c);
+    if (ms === null) { if (c.visible && c.online && c.failures === 0) quietOnlyWhenIdleLooking = false; }
+    else {
+      if (ms < SYNC_LIMITS.pollRecoveringMs) floorHeld = false;
+      if (c.phase === "joined" && c.failures === 0 && ms <= SYNC_LIMITS.pollLiveMs) heartbeatIsSlower = false;
+    }
+    if (ms === null && c.visible && c.online && c.failures === 0) alwaysPollsWhenAble = false;
+  }
+  ok("[18] 60 poll contexts: never silent while visible, online and healthy", alwaysPollsWhenAble);
+  ok("[18] the timer stops only when nothing could render (hidden tab or offline)", quietOnlyWhenIdleLooking);
+  ok("[18] a healthy realtime path widens polling instead of replacing it", heartbeatIsSlower);
+  ok("[18] no context schedules tighter than the recovery interval", floorHeld);
+  ok("[18] joined→heartbeat, errored→tight-but-not-storming, failure→recovery",
+    pollIntervalMs({ phase: "joined", visible: true, online: true, failures: 0 }) === SYNC_LIMITS.pollHeartbeatMs &&
+    pollIntervalMs({ phase: "errored", visible: true, online: true, failures: 0 }) === SYNC_LIMITS.pollNotifiedMs &&
+    pollIntervalMs({ phase: "joined", visible: true, online: true, failures: 2 }) === SYNC_LIMITS.pollRecoveringMs &&
+    pollIntervalMs({ phase: "joined", visible: false, online: true, failures: 0 }) === null &&
+    pollIntervalMs({ phase: "joined", visible: true, online: false, failures: 9 }) === null);
+  ok("[18] a failure counter resets on the first good fetch",
+    noteFailureCount(4, false) === 5 && noteFailureCount(5, true) === 0);
+  ok("[18] a notice fetches only when the page can use it, and never after teardown",
+    shouldFetchNow({ phase: "joined", visible: true, online: true }, { t: "notice" }) === true &&
+    shouldFetchNow({ phase: "joined", visible: false, online: true }, { t: "notice" }) === false &&
+    shouldFetchNow({ phase: "closed", visible: true, online: true }, { t: "notice" }) === false);
+
+  ok("[18] reconnect waits are bounded, doubling from the floor",
+    reconnectDelayMs(0) === 250 && reconnectDelayMs(1) === 500 && reconnectDelayMs(2) === 1000 &&
+    reconnectDelayMs(9) === SYNC_LIMITS.maxRetryMs);
+  ok("[18] jitter is added and capped by jitterMs, and never negative (the Hinge stampede fix)",
+    reconnectDelayMs(3, () => 0) === 2000 && reconnectDelayMs(3, () => 0.5) === 2050 &&
+    reconnectDelayMs(3, () => 0.999) === 2100);
+  ok("[18] any rand() an integration could hand us stays finite and inside the bounded window",
+    [0, 0.5, 0.999, 1, -3, NaN, Infinity].every((r) => {
+      const d = reconnectDelayMs(4, () => r);
+      return Number.isFinite(d) && d >= 4000 && d <= SYNC_LIMITS.maxRetryMs + SYNC_LIMITS.jitterMs;
+    }),
+    "a NaN delay is setTimeout(fn, NaN) = fire now, forever");
+  ok("[18] a nonsense attempt number cannot escape the cap either",
+    reconnectDelayMs(NaN) === 250 && reconnectDelayMs(-5) === 250 &&
+    reconnectDelayMs(1e9) <= SYNC_LIMITS.maxRetryMs + SYNC_LIMITS.jitterMs);
+  ok("[18] retrying gives up at a fixed ceiling — polling is the guarantee, not the socket",
+    !shouldGiveUpReconnecting(SYNC_LIMITS.maxReconnectAttempts - 1) &&
+    shouldGiveUpReconnecting(SYNC_LIMITS.maxReconnectAttempts) && shouldGiveUpReconnecting(99));
+
+  type M = { id: string; body: string; at: string; mine: boolean };
+  const remote: M[] = [
+    { id: "a", body: "hey", at: "2026-10-30T10:00:00.000Z", mine: false },
+    { id: "b", body: "ok", at: "2026-10-30T10:00:05.000Z", mine: true },
+  ];
+  const merged = mergeMessages(remote, [remote[1]!, { id: "tmp-1", body: "ok", at: "2026-10-30T10:00:06.000Z", mine: true }]);
+  ok("[18] the server list is authoritative: its order and its ids, duplicates dropped, echoes appended",
+    merged.map((m) => m.id).join(",") === "a,b,tmp-1");
+  ok("[18] a duplicate id from any source renders once, never twice",
+    mergeMessages(remote, remote).length === 2 && mergeMessages([...remote, ...remote], []).length === 2);
+  const temp = pendingToMessage({ tempId: "tmp-9", body: "hi", at: Date.parse("2026-10-30T10:00:00.000Z"), attempts: 0, failed: false });
+  ok("[18] an un-acked echo is mine, unread, pending, and stamped with its own clock",
+    temp.id === "tmp-9" && temp.mine === true && temp.read === false && temp.pending === true &&
+    temp.failed === false && temp.at === "2026-10-30T10:00:00.000Z");
+
+  const P = (over: Partial<{ tempId: string; body: string; at: number; attempts: number; failed: boolean; ackId: string }> = {}) => ({
+    tempId: "t1", body: "ok", at: Date.now(), attempts: 0, failed: false, ...over,
+  });
+  const now = Date.now();
+  ok("[18] an ack by tempId retires exactly the echo it answers",
+    reconcilePending([P(), P({ tempId: "t2" })], { tempId: "t1" }).map((x) => x.tempId).join(",") === "t2");
+  ok("[18] an ack by server id retires the echo it was attached to",
+    reconcilePending([P({ ackId: "srv-7" })], { ackId: "srv-7" }).length === 0);
+  ok("[18] two identical messages retire against two server rows — one-to-one, not 'any match'",
+    reconcilePending([P({ tempId: "x" }), P({ tempId: "y" })], {
+      serverRows: [{ body: "ok", mine: true, at: new Date(now).toISOString() }],
+    }).map((x) => x.tempId).join(",") === "y",
+    "a naive .some() over server rows deletes the second 'ok' the member never got an answer for");
+  ok("[18] a refused send is never garbage-collected by the sync loop",
+    reconcilePending([P({ failed: true, at: now - 10 * 60_000 })], {}).length === 1);
+  ok("[18] an echo older than the TTL without an ack stops being shown (the server copy wins)",
+    reconcilePending([P({ at: now - SYNC_LIMITS.pendingTtlMs - 1 })], {}).length === 0);
+  ok("[18] a server row for a DIFFERENT body never retires an echo",
+    reconcilePending([P({ body: "hello?" })], { serverRows: [{ body: "nope", mine: true }] }).length === 1);
+  ok("[18] a send from the other member never retires mine",
+    reconcilePending([P()], { serverRows: [{ body: "ok", mine: false }] }).length === 1);
+  ok("[18] ackPending binds the stored id, markPendingFailed keeps the body and counts attempts",
+    ackPending([P()], "t1", "srv-1")[0]!.ackId === "srv-1" &&
+    markPendingFailed([P()], "t1")[0]!.failed === true &&
+    markPendingFailed(markPendingFailed([P()], "t1"), "t1")[0]!.attempts === 2);
+  let q = [] as ReturnType<typeof queuePending>;
+  for (let i = 0; i < 40; i++) q = queuePending(q, { tempId: `t${i}`, body: `m${i}`, at: now + i });
+  ok("[18] the outbox is bounded and keeps the newest, so a dead connection cannot grow it forever",
+    q.length === SYNC_LIMITS.maxPendingPerThread && q[q.length - 1]!.tempId === "t39" && q[0]!.tempId === `t${40 - SYNC_LIMITS.maxPendingPerThread}`);
+
+  ok("[18] gap detection: new rows, a shrinking thread, and a notice that produced nothing are three different answers",
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 0 }, { count: 5, newestAt: null }) === "new-rows" &&
+    detectGap({ lastFetchAt: now, knownCount: 5, noticesSinceFetch: 0 }, { count: 2, newestAt: null }) === "older-than-known" &&
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 3 }, { count: 2, newestAt: null }) === "silence" &&
+    detectGap({ lastFetchAt: now, knownCount: 2, noticesSinceFetch: 0 }, { count: 2, newestAt: null }) === "ok");
+  ok("[18] a signal older than the newest message we hold is stale, and unparseable dates are not",
+    detectGap({ lastFetchAt: 0, knownCount: 0, noticesSinceFetch: 0 }, { count: 0, newestAt: null }) === "ok" &&
+    (await import("@/lib/chat-sync")).noticeIsStale("2026-10-30T09:00:00Z", "2026-10-30T10:00:00Z") === true &&
+    (await import("@/lib/chat-sync")).noticeIsStale("garbage", "2026-10-30T10:00:00Z") === false &&
+    (await import("@/lib/chat-sync")).noticeIsStale(null, null) === false);
+  ok("[18] channel and filter names are derived, never hand-typed at call sites",
+    chatChannelName("m1") === "fb-chat:m1" && signalFilter("m1") === "match_id=eq.m1");
+
+  const chat = src("src/components/app/chat-view.tsx");
+  ok("[18] the blind 2.5 s interval is gone, replaced by the bus + adaptive timer",
+    !/setInterval\(\(\) => void load\(\), 2500\)/.test(chat) && /joinChatChannel\(/.test(chat) && /armPoll/.test(chat));
+  // judge CODE, not prose: the block contains a comment that names res.json() to explain why
+  // it is gone, and a pin that matches an explanation is a pin that can never fail.
+  const loadBody = chat
+    .slice(chat.indexOf("const load = useCallback("), chat.indexOf("const armPoll"))
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+  ok("[18] the thread fetch parses tolerantly and counts a failed fetch as a failure",
+    /readJsonSafe/.test(loadBody) && !/res\.json\(\)/.test(loadBody) &&
+    /syncRef\.current\.failures \+= 1/.test(chat),
+    "scoped to load(): uploadMedia parses its own JSON, which is not this pin's business");
+  ok("[18] a refused send is surfaced and retryable instead of vanishing on the next poll",
+    /retrySend/.test(chat) && /Not delivered — retry/.test(chat) && /markPendingFailed\(pendingRef\.current, tempId\)/.test(chat));
+  const msgRoute = src("src/app/api/chat/messages/route.ts");
+  ok("[18] POST stores the signal AFTER the message, so a client that reacts cannot read a half-written thread",
+    /insert\(messages\)[\s\S]*insert\(chatSignals\)/.test(msgRoute));
+  ok("[18] the signal is best-effort: its failure is caught and the send still succeeds",
+    /try \{[\s\S]{0,400}chatSignals[\s\S]{0,200}catch \{/.test(msgRoute));
+  ok("[18] POST returns the stored id so the echo retires by identity",
+    /returning\(\{ id: messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
+  ok("[18] unmatching also signals, so the other member's open thread updates now and not on a poll",
+    /kind: "severed"/.test(src("src/app/api/chat/unmatch/route.ts")));
+  const sig = readFileSync(new URL("../../db/migrations/2026-10-30-chat-signals.sql", import.meta.url), "utf8");
+  ok("[18] the signal table is RLS-forced with ONE read policy and no write policy",
+    /enable row level security/.test(sig) && /force row level security/.test(sig) &&
+    /create policy "Participants may read chat signals"/.test(sig) &&
+    !/for insert|for update|for delete|for all/i.test(sig));
+  ok("[18] the read policy is participation-scoped and status-blind on purpose",
+    /m\.user_a = auth\.uid\(\) or m\.user_b = auth\.uid\(\)/.test(sig) && !/status\s*=/ .test(sig.split("create policy")[1] ?? ""));
+  ok("[18] it is added to the realtime publication only if not already there, and it says NOT YET APPLIED",
+    /if exists \(select 1 from pg_publication where pubname = 'supabase_realtime'\)/.test(sig) &&
+    /NOT YET APPLIED/.test(sig) && /Rollback with/.test(sig));
+  ok("[18] the signal carries no message text, by construction",
+    /kind\s+text/.test(sig) && !/body\s+text/.test(sig) &&
+    /no message text/.test(src("src/db/schema.ts").slice(src("src/db/schema.ts").indexOf("CHAT SIGNALS"))));
+}
+
+/* ---------- 19. component ↔ stylesheet contract ---------- */
+console.log("\n[19] every class a shipped component emits must exist in the stylesheet");
+{
+  const css = readFileSync(new URL("../../src/app/globals.css", import.meta.url), "utf8");
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, ""); // judge rules, never prose
+  const fs = await import("node:fs");
+  const root = new URL("../../src", import.meta.url).pathname;
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      const full = `${dir}/${d.name}`;
+      if (d.isDirectory()) return d.name === "node_modules" ? [] : walk(full);
+      return /\.(tsx|ts)$/.test(d.name) ? [full] : [];
+    });
+  const all = walk(root).map((f) => fs.readFileSync(f, "utf8")).join("\n");
+  const emitted = new Set<string>();
+  for (const m of all.matchAll(/\bfb-(?:cta|photo)[a-z0-9_-]*/g)) emitted.add(m[0]);
+  const missing = [...emitted].filter((c) => !new RegExp(`\\.${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9_-])`).test(code));
+  ok("[19] no component emits a fb-cta/fb-photo class the stylesheet does not define",
+    missing.length === 0, missing.slice(0, 4).join(" "));
+  const defined = new Set<string>();
+  for (const m of code.matchAll(/\.(fb-cta[a-z0-9_-]*)/g)) defined.add(m[1]!);
+  const unused = [...defined].filter((c) => !emitted.has(c));
+  ok("[19] and no fb-cta rule ships that no component emits (drift cuts both ways)",
+    unused.length === 0, unused.slice(0, 4).join(" "));
+  const btn = readFileSync(new URL("../../src/components/ui/button.tsx", import.meta.url), "utf8");
+  ok("[19] regression: the label span carries the renamed class, not the pre-rename one",
+    /fb-cta__label/.test(btn) && !/fb-btn__/.test(btn),
+    "button.tsx shipped emitting fb-btn__label while the CSS defined .fb-cta__label, so the loading dim and the label's inline-flex layout were dead rules");
+  ok("[19] the pre-existing pill system is still defined, untouched, and not reused by the kit",
+    /\.fb-btn \{/.test(css) && !/className="fb-btn"/.test(btn));
+}
+
+/* ---------- 20. the end-of-conversation confirmation is the only thing that confirms ---------- */
+console.log("\n[20] unmatch/delete confirmation: the destructive flag must cost the member a decision");
+{
+  const pv = src("src/components/app/profile-view.tsx");
+  const dlg = src("src/components/app/unmatch-dialog.tsx");
+  const unmatchCall = pv.slice(pv.indexOf("const runUnmatch"), pv.indexOf("const runDeleteConversation"));
+  ok("[20] the overflow menu no longer fires either destructive action itself",
+    /setEndKind\("unmatch"\)/.test(pv) && /setEndKind\("delete"\)/.test(pv) &&
+    !/onClick=\{\(\) => void runUnmatch\(\)\}/.test(pv) &&
+    !/onClick=\{\(\) => void runDeleteConversation\(\)\}/.test(pv));
+  ok("[20] destructive:true exists on exactly the two paths the API demands it on",
+    (pv.match(/destructive: true/g) ?? []).length === 2,
+    "fewer = the route refuses with 409; more = something is auto-confirming again");
+  ok("[20] unmatch is driven by the sheet's confirm, and carries the optional reason",
+    /const runUnmatch = async \(reason: UnmatchReason \| null\)/.test(unmatchCall) &&
+    /\.\.\.\(reason \? \{ reason \} : \{\}\)/.test(unmatchCall));
+  ok("[20] the sheet states each decided consequence in its own words",
+    /can\u2019t be undone/.test(dlg) && /read-only copy/.test(dlg) && /match with them again/.test(dlg) &&
+    /Reason — optional/.test(dlg));
+  ok("[20] its reason chips render from the shared list, not a copy of it",
+    /UNMATCH_REASONS\.map/.test(dlg) && /from "@\/lib\/match-lifecycle"/.test(dlg) &&
+    !/const (UNMATCH_)?REASONS: \[/.test(dlg) &&
+    /import \{ UNMATCH_REASONS, type UnmatchReason \}/.test(dlg));
+  ok("[20] a behavioural reason offers the report path, because ending a thread is not moderation",
+    /flaggedReason/.test(dlg) && /does not tell our moderators/.test(dlg) && /onReport/.test(dlg) &&
+    /setReportOpen\(true\)/.test(pv));
+  ok("[20] cancel is the focused control and Escape closes it; the danger action is never the default",
+    /cancelRef\.current\?\.focus\(\)/.test(dlg) &&
+    /* Written as a block now that the same handler also traps Tab: Escape returns early
+       whether or not it acts, so a `busy` sheet ignores Escape and STILL swallows Tab.
+       Match the shape that ships, keep the meaning that was pinned. */
+    /if \(e\.key === "Escape"\) \{\s*if \(!busy\) onCancel\(\);\s*return;/.test(dlg) &&
+    /variant="danger"/.test(dlg) && /onClick=\{\(\) => onConfirm\(reason\)\}/.test(dlg) &&
+    /ref=\{cancelRef\}/.test(dlg));
+  ok("[20] the sheet is a real dialog to a screen reader",
+    /role="dialog"/.test(dlg) && /aria-modal="true"/.test(dlg) && /aria-labelledby="fb-end-conv-title"/.test(dlg));
+  ok("[20] and it runs on the shared Button contract, not a hand-rolled class string",
+    /from "@\/components\/ui\/button"/.test(dlg) && !/className="fb-btn/.test(dlg));
+  // A reason is scoped to the act it was chosen for. Proven in Chromium on 2026-10-30
+  // (DIALOG-QA-2026-10-30.json): with this reset absent, switching sheets carried
+  // "inappropriate" into a delete-conversation confirmation the route would store
+  // against the wrong action.
+  ok("[20] the sheet traps Tab, so the page behind it cannot be activated unseen",
+    /e\.key !== "Tab"/.test(dlg) && /last\.focus\(\{ preventScroll: true \}\)/.test(dlg) &&
+      /first\.focus\(\{ preventScroll: true \}\)/.test(dlg));
+  ok("[20] the dialog does not hand-roll focus utilities over the app-wide :focus-visible rule",
+    !/focus-visible:outline/.test(dlg));
+  ok("[20] the reason is stored per ACT, so a wipe can never be confirmed with an unmatch's reason",
+    /reasons\[kind\]/.test(dlg) && /useState<Partial<Record<"unmatch" \| "delete", UnmatchReason \| null>>>\(\{\}\)/.test(dlg) &&
+      !/setReason\(null\)/.test(dlg));
+}
+
+/* ---------- 21. account deletion, measured against the live FK graph ---------- */
+console.log("\n[21] the erasure path covers what the schema cannot cascade");
+{
+  const acct = src("src/app/api/account/route.ts");
+  const deletes = [...acct.matchAll(/delete from ([a-z_]+)\.([a-z_]+)/g)].map((m) => `${m[1]}.${m[2]}`);
+  const set = new Set(deletes);
+  ok("[21] moderation_actions is deleted by BOTH its member identifiers, because it has no FK to cascade",
+    set.has("public.moderation_actions") &&
+    /delete from public\.moderation_actions where subject_id = \$\{id\} or subject_email = \$\{email\}/.test(acct));
+  ok("[21] the sender-only chat_media blob is deleted explicitly (no FK covers match_id NULL rows)",
+    set.has("public.chat_media") && /delete from public\.chat_media where sender_id = \$\{id\}/.test(acct));
+  // match_messages is deliberately absent: `match_messages.match_id -> matches.id` is
+  // on delete cascade (pg_constraint, 2026-10-30), so the schema covers it. This list is
+  // for what the schema CANNOT cover plus what the erasure contract promises anyway.
+  const REQUIRED = ["public.messages","public.matches","public.profile_photos",
+    "public.user_swipes","public.blocked_users","public.reports","public.chat_media","public.message_reactions",
+    "public.verification_requests","public.verification_selfie_checks","public.verification_challenges",
+    "public.verification_audit_logs","public.verification_rate_limits","public.user_private_settings",
+    "public.user_private_locations","public.discovery_preferences","public.notification_preferences",
+    "public.user_trust_history","public.support_requests","public.event_interests","public.sessions",
+    "public.accounts","public.user_profiles","auth.users","auth.identities","auth.refresh_tokens",
+    "public.moderation_actions"];
+  const absent = REQUIRED.filter((t) => !set.has(t));
+  ok("[21] every table the 2026-10-30 FK audit named is in the delete list", absent.length === 0, absent.join(","));
+  ok("[21] and the auth rows go LAST, so a failed child delete cannot orphan an auth account",
+    deletes.indexOf("auth.users") === deletes.length - 1 && deletes.indexOf("public.user_profiles") < deletes.indexOf("auth.users"));
+  ok("[21] the bucket sweep runs before the row deletes (objects first, or the paths are unreadable afterwards)",
+    acct.indexOf("list(") < acct.indexOf("delete from public.profile_photos"));
+}
+
+
+/* ---------- 22. a refused send is not one kind of event ---------- */
+console.log("\n[22] policy refusals are permanent; transport failures are not");
+{
+  /* Executed, not described: the shipped classifier is called with every status that the
+     messages route can actually produce, plus the whole legal HTTP space. */
+  const byStatus: [number | null, string][] = [
+    [null, "retryable"], // fetch rejected: offline, aborted, DNS
+    [0, "retryable"], // an opaque/aborted response some stacks surface as 0
+    [NaN, "retryable"], // NaN must not fall through the comparisons into "permanent"
+    [400, "permanent"], // text too long / malformed body — same bytes, same answer
+    [401, "session"], // an expired token; a refresh can deliver the SAME text
+    [403, "permanent"], // thread severed, or the other member's message privacy
+    [404, "permanent"],
+    [409, "permanent"], // thread not open / needs confirmation
+    [413, "permanent"],
+    [422, "permanent"],
+    [429, "retryable"], // rate limited — backoff already owns the wait
+    [431, "permanent"],
+    [500, "retryable"],
+    [502, "retryable"], // the proxy's HTML error page is exactly this path
+    [503, "retryable"],
+    [599, "retryable"],
+  ];
+  for (const [status, want] of byStatus) {
+    ok(`[22] classifySendFailure(${status}) === "${want}"`, classifySendFailure(status) === want, classifySendFailure(status));
+  }
+
+  // The property that makes the table more than a list: no 4xx policy code may ever offer a
+  // retry, and no server-side or transport failure may ever withhold one.
+  let violations: string[] = [];
+  for (let st = 100; st <= 599; st++) {
+    const kind = classifySendFailure(st);
+    const is4xx = st >= 400 && st < 500;
+    if (kind === "retryable" && is4xx && st !== 401 && st !== 429) violations.push(`${st}:retryable`);
+    if (kind === "permanent" && st >= 500) violations.push(`${st}:permanent`);
+    if (kind === "permanent" && st < 400) violations.push(`${st}:permanent`);
+    if (kind === "session" && st !== 401) violations.push(`${st}:session`);
+  }
+  ok("[22] over all 500 statuses: 4xx policy refusals never offer retry, 5xx/transport always do",
+    violations.length === 0, violations.slice(0, 6).join(","));
+  ok("[22] only 401 is given its own kind — a silent refresh can rescue it, a 403 cannot",
+    classifySendFailure(401) === "session" && classifySendFailure(403) !== "session" &&
+      classifySendFailure(null) !== "session");
+
+  ok("[22] retry is offered for exactly the retryable kinds",
+    offersRetryAfter("retryable") === true && offersRetryAfter("session") === true &&
+      offersRetryAfter("permanent") === false);
+  ok("[22] and the UI path uses that predicate rather than re-deriving the status code",
+    /offersRetryAfter\(kind\)/.test(src("src/components/app/chat-view.tsx")) &&
+      !/if \(res\.status === 403\)/.test(src("src/components/app/chat-view.tsx")));
+
+  /* The server half: `thread` must be computed by the ONE access table, never re-derived in the
+     route (that is how the last two drift bugs happened — hardened API, unupdated UI). */
+  const get = src("src/app/api/chat/messages/route.ts");
+  const threadBlock = get.slice(get.indexOf("    thread: (() => {"), get.indexOf("    messages: rows.map("));
+  ok("[22] GET tells the client whether THIS member may write, decided by decideMatchAccess",
+    /thread: \(\(\) => \{/.test(get) && threadBlock.includes('action: "send_message"') &&
+      /decideMatchAccess\(\{[\s\S]*?\}\);/.test(threadBlock));
+  ok("[22] the thread facts are derived from the row the view permission already returned (no second query)",
+    /status: match\.status as MatchLifecycleStatus/.test(threadBlock) &&
+      /isActor: match\.unmatchedBy === member\.id/.test(threadBlock));
+  ok("[22] the route does not hand-roll lifecycle rules the table already owns",
+    !/status === "unmatched"/.test(threadBlock) && !/status !== "active"/.test(threadBlock));
+
+  const cv = src("src/components/app/chat-view.tsx");
+  ok("[22] writability is re-read on every fetch, so a thread that ends while it is open updates",
+    /if \(json\.thread\) setThreadAccess\(\{ canSend: !!json\.thread\.canSend/.test(cv));
+  const notice = src("src/components/app/read-only-thread-notice.tsx");
+  ok("[22] a read-only thread replaces the composer with a real component, not a field that will fail",
+    /data-readonly-thread=""/.test(notice) && /This conversation is read-only\./.test(notice) &&
+      /\{threadAccess && !threadAccess\.canSend \? <ReadOnlyThreadNotice/.test(cv.replace(/\n\s*/g, " ")) === false &&
+      /<ReadOnlyThreadNotice notice=\{threadAccess\.notice\} \/>/.test(cv) &&
+      /\{threadAccess && !threadAccess\.canSend \? null : \(/.test(cv));
+  // The component's own doc comment contains the word "connection" (it explains why the copy
+  // must not). Judging prose would fail on a correct file — strip comments first, always.
+  const noticeCode = notice.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("[22] the notice never blames the connection, because this is a decision and not a failure",
+    !/connection|Check your|retry/i.test(noticeCode));
+  /* The third condition is ORDER, not presence: a guard written after the fetch would be a
+     comment. And `threadAccess` must be a dependency of `deliver`, or the closure reads a verdict
+     from mount time and the gate silently stops working the moment the thread ends. */
+  const deliverBody = cv.slice(cv.indexOf("const deliver = useCallback("), cv.indexOf("const retrySend"));
+  const guardAt = deliverBody.indexOf("if (threadAccess && !threadAccess.canSend) {");
+  const postAt = deliverBody.indexOf('method: "POST"');
+  /* ORDER, not presence — a guard written after the fetch is a comment. Slice to `retrySend`
+     because other POSTs exist earlier in this file, and a file-wide indexOf found the wrong one. */
+  ok("[22] the write choke point enforces the verdict BEFORE the request, not after it",
+    guardAt > 0 && postAt > guardAt && /return false;/.test(deliverBody.slice(guardAt, postAt)));
+  ok("[22] the guard marks the bubble blocked and returns false — it never reports success",
+    /blocked: true \} : m\)\)\);/.test(deliverBody) &&
+      !/return true/.test(deliverBody.slice(guardAt, guardAt + 500)));
+  ok("[22] deliver depends on threadAccess, so the verdict cannot go stale in the closure",
+    /\[armPoll, load, match\.id, onChanged, threadAccess, token\]/.test(cv));
+  ok("[22] a policy-declined bubble stays visible WITHOUT a retry affordance",
+    /m\.failed && m\.blocked \?[\s\S]{0,900}?Not delivered[\s\S]{0,120}?\) : m\.failed \? \(/.test(cv) &&
+      !/blocked[\s\S]{0,400}retrySend/.test(cv));
+  ok("[22] a refusal on policy grounds also closes the composer, so it cannot be tried again",
+    /if \(!retryable\) setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
+  ok("[22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked",
+    /\{ \.\.\.m, failed: false, blocked: false \}/.test(cv));
+}
+
+/* ---------- 23. one authority per question, and no decorative rules ---------- */
+console.log("\n[23] media access delegates to the lifecycle table, and every rule in it is reachable");
+{
+  const mediaSrc = src("src/app/api/chat/media/[id]/route.ts");
+  ok("[23] the media route asks the table for `read_media` instead of answering with a bare membership boolean",
+    /requesterIsParticipant = decideMatchAccess\(\{[\s\S]{0,260}?action: "read_media"/.test(mediaSrc));
+  ok("[23] and it loads the facts the table needs (status + who severed it), not just an id",
+    /select\(\{ id: matches\.id, status: matches\.status, unmatchedBy: matches\.unmatchedBy \}\)/.test(mediaSrc));
+  ok("[23] no independent membership-to-grant shortcut survives in the route (that was the second authority)",
+    !/requesterIsParticipant = Boolean\(/.test(mediaSrc));
+
+  /* A rule nothing calls is a rule that will drift: the last two defects on this branch were both
+     "the table says X, the call site does Y". So the table's own vocabulary is checked against
+     the codebase, with exactly one documented exception. */
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = `${d}/${e.name}`;
+      if (e.isDirectory()) walk(f);
+      else if(/\.(ts|tsx)$/.test(e.name)) files.push(f);
+    }
+  };
+  walk(new URL("../../src", import.meta.url).pathname);
+  const corpus = files.map((f) => ({ f, s: readFileSync(f, "utf8") }));
+  const requested = new Set<string>();
+  for (const { s } of corpus) for (const m of s.matchAll(/action:\s*"([a-z_]+)"/g)) requested.add(m[1]);
+  /* One action is deliberately not called from a route, and an exception that lives only in a
+     test is how a dead rule hides. The allow-list is therefore checked against the table's own
+     documentation: no entry may exist here that the source does not explain. */
+  const AUTHORITY_ONLY: Record<string, string> = {
+    export_own_data:
+      "the export route authorises by identity equality (member.id) rather than per match",
+  };
+  const lifecycleSrc = src("src/lib/match-lifecycle.ts");
+  const unreachable = ML_ACTIONS.filter((a) => !requested.has(a) && !(a in AUTHORITY_ONLY));
+  ok("[23] every MatchAction is either requested by a caller or explicitly excused",
+    unreachable.length === 0, unreachable.join(","));
+  ok("[23] and every excuse is justified at the table, not only in this test",
+    Object.keys(AUTHORITY_ONLY).every((a) => lifecycleSrc.includes(a)) &&
+      Object.entries(AUTHORITY_ONLY).every(([a]) =>
+        new RegExp(`case "${a}"`).test(lifecycleSrc)));
+  /* Sensitivity proof for the property above: the same shape applied to an action that DOES vary
+     by status must come out false. Without this, a predicate over a table that ignores the axis is
+     indistinguishable from a predicate that was never evaluating anything. */
+  const unreadVaries = !["active", "archived", "blocked", "unmatched"].every(
+    (s) => ml(s as MatchLifecycleStatus, true, false, "count_unread").allow === true
+  );
+  const readMediaAllHere = ML_STATUSES.every(
+    (s) => ml(s, true, false, "read_media").allow === true && ml(s, true, true, "read_media").allow === true
+  );
+  ok("[23] sensitivity: the same all-states predicate is false for count_unread, so it can fail",
+    unreadVaries === true && readMediaAllHere === true,
+    `unreadVaries=${unreadVaries} readMediaAllHere=${readMediaAllHere}`);
+  ok("[23] read_media is exercised through the media route itself, not merely defined",
+    corpus.some(({ f, s }) => /chat\/media\/\[id\]\/route\.ts$/.test(f) && /"read_media"/.test(s)));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

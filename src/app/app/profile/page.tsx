@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
@@ -577,7 +578,7 @@ function ProfileInner() {
       <div className="fb-card-lg mt-6 !p-0 overflow-hidden">
         <div className="relative h-36 sm:h-44">
           {profile.photos[0] ? (
-            <img src={profile.photos[0]} alt="" aria-hidden className="h-full w-full object-cover" />
+            <PhotoImage src={profile.photos[0] ?? ""} alt="" className="h-full w-full" imgClassName="object-cover" />
           ) : (
             <div className="h-full w-full bg-[var(--gradient-ember-warm)]" aria-hidden />
           )}
@@ -602,7 +603,7 @@ function ProfileInner() {
         <div className="relative flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:px-6">
           <span className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-14 sm:h-28 sm:w-28">
             {profile.photos[0] ? (
-              <img src={profile.photos[0]} alt={profile.displayName} className="h-full w-full object-cover" />
+              <PhotoImage src={profile.photos[0] ?? ""} alt={profile.displayName} className="h-full w-full" imgClassName="object-cover" />
             ) : (
               <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
                 {(profile.displayName || "You").charAt(0)}
@@ -862,11 +863,11 @@ function ProfileInner() {
                   }}
                   className="relative cursor-grab active:cursor-grabbing"
                 >
-                  <img
+                  <PhotoImage
                     src={src}
                     alt={`Profile photo ${i + 1}`}
-                    draggable={false}
-                    className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover"
+                    className="aspect-[3/4] w-full rounded-2xl border border-white/10"
+                    imgClassName="object-cover"
                   />
                   {i === 0 ? (
                     <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">
@@ -1037,10 +1038,11 @@ function ProfileInner() {
               <div className="grid grid-cols-3 gap-2.5 p-4">
                 {profile.photos.map((src, i) => (
                   <div key={`${src}-${i}`} className="group relative overflow-hidden rounded-2xl border border-white/10">
-                    <img
+                    <PhotoImage
                       src={src}
                       alt={`Your photo ${i + 1}`}
-                      className="aspect-[3/4] w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      className="aspect-[3/4] w-full"
+                      imgClassName="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
                     {i === 0 ? (
                       <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">
@@ -1236,10 +1238,11 @@ function ProfileInner() {
             <div className="mt-4 grid grid-cols-3 gap-2.5">
               {profile.photos.map((src, i) => (
                 <div key={`${src}-${i}`} className="relative">
-                  <img
+                  <PhotoImage
                     src={src}
                     alt={`Profile photo ${i + 1}`}
-                    className="aspect-[3/4] w-full rounded-2xl border border-white/10 object-cover"
+                    className="aspect-[3/4] w-full rounded-2xl border border-white/10"
+                    imgClassName="object-cover"
                   />
                   {i === 0 ? (
                     <span className="absolute left-1.5 top-1.5 rounded-md bg-[var(--color-gold-500)]/90 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-black">

@@ -1,12 +1,17 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
+import { chatSignals, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
+import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
-async function ownsMatch(matchId: string, memberId: string) {
+async function ownsMatch(
+  matchId: string,
+  memberId: string,
+  action: "view_conversation" | "send_message"
+) {
   const [row] = await db
     .select()
     .from(matches)
@@ -14,6 +19,18 @@ async function ownsMatch(matchId: string, memberId: string) {
     .limit(1);
   if (!row) return null;
   if (row.userA !== memberId && row.userB !== memberId) return null;
+  /* Read and send are decided separately, on purpose. The member who was unmatched keeps read
+     access so they can still quote and report what was sent to them (Bumble documents exactly
+     this); the member who ended it loses access to their own copy, because that was their
+     choice to make. Neither may send. */
+  const decision = decideMatchAccess({
+    status: row.status as MatchLifecycleStatus,
+    isParticipant: true,
+    isActor: row.unmatchedBy === memberId,
+    hasMessages: false,
+    action,
+  });
+  if (!decision.allow) return { denied: decision.reason as string, row } as const;
   return row;
 }
 
@@ -28,8 +45,14 @@ export async function GET(request: Request) {
   const matchId = url.searchParams.get("match");
   if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const viewed = await ownsMatch(matchId, member.id, "view_conversation");
+  if (!viewed) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in viewed)
+    return Response.json(
+      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true },
+      { status: 403 }
+    );
+  const match = viewed;
 
   await db
     .update(messages)
@@ -89,6 +112,27 @@ export async function GET(request: Request) {
   }
 
   return Response.json({
+    /* `thread` exists because visibility and sendability are DIFFERENT questions, and the client
+       cannot derive the second one: `view_conversation` was just granted (so the thread renders)
+       while `send_message` may still be denied — that is exactly the read-only-for-report state a
+       member keeps after being unmatched. Without this the UI shows a composer into every refusal
+       arrives as a 403, which reads to the member like a broken network. Computed by the same
+       decideMatchAccess the POST path uses, so there is one table, not two. */
+    thread: (() => {
+      const send = decideMatchAccess({
+        status: match.status as MatchLifecycleStatus,
+        isParticipant: true,
+        isActor: match.unmatchedBy === member.id,
+        hasMessages: rows.length > 0,
+        action: "send_message",
+      });
+      return {
+        canSend: send.allow,
+        status: match.status,
+        reason: send.allow ? null : send.reason,
+        notice: send.allow ? null : severedMessage(match.status as MatchLifecycleStatus),
+      };
+    })(),
     messages: rows.map((m) => ({
       id: m.id,
       body: m.body,
@@ -122,8 +166,11 @@ export async function POST(request: Request) {
   if (clean.length > 2000)
     return Response.json({ error: "Keep messages under 2000 characters." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const sent = await ownsMatch(matchId, member.id, "send_message");
+  if (!sent) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in sent)
+    return Response.json({ error: severedMessage(sent.row.status as MatchLifecycleStatus) }, { status: 403 });
+  const match = sent;
 
   /* Privacy rules keep applying inside an open conversation too. */
   const otherId = match.userA === member.id ? match.userB : match.userA;
@@ -180,9 +227,11 @@ export async function POST(request: Request) {
     .limit(1);
   const scam = scoreScamMessage(clean, Number(priorHist?.flags ?? 0));
   const scamFlag = scam.shouldWarn;
-  await db
+  const rows = await db
     .insert(messages)
-    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag });
+    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag })
+    .returning({ id: messages.id, createdAt: messages.createdAt });
+  const [stored] = rows;
   if (scamFlag) await recordScamFlag(member.id);
   if (scam.shouldEscalate) {
     try {
@@ -216,7 +265,39 @@ export async function POST(request: Request) {
   // member — fake activity is exactly what destroyed the platforms we're
   // here to beat.
 
-  return Response.json({ ok: true });
+  /* REALTIME SIGNAL (2026-10-30) — see db/migrations/2026-10-30-chat-signals.sql.
+     A content-free row in `chat_signals` is the only notification path this deployment can
+     use: the chat tables are RLS-forced with zero policies, so `postgres_changes` on
+     `messages` would deliver nothing to a client, and there is no service-role key to call
+     Realtime's broadcast REST API with. It carries the match id and a kind, never message
+     text, and it is written AFTER the message is stored — so a client that reacts to the
+     signal and refetches cannot read a half-written conversation.
+
+     Whole block is best-effort on purpose: a signal failure must never turn a delivered
+     message into a failed send. The recipient's poll (and their resync on wake/online) still
+     finds the message, so the worst case is latency. */
+  try {
+    // One pending 'message' signal per conversation is enough — a signal means "fetch", not
+    // "fetch N times". 'severed'/'cleared' rows are never pruned, only appended, because they
+    // mark a state change rather than a delta.
+    await db.delete(chatSignals).where(
+      and(eq(chatSignals.matchId, matchId), eq(chatSignals.kind, "message"))
+    );
+    await db.insert(chatSignals).values({ matchId, kind: "message" });
+  } catch {
+    /* notification is an accelerator */
+  }
+
+  /* The stored id comes back so the client can retire its optimistic echo by IDENTITY.
+     Matching by body text within a window (what this route used to force on the client) makes
+     a member's second identical message vanish, and makes a slow server drop the bubble and
+     then re-render it. See src/lib/chat-sync.ts:reconcilePending. */
+  return Response.json({
+    ok: true,
+    message: stored
+      ? { id: stored.id, at: stored.createdAt instanceof Date ? stored.createdAt.toISOString() : String(stored.createdAt) }
+      : null,
+  });
 }
 
 /**
@@ -233,9 +314,39 @@ export async function DELETE(request: Request) {
   const matchId = url.searchParams.get("match");
   if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
 
-  const match = await ownsMatch(matchId, member.id);
-  if (!match) return Response.json({ error: "Match not found." }, { status: 404 });
+  const target = await ownsMatch(matchId, member.id, "send_message");
+  if (!target) return Response.json({ error: "Match not found." }, { status: 404 });
+  if ("denied" in target)
+    return Response.json(
+      {
+        error:
+          target.denied === "deny:thread-not-open"
+            ? "This conversation has ended, so its history is kept for the member who did not end it. Deleting it here would remove their ability to report what was sent."
+            : "This conversation isn't available.",
+      },
+      { status: 409 }
+    );
+  let body: unknown = {};
+  try {
+    body = await request.json();
+  } catch {
+    /* DELETE with no body is fine; a malformed one is not a reason to refuse a member. */
+  }
+  if (((body ?? {}) as { destructive?: unknown }).destructive !== true)
+    return Response.json(
+      { error: "Deleting a whole conversation cannot be undone. Confirm first.", needsConfirmation: true },
+      { status: 409 }
+    );
 
   const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
+  // The other member's open thread has to learn this happened. Same optional-signal contract
+  // as the send path: if the insert fails, their poll still refetches and finds an empty
+  // conversation — the signal buys immediacy, never correctness. `cleared` is in the table's
+  // kind CHECK specifically so a wipe is distinguishable from "there were never messages".
+  try {
+    await db.insert(chatSignals).values({ matchId, kind: "cleared" });
+  } catch (err) {
+    console.warn("[chat] cleared signal skipped:", (err as Error).message);
+  }
   return Response.json({ ok: true, deleted: removed.length });
 }

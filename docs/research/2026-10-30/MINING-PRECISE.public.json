@@ -1,0 +1,605 @@
+{
+ "generated_at": "2026-10-30T18:34:38Z",
+ "generator": "/home/user/re/rea-mine2.py",
+ "note": "Precision pass. A zero means 'not present in the acquired surface', which is weaker than 'the product lacks it' \u2014 see each pattern's why.",
+ "patterns": {
+  "next_image_config": {
+   "cap": "photo delivery",
+   "why": "The next/image width ladder the client actually requests. Proves which renditions exist and that sizing is delegated to the /_next/image optimizer. Says nothing about where the originals live or how they are authorized.",
+   "source": "(?:deviceSizes|imageSizes)\\s*:\\s*\\[[^\\]]{0,160}\\]|qualities\\s*:\\s*\\[[^\\]]{0,120}\\]|path\\s*:\\s*\\\"/_next/image\\\""
+  },
+  "blur_placeholder": {
+   "cap": "render failure handling",
+   "why": "A placeholder path for a not-yet-loaded or broken image, and where the blur hash comes from. Proves the client renders SOMETHING while/after failure; does not prove the asset was recovered, only visually masked.",
+   "source": "blurDataURL|\\\"lqip\\\"|lqip\\s*:|placeholder\\s*:\\s*\\\"blur\\\""
+  },
+  "local_preview": {
+   "cap": "upload UX",
+   "why": "Object-URL previews built from the local File before/independent of any server response, i.e. the picker shows the member their own bytes first. Nothing about storage or ACLs.",
+   "source": "URL\\.createObjectURL\\([^)]{0,24}\\)\\s*[,)]|createObjectURL\\(await \\w+\\.blob\\(\\)\\)"
+  },
+  "progress_put": {
+   "cap": "upload transport",
+   "why": "Whether uploads go through XHR-with-progress / FormData (one-shot multipart) as opposed to fetch(stream). Deliberately narrow: `FormData` alone is not an upload claim unless it is followed by an append, which is why the alternation is written that way.",
+   "source": "\\.upload\\.onprogress|XMLHttpRequest\\(\\)|new FormData\\(\\)|FormData\\(\\);[^;]{0,80}append\\("
+  },
+  "resumable_chunks": {
+   "cap": "upload durability",
+   "why": "Chunked / resumable upload machinery. A zero here is a real signal: it means the acquired client does NOT contain chunking libs, so a mid-flight failure restarts the whole file.",
+   "source": "resumable(?!State)|uppy|tus-js|multipartUpload|createMultipartUpload|partSize|chunkSize\\s*:"
+  },
+  "media_capture": {
+   "cap": "voice notes, video, liveness",
+   "why": "Direct-to-hardware capture (mic/camera) exists in this bundle. The single most specific marker available; `voice` or `camera` as bare words are not used.",
+   "source": "navigator\\.mediaDevices|getUserMedia\\(|getDisplayMedia\\(|MediaRecorder|RTCAudioWorklet"
+  },
+  "webrtc_calls": {
+   "cap": "calls",
+   "why": "Peer connection machinery for in-app calls/video, including TURN relay configuration. Zero means the call stack is not in the acquired surface (iOS apps and lazy chunks are outside this capture).",
+   "source": "RTCPeerConnection|webkitRTCPeerConnection|iceServers|\\\"turns?:|\\bsdp\\b|createDataChannel|onicecandidate"
+  },
+  "ws_transport": {
+   "cap": "realtime",
+   "why": "The realtime transport named literally, with its endpoint host when present. This is the strongest evidence available about messaging plumbing; the server protocol behind the socket remains unknown by definition.",
+   "source": "new WebSocket\\(|wss?://[a-z0-9.-]+|socket\\.io|ably[- ]?realtime|pusher-js|centrifuge"
+  },
+  "verification_vendor": {
+   "cap": "identity verification",
+   "why": "Third-party identity/liveness vendor SDKs or endpoint names. Word-bounded on purpose: an earlier unbounded `persona` pattern matched 'personalizedOffer' 80 times in Tinder's copy and would have 'found' Persona.",
+   "source": "\\bjumio\\b|\\bonfido\\b|\\bveriff\\b|\\byoti\\b|\\bidensic\\b|\\bmldl\\b|\\bgetverified\\b|age[ _-]?estimation|liveness[ _-]?check"
+  },
+  "device_identifier": {
+   "cap": "fraud prevention",
+   "why": "A stable identifier the client sends with requests \u2014 the hook that duplicate-account and ban-evasion detection hangs on. Does not show what the server does with it.",
+   "source": "device_id|\\\"deviceId\\\"|install_id|\\\"installId\\\"|app_id\\s*=|deviceFingerprint|getUniqueId"
+  },
+  "storage_scope": {
+   "cap": "media storage",
+   "why": "Client-side persistence, with the key literal so the purpose is readable. Relevant to media recovery: a draft cached client-side survives a failed POST.",
+   "source": "localStorage\\.(?:setItem|getItem)\\(|sessionStorage\\.(?:setItem|getItem)\\(|indexedDB\\.open\\(|caches\\.open\\("
+  },
+  "retry_backoff": {
+   "cap": "failure handling",
+   "why": "Explicit retry/backoff policy in client code, often with its bounds. The most transferable single mechanism for 'media that failed to send'.",
+   "source": "retry\\(\\s*\\{[^}]{0,60}\\}|exponential|backoff|ratelimit_backoff|retryAfter|Retry-After|maxRetries|retriesLeft"
+  },
+  "svg_policy": {
+   "cap": "media safety",
+   "why": "How the image optimizer is prevented from rendering attacker-controlled SVG markup, and what CSP/disposition the served images carry. Directly relevant to a public upload bucket.",
+   "source": "dangerouslyAllowSVG\\s*:\\s*!?\\d|dangerouslyAllowSVG\\s*:\\s*(?:true|false)|contentDispositionType|contentSecurityPolicy\\s*:\\s*\\\"[^\\\"]{0,80}"
+  },
+  "tab_labels": {
+   "cap": "UI structure",
+   "why": "Navigation/label structures in shipped JSON, i.e. the tab arrangement as the client renders it. UI-tokens from third-party widget CSS are NOT counted: that is what the first pass mistook for a design system.",
+   "source": "\\\"(?:tabs|nav|bottomNav|primaryNav)\\\"\\s*:\\s*\\{|\\\"label\\\"\\s*:\\s*\\\"(?:Discover|Matches|Profile|Search|Likes|Dates|Connections)\\\""
+  }
+ },
+ "result": {
+  "bumble": {
+   "files": {
+    "4101edefd833a9ef.js": 376898,
+    "5bb89c3037642114.js": 638,
+    "7baa63ca4f39942f.js": 1421429,
+    "84285cd15339b1a6.js": 13553,
+    "9246b388839924e4.js": 25139,
+    "973dca4db395beb0.js": 73115,
+    "9fab77bf4fc366ef.js": 4032,
+    "_buildManifest.js": 5097,
+    "_entry.html": 186469,
+    "_ssgManifest.js": 77,
+    "af4e10453a764913.js": 146137,
+    "e6ec843947d31f93.js": 15415,
+    "e96e875596392b2a.js": 19622,
+    "polyfills-42372ed130431b0a.js": 112541
+   },
+   "hits": {
+    "resumable_chunks": [
+     {
+      "file": "4101edefd833a9ef.js",
+      "at": 358253,
+      "sha16": "b889194b14197861"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "at": 358914,
+      "sha16": "b889194b14197861"
+     },
+     {
+      "file": "4101edefd833a9ef.js",
+      "at": 359926,
+      "sha16": "b889194b14197861"
+     }
+    ],
+    "next_image_config": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1142960,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1143016,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1158332,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1158388,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 11757,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 11813,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55644,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55695,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55735,
+      "sha16": "1b7eaaf96fc33bb1"
+     }
+    ],
+    "blur_placeholder": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1149181,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1150494,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1152182,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1152909,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1157112,
+      "sha16": "ceb959d1bc651a60"
+     }
+    ],
+    "device_identifier": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1607,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 3756,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1161692,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1161703,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1161829,
+      "sha16": "ceb959d1bc651a60"
+     }
+    ],
+    "storage_scope": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1167586,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1167857,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "973dca4db395beb0.js",
+      "at": 27180,
+      "sha16": "504e7fea970929b8"
+     },
+     {
+      "file": "973dca4db395beb0.js",
+      "at": 27248,
+      "sha16": "504e7fea970929b8"
+     }
+    ],
+    "svg_policy": [
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1143152,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "7baa63ca4f39942f.js",
+      "at": 1158524,
+      "sha16": "ceb959d1bc651a60"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 11949,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55862,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55885,
+      "sha16": "1b7eaaf96fc33bb1"
+     },
+     {
+      "file": "af4e10453a764913.js",
+      "at": 55955,
+      "sha16": "1b7eaaf96fc33bb1"
+     }
+    ]
+   }
+  },
+  "hinge": {
+   "files": {
+    "107-74b360892d40f6c4.js": 127763,
+    "13-76703151bf85c56c.js": 14718,
+    "132-4be892819dbac6b1.js": 103026,
+    "298-fd2f7dd5ebd20a78.js": 33967,
+    "359-2f8df7a8ce37b92e.js": 8602,
+    "441-8a8a64a04d71c32a.js": 130536,
+    "452-b7236976f79ade40.js": 19788,
+    "487-c89d8ac1c56f4891.js": 8803,
+    "498-b10c9a9c3405e55c.js": 9117,
+    "504-5e465312cababbeb.js": 10188,
+    "620-90f8e15ecc063856.js": 19051,
+    "634-9f906ff9c432c2ce.js": 232008,
+    "682-54880932a91c6b48.js": 9598,
+    "820-f0195e9419d8465f.js": 18379,
+    "870-bfaf586cb29ee09b.js": 96972,
+    "_app-7f50c6d6b07df510.js": 169739,
+    "_buildManifest.js": 4358,
+    "_entry.html": 95893,
+    "_ssgManifest.js": 352,
+    "bf32f307-fe29e1c036f0d70d.js": 547518,
+    "fbd3c617-960b5c8857c03708.js": 169480,
+    "framework-ad6fb2b3126285d4.js": 140241,
+    "main-dd66a77f47b92c0d.js": 139196,
+    "polyfills-42372ed130431b0a.js": 112541,
+    "webpack-cfd6a8e1f30947af.js": 5684
+   },
+   "hits": {
+    "blur_placeholder": [
+     {
+      "file": "107-74b360892d40f6c4.js",
+      "at": 2528,
+      "sha16": "6a2bdf0e10fa5c67"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 4754,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 5631,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "298-fd2f7dd5ebd20a78.js",
+      "at": 1697,
+      "sha16": "de809e9ded126604"
+     },
+     {
+      "file": "298-fd2f7dd5ebd20a78.js",
+      "at": 2094,
+      "sha16": "de809e9ded126604"
+     },
+     {
+      "file": "298-fd2f7dd5ebd20a78.js",
+      "at": 2579,
+      "sha16": "de809e9ded126604"
+     },
+     {
+      "file": "_entry.html",
+      "at": 2212,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 5157,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 6323,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 7517,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 9601,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 10520,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 11838,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 14835,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 15847,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 17065,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 18103,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 19436,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 20535,
+      "sha16": "9c43c72ca323186e"
+     },
+     {
+      "file": "_entry.html",
+      "at": 28732,
+      "sha16": "9c43c72ca323186e"
+     }
+    ],
+    "next_image_config": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 796,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 847,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 887,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 38688,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 38739,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 38779,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117291,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117342,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117382,
+      "sha16": "bc61ccd7022e1fc2"
+     }
+    ],
+    "progress_put": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 64276,
+      "sha16": "759347d2ed1e06dd"
+     }
+    ],
+    "retry_backoff": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 35202,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 35299,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 64828,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 102887,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 102900,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "634-9f906ff9c432c2ce.js",
+      "at": 163337,
+      "sha16": "6d2320ab3192f756"
+     },
+     {
+      "file": "634-9f906ff9c432c2ce.js",
+      "at": 163354,
+      "sha16": "6d2320ab3192f756"
+     },
+     {
+      "file": "_app-7f50c6d6b07df510.js",
+      "at": 97481,
+      "sha16": "6094402b67e11ac1"
+     },
+     {
+      "file": "_app-7f50c6d6b07df510.js",
+      "at": 98365,
+      "sha16": "6094402b67e11ac1"
+     },
+     {
+      "file": "_app-7f50c6d6b07df510.js",
+      "at": 99436,
+      "sha16": "6094402b67e11ac1"
+     },
+     {
+      "file": "_app-7f50c6d6b07df510.js",
+      "at": 99464,
+      "sha16": "6094402b67e11ac1"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 474449,
+      "sha16": "1f05b112fd339eea"
+     }
+    ],
+    "svg_policy": [
+     {
+      "file": "132-4be892819dbac6b1.js",
+      "at": 924,
+      "sha16": "759347d2ed1e06dd"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 38816,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117561,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117584,
+      "sha16": "bc61ccd7022e1fc2"
+     },
+     {
+      "file": "main-dd66a77f47b92c0d.js",
+      "at": 117654,
+      "sha16": "bc61ccd7022e1fc2"
+     }
+    ],
+    "local_preview": [
+     {
+      "file": "487-c89d8ac1c56f4891.js",
+      "at": 1430,
+      "sha16": "ee80b12e7ada74c3"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 280292,
+      "sha16": "1f05b112fd339eea"
+     },
+     {
+      "file": "fbd3c617-960b5c8857c03708.js",
+      "at": 159098,
+      "sha16": "6e1fc48ce39f4d1a"
+     }
+    ],
+    "storage_scope": [
+     {
+      "file": "_app-7f50c6d6b07df510.js",
+      "at": 150440,
+      "sha16": "6094402b67e11ac1"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 141757,
+      "sha16": "1f05b112fd339eea"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 141941,
+      "sha16": "1f05b112fd339eea"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 529962,
+      "sha16": "1f05b112fd339eea"
+     },
+     {
+      "file": "bf32f307-fe29e1c036f0d70d.js",
+      "at": 539900,
+      "sha16": "1f05b112fd339eea"
+     }
+    ]
+   }
+  },
+  "tinder": {
+   "files": {
+    "tinder.index.html": 574614
+   },
+   "hits": {
+    "verification_vendor": [
+     {
+      "file": "tinder.index.html",
+      "at": 179642,
+      "sha16": "86bd7d1f340e182c"
+     }
+    ]
+   }
+  }
+ }
+}

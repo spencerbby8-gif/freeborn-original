@@ -8,6 +8,7 @@ import {
   runIdentityMatch,
 } from "@/lib/identity-match";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { deriveAnchor, hashImageBytes } from "@/lib/photo-hash";
 import { findDuplicatePhotos, findSharedAnchor, openCase, recordDuplicatePhotoHits, recomputeTrust, upsertFingerprint } from "@/lib/identity-resolve";
 
@@ -361,6 +362,34 @@ export async function DELETE(request: Request) {
   }
 
   await db.delete(profilePhotos).where(eq(profilePhotos.id, row.id));
+
+  /* Delete the bytes too. `profile-photos` is a PUBLIC bucket with a
+     bucket-wide read policy, so a row deleted without its object leaves the
+     image retrievable by URL forever — a member who removes a photo (or whose
+     account is deleted) would otherwise still have it live on the internet.
+     Production evidence 2026-10-30: 11 objects vs 10 bucket-shaped rows, i.e.
+     exactly one orphan. Two rules keep this safe:
+       * the object path is taken from `row.storagePath`, NEVER from the
+         request body, so a caller cannot name an arbitrary object; and
+       * only the bucket-relative shape is removed (no leading slash, no
+         scheme). `chat_media` blobs and mirrored `/uploads/` paths are not
+         bucket objects.
+     The bucket's DELETE policy is owner-scoped, so this client can only ever
+     remove this member's own folder. Failure is logged, not surfaced: the row
+     is already gone and telling the member their photo is still there after it
+     isn't would be worse than a warning. */
+  if (!row.storagePath.startsWith("/") && !/^https?:\/\//.test(row.storagePath)) {
+    try {
+      const supabase = await createSupabaseClientForApi(request);
+      const { error } = await supabase.storage.from("profile-photos").remove([row.storagePath]);
+      if (error) {
+        console.warn("[profile-photos] deleted row but the object remains:", error.message);
+      }
+    } catch (err) {
+      console.warn("[profile-photos] object removal failed:", (err as Error).message);
+    }
+  }
+
   const mediaMatch = /^\/api\/chat\/media\/([0-9a-f-]+)$/i.exec(path);
   if (mediaMatch) {
     try {

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { blockedUsers, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -77,21 +77,20 @@ export async function POST(request: Request) {
     .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
     .onConflictDoNothing();
 
-  // Sever any existing match + conversation (messages cascade).
+  /* Sever the match; keep the conversation.
+     This used to `delete(matches)` twice, which cascaded the messages away — on a BLOCK,
+     where the report and the evidence are the entire point. Moderation needs the thread to
+     outlive the blocker's view of it, and the blocked member must not be able to undo that by
+     deleting their own account's visibility either: the rows stay, and only the reporter's
+     account deletion (or a moderation decision) may purge them. */
   await db
-    .delete(matches)
+    .update(matches)
+    .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
     .where(
       and(
-        eq(matches.userA, member.id),
-        eq(matches.userB, profileId)
-      )
-    );
-  await db
-    .delete(matches)
-    .where(
-      and(
-        eq(matches.userA, profileId),
-        eq(matches.userB, member.id)
+        or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
+        or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
+        eq(matches.status, "active")
       )
     );
 

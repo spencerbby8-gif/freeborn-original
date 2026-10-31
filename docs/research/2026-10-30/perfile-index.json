@@ -1,0 +1,455 @@
+{
+ "generated_at": "2026-10-30T18:42:14Z",
+ "note": "One REA invocation per acquired source file (bounded, resumable). exit_code is that invocation's real process status. 'records'/'populated' count non-empty finding arrays, so an empty evidence bundle is never counted as coverage. Artifacts are xz-compressed (254 MB -> 25 MB); decompress any name with `xz -d`.",
+ "campaign": "rea-perfile.sh bumble hinge, 2026-10-30, 37 runs: 36 exit 0, 1 exit 1 (bumble/4101edefd833a9ef.js \u2014 see perfile-derived for its 13 modules, 13/13 exit 0)",
+ "files": {
+  "bumble__4101edefd833a9ef.js": {
+   "exit_code": 1,
+   "log": "bumble__4101edefd833a9ef.js.log.xz"
+  },
+  "bumble__5bb89c3037642114.js": {
+   "exit_code": 0,
+   "log": "bumble__5bb89c3037642114.js.log.xz",
+   "evidence_bytes": 43664,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__7baa63ca4f39942f.js": {
+   "exit_code": 0,
+   "log": "bumble__7baa63ca4f39942f.js.log.xz",
+   "evidence_bytes": 149660,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__84285cd15339b1a6.js": {
+   "exit_code": 0,
+   "log": "bumble__84285cd15339b1a6.js.log.xz",
+   "evidence_bytes": 431152,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__9246b388839924e4.js": {
+   "exit_code": 0,
+   "log": "bumble__9246b388839924e4.js.log.xz",
+   "evidence_bytes": 788216,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__973dca4db395beb0.js": {
+   "exit_code": 0,
+   "log": "bumble__973dca4db395beb0.js.log.xz",
+   "evidence_bytes": 2582704,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__9fab77bf4fc366ef.js": {
+   "exit_code": 0,
+   "log": "bumble__9fab77bf4fc366ef.js.log.xz",
+   "evidence_bytes": 158312,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble___buildManifest.js": {
+   "exit_code": 0,
+   "log": "bumble___buildManifest.js.log.xz",
+   "evidence_bytes": 67632,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble___ssgManifest.js": {
+   "exit_code": 0,
+   "log": "bumble___ssgManifest.js.log.xz",
+   "evidence_bytes": 22080,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__af4e10453a764913.js": {
+   "exit_code": 0,
+   "log": "bumble__af4e10453a764913.js.log.xz",
+   "evidence_bytes": 76988,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__e6ec843947d31f93.js": {
+   "exit_code": 0,
+   "log": "bumble__e6ec843947d31f93.js.log.xz",
+   "evidence_bytes": 397984,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__e96e875596392b2a.js": {
+   "exit_code": 0,
+   "log": "bumble__e96e875596392b2a.js.log.xz",
+   "evidence_bytes": 465112,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "bumble__polyfills-42372ed130431b0a.js": {
+   "exit_code": 0,
+   "log": "bumble__polyfills-42372ed130431b0a.js.log.xz",
+   "evidence_bytes": 51136,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__107-74b360892d40f6c4.js": {
+   "exit_code": 0,
+   "log": "hinge__107-74b360892d40f6c4.js.log.xz",
+   "evidence_bytes": 3340492,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__13-76703151bf85c56c.js": {
+   "exit_code": 0,
+   "log": "hinge__13-76703151bf85c56c.js.log.xz",
+   "evidence_bytes": 569288,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__132-4be892819dbac6b1.js": {
+   "exit_code": 0,
+   "log": "hinge__132-4be892819dbac6b1.js.log.xz",
+   "evidence_bytes": 46076,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__298-fd2f7dd5ebd20a78.js": {
+   "exit_code": 0,
+   "log": "hinge__298-fd2f7dd5ebd20a78.js.log.xz",
+   "evidence_bytes": 416980,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__359-2f8df7a8ce37b92e.js": {
+   "exit_code": 0,
+   "log": "hinge__359-2f8df7a8ce37b92e.js.log.xz",
+   "evidence_bytes": 278012,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__441-8a8a64a04d71c32a.js": {
+   "exit_code": 0,
+   "log": "hinge__441-8a8a64a04d71c32a.js.log.xz",
+   "evidence_bytes": 59756,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__452-b7236976f79ade40.js": {
+   "exit_code": 0,
+   "log": "hinge__452-b7236976f79ade40.js.log.xz",
+   "evidence_bytes": 687356,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__487-c89d8ac1c56f4891.js": {
+   "exit_code": 0,
+   "log": "hinge__487-c89d8ac1c56f4891.js.log.xz",
+   "evidence_bytes": 316876,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__498-b10c9a9c3405e55c.js": {
+   "exit_code": 0,
+   "log": "hinge__498-b10c9a9c3405e55c.js.log.xz",
+   "evidence_bytes": 327148,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__504-5e465312cababbeb.js": {
+   "exit_code": 0,
+   "log": "hinge__504-5e465312cababbeb.js.log.xz",
+   "evidence_bytes": 321644,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__620-90f8e15ecc063856.js": {
+   "exit_code": 0,
+   "log": "hinge__620-90f8e15ecc063856.js.log.xz",
+   "evidence_bytes": 506720,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__634-9f906ff9c432c2ce.js": {
+   "exit_code": 0,
+   "log": "hinge__634-9f906ff9c432c2ce.js.log.xz",
+   "evidence_bytes": 68776,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__682-54880932a91c6b48.js": {
+   "exit_code": 0,
+   "log": "hinge__682-54880932a91c6b48.js.log.xz",
+   "evidence_bytes": 312596,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__820-f0195e9419d8465f.js": {
+   "exit_code": 0,
+   "log": "hinge__820-f0195e9419d8465f.js.log.xz",
+   "evidence_bytes": 1014816,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__870-bfaf586cb29ee09b.js": {
+   "exit_code": 0,
+   "log": "hinge__870-bfaf586cb29ee09b.js.log.xz",
+   "evidence_bytes": 632792,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge___app-7f50c6d6b07df510.js": {
+   "exit_code": 0,
+   "log": "hinge___app-7f50c6d6b07df510.js.log.xz",
+   "evidence_bytes": 74064,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge___buildManifest.js": {
+   "exit_code": 0,
+   "log": "hinge___buildManifest.js.log.xz",
+   "evidence_bytes": 76824,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge___ssgManifest.js": {
+   "exit_code": 0,
+   "log": "hinge___ssgManifest.js.log.xz",
+   "evidence_bytes": 35396,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__bf32f307-fe29e1c036f0d70d.js": {
+   "exit_code": 0,
+   "log": "hinge__bf32f307-fe29e1c036f0d70d.js.log.xz",
+   "evidence_bytes": 4317648,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__fbd3c617-960b5c8857c03708.js": {
+   "exit_code": 0,
+   "log": "hinge__fbd3c617-960b5c8857c03708.js.log.xz",
+   "evidence_bytes": 3890212,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__framework-ad6fb2b3126285d4.js": {
+   "exit_code": 0,
+   "log": "hinge__framework-ad6fb2b3126285d4.js.log.xz",
+   "evidence_bytes": 35564,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__main-dd66a77f47b92c0d.js": {
+   "exit_code": 0,
+   "log": "hinge__main-dd66a77f47b92c0d.js.log.xz",
+   "evidence_bytes": 83804,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__polyfills-42372ed130431b0a.js": {
+   "exit_code": 0,
+   "log": "hinge__polyfills-42372ed130431b0a.js.log.xz",
+   "evidence_bytes": 64592,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  },
+  "hinge__webpack-cfd6a8e1f30947af.js": {
+   "exit_code": 0,
+   "log": "hinge__webpack-cfd6a8e1f30947af.js.log.xz",
+   "evidence_bytes": 241412,
+   "records": 1,
+   "unknowns": 0,
+   "populated": {
+    "artifacts": 1,
+    "providers": 1,
+    "records": 1
+   }
+  }
+ },
+ "campaign_log_entries": null,
+ "tally": {
+  "source_files": 37,
+  "exit_0": 36,
+  "exit_nonzero": 1,
+  "unknown_exit": 0,
+  "files_with_nonzero_exit": [
+   "bumble__4101edefd833a9ef.js"
+  ],
+  "records_total": 36,
+  "note": "tally regenerated from the finished campaign; run.log itself is not a source file and is excluded from source_files"
+ }
+}

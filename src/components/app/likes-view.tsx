@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { showToast } from "@/components/toast-host";
@@ -25,7 +26,7 @@ function Card({ p, badge, action }: { p: LikedProfile; badge: string; action?: R
     <article className="group overflow-hidden rounded-[22px] border border-white/[0.07] bg-white/[0.025] transition hover:-translate-y-0.5 hover:border-white/[0.16] hover:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)]">
       <div className="relative aspect-[4/5]">
         {p.photo ? (
-          <img src={p.photo} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
+          <PhotoImage src={p.photo} alt={p.name} className="h-full w-full" imgClassName="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
         ) : (
           <span className="flex h-full w-full items-center justify-center bg-[var(--gradient-ember-warm)] font-display text-3xl font-bold text-white">
             {p.name.charAt(0)}

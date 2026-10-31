@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PhotoImage } from "@/components/ui/photo-image";
 
 /**
  * Fullscreen photo viewer. Tap a photo (on a card or profile) to open it.
@@ -136,12 +137,13 @@ export function PhotoLightbox({
           </button>
         ) : null}
 
-        <img
+        <PhotoImage
           key={idx}
           src={photos[idx]}
           alt={`${name}, photo ${idx + 1}`}
-          draggable={false}
-          className="animate-scale-in max-h-full max-w-full select-none rounded-xl object-contain"
+          className="animate-scale-in max-h-full max-w-full rounded-xl"
+          imgClassName="object-contain"
+          priority
         />
 
         {idx < photos.length - 1 ? (

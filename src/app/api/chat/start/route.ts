@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { matches, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 
 /**
  * Start (or reopen) a conversation with another member.
@@ -68,6 +69,22 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (existing.length) {
+    /* A severed pair must not be re-openable through the "already matched, here's your thread"
+       shortcut — otherwise `status='unmatched'` would be decoration and either member could
+       walk back into a conversation the other one ended. */
+    const reopen = decideMatchAccess({
+      status: existing[0].status as MatchLifecycleStatus,
+      isParticipant: true,
+      isActor: existing[0].unmatchedBy === member.id,
+      hasMessages: false,
+      action: "create_or_rematch",
+    });
+    if (!reopen.allow && reopen.reason !== "deny:already-matched") {
+      return Response.json({ error: severedMessage(existing[0].status as MatchLifecycleStatus) }, { status: 409 });
+    }
+    if (reopen.reason === "deny:already-matched" && existing[0].status !== "active") {
+      return Response.json({ error: severedMessage(existing[0].status as MatchLifecycleStatus) }, { status: 409 });
+    }
     return Response.json({ matchId: existing[0].id });
   }
 

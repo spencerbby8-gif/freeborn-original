@@ -1,0 +1,1077 @@
+{
+ "generated_at": "2026-10-30T19:01:37Z",
+ "generator": "/home/user/re/rea-mine3.py",
+ "note": "Counts are string/API surface facts in shipped client bytes. They do not describe server behaviour.",
+ "findings": {
+  "tinder:state_lib": {
+   "why": "State management primitives.",
+   "count": 829,
+   "files": {
+    "tinder.main-dc2addb81fed3c105970.js": 824,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 5
+   },
+   "samples": [
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 365233,
+     "text": "),r=a(513778);const o=(0,i.bl)(\"app\"),c=(0,n.createSelector)([o,(e,t)=>t],((e,t)=>e.lifecycles?.[t]??!1)),l=(0,n.c"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 365301,
+     "text": ")=>t],((e,t)=>e.lifecycles?.[t]??!1)),l=(0,n.createSelector)(o,(e=>e.activeTab)),d=(0,n.createSelector)(o,(e=>e.of"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 365344,
+     "text": "n.createSelector)(o,(e=>e.activeTab)),d=(0,n.createSelector)(o,(e=>e.offline)),_=(0,n.createSelector)(o,(e=>e.is3d"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 365385,
+     "text": "0,n.createSelector)(o,(e=>e.offline)),_=(0,n.createSelector)(o,(e=>e.is3dsComplete)),E=(0,n.createSelector)(o,(e=>"
+    }
+   ]
+  },
+  "tinder:rate_limit": {
+   "why": "Rate-limit handling in the client.",
+   "count": 235,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 18,
+    "tinder.main-dc2addb81fed3c105970.js": 29,
+    "tinder.pc-webpack-runtime-338625c720b811f8f1e6.js": 36,
+    "tinder.tinderapp-cfb387acc7e482a3547b.js": 137,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 15
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 181583,
+     "text": "n{code:o,message:\"failed_precondition\"};case 429:return{code:o,message:\"resource_exhausted\"};case 499:r"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 203892,
+     "text": "s=(0,r.Wk)()){const o={...e},i=n?.[\"x-sentry-rate-limits\"],a=n?.[\"retry-after\"];if(i)for(const e of i.trim().s"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 204305,
+     "text": ".parse(`${e}`);return isNaN(s)?6e4:s-t}(a,s):429===t&&(o.all=s+6e4);return o}},823998(e,t,n){\"use stric"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 251749,
+     "text": ".zk)(n);(0,ee.Jz)(r,s)?e.recordDroppedEvent(\"ratelimit_backoff\",s):a.push(t)})),0===a.length)return Promise.r"
+    }
+   ]
+  },
+  "bumble:rate_limit": {
+   "why": "Rate-limit handling in the client.",
+   "count": 218,
+   "files": {
+    "4101edefd833a9ef.js": 15,
+    "7baa63ca4f39942f.js": 89,
+    "e6ec843947d31f93.js": 2,
+    "e96e875596392b2a.js": 2,
+    "polyfills-42372ed130431b0a.js": 1,
+    "bumble.4101edefd833a9ef.js": 15,
+    "bumble.7baa63ca4f39942f.js": 89,
+    "bumble.e6ec843947d31f93.js": 2,
+    "bumble.e96e875596392b2a.js": 2,
+    "bumble.polyfills-42372ed130431b0a.js": 1
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 112698,
+     "text": "x(sf.bind(null,r,n,i1,i6,i2,t,iJ,iX,iZ,iU,l,\"Throttled\",-0,0),a);break e}sf(r,n,i1,i6,i2,t,iJ,iX,iZ,iU,l,nul"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 176136,
+     "text": "*(65535&l)+((3432918353*(l>>>16)&65535)<<16)&4294967295)<<15|l>>>17))+((461845907*(l>>>16)&65535)<<16)&"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 176194,
+     "text": "15|l>>>17))+((461845907*(l>>>16)&65535)<<16)&4294967295,a=(65535&(a=5*(65535&(a=a<<13|a>>>19))+((5*(a>>"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 176269,
+     "text": "5&(a=a<<13|a>>>19))+((5*(a>>>16)&65535)<<16)&4294967295))+27492+(((a>>>16)+58964&65535)<<16)}switch(l=0"
+    }
+   ]
+  },
+  "hinge:pagination": {
+   "why": "Windowing parameters for lists/decks.",
+   "count": 143,
+   "files": {
+    "441-8a8a64a04d71c32a.js": 9,
+    "452-b7236976f79ade40.js": 1,
+    "634-9f906ff9c432c2ce.js": 38,
+    "820-f0195e9419d8465f.js": 7,
+    "_app-7f50c6d6b07df510.js": 1,
+    "bf32f307-fe29e1c036f0d70d.js": 51,
+    "fbd3c617-960b5c8857c03708.js": 29,
+    "framework-ad6fb2b3126285d4.js": 5,
+    "main-dd66a77f47b92c0d.js": 1,
+    "polyfills-42372ed130431b0a.js": 1
+   },
+   "samples": [
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 16137,
+     "text": "ng\"==typeof t?t:F.px.transform(e+r*t)}let z={offset:\"stroke-dashoffset\",array:\"stroke-dasharray\"},q={offset"
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 16193,
+     "text": "oke-dashoffset\",array:\"stroke-dasharray\"},q={offset:\"strokeDashoffset\",array:\"strokeDasharray\"};function H("
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 16339,
+     "text": "n,originY:s,pathLength:o,pathSpacing:a=1,pathOffset:l=0,...u},h,c,f){if(N(t,u,h,f),c){t.style.viewBox&&(t.a"
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 35232,
+     "text": "oop\",ease:a,times:l}={}){let u={[e]:r};l&&(u.offset=l);let h=function t(e){if(e)return tU(e)?tN(e):Array.is"
+    }
+   ]
+  },
+  "tinder:media_meta": {
+   "why": "Derived media metadata the client reads for layout/placeholders.",
+   "count": 137,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 3,
+    "tinder.main-dc2addb81fed3c105970.js": 8,
+    "tinder.tinderapp-cfb387acc7e482a3547b.js": 124,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 2
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 266116,
+     "text": "p&&(w.rr_scrollTop=e.scrollTop));if(S){const{width:t,height:n}=e.getBoundingClientRect();w={class:w.class,rr_width"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 284060,
+     "text": "chLinkElement(e,t)},onBlockedImageLoad:(e,t,{width:n,height:r})=>{this.mutationCb({adds:[],removes:[],texts:[],att"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 316516,
+     "text": "chLinkElement(e,t)},onBlockedImageLoad:(e,t,{width:n,height:r})=>{K({adds:[],removes:[],texts:[],attributes:[{id:t"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 186542,
+     "text": "unc) D(f) Jc(c)\"},void 0,(0,i.A)(c.A,{style:{width:82,height:82},fill:o.UK.color.white,\"aria-hidden\":!0,role:\"prese"
+    }
+   ]
+  },
+  "tinder:api_path": {
+   "why": "A versioned or /api/ path literal in client code -> endpoint namespace the client calls.",
+   "count": 135,
+   "files": {
+    "tinder.main-dc2addb81fed3c105970.js": 135
+   },
+   "samples": [
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 350066,
+     "text": "\",R=/^\\/v\\d+\\/auth\\//,P=[\"/challenge/verify\",\"/v2/onboarding/\",\"/v1/banned-user/\",\"/verification/underage/\"];var v=a("
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 350084,
+     "text": "\\//,P=[\"/challenge/verify\",\"/v2/onboarding/\",\"/v1/banned-user/\",\"/verification/underage/\"];var v=a(549562),b=a(477202)"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 694069,
+     "text": "eChallenge:`${K}/identity`,selfieChallengeV2:\"/v2/identity\",idvChallenge:\"/verify-age\",settings:j,dev:\"/dev\",stack"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 694980,
+     "text": "J._U]:{endpoints:{connectGoogleAccount:{path:\"/v2/account/connect/google\",method:\"POST\"},disconnectGoogleAccount:{path:\"/v2/acco"
+    }
+   ]
+  },
+  "bumble:media_meta": {
+   "why": "Derived media metadata the client reads for layout/placeholders.",
+   "count": 112,
+   "files": {
+    "4101edefd833a9ef.js": 1,
+    "7baa63ca4f39942f.js": 49,
+    "973dca4db395beb0.js": 5,
+    "e96e875596392b2a.js": 1,
+    "bumble.4101edefd833a9ef.js": 1,
+    "bumble.7baa63ca4f39942f.js": 49,
+    "bumble.973dca4db395beb0.js": 5,
+    "bumble.e96e875596392b2a.js": 1
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 23665,
+     "text": "e?e.keyCode:0}})),t6=tA(h({},tQ,{pointerId:0,width:0,height:0,pressure:0,tangentialPressure:0,tiltX:0,tiltY:0,twis"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1144313,
+     "text": "c.jsx)(\"img\",u(u(u({},E),C(g)),{},{loading:v,width:l,height:r,decoding:d,\"data-nimg\":y?\"fill\":\"1\",className:m,styl"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1154048,
+     "text": "},L),{},{loading:ei?\"lazy\":k,fetchPriority:M,width:ee,height:ea,decoding:void 0===q?\"async\":q,className:w,style:u(u"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1221822,
+     "text": "padding__JJdr3\"},h=e=>s.createElement(\"svg\",{width:136,height:136,viewBox:\"0 0 136 136\",fill:\"none\",xmlns:\"http://ww"
+    }
+   ]
+  },
+  "hinge:swipe_gesture": {
+   "why": "Gesture machinery behind card interactions.",
+   "count": 97,
+   "files": {
+    "441-8a8a64a04d71c32a.js": 69,
+    "620-90f8e15ecc063856.js": 1,
+    "820-f0195e9419d8465f.js": 15,
+    "_app-7f50c6d6b07df510.js": 8,
+    "framework-ad6fb2b3126285d4.js": 4
+   },
+   "samples": [
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 13008,
+     "text": "iew\",\"whileFocus\",\"whileDrag\"],exit:[\"exit\"],drag:[\"drag\",\"dragControls\"],focus:[\"whileFocus\"],hover:[\"wh"
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 13165,
+     "text": "p\",\"onTap\",\"onTapStart\",\"onTapCancel\"],pan:[\"onPan\",\"onPanStart\",\"onPanSessionStart\",\"onPanEnd\"],inView:["
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 13173,
+     "text": "p\",\"onTapStart\",\"onTapCancel\"],pan:[\"onPan\",\"onPanStart\",\"onPanSessionStart\",\"onPanEnd\"],inView:[\"whileIn"
+    },
+    {
+     "file": "441-8a8a64a04d71c32a.js",
+     "at": 13186,
+     "text": "t\",\"onTapCancel\"],pan:[\"onPan\",\"onPanStart\",\"onPanSessionStart\",\"onPanEnd\"],inView:[\"whileInView\",\"onView"
+    }
+   ]
+  },
+  "tinder:exif_strip": {
+   "why": "Orientation/EXIF handling on the client.",
+   "count": 89,
+   "files": {
+    "tinder.main-dc2addb81fed3c105970.js": 81,
+    "tinder.pc-webpack-runtime-338625c720b811f8f1e6.js": 5,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 3
+   },
+   "samples": [
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 80672,
+     "text": "fault,\"jobTitleMaxLength\"),it=Ve(He.default,\"orientationEnabled\"),st=Ve(He.default,\"orientations\"),rt=Ve(He.def"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 80711,
+     "text": "ault,\"orientationEnabled\"),st=Ve(He.default,\"orientations\"),rt=Ve(He.default,\"merchandisingFeatures\"),ot=Ve(He."
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 82938,
+     "text": ",merchandisingFeatures:rt,messageConsents:ot,orientationEnabled:it,orientations:st,paywallFeatures:ct,platinumP"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 82960,
+     "text": ":rt,messageConsents:ot,orientationEnabled:it,orientations:st,paywallFeatures:ct,platinumPaywallFeatures:lt,recs"
+    }
+   ]
+  },
+  "tinder:pagination": {
+   "why": "Windowing parameters for lists/decks.",
+   "count": 78,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 16,
+    "tinder.atomic.032d2311a30cd98d8799.css": 11,
+    "tinder.main-dc2addb81fed3c105970.js": 18,
+    "tinder.main.8d45a23e97c7ef997deb.css": 5,
+    "tinder.tinderapp.99d25c3a4205870cbe02.css": 19,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 9
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 96216,
+     "text": "\"GlobalHandlers\",setupOnce(){Error.stackTraceLimit=50},setup(e){t.onerror&&(!function(e){(0,i.L)((t=>{cons"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 275830,
+     "text": "ent.scrollLeft:void 0!==e.pageXOffset?e.pageXOffset:t?.documentElement.scrollLeft||t?.body?.parentElement?."
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 276009,
+     "text": "ment.scrollTop:void 0!==e.pageYOffset?e.pageYOffset:t?.documentElement.scrollTop||t?.body?.parentElement?.s"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 296008,
+     "text": "||(i=Be()),a.push({x:n,y:s,id:r.getId(t),timeOffset:Be()-i}),c(\"undefined\"!=typeof DragEvent&&e instanceof "
+    }
+   ]
+  },
+  "bumble:pagination": {
+   "why": "Windowing parameters for lists/decks.",
+   "count": 68,
+   "files": {
+    "4101edefd833a9ef.js": 3,
+    "7baa63ca4f39942f.js": 5,
+    "973dca4db395beb0.js": 10,
+    "af4e10453a764913.js": 1,
+    "polyfills-42372ed130431b0a.js": 1,
+    "bumble.4101edefd833a9ef.js": 3,
+    "bumble.7050c3776fb2414d.css": 28,
+    "bumble.7baa63ca4f39942f.js": 5,
+    "bumble.973dca4db395beb0.js": 10,
+    "bumble.af4e10453a764913.js": 1,
+    "bumble.polyfills-42372ed130431b0a.js": 1
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 26452,
+     "text": ".textContent.length,e<=t&&n>=t)return{node:r,offset:t-e};e=n}e:{for(;r;){if(r.nextSibling){r=r.nextSibling;"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 27468,
+     "text": "ew||window).getSelection()).anchorNode,anchorOffset:r.anchorOffset,focusNode:r.focusNode,focusOffset:r.focu"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 27517,
+     "text": "et:r.anchorOffset,focusNode:r.focusNode,focusOffset:r.focusOffset},nL&&nR(nL,r)||(nL=r,0<(r=ul(nI,\"onSelect"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1212287,
+     "text": "ring\",contentScriptType:1,contentStyleType:1,cursor:0,cx:0,cy:0,d:0,datatype:0,decelerate:0,descent:0,diffu"
+    }
+   ]
+  },
+  "bumble:exif_strip": {
+   "why": "Orientation/EXIF handling on the client.",
+   "count": 58,
+   "files": {
+    "4101edefd833a9ef.js": 12,
+    "7baa63ca4f39942f.js": 17,
+    "bumble.4101edefd833a9ef.js": 12,
+    "bumble.7baa63ca4f39942f.js": 17
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 16221,
+     "text": "t-weight\"],[\"glyphName\",\"glyph-name\"],[\"glyphOrientationHorizontal\",\"glyph-orientation-horizontal\"],[\"glyphOrie"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 16251,
+     "text": "-name\"],[\"glyphOrientationHorizontal\",\"glyph-orientation-horizontal\"],[\"glyphOrientationVertical\",\"glyph-orient"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 16283,
+     "text": "ntal\",\"glyph-orientation-horizontal\"],[\"glyphOrientationVertical\",\"glyph-orientation-vertical\"],[\"horizAdvX\",\"h"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 16311,
+     "text": "izontal\"],[\"glyphOrientationVertical\",\"glyph-orientation-vertical\"],[\"horizAdvX\",\"horiz-adv-x\"],[\"horizOriginX\""
+    }
+   ]
+  },
+  "tinder:presence": {
+   "why": "Presence/read-receipt fields the client renders.",
+   "count": 54,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 3,
+    "tinder.main-dc2addb81fed3c105970.js": 47,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 4
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 358282,
+     "text": ".name||void 0)}}(e)),t.on(\"spanStart\",(t=>{e.lastActiveSpan=t})),t.on(\"spanEnd\",(t=>{e.lastActiveSpan=t})),t.o"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 358324,
+     "text": "{e.lastActiveSpan=t})),t.on(\"spanEnd\",(t=>{e.lastActiveSpan=t})),t.on(\"beforeSendFeedback\",(async(t,n)=>{const"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 370720,
+     "text": "})))}return n}getCurrentRoute(){const e=this.lastActiveSpan||(0,m.Bk)(),t=e&&(0,m.zU)(e),n=(t&&(0,m.et)(t).dat"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 65704,
+     "text": "0},pointerInactivity:{detected:!1,weight:20},typingInactivity:{detected:!1,weight:20},focusEventInactivity:"
+    }
+   ]
+  },
+  "hinge:rate_limit": {
+   "why": "Rate-limit handling in the client.",
+   "count": 50,
+   "files": {
+    "107-74b360892d40f6c4.js": 2,
+    "132-4be892819dbac6b1.js": 1,
+    "634-9f906ff9c432c2ce.js": 7,
+    "870-bfaf586cb29ee09b.js": 18,
+    "_app-7f50c6d6b07df510.js": 8,
+    "bf32f307-fe29e1c036f0d70d.js": 13,
+    "polyfills-42372ed130431b0a.js": 1
+   },
+   "samples": [
+    {
+     "file": "107-74b360892d40f6c4.js",
+     "at": 89025,
+     "text": "7 15.6726 96.4227 15.6326 96.5227C15.6842 96.4297 15.7181 96.328 15.7326 96.2227Z\"}),(0,a.jsx)(\"path\",{"
+    },
+    {
+     "file": "107-74b360892d40f6c4.js",
+     "at": 97001,
+     "text": " 32.4426 32.0627C32.5097 32.0949 32.5681 32.1429 32.6125 32.2027C32.6843 32.071 32.7965 31.9658 32.9326"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 64948,
+     "text": "rl).startsWith(\"/data/query\"),o=e.response&&(429===e.response.statusCode||502===e.response.statusCode||"
+    },
+    {
+     "file": "634-9f906ff9c432c2ce.js",
+     "at": 16255,
+     "text": "2210,2220],[8207,8207],[64285,64285],[64287,64296],[64298,64310],[64312,64316],[64318,64318],[64320,643"
+    }
+   ]
+  },
+  "hinge:media_meta": {
+   "why": "Derived media metadata the client reads for layout/placeholders.",
+   "count": 29,
+   "files": {
+    "132-4be892819dbac6b1.js": 9,
+    "298-fd2f7dd5ebd20a78.js": 6,
+    "441-8a8a64a04d71c32a.js": 1,
+    "487-c89d8ac1c56f4891.js": 2,
+    "634-9f906ff9c432c2ce.js": 2,
+    "820-f0195e9419d8465f.js": 1,
+    "bf32f307-fe29e1c036f0d70d.js": 7,
+    "framework-ad6fb2b3126285d4.js": 1
+   },
+   "samples": [
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 4658,
+     "text": ":b=null,lazyBoundary:E,className:R,quality:_,width:q,height:I,style:j,objectFit:S,objectPosition:$,onLoadingComple"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 6781,
+     "text": ",border:\"none\",margin:\"auto\",display:\"block\",width:0,height:0,minWidth:\"100%\",maxWidth:\"100%\",minHeight:\"100%\",max"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 17777,
+     "text": ".size=function(e,t){return this.withOptions({width:e,height:t})},c.blur=function(e){return this.withOptions({blur:"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 17980,
+     "text": "{return this.withOptions({rect:{left:e,top:t,width:r,height:n}})},c.format=function(e){return this.withOptions({fo"
+    }
+   ]
+  },
+  "hinge:retry_policy": {
+   "why": "Retry knobs with their configured values.",
+   "count": 25,
+   "files": {
+    "132-4be892819dbac6b1.js": 15,
+    "634-9f906ff9c432c2ce.js": 6,
+    "_app-7f50c6d6b07df510.js": 3,
+    "bf32f307-fe29e1c036f0d70d.js": 1
+   },
+   "samples": [
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 35202,
+     "text": "100*Math.random()}let D=(e={})=>(e=>{let t=e.maxRetries||5,r=e.retryDelay||k,n=e.shouldRetry;return{onError:(e,i)"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 35220,
+     "text": "let D=(e={})=>(e=>{let t=e.maxRetries||5,r=e.retryDelay||k,n=e.shouldRetry;return{onError:(e,i)=>{var o;let s=i.o"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 35238,
+     "text": "{let t=e.maxRetries||5,r=e.retryDelay||k,n=e.shouldRetry;return{onError:(e,i)=>{var o;let s=i.options,a=s.maxRe"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 35299,
+     "text": "rn{onError:(e,i)=>{var o;let s=i.options,a=s.maxRetries||t,u=s.retryDelay||r,c=s.shouldRetry||n,l=s.attemptNumber"
+    }
+   ]
+  },
+  "tinder:swipe_gesture": {
+   "why": "Gesture machinery behind card interactions.",
+   "count": 24,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 14,
+    "tinder.main-dc2addb81fed3c105970.js": 2,
+    "tinder.main.8d45a23e97c7ef997deb.css": 1,
+    "tinder.tinderapp-cfb387acc7e482a3547b.js": 3,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 4
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 71935,
+     "text": "board\",mousedown:\"mouse\",mousemove:\"mouse\",MSPointerDown:\"pointer\",MSPointerMove:\"pointer\",pointerdown:\"pointer"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 71981,
+     "text": "ointerDown:\"pointer\",MSPointerMove:\"pointer\",pointerdown:\"pointer\",pointermove:\"pointer\",touchstart:\"touch\",tou"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 72390,
+     "text": "indow.PointerEvent?(window.addEventListener(\"pointerdown\",v,!0),window.addEventListener(\"pointermove\",_,!0)):wi"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 72504,
+     "text": "w.MSPointerEvent?(window.addEventListener(\"MSPointerDown\",v,!0),window.addEventListener(\"MSPointerMove\",_,!0)):"
+    }
+   ]
+  },
+  "bumble:presence": {
+   "why": "Presence/read-receipt fields the client renders.",
+   "count": 20,
+   "files": {
+    "7baa63ca4f39942f.js": 10,
+    "bumble.7baa63ca4f39942f.js": 10
+   },
+   "samples": [
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 176705,
+     "text": "ree and available to people who have trouble typing, gesturing, moving a mouse, or reading. It incorporate"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 186516,
+     "text": "person\",\"Bumble IRL events mean you can stop typing and start talking. Come solo or bring a friend\u2014and lea"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 210627,
+     "text": "ree and available to people who have trouble typing, gesturing, moving a mouse, or reading. It incorporate"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 220438,
+     "text": "person\",\"Bumble IRL events mean you can stop typing and start talking. Come solo or bring a friend\u2014and lea"
+    }
+   ]
+  },
+  "bumble:swipe_gesture": {
+   "why": "Gesture machinery behind card interactions.",
+   "count": 16,
+   "files": {
+    "4101edefd833a9ef.js": 4,
+    "7baa63ca4f39942f.js": 2,
+    "af4e10453a764913.js": 2,
+    "bumble.4101edefd833a9ef.js": 4,
+    "bumble.7baa63ca4f39942f.js": 2,
+    "bumble.af4e10453a764913.js": 2
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 29134,
+     "text": "useUp paste pause play playing pointerCancel pointerDown pointerMove pointerOut pointerOver pointerUp progress "
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 139107,
+     "text": "lostpointercapture\":case\"pointercancel\":case\"pointerdown\":case\"pointermove\":case\"pointerout\":case\"pointerover\":"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 167163,
+     "text": "e\"pause\":case\"play\":case\"pointercancel\":case\"pointerdown\":case\"pointerup\":case\"ratechange\":case\"reset\":case\"res"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 168222,
+     "text": "d touchstart auxclick dblclick pointercancel pointerdown pointerup dragend dragstart drop compositionend compos"
+    }
+   ]
+  },
+  "hinge:offline_queue": {
+   "why": "Client-side buffering of work while offline.",
+   "count": 15,
+   "files": {
+    "bf32f307-fe29e1c036f0d70d.js": 15
+   },
+   "samples": [
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 24807,
+     "text": "s.readyQueue_=this.readyQueue_||[],this.readyQueue_.push(e);return}t?e.call(this):this.setTimeout(e,1)}}triggerR"
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 193634,
+     "text": "ate()&&this.tech_.seeking())return void this.queuedCallbacks_.push({callback:this[`handleTech${re[e]}_`].bind(this),event:"
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 197108,
+     "text": "let t=()=>{this.muted(e)};this.playTerminatedQueue_.push(t);let i=this.play();if(tj(i))return i.catch(e=>{throw "
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 336636,
+     "text": "sh=function(e){return e.content||e.text?this.pendingCaptions.push(e):e.frames?this.pendingMetadata.push(e):void(this.pend"
+    }
+   ]
+  },
+  "bumble:offline_queue": {
+   "why": "Client-side buffering of work while offline.",
+   "count": 10,
+   "files": {
+    "4101edefd833a9ef.js": 2,
+    "7baa63ca4f39942f.js": 1,
+    "84285cd15339b1a6.js": 2,
+    "bumble.4101edefd833a9ef.js": 2,
+    "bumble.7baa63ca4f39942f.js": 1,
+    "bumble.84285cd15339b1a6.js": 2
+   },
+   "samples": [
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 200841,
+     "text": "n(e,t){null!==(e=e._reactInternals).queue&&e.queue.push(t)},enqueueReplaceState:function(e,t){(e=e._reactIntern"
+    },
+    {
+     "file": "4101edefd833a9ef.js",
+     "at": 300869,
+     "text": "n(e,t){null!==(e=e._reactInternals).queue&&e.queue.push(t)},enqueueReplaceState:function(e,t){(e=e._reactIntern"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1165900,
+     "text": "ashchange=null,T.resize=null,T.online=null,T.offline=null;var M=[],q={};q.MOUSEMOVE=10,q.KEYDOWN=20,q.CLICK="
+    },
+    {
+     "file": "84285cd15339b1a6.js",
+     "at": 4807,
+     "text": "o=0;o<t;o++)n[o]=arguments[o];e._testMode?e._queueGtag.push(n):e._isQueuing?e._queueGtag.push(n):r.default.apply(vo"
+    }
+   ]
+  },
+  "hinge:exif_strip": {
+   "why": "Orientation/EXIF handling on the client.",
+   "count": 10,
+   "files": {
+    "132-4be892819dbac6b1.js": 3,
+    "_app-7f50c6d6b07df510.js": 2,
+    "bf32f307-fe29e1c036f0d70d.js": 3,
+    "framework-ad6fb2b3126285d4.js": 2
+   },
+   "samples": [
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 15533,
+     "text": "\"],[\"sharpen\",\"sharp\"],[\"invert\",\"invert\"],[\"orientation\",\"or\"],[\"minHeight\",\"min-h\"],[\"maxHeight\",\"max-h\"],[\"m"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 18119,
+     "text": "on(e){return this.withOptions({invert:e})},c.orientation=function(e){return this.withOptions({orientation:e})},"
+    },
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 18168,
+     "text": "ntation=function(e){return this.withOptions({orientation:e})},c.quality=function(e){return this.withOptions({qu"
+    },
+    {
+     "file": "_app-7f50c6d6b07df510.js",
+     "at": 58975,
+     "text": "ers-color-scheme: dark)\"),i.set(\"portrait\",\"(orientation: portrait)\"),i.set(\"landscape\",\"(orientation: landscap"
+    }
+   ]
+  },
+  "tinder:storage_persist": {
+   "why": "Persistence with the key literal -> what survives a reload.",
+   "count": 10,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 5,
+    "tinder.main-dc2addb81fed3c105970.js": 5
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 73094,
+     "text": "getAttribute(\"data-whatpersist\")))try{window.sessionStorage.getItem(\"what-input\")&&(n=window.sessionStorage.getItem(\"what-input\")),win"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 73142,
+     "text": "sionStorage.getItem(\"what-input\")&&(n=window.sessionStorage.getItem(\"what-input\")),window.sessionStorage.getItem(\"what-intent\")&&(r=wi"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 73187,
+     "text": "sessionStorage.getItem(\"what-input\")),window.sessionStorage.getItem(\"what-intent\")&&(r=window.sessionStorage.getItem(\"what-intent\"))}ca"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 73236,
+     "text": "ionStorage.getItem(\"what-intent\")&&(r=window.sessionStorage.getItem(\"what-intent\"))}catch(e){}b(\"input\"),b(\"intent\")},v=function(e){var"
+    }
+   ]
+  },
+  "tinder:form_errors": {
+   "why": "Field-level error surfacing.",
+   "count": 10,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 1,
+    "tinder.main-dc2addb81fed3c105970.js": 5,
+    "tinder.tinderapp-cfb387acc7e482a3547b.js": 4
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 159059,
+     "text": "t t=(0,r.KU)(),n=t?.getOptions().enhanceFetchErrorMessages??\"always\";if(!1!==n&&e instanceof TypeError&&(\"Failed"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 130400,
+     "text": "a.i,challengeSessionId:n,challengeType:Ha.v3,errorMessage:e.message})),yield(0,Cn.T1)(Lr,e)}});const Gr=(0,On.Uj"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 605104,
+     "text": "gn:e.discountCampaign,duration:e.duration||o,errorMessage:e.errorMessage,from:e.from,isRemoteWeb:(0,p.go)(a)||vo"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 605119,
+     "text": "mpaign,duration:e.duration||o,errorMessage:e.errorMessage,from:e.from,isRemoteWeb:(0,p.go)(a)||void 0,likesNum:("
+    }
+   ]
+  },
+  "bumble:img_optimize": {
+   "why": "On-the-fly image transforms expressed in the URL.",
+   "count": 8,
+   "files": {
+    "7baa63ca4f39942f.js": 2,
+    "af4e10453a764913.js": 2,
+    "bumble.7baa63ca4f39942f.js": 2,
+    "bumble.af4e10453a764913.js": 2
+   },
+   "samples": [
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1143120,
+     "text": "218,561,1122,200,420,840,390,780,2436],path:\"/_next/image/\",loader:\"default\",dangerouslyAllowSVG:!1,unoptimized:"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1158492,
+     "text": "218,561,1122,200,420,840,390,780,2436],path:\"/_next/image/\",loader:\"default\",dangerouslyAllowSVG:!1,unoptimized:"
+    },
+    {
+     "file": "af4e10453a764913.js",
+     "at": 11917,
+     "text": "218,561,1122,200,420,840,390,780,2436],path:\"/_next/image/\",loader:\"default\",dangerouslyAllowSVG:!1,unoptimized:"
+    },
+    {
+     "file": "af4e10453a764913.js",
+     "at": 55741,
+     "text": "mageSizes:[16,32,48,64,96,128,256,384],path:\"/_next/image\",loader:\"default\",loaderFile:\"\",domains:[],disableStat"
+    }
+   ]
+  },
+  "tinder:img_optimize": {
+   "why": "On-the-fly image transforms expressed in the URL.",
+   "count": 8,
+   "files": {
+    "tinder.main-dc2addb81fed3c105970.js": 8
+   },
+   "samples": [
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 254228,
+     "text": "header_2\",\"FaceTec_camera_feed_issue_table_row_1_cell_1_firefox_permissions_error\",\"FaceTec_camera_feed"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 254301,
+     "text": "ns_error\",\"FaceTec_camera_feed_issue_table_row_1_cell_2_firefox_permissions_error\",\"FaceTec_camera_feed"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 254374,
+     "text": "ns_error\",\"FaceTec_camera_feed_issue_table_row_1_cell_1\",\"FaceTec_camera_feed_issue_table_row_1_cell_2\""
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 254421,
+     "text": "1_cell_1\",\"FaceTec_camera_feed_issue_table_row_1_cell_2\",\"FaceTec_camera_feed_issue_table_row_2_cell_1\""
+    }
+   ]
+  },
+  "hinge:blob_preview": {
+   "why": "Local object-URL preview of a picked file.",
+   "count": 5,
+   "files": {
+    "487-c89d8ac1c56f4891.js": 1,
+    "bf32f307-fe29e1c036f0d70d.js": 3,
+    "fbd3c617-960b5c8857c03708.js": 1
+   },
+   "samples": [
+    {
+     "file": "487-c89d8ac1c56f4891.js",
+     "at": 1430,
+     "text": "failed with status \".concat(e.status));let a=URL.createObjectURL(await e.blob()),r=(null==s?void 0:s.asset.originalFilen"
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 280175,
+     "text": "veEventListener,e},n$=function(e){try{return URL.createObjectURL(new Blob([e],{type:\"application/javascript\"}))}catch(i)"
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 280292,
+     "text": "(i){let t=new BlobBuilder;return t.append(e),URL.createObjectURL(t.getBlob())}},nq=function(e){return function(){let t=n"
+    },
+    {
+     "file": "bf32f307-fe29e1c036f0d70d.js",
+     "at": 540438,
+     "text": "),this.tech_.el()&&(this.mediaSourceUrl_=d().URL.createObjectURL(this.playlistController_.mediaSource),(ry.browser.IS_AN"
+    }
+   ]
+  },
+  "bumble:form_errors": {
+   "why": "Field-level error surfacing.",
+   "count": 4,
+   "files": {
+    "7baa63ca4f39942f.js": 2,
+    "bumble.7baa63ca4f39942f.js": 2
+   },
+   "samples": [
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 1719,
+     "text": "Message=function(e,a){this.errorLogger(new o.ErrorMessage(\"Error\",e,this.debug),this.getErrorDetails(a))},e.prot"
+    },
+    {
+     "file": "7baa63ca4f39942f.js",
+     "at": 2146,
+     "text": "(){return d},ErrorLevel:function(){return r},ErrorMessage:function(){return u},createErrorLogger:function(){retu"
+    },
+    {
+     "file": "bumble.7baa63ca4f39942f.js",
+     "at": 1719,
+     "text": "Message=function(e,a){this.errorLogger(new o.ErrorMessage(\"Error\",e,this.debug),this.getErrorDetails(a))},e.prot"
+    },
+    {
+     "file": "bumble.7baa63ca4f39942f.js",
+     "at": 2146,
+     "text": "(){return d},ErrorLevel:function(){return r},ErrorMessage:function(){return u},createErrorLogger:function(){retu"
+    }
+   ]
+  },
+  "tinder:retry_policy": {
+   "why": "Retry knobs with their configured values.",
+   "count": 4,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 4
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 203913,
+     "text": "={...e},i=n?.[\"x-sentry-rate-limits\"],a=n?.[\"retry-after\"];if(i)for(const e of i.trim().split(\",\")){const[t,n,,,r"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 251759,
+     "text": ",ee.Jz)(r,s)?e.recordDroppedEvent(\"ratelimit_backoff\",s):a.push(t)})),0===a.length)return Promise.resolve({}"
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 252972,
+     "text": "mits\":n.headers.get(\"X-Sentry-Rate-Limits\"),\"retry-after\":n.headers.get(\"Retry-After\")}}}catch(e){throw(0,xt.y7)(\"fetch\"),e}finally{n-="
+    },
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 375765,
+     "text": ")();if(t){let n;n=e instanceof Nr?\"ratelimit_backoff\":e instanceof zr?\"invalid\":\"send_error\",t.recordDroppedEvent(n,\"replay\")}}}els"
+    }
+   ]
+  },
+  "hinge:img_optimize": {
+   "why": "On-the-fly image transforms expressed in the URL.",
+   "count": 3,
+   "files": {
+    "132-4be892819dbac6b1.js": 1,
+    "main-dd66a77f47b92c0d.js": 2
+   },
+   "samples": [
+    {
+     "file": "132-4be892819dbac6b1.js",
+     "at": 893,
+     "text": "mageSizes:[16,32,48,64,96,128,256,384],path:\"/_next/image\",loader:\"default\",dangerouslyAllowSVG:!1,unoptimized:!"
+    },
+    {
+     "file": "main-dd66a77f47b92c0d.js",
+     "at": 38785,
+     "text": "mageSizes:[16,32,48,64,96,128,256,384],path:\"/_next/image\",loader:\"default\",dangerouslyAllowSVG:!1,unoptimized:!"
+    },
+    {
+     "file": "main-dd66a77f47b92c0d.js",
+     "at": 117388,
+     "text": "mageSizes:[16,32,48,64,96,128,256,384],path:\"/_next/image\",loader:\"default\",loaderFile:\"\",domains:[],disableStat"
+    }
+   ]
+  },
+  "hinge:presence": {
+   "why": "Presence/read-receipt fields the client renders.",
+   "count": 3,
+   "files": {
+    "634-9f906ff9c432c2ce.js": 3
+   },
+   "samples": [
+    {
+     "file": "634-9f906ff9c432c2ce.js",
+     "at": 194078,
+     "text": "Paused:()=>!1,cache:V,mutate:F,fallback:{}},{isOnline:()=>w,isVisible:()=>{let e=y&&document.visibilityState"
+    },
+    {
+     "file": "634-9f906ff9c432c2ce.js",
+     "at": 195654,
+     "text": "f)(r),V=()=>P.current.isVisible()&&P.current.isOnline(),[F,$,B,W]=v(n,x),X=(0,i.useRef)({}).current,z=d(c)?d"
+    },
+    {
+     "file": "634-9f906ff9c432c2ce.js",
+     "at": 198713,
+     "text": "r&&(b||P.current.isVisible())&&(w||P.current.isOnline())?eu(Z).then(t):t()}return t(),()=>{e&&(clearTimeout("
+    }
+   ]
+  },
+  "tinder:blob_preview": {
+   "why": "Local object-URL preview of a picked file.",
+   "count": 3,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 1,
+    "tinder.main-dc2addb81fed3c105970.js": 2
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 343644,
+     "text": "void 0});'],{type:\"text/javascript\"});return URL.createObjectURL(e)}();return\"\"}();if(!t)return;Ln&&Pn.log(\"Using compre"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 293869,
+     "text": "e)}))}catch(e){a(e)}}))}(a);S&&((0,_.A)(S),h(URL.createObjectURL(s)))}),[t,n,i,S,l,d,E,u]);return(0,c.useEffect)((()=>{a"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 487675,
+     "text": ".mediaIds;function*r(e,s,r,o){const l=window.URL.createObjectURL(s);function*d(){yield(0,i.A)(1e3),(0,c.A)(l)}try{yield("
+    }
+   ]
+  },
+  "tinder:offline_queue": {
+   "why": "Client-side buffering of work while offline.",
+   "count": 3,
+   "files": {
+    "tinder.main-dc2addb81fed3c105970.js": 2,
+    "tinder.vendor-5a05cf0d48eac6631043.js": 1
+   },
+   "samples": [
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 321889,
+     "text": "ecute(...e),this.flush()):(s=(0,i.iE)(),this.queue.push(e))}flush(){for(;this.queue.length;){const e=this.queue"
+    },
+    {
+     "file": "tinder.main-dc2addb81fed3c105970.js",
+     "at": 471406,
+     "text": "safeDispatch\",(e=>{this.store&&(this.deferredQueue.push(e),this.flushScheduled||(this.flushScheduled=!0,queueMi"
+    },
+    {
+     "file": "tinder.vendor-5a05cf0d48eac6631043.js",
+     "at": 321246,
+     "text": "is._pendingCallbacks.pop();t&&t()}else this._pendingCallbacks.push(e)}executeEvent(e,t,n,r){var o={pluginName:this._plugin"
+    }
+   ]
+  },
+  "hinge:optimistic": {
+   "why": "Optimistic mutation with a rollback path.",
+   "count": 1,
+   "files": {
+    "634-9f906ff9c432c2ce.js": 1
+   },
+   "samples": [
+    {
+     "file": "634-9f906ff9c432c2ce.js",
+     "at": 191578,
+     "text": "?{revalidate:i}:i||{}),s=a.populateCache,u=a.rollbackOnError,c=a.optimisticData,f=a.throwOnError;if(\"functio"
+    }
+   ]
+  },
+  "tinder:canvas_resize": {
+   "why": "Client-side downscale/re-encode before upload.",
+   "count": 1,
+   "files": {
+    "tinder.79047-fd15ebba71088abd6652.js": 1
+   },
+   "samples": [
+    {
+     "file": "tinder.79047-fd15ebba71088abd6652.js",
+     "at": 265303,
+     "text": "&&d){pe||(pe=n.createElement(\"canvas\"),fe=pe.getContext(\"2d\"));const t=e,r=t.currentSrc||t.getAttribute(\"src\")||\"<unknown-src>\",s=t.crossOrigin,o=()=>"
+    }
+   ]
+  }
+ }
+}

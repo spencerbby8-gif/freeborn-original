@@ -7,6 +7,13 @@
  *  - a bare Supabase Storage object path ("user/file.jpg") → prefix with the
  *    public Storage URL of the profile-photos bucket. Without this prefix the
  *    browser requests a relative path and every photo renders black/blank.
+ *
+ * A fourth shape used to occur: "/uploads/<name>", written by the onboarding
+ * fallback that saved bytes to the deployment's own disk (retired 2026-10-30;
+ * src/lib/onboarding-store.ts now mirrors into Postgres instead). Resolving it as
+ * a same-origin path is what made those photos unrecoverable — the file only ever
+ * existed on one serverless instance — so this function keeps passing it through
+ * and 0 rows of that shape remain in production, re-measured the same day.
  */
 
 const FALLBACK_SUPABASE_URL = "https://ihwtpwlszegrjgakqsxx.supabase.co";
