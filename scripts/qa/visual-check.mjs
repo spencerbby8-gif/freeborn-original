@@ -55,6 +55,7 @@ const measured = await page.evaluate(() => {
 
 await page.setViewportSize({ width: 390, height: 1180 });
 await page.waitForTimeout(200);
+const hoverGateDefault = await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches);
 const hover = await (async () => {
   const b = page.locator(".fb-cta--primary").first();
   await b.hover();
@@ -133,10 +134,16 @@ await fine.close();
 console.log(JSON.stringify({
   shots: [...shots, "mobile-hover-fine"],
   measured, hoverOverlayAfter: hover, hoverOverlayWithFinePointer: hoverFine,
+  /* Reported, not adjudicated. This script used to print `gateCorrectlyClosed` / `gateCorrectlyOpen`
+     from an ASSUMPTION about the two launches (default = coarse, `--blink-settings=
+     primaryPointerType=2` = fine). Measured on 2026-10-31 that is backwards in this build: the
+     default headless context reports `(hover:hover) and (pointer:fine)` TRUE and the flagged one
+     FALSE. A verdict derived from launch flags rather than from matchMedia is how a QA tool ends up
+     confidently reporting the inverse of the truth, so the match values are printed next to the
+     overlay each context actually painted, and scripts/qa/design-check.mjs is the one that asserts. */
   capabilityGate: {
-    finePointerMediaMatches: matchesFine,
-    gateCorrectlyClosed: hover === "rgba(0, 0, 0, 0)",
-    gateCorrectlyOpen: /0\.14|^rgba\(255, 255, 255/.test(hoverFine),
+    defaultContext: { gate: hoverGateDefault, overlayAfterHover: hover },
+    flaggedContext: { gate: matchesFine, overlayAfterHover: hoverFine },
   },
   pressedState: hold, focusRing, failed, contrast, pageErrors: errors,
 }, null, 1));

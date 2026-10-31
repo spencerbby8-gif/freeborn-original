@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
    emitted from src/app/globals.css, so this harness photographs production CSS, not a
    re-implementation of it. */
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Chip } from "@/components/ui/chip";
+import { LoadingState, EmptyState, ErrorState } from "@/components/ui/states";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { EndConversationDialog } from "@/components/app/unmatch-dialog";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
@@ -26,6 +29,10 @@ const ok =
 
 function App() {
   const [kind, setKind] = useState<null | "unmatch" | "delete">(null);
+  /* A real toggle, not a screenshot prop: design-check clicks this and compares the computed
+     background, which proves the stylesheet reacts to `aria-pressed` rather than a class the
+     component could set independently of the announced state. */
+  const [pressed, setPressed] = useState(false);
   const [busy, setBusy] = useState(false);
   /* Every open() bumps this and it becomes the dialog's React `key`, so each QA pass mounts a
      genuinely fresh sheet — which is what the product does too (profile-view renders the dialog
@@ -82,6 +89,65 @@ function App() {
         <Button block className="mt-2">
           Block-level primary
         </Button>
+      </section>
+
+      <section id="legacy-families" className="mt-10">
+        <h2 className="font-display text-lg">Legacy families after unification</h2>
+        <p className="mt-1 max-w-prose text-ui-xs text-mist">
+          {"The three button vocabularies the app still ships, rendered against the emitted stylesheet. The point of the change is that focus, disabled, touch height and motion now come from one place, so these must measure like `.fb-cta` without any of them being rewritten."}
+        </p>
+        <div id="legacy-enabled" className="mt-3 flex flex-wrap items-center gap-3">
+          <button type="button" className="fb-btn fb-btn-primary">.fb-btn-primary</button>
+          <button type="button" className="fb-btn fb-btn-sm">.fb-btn-sm</button>
+          <button type="button" className="btn-ember btn-shine relative overflow-hidden rounded-full px-7 py-3 text-sm font-bold">.btn-ember</button>
+          <button type="button" className="btn-ghost rounded-full px-7 py-3 text-sm font-bold">.btn-ghost</button>
+          <button type="button" className="magic-button btn-shine relative flex h-[60px] items-center justify-center overflow-hidden rounded-2xl px-5 text-[16px] font-bold">.magic-button</button>
+        </div>
+        <div id="legacy-disabled" className="mt-3 flex flex-wrap items-center gap-3">
+          <button type="button" className="fb-btn fb-btn-primary" disabled>.fb-btn-primary</button>
+          <button type="button" className="btn-ember btn-shine relative overflow-hidden rounded-full px-7 py-3 text-sm font-bold" disabled>.btn-ember</button>
+          <button type="button" className="btn-ghost rounded-full px-7 py-3 text-sm font-bold" disabled>.btn-ghost</button>
+        </div>
+      </section>
+
+      <section id="primitives" className="mt-10 space-y-4">
+        <h2 className="font-display text-lg">Primitives — IconButton, Chip, and the three empty states</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <IconButton id="qa-icon-md" aria-label="Close this sheet">
+            <span>{"\u2715"}</span>
+          </IconButton>
+          <IconButton id="qa-icon-xs" aria-label="Remove photo" size="xs">
+            <span>{"\u2715"}</span>
+          </IconButton>
+          <IconButton aria-label="Report this member" tone="danger">
+            <span>{"\u2691"}</span>
+          </IconButton>
+          <button type="button" className="fb-icon-btn" disabled aria-label="Disabled icon control">
+            <span>{"\u2715"}</span>
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip id="qa-chip-toggle" aria-pressed={pressed} onClick={() => setPressed((v) => !v)}>
+            Unvaccinated
+          </Chip>
+          <Chip aria-pressed={false}>Vax-free spaces</Chip>
+          <Chip aria-pressed={true} size="sm">
+            Homestead
+          </Chip>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <LoadingState label="Loading your matches" />
+          <EmptyState
+            title="No one nearby yet"
+            body="Widening your distance is the only filter that finds more people here."
+            action={{ label: "Widen filters", onClick: () => {} }}
+          />
+          <ErrorState
+            title="Could not reach Freeborn"
+            body="Your profile is unchanged. This is a network problem, not your account."
+            onRetry={() => {}}
+          />
+        </div>
       </section>
 
       <section className="mt-10 grid grid-cols-3 gap-4">
