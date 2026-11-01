@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { matches, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
+import { hasMutualLike, isBlockedPair } from "@/lib/conversation-access";
 
 /**
  * Start (or reopen) a conversation with another member.
@@ -31,6 +32,13 @@ export async function POST(request: Request) {
     .where(eq(userProfiles.id, otherId))
     .limit(1);
   if (!other) return Response.json({ error: "Profile not found." }, { status: 404 });
+
+  if (await isBlockedPair(member.id, otherId)) {
+    return Response.json({ error: "This conversation isn't available." }, { status: 403 });
+  }
+  if (!(await hasMutualLike(member.id, otherId))) {
+    return Response.json({ error: "You can start a conversation after you both like each other." }, { status: 409 });
+  }
 
   /* Their privacy rule: who may start conversations with them. Enforced
      here AND on every message send — truthful, never bypassed. */

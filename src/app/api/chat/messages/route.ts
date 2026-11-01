@@ -6,6 +6,7 @@ import { scoreScamMessage } from "@/lib/scam-guard";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isBlockedPair } from "@/lib/conversation-access";
 
 async function ownsMatch(
   matchId: string,
@@ -172,8 +173,12 @@ export async function POST(request: Request) {
     return Response.json({ error: severedMessage(sent.row.status as MatchLifecycleStatus) }, { status: 403 });
   const match = sent;
 
-  /* Privacy rules keep applying inside an open conversation too. */
   const otherId = match.userA === member.id ? match.userB : match.userA;
+  if (await isBlockedPair(member.id, otherId)) {
+    return Response.json({ error: "This conversation isn't available." }, { status: 403 });
+  }
+
+  /* Privacy rules keep applying inside an open conversation too. */
   const [other] = await db
     .select({
       displayName: userProfiles.displayName,

@@ -10,8 +10,17 @@ export function getBaseUrl() {
 }
 
 export function safeNextPath(input: string | null | undefined, fallback = "/onboarding") {
-  if (!input) {
+  if (!input) return fallback;
+  // Same-origin relative paths only. Reject scheme-relative URLs, backslashes,
+  // control characters, and anything a browser could treat as a different origin.
+  if (!input.startsWith("/") || input.startsWith("//") || input.includes("\\") || /[\u0000-\u001f\u007f]/.test(input)) {
     return fallback;
   }
-  return input.startsWith("/") ? input : fallback;
+  try {
+    const url = new URL(input, "https://freeborn.invalid");
+    if (url.origin !== "https://freeborn.invalid") return fallback;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return fallback;
+  }
 }

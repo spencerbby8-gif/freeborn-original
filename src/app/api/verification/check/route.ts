@@ -14,6 +14,7 @@ import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
 import { consumeLivenessChallenge, freshnessTag } from "@/lib/liveness-challenge";
 import { consumePoseChallenge, poseTag, type PoseOutcome } from "@/lib/pose-challenge";
+import { fetchImageAsDataUrl, profilePhotoRef, profilePhotoUrl } from "@/lib/safe-image-fetch";
 
 /* afterVerificationSuccess — post-approval identity bookkeeping.
    Writes the member's photo-set anchor, checks whether another account holds the same
@@ -219,6 +220,21 @@ function parseVerdict<T>(text: string | null): T | null {
   }
 }
 
+
+function parsePoseVerdict(text: string | null): PoseVerdict | null {
+  const v = parseVerdict<PoseVerdict>(text);
+  if (!v || v.faceCount !== 1 || v.lightingOk !== true || typeof v.matchesAsked !== "boolean") return null;
+  return v;
+}
+
+function parseReverifyVerdict(text: string | null): ReverifyVerdict | null {
+  const v = parseVerdict<ReverifyVerdict>(text);
+  if (!v || typeof v.livePerson !== "boolean" || typeof v.gestureOk !== "boolean") return null;
+  if (!["yes", "no", "unclear"].includes(v.samePerson ?? "")) return null;
+  if (!["high", "medium", "low"].includes(v.confidence ?? "")) return null;
+  return v;
+}
+
 type PoseVerdict = {
   faceCount?: number;
   observedPose?: string;
@@ -245,22 +261,12 @@ async function collectProfilePhotos(memberId: string, origin: string): Promise<s
 
   const out: string[] = [];
   for (const row of rows) {
-    const path = row.storagePath;
-    const url = /^https?:\/\//.test(path)
-      ? path
-      : path.startsWith("/")
-        ? `${origin}${path}`
-        : `${(process.env.SUPABASE_URL ?? "").replace(/\/$/, "")}/storage/v1/object/public/profile-photos/${path}`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > 4 * 1024 * 1024) continue;
-      const mime = res.headers.get("content-type") ?? "image/jpeg";
-      out.push(`data:${mime};base64,${buf.toString("base64")}`);
-    } catch {
-      /* skip unreachable photo */
-    }
+    const ref = profilePhotoRef(row.storagePath);
+    if (!ref) continue;
+    const url = profilePhotoUrl(ref, origin);
+    if (!url) continue;
+    const dataUrl = await fetchImageAsDataUrl(url, 4 * 1024 * 1024);
+    if (dataUrl) out.push(dataUrl);
   }
   return out;
 }
@@ -448,7 +454,7 @@ export async function POST(request: Request) {
     { type: "image_url", image_url: { url: selfie } },
   ]);
   const poseText = stage1.text;
-  const pose = parseVerdict<PoseVerdict>(poseText);
+  const pose = parsePoseVerdict(poseText);
 
   if (pose == null) {
     /* An unavailable engine parks the attempt instead of refusing the member, and it says so.
@@ -599,7 +605,7 @@ export async function POST(request: Request) {
   const reviewExtras = engineReason ? { engineReason } : {};
 
   if (lm7.ok) {
-    const verdict = parseVerdict<ReverifyVerdict>(lm7.text);
+    const verdict = parseReverifyVerdict(lm7.text);
     if (verdict) {
       const record = (status: string, reason: string, methodSuffix = "") =>
         db.insert(verificationRequests).values({
@@ -725,14 +731,10 @@ export async function POST(request: Request) {
   /* A single-engine pass with no fresh challenge is exactly the shape a scripted client
      produces (pre-computed selfie, blink:true, no token), so it does not self-serve a
      badge any more. It is still recorded and routed to a person, never discarded. */
-  const sameEnough =
-    /* `pose.matchesAsked` is the ENGINE judging the pose; `poseProven` is the SERVER
-       confirming this is the pose it issued, to this member, once. Both are required, so
-       a client that supplies its own favourable prompt can no longer self-serve a badge
-       off a single engine. Freshness is required unconditionally, exactly as in the
-       two-engine path: the legacy hatch covers pose provenance and nothing else, so one
-       control has one meaning whichever engine chain ran. */
-    pose.matchesAsked === true && freshnessProven && poseProven;
+  /* FB-04: stage 1 never compares the selfie to the profile photos. If the
+     identity-comparison engine cannot run, the attempt is held for human review;
+     pose/freshness alone can no longer grant a badge. */
+  const sameEnough = false;
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
