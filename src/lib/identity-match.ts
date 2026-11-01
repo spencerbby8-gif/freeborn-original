@@ -38,6 +38,7 @@ import {
   verificationRequests,
 } from "@/db/schema";
 import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
+import { fetchImageAsDataUrl, profilePhotoRef, profilePhotoUrl } from "@/lib/safe-image-fetch";
 
 const A_BASE = (process.env.ANTIGRAVITY_BASE_URL ?? "").replace(/\/$/, "");
 const A_KEY = process.env.ANTIGRAVITY_FREE_API_KEY ?? "";
@@ -214,21 +215,11 @@ async function photoRowToDataUrl(storagePath: string, origin: string): Promise<s
     if (!row) return null;
     return `data:${row.mime};base64,${Buffer.from(row.data).toString("base64")}`;
   }
-  const url = /^https?:\/\//.test(storagePath)
-    ? storagePath
-    : storagePath.startsWith("/")
-      ? `${origin}${storagePath}`
-      : `${(process.env.SUPABASE_URL ?? "").replace(/\/$/, "")}/storage/v1/object/public/profile-photos/${storagePath}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > 6 * 1024 * 1024) return null;
-    const mime = res.headers.get("content-type") ?? "image/jpeg";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
+  const ref = profilePhotoRef(storagePath);
+  if (!ref) return null;
+  const url = profilePhotoUrl(ref, origin);
+  if (!url) return null;
+  return fetchImageAsDataUrl(url, 6 * 1024 * 1024);
 }
 
 async function collectBaselines(memberId: string, origin: string): Promise<string[]> {

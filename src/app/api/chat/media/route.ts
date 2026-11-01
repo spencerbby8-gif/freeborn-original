@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { chatMedia, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isBlockedPair } from "@/lib/conversation-access";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "match is required." }, { status: 400 });
   }
   const [match] = await db
-    .select({ id: matches.id })
+    .select({ id: matches.id, userA: matches.userA, userB: matches.userB })
     .from(matches)
     .where(
       and(
@@ -88,6 +89,10 @@ export async function POST(request: Request) {
     .limit(1);
   if (!match) {
     return Response.json({ error: "Match not found." }, { status: 404 });
+  }
+  const otherId = match.userA === member.id ? match.userB : match.userA;
+  if (await isBlockedPair(member.id, otherId)) {
+    return Response.json({ error: "This conversation isn't available." }, { status: 403 });
   }
 
   const mime = (file.type || "").split(";")[0];

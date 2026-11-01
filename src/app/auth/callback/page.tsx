@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { safeNextPath } from "@/lib/auth/url";
 import { Wordmark } from "@/components/wordmark";
 
 /**
@@ -22,7 +23,7 @@ export default function CallbackPage() {
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
-      const next = params.get("next") || "/onboarding";
+      const next = safeNextPath(params.get("next"));
 
       // Google / Supabase bounce back with ?error=… when something blocked
       // the flow (cancelled popup, unregistered redirect URL, denied scope).

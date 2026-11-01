@@ -19,7 +19,7 @@ export async function createSupabaseServerClient() {
 
   return createServerClient(url, anonKey, {
     cookieOptions: {
-      sameSite: "none",
+      sameSite: process.env.FREEBORN_ALLOW_CROSS_SITE_COOKIES === "1" ? "none" : "lax",
       secure: true,
       path: "/",
     },

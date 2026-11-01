@@ -547,8 +547,9 @@ ok("replay, expiry and absence are distinct states rather than one boolean",
    poseProven) instead of each spelling the condition inline, so the pin follows the name and
    ALSO pins the definition — otherwise renaming a variable would silently un-pin the rule.
    The guarantee is unchanged: no badge without a token we issued, consumed once, minutes ago. */
-ok("the badge from the single-engine path now requires a verified freshness token",
-  verifSrc.includes("pose.matchesAsked === true && freshnessProven && poseProven") &&
+ok("the single-engine path fails closed to human review (FB-04)",
+  verifSrc.includes("const sameEnough = false;") &&
+    verifSrc.includes("pose/freshness alone can no longer grant a badge") &&
     verifSrc.includes('const freshnessProven = freshness.state === "verified";'));
 ok("freshness is consumed BEFORE any engine call (no budget burn on a replay)",
   verifSrc.indexOf("consumeLivenessChallenge") <
@@ -704,11 +705,9 @@ ok("[13] client-fallback text is neutralised before prompting",
    /poseLabel\.replace\(\/\['"\\`\\n\\r\]\/g, " "\)/.test(verifSrc));
 ok("[13] pose is consumed with the member + token it was issued to",
    /consumePoseChallenge\(\s*member\.id,\s*typeof bodyLivenessToken[^)]*\)\s*\.catch/.test(verifSrc));
-ok("[13] single-engine badge needs the SERVER pose, not just the engine's yes",
-   /* `poseProven` reduces to `poseServed` unless the operator opens the bounded hatch, so the
-      definition is pinned alongside the use: renaming or widening it fails HERE, not silently. */
-   /pose\.matchesAsked === true && freshnessProven && poseProven/.test(verifSrc) &&
-     /const poseProven = poseMode === "legacy" \? true : poseServed;/.test(verifSrc));
+ok("[13] single-engine path cannot grant a badge without identity comparison (FB-04)",
+   /const sameEnough = false;/.test(verifSrc) &&
+     /held for human review/.test(verifSrc));
 ok("[13] poseServed is derived from the challenge state only",
    /const poseServed = poseChallenge\.state === "verified";/.test(verifSrc));
 ok("[13] every request row records which pose path decided it",
@@ -1144,8 +1143,9 @@ ok("[13] only the live CHECK's three states are ever written",
   ok("[14] the operator's escape hatch is one env var and defaults to enforcing",
     /process\.env\.FREEBORN_POSE_ENFORCEMENT === "legacy"/.test(verifSrc) &&
       /: "review";/.test(verifSrc));
-  ok("[14] the single-engine path is held to the same two proofs",
-    /pose\.matchesAsked === true && freshnessProven && poseProven;/.test(verifSrc));
+  ok("[14] the single-engine path is held for review, never approved on pose alone (FB-04)",
+    /const sameEnough = false;/.test(verifSrc) &&
+      /pose\/freshness alone can no longer grant a badge/.test(verifSrc));
   ok("[14] a configured-but-refused second engine is reported, not hidden as 'single'",
     /\+lm7:\$\{lm7\.reason/.test(verifSrc) && /engineReason/.test(verifSrc));
   ok("[14] stage 2 is asked about the SERVER's pose, never the client's string",
@@ -2357,6 +2357,61 @@ console.log("\n[24] design system — the shared control contract, the migration
   ok("[24] settings-view is below its own recorded baseline",
     rawIn("src/components/app/settings-view.tsx") <= 19,
     `count=${rawIn("src/components/app/settings-view.tsx")} baseline=24 ceiling=19`);
+}
+
+/* [25] P0 security regressions — FB-01/02/03/04/08/17/20. */
+{
+  const { profilePhotoRef, profilePhotoUrl, fetchImageAsDataUrl } = await import("@/lib/safe-image-fetch");
+  const { safeNextPath } = await import("@/lib/auth/url");
+  ok("[25] profile photo refs reject arbitrary URLs and traversal (FB-03)",
+    profilePhotoRef("http://127.0.0.1:9/x") === null &&
+    profilePhotoRef("https://example.com/x.jpg") === null &&
+    profilePhotoRef("//example.com/x.jpg") === null &&
+    profilePhotoRef("file:///etc/passwd") === null &&
+    profilePhotoRef("../secret") === null &&
+    profilePhotoRef("a/../../b") === null);
+  ok("[25] bucket-relative and published chat-media refs are the only accepted shapes (FB-03)",
+    profilePhotoRef("u/abc/photo.jpg")?.kind === "storage" &&
+    profilePhotoRef("/api/chat/media/00000000-0000-4000-8000-000000000000")?.kind === "chat-media" &&
+    profilePhotoRef("/api/health") === null);
+  ok("[25] chat-media photo fetches stay on the configured app origin (FB-03)",
+    profilePhotoUrl({ kind: "chat-media", path: "/api/chat/media/00000000-0000-4000-8000-000000000000" }, "https://freeborn.test")?.startsWith("https://freeborn.test/") === true);
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () => new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } })) as typeof fetch;
+    ok("[25] image fetch enforces the byte cap while streaming (FB-03)",
+      (await fetchImageAsDataUrl("https://example.test/a.jpg", 2)) === null);
+    globalThis.fetch = (async () => new Response(new Uint8Array([1, 2]), { headers: { "content-type": "image/jpeg" } })) as typeof fetch;
+    ok("[25] a bounded image fetch still succeeds",
+      (await fetchImageAsDataUrl("https://example.test/a.jpg", 2)) === "data:image/jpeg;base64,AQI=");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  ok("[25] safeNextPath rejects scheme-relative and backslash redirects (FB-08)",
+    safeNextPath("//evil.example") === "/onboarding" &&
+    safeNextPath("/\\evil.example") === "/onboarding" &&
+    safeNextPath("https://evil.example") === "/onboarding" &&
+    safeNextPath("/settings?tab=privacy") === "/settings?tab=privacy");
+  const startSrc = readFileSync(new URL("../../src/app/api/chat/start/route.ts", import.meta.url), "utf8");
+  const msgSrc = readFileSync(new URL("../../src/app/api/chat/messages/route.ts", import.meta.url), "utf8");
+  const mediaSrc = readFileSync(new URL("../../src/app/api/chat/media/route.ts", import.meta.url), "utf8");
+  ok("[25] conversation start requires mutual likes and checks blocks (FB-02)",
+    startSrc.includes("hasMutualLike(member.id, otherId)") &&
+    startSrc.includes("isBlockedPair(member.id, otherId)") &&
+    startSrc.indexOf("hasMutualLike") < startSrc.indexOf(".insert(matches)"));
+  ok("[25] message and media sends check blocks before writing (FB-02)",
+    msgSrc.includes("isBlockedPair(member.id, otherId)") &&
+    mediaSrc.includes("isBlockedPair(member.id, otherId)"));
+  const migration = readFileSync(new URL("../../supabase/migrations/20261101202155_p0_security_core_20261101.sql", import.meta.url), "utf8");
+  ok("[25] migration adds the age and photo-path backstops (FB-05/FB-03)",
+    migration.includes("user_profiles_min_age_check") && migration.includes("profile_photos_storage_path_safe"));
+  ok("[25] migration removes broad profile reads and guards privileged writes (FB-01)",
+    migration.includes('drop policy if exists "Discoverable profiles are visible"') &&
+    migration.includes("enforce_user_profiles_member_writes") &&
+    migration.includes("revoke update on public.user_profiles from authenticated"));
+  const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { engines?: { node?: string } };
+  ok("[25] the repository pins the production Node major (FB-20)",
+    typeof pkg.engines?.node === "string" && pkg.engines.node.includes("24"));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
