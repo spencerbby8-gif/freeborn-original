@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     .limit(1);
 
   const signIns = await db.execute<{ n: number }>(
-    sql`select count(*)::int as n from auth.refresh_tokens where user_id = ${user.id}::uuid and revoked is not true`
+    sql`select public.fb14_active_signins(${user.id}::uuid) as n`
   );
 
   return Response.json({

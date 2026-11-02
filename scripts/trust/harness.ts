@@ -2048,12 +2048,24 @@ console.log("\n[21] the erasure path covers what the schema cannot cascade");
     "public.verification_audit_logs","public.verification_rate_limits","public.user_private_settings",
     "public.user_private_locations","public.discovery_preferences","public.notification_preferences",
     "public.user_trust_history","public.support_requests","public.event_interests","public.sessions",
-    "public.accounts","public.user_profiles","auth.users","auth.identities","auth.refresh_tokens",
+    "public.accounts","public.user_profiles",
     "public.moderation_actions","public.call_sessions"];
   const absent = REQUIRED.filter((t) => !set.has(t));
   ok("[21] every table the 2026-10-30 FK audit named is in the delete list", absent.length === 0, absent.join(","));
-  ok("[21] and the auth rows go LAST, so a failed child delete cannot orphan an auth account",
-    deletes.indexOf("auth.users") === deletes.length - 1 && deletes.indexOf("public.user_profiles") < deletes.indexOf("auth.users"));
+  const authBridge = readFileSync(new URL("../../supabase/migrations/20261102080000_fb14_auth_erasure_bridge.sql", import.meta.url), "utf8");
+  ok("[21] auth erasure goes LAST through a pinned service-role-only DEFINER bridge, not direct app-role auth grants",
+    erasure.includes("select public.fb14_delete_auth_rows(${id}::uuid)") &&
+    erasure.indexOf("delete from public.accounts") < erasure.indexOf("fb14_delete_auth_rows") &&
+    authBridge.includes("delete from auth.refresh_tokens") &&
+    authBridge.includes("delete from auth.identities") &&
+    authBridge.includes("delete from auth.users") &&
+    authBridge.indexOf("delete from auth.refresh_tokens") < authBridge.indexOf("delete from auth.users") &&
+    authBridge.includes("security definer") && authBridge.includes("set search_path = public, pg_temp") &&
+    authBridge.includes("grant execute on function public.fb14_delete_auth_rows(uuid) to service_role") &&
+    !/grant execute on function public\.fb14_delete_auth_rows[^;]+to (anon|authenticated)/i.test(authBridge));
+  ok("[21] active sign-in counts use the same least-privilege auth bridge",
+    acct.includes("select public.fb14_active_signins(${user.id}::uuid) as n") &&
+    authBridge.includes("grant execute on function public.fb14_active_signins(uuid) to service_role"));
   ok("[21] deletion and the durable storage outbox share one transaction, with the outbox written before member rows disappear",
     erasure.includes("db.transaction") && erasure.includes("pg_advisory_xact_lock") &&
     erasure.indexOf("insert(storageCleanupJobs)") < erasure.indexOf("delete from public.profile_photos"));

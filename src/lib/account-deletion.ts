@@ -142,9 +142,9 @@ export async function requestAccountDeletion(accountId: string, email: string): 
     await del(sql`delete from public.matches where user_a = ${id} or user_b = ${id}`);
     await del(sql`delete from public.user_profiles where id = ${id}`);
     await del(sql`delete from public.accounts where id = ${id}`);
-    await del(sql`delete from auth.refresh_tokens where user_id = ${id}::uuid`);
-    await del(sql`delete from auth.identities where user_id = ${id}::uuid`);
-    await del(sql`delete from auth.users where id = ${id}::uuid`);
+    // Auth-schema erasure goes through a pinned, service-role-only DEFINER
+    // bridge so the app role never needs direct auth table grants.
+    await del(sql`select public.fb14_delete_auth_rows(${id}::uuid)`);
 
     await tx
       .update(accountDeletionRequests)

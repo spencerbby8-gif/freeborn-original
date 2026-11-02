@@ -5,10 +5,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const r = await db.execute<{ db_role: string; session_role: string }>(
-      sql`select current_user as db_role, session_user as session_role`
-    );
-    return Response.json({ ok: true, dbRole: r.rows[0]?.db_role, sessionRole: r.rows[0]?.session_role });
+    await db.execute(sql`select 1`);
+    return Response.json({ ok: true });
   } catch {
     return Response.json({ ok: false }, { status: 500 });
   }

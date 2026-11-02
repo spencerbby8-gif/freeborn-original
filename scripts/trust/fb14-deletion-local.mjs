@@ -38,6 +38,8 @@ try {
   end $$;`);
   const migration = await readFile(new URL("../../supabase/migrations/20261102040000_fb14_durable_account_deletion.sql", import.meta.url), "utf8");
   await client.query(migration);
+  const authBridge = await readFile(new URL("../../supabase/migrations/20261102080000_fb14_auth_erasure_bridge.sql", import.meta.url), "utf8");
+  await client.query(authBridge);
 
   const id = "11111111-1111-4111-8111-111111111111";
   const other = "22222222-2222-4222-8222-222222222222";
