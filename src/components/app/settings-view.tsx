@@ -662,6 +662,7 @@ function DeleteAccount() {
         },
         body: JSON.stringify({ action: "delete" }),
       });
+      const json = await res.json().catch(() => ({}));
       if (res.ok) {
         try {
           const supabase = createSupabaseBrowserClient();
@@ -669,10 +670,15 @@ function DeleteAccount() {
         } catch {
           /* the auth row is already gone */
         }
-        window.location.href = "/?status=account-deleted";
+        if (json.completed === true) {
+          window.location.href = "/?status=account-deleted";
+        } else if (typeof json.deletionToken === "string" && json.deletionToken.length > 0) {
+          window.location.href = `/?status=account-deletion-pending#deletion=${encodeURIComponent(json.deletionToken)}`;
+        } else {
+          window.location.href = "/?status=account-deletion-pending";
+        }
         return;
       }
-      const json = await res.json().catch(() => ({}));
       showToast({ tone: "error", title: "Couldn't delete the account", body: json.error ?? "Try again." });
     } catch {
       showToast({ tone: "error", title: "Couldn't delete the account", body: "Check your connection." });

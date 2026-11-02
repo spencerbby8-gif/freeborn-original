@@ -12,6 +12,8 @@ export default defineConfig([
     // not app source. Linting it reports react-hooks errors inside React DOM itself.
     "public/qa/**",
     "scripts/qa/.shots/**",
+    // Supabase Edge Functions run on Deno, not the Next.js/Node toolchain.
+    "supabase/functions/**",
   ]),
   {
     rules: {

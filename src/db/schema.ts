@@ -1229,3 +1229,59 @@ export const callSessions = pgTable(
     check("call_sessions_ended_has_time", sql`${t.status} <> 'ended' or ${t.endedAt} is not null`),
   ]
 );
+
+/**
+ * DURABLE ACCOUNT DELETION — FB-14.
+ * The member row is deleted transactionally, but the request/outbox survives so
+ * storage cleanup remains observable and retryable. No client role can read these
+ * tables; a random status token exposes only the minimal completion state.
+ */
+export const accountDeletionRequests = pgTable(
+  "account_deletion_requests",
+  {
+    accountId: uuid("account_id").primaryKey(),
+    statusToken: uuid("status_token").notNull().defaultRandom().unique(),
+    status: text("status").notNull().default("cleanup_pending"),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    relationalDeletedAt: timestamp("relational_deleted_at", { withTimezone: true }),
+    storageCompletedAt: timestamp("storage_completed_at", { withTimezone: true }),
+    lastError: text("last_error"),
+  },
+  (t) => [
+    index("account_deletion_requests_status_idx").on(t.status, t.requestedAt),
+    check("account_deletion_requests_status_check", sql`${t.status} in ('cleanup_pending','completed','cleanup_failed')`),
+    check("account_deletion_requests_completed_has_time", sql`${t.status} <> 'completed' or ${t.storageCompletedAt} is not null`),
+  ]
+);
+
+export const storageCleanupJobs = pgTable(
+  "storage_cleanup_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    deletionAccountId: uuid("deletion_account_id").notNull().references(() => accountDeletionRequests.accountId, { onDelete: "cascade" }),
+    bucket: text("bucket").notNull(),
+    ownerPrefix: text("owner_prefix").notNull(),
+    objectPaths: text("object_paths").array().notNull().default(sql`'{}'::text[]`),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(8),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("storage_cleanup_jobs_due_idx").on(t.status, t.nextAttemptAt, t.leaseExpiresAt, t.createdAt),
+    unique("storage_cleanup_jobs_one_bucket_per_account").on(t.deletionAccountId, t.bucket),
+    check("storage_cleanup_jobs_bucket_check", sql`${t.bucket} in ('profile-photos','verification-selfies')`),
+    check("storage_cleanup_jobs_owner_prefix", sql`${t.ownerPrefix} = ${t.deletionAccountId}::text || '/'`),
+    check("storage_cleanup_jobs_status_check", sql`${t.status} in ('pending','processing','completed','failed')`),
+    check("storage_cleanup_jobs_attempts_check", sql`${t.attempts} >= 0`),
+    check("storage_cleanup_jobs_max_attempts_check", sql`${t.maxAttempts} between 1 and 20`),
+    check("storage_cleanup_jobs_processing_has_lease", sql`${t.status} <> 'processing' or (${t.leaseToken} is not null and ${t.leaseExpiresAt} is not null)`),
+    check("storage_cleanup_jobs_completed_has_time", sql`${t.status} <> 'completed' or ${t.completedAt} is not null`),
+  ]
+);
