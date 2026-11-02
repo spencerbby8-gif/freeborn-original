@@ -192,8 +192,9 @@ function envFor(mode, gatewayUrl) {
     ANTIGRAVITY_BASE_URL: gatewayUrl,
     ANTIGRAVITY_FREE_API_KEY: "e2e-stage1-key",
     /* No Supabase project is reachable from here and none is needed: the token resolver is the one
-       stubbed module, and getMember never calls out. */
-    SUPABASE_URL: "",
+       stubbed module, and getMember never calls out. SUPABASE_URL points at the local gateway
+       double solely so profilePhotoUrl can fetch the seeded bucket-relative profile photo. */
+    SUPABASE_URL: gatewayUrl,
     SUPABASE_ANON_KEY: "",
     FREEBORN_HUMAN_CHALLENGE: process.env.FREEBORN_HUMAN_CHALLENGE ?? "off",
   };
