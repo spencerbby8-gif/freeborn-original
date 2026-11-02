@@ -432,7 +432,7 @@ export default function PrivacyPage() {
           rows={[
             ["Account and profile", "Until you delete your account", "It is your profile; it exists while you want it to."],
             ["Approved verification selfie", "Life of the account", "Required to re-check your identity when you change photographs."],
-            ["Rejected or expired verification selfie", "30 days after the decision, then deleted", "The verdict and reason are what matter for appeals; the face is not."],
+            ["Rejected or superseded verification selfie", "Not retained; released by automated cleanup once the decision or replacement is recorded", "The verdict and reason are what matter for appeals; the face is not. Pending reviews are held until decided or replaced, not expired by age."],
             ["Messages and chat media", "Until you unmatch or delete your account", "Unmatching removes the conversation for both members."],
             ["Location fix", "Overwritten by the next fix; not a history", "We keep where you are, not where you have been. There is no location trail."],
             ["Reports, appeals, warnings, suspensions", "Life of the account", "Needed to act on patterns rather than single accusations."],
