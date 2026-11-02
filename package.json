@@ -10,6 +10,8 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "test:harness": "esbuild scripts/trust/harness.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.harness.build.mjs --packages=external && node scripts/trust/.harness.build.mjs",
     "test:deletion-local": "node scripts/trust/fb14-deletion-local.mjs",
+    "test:retention-local": "node scripts/trust/fb15-retention-local.mjs",
+    "test:retention-worker": "npx --yes deno@2 test --allow-env supabase/functions/fb15-selfie-retention/worker.test.ts",
     "test:pose": "node scripts/trust/pose-run.mjs",
     "test:pose:negctl": "bash scripts/trust/pose-negctl.sh",
     "test:security": "npm run test:harness && npm run test:pose"

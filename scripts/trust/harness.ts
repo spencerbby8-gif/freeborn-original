@@ -2538,6 +2538,77 @@ console.log("\n[27] account deletion is durable, owned-path scoped, and never fa
     notice.includes("json.status === \"completed\"") && notice.includes("File cleanup is still in progress"));
 }
 
+/* [28] FB-15 — verification-selfie lifecycle retention (clause 7), metadata-only audit,
+   pinned functions, consent withdrawal, and honest scheduling. Behavioural proof lives in
+   scripts/trust/fb15-retention-local.mjs and supabase/functions/fb15-selfie-retention/worker.test.ts. */
+{
+  const mig = readFileSync(new URL("../../supabase/migrations/20261102090000_fb15_selfie_retention.sql", import.meta.url), "utf8");
+  const sched = readFileSync(new URL("../../supabase/migrations/20261102090100_fb15_retention_scheduling.sql", import.meta.url), "utf8");
+  const worker = readFileSync(new URL("../../supabase/functions/fb15-selfie-retention/worker.ts", import.meta.url), "utf8");
+  const entry = readFileSync(new URL("../../supabase/functions/fb15-selfie-retention/index.ts", import.meta.url), "utf8");
+  const vRoute = readFileSync(new URL("../../src/app/api/verification/route.ts", import.meta.url), "utf8");
+  const cRoute = readFileSync(new URL("../../src/app/api/verification/check/route.ts", import.meta.url), "utf8");
+  const consent = readFileSync(new URL("../../src/app/api/verification/consent/route.ts", import.meta.url), "utf8");
+  const settingsSrc = readFileSync(new URL("../../src/components/app/settings-view.tsx", import.meta.url), "utf8");
+  const onboarding = readFileSync(new URL("../../src/lib/onboarding-store.ts", import.meta.url), "utf8");
+  const privacy = readFileSync(new URL("../../src/app/privacy/page.tsx", import.meta.url), "utf8");
+  const pkg = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
+  const config = readFileSync(new URL("../../supabase/config.toml", import.meta.url), "utf8");
+
+  const fnCount = (mig.match(/create or replace function public\.fb15_/g) ?? []).length;
+  const pinnedCount = (mig.match(/set search_path = public, pg_temp/g) ?? []).length;
+  ok("[28] every FB-15 migration function pins search_path", fnCount > 0 && fnCount === pinnedCount, `${fnCount} vs ${pinnedCount}`);
+  ok("[28] FB-15 queue/audit are RLS-forced and service-role only",
+    mig.includes("enable row level security") && mig.includes("force row level security") &&
+    mig.includes("revoke all on public.verification_selfie_retention_jobs from public, anon, authenticated") &&
+    mig.includes("revoke all on public.verification_selfie_retention_audit from public, anon, authenticated"));
+  ok("[28] no FB-15 function is granted to anon/authenticated",
+    !/grant execute on function public\.fb15_[^;]+to (anon|authenticated)/i.test(mig) &&
+    !/grant execute on function public\.fb15_[^;]+to (anon|authenticated)/i.test(sched));
+  const auditDef = mig.slice(mig.indexOf("create table if not exists public.verification_selfie_retention_audit"), mig.indexOf("create index if not exists vsra_job_idx"));
+  ok("[28] audit table has no image, path, URL or account-id column (metadata only)",
+    !/selfie_media|storage_path|data_url|payload|account_id|raw_error|message/i.test(auditDef));
+  ok("[28] queue rejects paths the account does not own (vsrj_path_owned)",
+    mig.includes("vsrj_path_owned") && mig.includes("public.fb15_owned_selfie_path(account_id, storage_path)"));
+  ok("[28] pending reviews are held with no age-based expiry (only approved/pending/withdrawn rules exist)",
+    mig.includes("'pending_review'") && mig.includes("'approved_reference'") && !/interval '\d+ (day|hour)/i.test(mig.slice(mig.indexOf("fb15_job_hold_reason"), mig.indexOf("fb15_audit"))));
+  ok("[28] scanner never lists work behind completed rows (anti-join before LIMIT)",
+    mig.indexOf("not exists (select 1 from public.verification_selfie_retention_jobs j where j.asset_key = c.asset_key)") < mig.indexOf("limit greatest(1, least(coalesce(p_limit, 100), 500))"));
+  ok("[28] held work is never leased (claim excludes status held)",
+    mig.includes("status = 'held'") && mig.includes("j.status = 'pending' and j.next_attempt_at <= now()"));
+  ok("[28] worker never logs paths or image data (logs job id + fixed code only)",
+    !/console\.\w+\([^)]*(path|storagePath|selfie|base64)/i.test(worker + entry) && !worker.includes("console.log"));
+  ok("[28] worker removes only the captured object id and never a newer object at a reused path",
+    worker.includes("targetPresent") && worker.includes("current.id === job.storage_object_id") && worker.includes("entry.id !== expectedObjectId"));
+  ok("[28] worker checks the cron secret through Vault-backed SQL and uses the injected server credential",
+    entry.includes("fb15_verify_cron_secret") && worker.includes("SUPABASE_SERVICE_ROLE_KEY") && worker.includes("SUPABASE_SECRET_KEYS") &&
+    !entry.includes("console.log") && !worker.includes("console.log"));
+  ok("[28] scheduling uses pg_cron/pg_net/Vault with a dedicated secret, not the service-role key",
+    sched.includes("cron.schedule") && sched.includes("net.http_post") && sched.includes("vault.create_secret") &&
+    sched.includes("fb15_retention_secret") && !sched.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  ok("[28] FB-15 worker function is deployed with verify_jwt=false (cron-secret gated)",
+    config.includes("[functions.fb15-selfie-retention]") && config.includes("verify_jwt = false"));
+  ok("[28] verification routes release superseded selfies through the durable queue before a new attempt",
+    vRoute.includes("select public.fb15_supersede_pending_requests(${member.id}::uuid)") &&
+    cRoute.includes("select public.fb15_supersede_pending_requests(${member.id}::uuid)") &&
+    vRoute.indexOf("fb15_supersede_pending_requests") < vRoute.indexOf("db.insert(verificationRequests)") &&
+    cRoute.indexOf("fb15_supersede_pending_requests") < cRoute.indexOf("db.insert(verificationRequests)"));
+  ok("[28] routes no longer null selfies with a bare update that bypasses the queue",
+    !vRoute.includes(".set({ selfieMedia: null })") && !cRoute.includes(".set({ selfieMedia: null })"));
+  ok("[28] onboarding uploads use unique, non-overwriting selfie paths",
+    onboarding.includes("selfie-${randomUUID()}.jpg") && onboarding.includes("upsert: false") && !onboarding.includes("selfie-${Date.now()}"));
+  ok("[28] consent withdrawal: authenticated, same-origin, calls the queue function",
+    consent.includes("getMember(request)") && consent.includes("rejectCrossOrigin(request)") &&
+    consent.includes("select public.fb15_withdraw_selfies(${member.id}::uuid)") && consent.includes("action !== \"withdraw\""));
+  ok("[28] settings offers withdraw in the verified identity row and reports queued cleanup honestly",
+    settingsSrc.includes("/api/verification/consent") && settingsSrc.includes("Withdraw") && settingsSrc.includes("Selfie cleanup is in progress"));
+  ok("[28] privacy clause 10 no longer contains the conflicting 30-day pending sentence",
+    !/30[- ]day/i.test(privacy.slice(privacy.indexOf("Rejected or superseded verification selfie") - 400, privacy.indexOf("Rejected or superseded verification selfie") + 400)) &&
+    privacy.includes("Pending reviews are held until decided or replaced, not expired by age."));
+  ok("[28] FB-15 local regression and worker tests are wired into package.json",
+    pkg.includes("\"test:retention-local\"") && pkg.includes("fb15-retention-local.mjs") && pkg.includes("\"test:retention-worker\""));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

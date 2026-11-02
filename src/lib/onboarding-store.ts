@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -459,12 +460,12 @@ export async function applyStepPatch(
       const match = /^data:image\/(jpeg|jpg|png);base64,(.+)$/.exec(patch.verification.selfie);
       let path = `selfie-${userId}-${Date.now()}`;
       if (match) {
-        const uploadPath = `${userId}/selfie-${Date.now()}.jpg`;
+        const uploadPath = `${userId}/selfie-${randomUUID()}.jpg`;
         const { error } = await supabase.storage
           .from("verification-selfies")
           .upload(uploadPath, new Uint8Array(Buffer.from(match[2], "base64")), {
             contentType: "image/jpeg",
-            upsert: true,
+            upsert: false,
           });
         if (!error) path = uploadPath;
       }
