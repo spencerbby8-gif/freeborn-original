@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { profilePhotos, securityEvents, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -410,15 +410,7 @@ export async function POST(request: Request) {
      Without this statement each retry added another stored face, which is how
      eight requests came to hold 707 kB of selfies with no purge anywhere in the
      codebase. The verdicts and reasons on those rows are left untouched. */
-  await db
-    .update(verificationRequests)
-    .set({ selfieMedia: null })
-    .where(
-      and(
-        eq(verificationRequests.accountId, member.id),
-        eq(verificationRequests.status, "pending")
-      )
-    );
+  await db.execute(sql`select public.fb15_supersede_pending_requests(${member.id}::uuid)`);
 
   /** Never answer before the thorough window has passed. */
   const holdUntilDone = async () => {

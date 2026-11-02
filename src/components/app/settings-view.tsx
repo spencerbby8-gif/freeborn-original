@@ -772,6 +772,7 @@ export function SettingsView() {
   const [emailNew, setEmailNew] = useState("");
   const [accountMsg, setAccountMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
   const accountAction = async (payload: Record<string, unknown>) => {
@@ -1004,6 +1005,40 @@ export function SettingsView() {
                 Your selfie check passed. Your profile is confirmed as the real you.
               </p>
             </div>
+            <Button
+              variant="quiet"
+              size="sm"
+              loading={withdrawBusy}
+              loadingLabel="Withdrawing verification"
+              onClick={() => {
+                if (!window.confirm("Withdraw verification? This removes your seal and deletes stored verification selfies.")) return;
+                setWithdrawBusy(true);
+                void (async () => {
+                  try {
+                    const token = await getAccessToken().catch(() => null);
+                    const res = await fetch("/api/verification/consent", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify({ action: "withdraw" }),
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                      showToast({ tone: "error", title: "Couldn't withdraw verification", body: json.error ?? "Try again." });
+                      return;
+                    }
+                    setSettings((prev) => prev ? { ...prev, profile: { ...prev.profile, isVerified: false } } : prev);
+                    showToast({ tone: "success", title: "Verification withdrawn", body: json.message ?? "Selfie cleanup is in progress." });
+                  } catch {
+                    showToast({ tone: "error", title: "Couldn't withdraw verification", body: "Check your connection." });
+                  } finally {
+                    setWithdrawBusy(false);
+                  }
+                })();
+              }}
+              className="shrink-0"
+            >
+              Withdraw
+            </Button>
           </>
         ) : (
           <>

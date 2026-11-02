@@ -3,3 +3,7 @@
 # claiming any job. Keep JWT verification off for this service-to-service route.
 [functions.fb14-storage-cleanup]
 verify_jwt = false
+
+# FB-15: same service-to-service pattern, separate Vault-backed caller secret.
+[functions.fb15-selfie-retention]
+verify_jwt = false

@@ -51,6 +51,9 @@ jobs:
       - name: Trust harness (blocking)
         run: npm run test:harness
 
+      - name: FB-15 retention worker unit tests (blocking)
+        run: npm run test:retention-worker
+
       - name: Production build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
