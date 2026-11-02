@@ -1199,3 +1199,33 @@ export const chatSignals = pgTable(
     check("chat_signals_kind_check", sql`"kind" in ('message', 'typing', 'severed', 'cleared')`),
   ]
 );
+
+/**
+ * CALL SESSIONS — server-issued authority for one private WebRTC handshake (FB-13).
+ * A topic name alone grants nothing: Realtime RLS checks this row, the active
+ * match, both participants, expiry and bilateral blocks. Clients get participant-scoped
+ * SELECT only; all writes remain service-only.
+ */
+export const callSessions = pgTable(
+  "call_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    matchId: uuid("match_id").notNull().references(() => matches.id, { onDelete: "cascade" }),
+    callerId: uuid("caller_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+    calleeId: uuid("callee_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status").notNull().default("ringing"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("call_sessions_match_idx").on(t.matchId, t.createdAt.desc()),
+    index("call_sessions_caller_idx").on(t.callerId, t.createdAt.desc()),
+    index("call_sessions_callee_idx").on(t.calleeId, t.status, t.expiresAt),
+    check("call_sessions_kind_check", sql`${t.kind} in ('voice','video')`),
+    check("call_sessions_status_check", sql`${t.status} in ('ringing','active','ended')`),
+    check("call_sessions_distinct_members", sql`${t.callerId} <> ${t.calleeId}`),
+    check("call_sessions_ended_has_time", sql`${t.status} <> 'ended' or ${t.endedAt} is not null`),
+  ]
+);

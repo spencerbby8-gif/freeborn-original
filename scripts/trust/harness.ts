@@ -2414,6 +2414,60 @@ console.log("\n[24] design system — the shared control contract, the migration
     typeof pkg.engines?.node === "string" && pkg.engines.node.includes("24"));
 }
 
+/* [26] FB-13 — private call signaling, authenticated ICE, honest relay state. */
+{
+  const { buildTurnServer, validTurnUrls, turnTtlSeconds } = await import("@/lib/turn-credentials");
+  const callBusSrc = readFileSync(new URL("../../src/lib/call-bus.ts", import.meta.url), "utf8");
+  const iceSrc = readFileSync(new URL("../../src/app/api/calls/ice/route.ts", import.meta.url), "utf8");
+  const sessionSrc = readFileSync(new URL("../../src/app/api/calls/session/route.ts", import.meta.url), "utf8");
+  const listenerSrc = readFileSync(new URL("../../src/components/app/call-listener.tsx", import.meta.url), "utf8");
+  const overlaySrc = readFileSync(new URL("../../src/components/app/call-overlay.tsx", import.meta.url), "utf8");
+  const mig = readFileSync(new URL("../../supabase/migrations/20261102020702_fb13_private_call_signaling.sql", import.meta.url), "utf8");
+  ok("[26] TURN URLs accept only turn/turns without embedded credentials",
+    validTurnUrls("turns:relay.example.test:5349?transport=tcp,turn:relay.example.test:3478").length === 2 &&
+    validTurnUrls("turns:relay.example.test:5349").length === 1 &&
+    validTurnUrls("https://relay.example.test").length === 0 &&
+    validTurnUrls("turn:user:pass@relay.example.test").length === 0);
+  ok("[26] TURN TTL is bounded and defaults to five minutes",
+    turnTtlSeconds(undefined) === 300 && turnTtlSeconds("1") === 60 && turnTtlSeconds("99999") === 900);
+  const member = "00000000-0000-4000-8000-000000000001";
+  const turn = buildTurnServer(member, { FREEBORN_TURN_URL: "turns:relay.example.test:5349", FREEBORN_TURN_SHARED_SECRET: "0123456789abcdef0123456789abcdef" }, 1700000000000);
+  ok("[26] TURN REST credentials match an independently computed HMAC-SHA1 vector",
+    turn?.server.username === "1700000300:" + member &&
+    turn?.server.credential === "9KFSRrO6f7+zKhoDnZTiGeyOCfY=" &&
+    turn?.expiresAt === 1700000300);
+  ok("[26] missing or weak TURN configuration never invents a relay",
+    buildTurnServer(member, {}) === null &&
+    buildTurnServer(member, { FREEBORN_TURN_URL: "turns:relay.example.test", FREEBORN_TURN_SHARED_SECRET: "short" }) === null);
+  ok("[26] call channels are private and refresh Realtime auth before join",
+    callBusSrc.includes("private: true") && callBusSrc.includes("client.realtime.setAuth()") &&
+    callBusSrc.indexOf("client.realtime.setAuth()") < callBusSrc.indexOf("client.channel(topic"));
+  ok("[26] ICE issuance is authenticated and scoped to a live participant session",
+    iceSrc.includes("getMember(request)") && iceSrc.includes("findParticipantSession(callId, member.id)") &&
+    iceSrc.includes("isCallSessionLive(session)") && iceSrc.includes('relayStatus: turn ? "configured-unverified" : "unconfigured"'));
+  ok("[26] the server, not a client topic, mints call authority",
+    sessionSrc.includes("pg_advisory_xact_lock") && sessionSrc.includes("isBlockedPair(member.id, calleeId)") &&
+    sessionSrc.includes("decideMatchAccess") && sessionSrc.includes("tx.insert(callSessions)"));
+  ok("[26] incoming rings are re-read from the server before display",
+    listenerSrc.includes("getCallSession(hint.callId)") && listenerSrc.includes("session.calleeId !== user.id") &&
+    listenerSrc.includes("from: session.peer"));
+  ok("[26] call media permission comes after server session authorization",
+    overlaySrc.indexOf("createCallSession(matchId, kind)") < overlaySrc.indexOf("navigator.mediaDevices.getUserMedia") &&
+    overlaySrc.includes("updateCallSession(session.id, \"accept\")"));
+  ok("[26] migration adds participant-scoped Realtime policies without altering realtime RLS ownership",
+    mig.includes("can_use_call_topic") && mig.includes("on realtime.messages for select to authenticated") &&
+    mig.includes("on realtime.messages for insert to authenticated") && !/alter table realtime\.messages/i.test(mig));
+  ok("[26] call session table is service-only and cascades with member/match deletion",
+    mig.includes("force row level security") && mig.includes("revoke all on public.call_sessions from public, anon, authenticated") &&
+    mig.includes("references public.matches(id) on delete cascade"));
+  const readMig = readFileSync(new URL("../../supabase/migrations/20261102020800_fb13_call_sessions_participant_read.sql", import.meta.url), "utf8");
+  ok("[26] participants get read-only session metadata; writes stay service-only",
+    readMig.includes("grant select on public.call_sessions to authenticated") &&
+    readMig.includes("for select to authenticated") &&
+    readMig.includes("(select auth.uid()) in (caller_id, callee_id)") &&
+    !/grant (insert|update|delete|all)/i.test(readMig));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

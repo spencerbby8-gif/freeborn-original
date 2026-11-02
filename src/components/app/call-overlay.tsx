@@ -17,12 +17,14 @@ import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   callChannel,
+  createCallSession,
   destroyChannel,
+  getCallSession,
   getIceConfig,
-  newCallId,
   publish,
   ringChannel,
   traceCall,
+  updateCallSession,
   type CallSignal,
   type RingPayload,
 } from "@/lib/call-bus";
@@ -53,7 +55,7 @@ type CallState =
 
 const RING_TIMEOUT_MS = 45_000;
 
-export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdProp, onCallEnd, onClose }: CallProps) {
+export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onCallEnd, onClose }: CallProps) {
   const [state, setState] = useState<CallState>("preparing");
   const [detail, setDetail] = useState(role === "caller" ? "Preparing your media…" : "Answering…");
   const [seconds, setSeconds] = useState(0);
@@ -62,11 +64,11 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   const [speakerOn, setSpeakerOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
 
-  const callIdRef = useRef(callIdProp ?? newCallId());
+  const callIdRef = useRef(callIdProp ?? "");
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localRef = useRef<MediaStream | null>(null);
-  const chanRef = useRef<ReturnType<typeof callChannel> | null>(null);
-  const ringChanRef = useRef<ReturnType<typeof ringChannel> | null>(null);
+  const chanRef = useRef<Awaited<ReturnType<typeof callChannel>> | null>(null);
+  const ringChanRef = useRef<Awaited<ReturnType<typeof ringChannel>> | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -179,6 +181,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     if (sendHangup && chanRef.current) {
       publish(chanRef.current, "control", { t: "hangup" } satisfies CallSignal);
     }
+    if (callIdRef.current) void updateCallSession(callIdRef.current, "end").catch(() => undefined);
     try {
       pcRef.current?.close();
     } catch {
@@ -293,6 +296,18 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
     (async () => {
       setStateBoth("preparing", "Preparing your media…");
       try {
+        // Authority before media permission: a non-participant never reaches the
+        // microphone/camera prompt, and every topic is backed by a server session.
+        const session = role === "caller"
+          ? await createCallSession(matchId, kind)
+          : await getCallSession(callIdRef.current);
+        if (cancelled) return;
+        if (session.matchId !== matchId || session.kind !== kind || session.peer.id !== peer.id) {
+          throw new Error("This call isn't available.");
+        }
+        callIdRef.current = session.id;
+        if (role === "callee") await updateCallSession(session.id, "accept");
+        if (cancelled) return;
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -314,8 +329,9 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           void localVideoRef.current.play().catch(() => undefined);
         }
 
-        /* Peer connection — STUN + TURN relay (mandatory on mobile carriers). */
-        const ice = await getIceConfig();
+        /* STUN aids a direct path. TURN is advertised only when configured;
+           no relay means restrictive-NAT connectivity is not guaranteed. */
+        const ice = await getIceConfig(callIdRef.current);
         if (cancelled) return;
         const pc = new RTCPeerConnection(ice);
         pcRef.current = pc;
@@ -368,11 +384,15 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             if (!restartedRef.current) {
               restartedRef.current = true;
               setStateBoth("negotiating", "Connection wobbled. Healing it…");
-              try {
-                pc.restartIce();
-              } catch {
-                /* unsupported — the watchdog below decides */
-              }
+              void (async () => {
+                try {
+                  // Temporary TURN credentials may have expired since the first offer.
+                  pc.setConfiguration(await getIceConfig(callIdRef.current));
+                  pc.restartIce();
+                } catch {
+                  /* unsupported or session ended — the watchdog below decides */
+                }
+              })();
               healTimerRef.current = setTimeout(() => {
                 if (closedRef.current) return;
                 if (pcRef.current?.connectionState !== "connected") {
@@ -388,7 +408,8 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
         };
 
         /* Fresh call channel for THIS attempt */
-        const chan = callChannel(callIdRef.current);
+        const chan = await callChannel(callIdRef.current);
+        if (cancelled || closedRef.current) { destroyChannel(chan); return; }
         chanRef.current = chan;
         chan.on("broadcast", { event: "signal" }, (msg) => void handleSignal(msg.payload as CallSignal));
         chan.on("broadcast", { event: "control" }, (msg) => {
@@ -444,29 +465,41 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
           if (cancelled || closedRef.current) return;
           if (status !== "SUBSCRIBED") {
             traceCall(callIdRef.current, role, "chan-status", String(status));
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+              cleanup(false);
+              setStateBoth("failed", "Couldn't open a private call channel. Call again.");
+            }
             return;
           }
           traceCall(callIdRef.current, role, "chan-subscribed");
 
           if (role === "caller") {
             setStateBoth("ringing", `Ringing ${peer.name}…`);
-            const ring = ringChannel(peer.id);
-            ringChanRef.current = ring;
-            ring.subscribe((s) => {
-              if (s === "SUBSCRIBED" && !closedRef.current) {
-                void ring
-                  .send({
-                    type: "broadcast",
-                    event: "ring",
-                    payload: {
-                      callId: callIdRef.current,
-                      matchId,
-                      kind,
-                      from: self ?? { id: "", name: "Freeborn member", photo: "" },
-                    } satisfies RingPayload,
-                  })
-                  .then(() => traceCall(callIdRef.current, role, "tx-ring"))
-                  .catch((e) => traceCall(callIdRef.current, role, "tx-ring-fail", String(e)));
+            void (async () => {
+              const ring = await ringChannel(peer.id);
+              if (cancelled || closedRef.current) { destroyChannel(ring); return; }
+              ringChanRef.current = ring;
+              ring.subscribe((s) => {
+                if (s === "SUBSCRIBED" && !closedRef.current) {
+                  void ring
+                    .send({
+                      type: "broadcast",
+                      event: "ring",
+                      payload: {
+                        callId: callIdRef.current,
+                        matchId,
+                        kind,
+                        from: session.self,
+                      } satisfies RingPayload,
+                    })
+                    .then(() => traceCall(callIdRef.current, role, "tx-ring"))
+                    .catch((e) => traceCall(callIdRef.current, role, "tx-ring-fail", String(e)));
+                }
+              });
+            })().catch(() => {
+              if (!cancelled && !closedRef.current) {
+                cleanup(false);
+                setStateBoth("failed", "Couldn't reach their ring channel. Call again.");
               }
             });
           } else {
@@ -488,8 +521,11 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
             }
           }
         });
-      } catch {
-        if (!cancelled) setStateBoth("failed", "Camera or microphone unavailable.");
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "";
+          setStateBoth("failed", message.includes("call") ? message : "Camera or microphone unavailable.");
+        }
       }
     })();
 
@@ -528,7 +564,7 @@ export function CallOverlay({ kind, role, matchId, peer, self, callId: callIdPro
   }, [state]);
 
   const callAgain = () => {
-    callIdRef.current = newCallId();
+    callIdRef.current = "";
     restartedRef.current = false;
     setSeconds(0);
     setAttempt((a) => a + 1);
