@@ -2056,7 +2056,7 @@ console.log("\n[21] the erasure path covers what the schema cannot cascade");
   ok("[21] auth erasure goes LAST through a pinned service-role-only DEFINER bridge, not direct app-role auth grants",
     erasure.includes("select public.fb14_delete_auth_rows(${id}::uuid)") &&
     erasure.indexOf("delete from public.accounts") < erasure.indexOf("fb14_delete_auth_rows") &&
-    authBridge.includes("delete from auth.refresh_tokens") &&
+    authBridge.includes("delete from auth.refresh_tokens where user_id = p_account_id::text") &&
     authBridge.includes("delete from auth.identities") &&
     authBridge.includes("delete from auth.users") &&
     authBridge.indexOf("delete from auth.refresh_tokens") < authBridge.indexOf("delete from auth.users") &&

@@ -13,7 +13,7 @@ set search_path = public, pg_temp
 as $$
   select count(*)::int
   from auth.refresh_tokens
-  where user_id = p_account_id
+  where user_id = p_account_id::text
     and revoked is not true;
 $$;
 
@@ -27,7 +27,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  delete from auth.refresh_tokens where user_id = p_account_id;
+  delete from auth.refresh_tokens where user_id = p_account_id::text;
   delete from auth.identities where user_id = p_account_id;
   delete from auth.users where id = p_account_id;
 end;
