@@ -1,4 +1,5 @@
 import { Nav } from "@/components/landing/nav";
+import { DeletionNotice } from "@/components/landing/deletion-notice";
 import { Hero } from "@/components/landing/hero";
 import { Room } from "@/components/landing/room";
 import { Manifesto, Marquee } from "@/components/landing/story";
@@ -59,6 +60,7 @@ export default async function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Nav />
+      <DeletionNotice />
       <main>
         <Hero />
         <Room />

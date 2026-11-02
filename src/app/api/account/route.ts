@@ -7,6 +7,7 @@ import {
 } from "@/lib/supabase/api-auth";
 import { MIN_PASSWORD_LENGTH, passwordTooShort } from "@/lib/password";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { requestAccountDeletion } from "@/lib/account-deletion";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function GET(request: Request) {
     .limit(1);
 
   const signIns = await db.execute<{ n: number }>(
-    sql`select count(*)::int as n from auth.refresh_tokens where user_id = ${user.id}::uuid and revoked is not true`
+    sql`select public.fb14_active_signins(${user.id}::uuid) as n`
   );
 
   return Response.json({
@@ -162,97 +163,30 @@ export async function POST(request: Request) {
   }
 
   if (action === "delete") {
-    /* Permanent deletion — distinct from deactivate (which is reversible).
-       Children first, then the profile, the account mirror, and finally the
-       auth rows. The member's session is invalidated by removing refresh
-       tokens; the client signs out on success. All queries parameterized. */
-    const id = user.id;
-    const email = user.email;
-    const del = (q: ReturnType<typeof sql>) => db.execute(q);
-
-    /* Storage FIRST, then the rows that name it — the reverse order is how the
-       orphans got made. `profile-photos` is a PUBLIC bucket with a bucket-wide read
-       policy, so a row deleted without its object leaves that image retrievable by
-       URL indefinitely; once the account is gone there is no row left to say whose it
-       was, which turns a leak into an untraceable one. `verification-selfies` is
-       private but holds face scans, the single most sensitive thing the deletion
-       promise covers.
-       Three rules keep this safe:
-         * every path is read back from the database, so a member cannot queue an
-           arbitrary object for deletion through the request body;
-         * only the bucket-relative shape is sent (no leading slash, no scheme) —
-           `/api/chat/media/…` blobs are the `chat_media` delete below, and mirrored
-           `/uploads/…` paths have no object behind them;
-         * removal is best-effort and logged. An object the provider refuses to
-           delete must not abort the cascade and strand the account half-deleted,
-           which would be a worse outcome for the member than one orphan to clean up.
-       The bucket DELETE policy is owner-scoped (`storage.foldername(name))[1] =
-       auth.uid()::text`), and this client carries this member's session, so removal
-       can never reach another member's folder. */
-    const listBucketPaths = async (table: string): Promise<string[]> => {
-      try {
-        const { data } = await supabase.from(table).select("storage_path").eq("user_id", id);
-        return ((data ?? []) as Array<{ storage_path: string | null }>)
-          .map((row) => row.storage_path)
-          .filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\/\//.test(p));
-      } catch (err) {
-        console.warn(`[account-delete] could not enumerate ${table}:`, (err as Error).message);
-        return [];
-      }
-    };
-    for (const [bucket, table] of [
-      ["profile-photos", "profile_photos"],
-      ["verification-selfies", "verification_selfie_checks"],
-    ] as const) {
-      const objects = await listBucketPaths(table);
-      if (objects.length === 0) continue;
-      const { error } = await supabase.storage.from(bucket).remove(objects);
-      if (error) {
-        console.warn(`[account-delete] ${bucket} objects survived the deletion:`, error.message);
-      }
+    /* FB-14: relational deletion and the storage outbox commit together. The
+       response is 202 until the Edge Function worker proves every owned bucket
+       prefix is empty; a storage failure can never turn into a success toast. */
+    const result = await requestAccountDeletion(user.id, user.email);
+    if (result.completed) {
+      return Response.json({
+        ok: true,
+        completed: true,
+        message: "Your account and data have been permanently deleted.",
+      });
     }
-
-    await del(sql`delete from public.verification_audit_logs where user_id = ${id}`);
-    await del(sql`delete from public.profile_photos where user_id = ${id}`);
-    await del(sql`delete from public.event_interests where user_id = ${id}`);
-    await del(sql`delete from public.user_private_settings where user_id = ${id}`);
-    await del(sql`delete from public.notification_preferences where user_id = ${id}`);
-    await del(sql`delete from public.user_private_locations where user_id = ${id}`);
-    await del(sql`delete from public.discovery_preferences where user_id = ${id}`);
-    await del(sql`delete from public.user_trust_history where user_id = ${id}`);
-    await del(sql`delete from public.verification_rate_limits where user_id = ${id}`);
-    await del(sql`delete from public.verification_selfie_checks where user_id = ${id}`);
-    await del(sql`delete from public.verification_challenges where user_id = ${id}`);
-    await del(sql`delete from public.support_requests where account_id = ${id}`);
-    await del(sql`delete from public.verification_requests where account_id = ${id}`);
-    await del(sql`delete from public.sessions where account_id = ${id}`);
-    await del(sql`delete from public.user_swipes where liker_id = ${id} or liked_id = ${id}`);
-    await del(sql`delete from public.user_matches where user_a = ${id} or user_b = ${id}`);
-    await del(sql`delete from public.blocked_users where blocker_id = ${id} or blocked_id = ${id}`);
-    await del(sql`delete from public.reports where subject_id = ${id} or reporter_id = ${id}`);
-    await del(sql`delete from public.warnings where email = ${email}`);
-    await del(sql`delete from public.appeals where email = ${email}`);
-    await del(sql`delete from public.suspensions where email = ${email}`);
-    await del(sql`delete from public.security_events where email = ${email}`);
-    /* moderation_actions has a member subject_id and a denormalised subject_email but NO
-       foreign key into user_profiles (pg_constraint, 2026-10-30), so nothing cascades it:
-       a staff note about a member — including their email address — would outlive the account
-       forever. Match on either identifier, because the column pair is written by hand in
-       /api/admin/review-queue and either half can be the only one present. */
-    await del(sql`delete from public.moderation_actions where subject_id = ${id} or subject_email = ${email}`);
-    await del(sql`delete from public.chat_media where sender_id = ${id}`);
-    await del(sql`delete from public.message_reactions where message_id in (select id from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id}))`);
-    await del(sql`delete from public.messages where match_id in (select id from public.matches where user_a = ${id} or user_b = ${id})`);
-    await del(sql`delete from public.matches where user_a = ${id} or user_b = ${id}`);
-    await del(sql`delete from public.user_profiles where id = ${id}`);
-    await del(sql`delete from public.accounts where id = ${id}`);
-    await del(sql`delete from auth.refresh_tokens where user_id = ${id}::uuid`);
-    await del(sql`delete from auth.identities where user_id = ${id}::uuid`);
-    await del(sql`delete from auth.users where id = ${id}::uuid`);
-    return Response.json({
-      ok: true,
-      message: "Your account and data have been permanently deleted.",
-    });
+    return Response.json(
+      {
+        ok: true,
+        completed: false,
+        status: result.status,
+        deletionToken: result.statusToken,
+        message:
+          result.status === "cleanup_failed"
+            ? "Your sign-in and profile data have been removed, but file cleanup needs attention."
+            : "Your sign-in and profile data have been removed. File cleanup is still in progress.",
+      },
+      { status: 202 }
+    );
   }
 
   return Response.json({ error: "Unknown action." }, { status: 400 });

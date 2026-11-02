@@ -25,6 +25,7 @@ import {
 } from "@/lib/browser-integrity";
 import type { PoseRow } from "@/lib/pose-pool";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { isOwnedStoragePath } from "@/lib/account-deletion";
 import {
   decideMediaAccess,
   needsPublishedProfilePhotoLookup,
@@ -1338,19 +1339,22 @@ ok("[15] a failed object removal is logged, not reported as a failed delete",
    to attribute it. Pinned as an ORDER property, because sweeping after the delete loses
    the only index that points at the objects. */
 const accountSrc = readFileSync(new URL("../../src/app/api/account/route.ts", import.meta.url), "utf8");
-ok("[15] account deletion sweeps both media buckets",
-  accountSrc.includes('["profile-photos", "profile_photos"]') &&
-  accountSrc.includes('["verification-selfies", "verification_selfie_checks"]'));
-ok("[15] the sweep runs before the rows that name the objects are dropped",
-  accountSrc.indexOf("listBucketPaths") < accountSrc.indexOf("delete from public.profile_photos") &&
-  accountSrc.indexOf("listBucketPaths") > 0);
-ok("[15] enumerated paths are filtered to bucket shapes, never taken from the request body",
-  accountSrc.includes('.filter((p): p is string => typeof p === "string" && p.length > 0 && !p.startsWith("/")') &&
-  !accountSrc.includes("remove([path]") && !accountSrc.includes("remove(path)") && !accountSrc.includes("remove([body") &&
+const accountErasureSrc = readFileSync(new URL("../../src/lib/account-deletion.ts", import.meta.url), "utf8");
+ok("[15] account deletion enqueues durable cleanup for both media buckets",
+  accountErasureSrc.includes('bucket: "profile-photos"') &&
+  accountErasureSrc.includes('bucket: "verification-selfies"'));
+ok("[15] the outbox captures owned paths before the rows that name the objects are dropped",
+  accountErasureSrc.indexOf("insert(storageCleanupJobs)") < accountErasureSrc.indexOf("delete from public.profile_photos") &&
+  accountErasureSrc.indexOf("select({ storagePath: profilePhotos.storagePath })") < accountErasureSrc.indexOf("delete from public.profile_photos"));
+ok("[15] enumerated paths are filtered to owned bucket shapes, never taken from the request body",
+  accountErasureSrc.includes('ownedPaths(id, "profile-photos", photoRows)') &&
+  accountErasureSrc.includes('ownedPaths(id, "verification-selfies", selfieRows)') &&
+  accountErasureSrc.includes("isOwnedStoragePath") &&
   !/const \{[^}]*\bpath\b[^}]*\} = \(body/.test(accountSrc));
-ok("[15] a refused object removal warns and lets the cascade finish",
-  accountSrc.includes("objects survived the deletion:") &&
-  !/objects survived the deletion[\s\S]{0,120}return Response\.json/.test(accountSrc));
+ok("[15] a storage failure cannot turn into a successful deletion response",
+  accountSrc.includes("completed: false") && accountSrc.includes("{ status: 202 }") &&
+  accountSrc.includes("if (result.completed)") &&
+  !accountSrc.includes("objects survived the deletion:"));
 
 ok("[15] the unremovable-path wording is preserved verbatim",
   photosApiSrc.includes("That photo lives in your original upload store, so it can't be removed from this preview room."));
@@ -2030,30 +2034,44 @@ console.log("\n[20] unmatch/delete confirmation: the destructive flag must cost 
 console.log("\n[21] the erasure path covers what the schema cannot cascade");
 {
   const acct = src("src/app/api/account/route.ts");
-  const deletes = [...acct.matchAll(/delete from ([a-z_]+)\.([a-z_]+)/g)].map((m) => `${m[1]}.${m[2]}`);
+  const erasure = src("src/lib/account-deletion.ts");
+  const deletes = [...erasure.matchAll(/delete from ([a-z_]+)\.([a-z_]+)/g)].map((m) => `${m[1]}.${m[2]}`);
   const set = new Set(deletes);
   ok("[21] moderation_actions is deleted by BOTH its member identifiers, because it has no FK to cascade",
     set.has("public.moderation_actions") &&
-    /delete from public\.moderation_actions where subject_id = \$\{id\} or subject_email = \$\{email\}/.test(acct));
+    /delete from public\.moderation_actions where subject_id = \$\{id\} or subject_email = \$\{normalizedEmail\}/.test(erasure));
   ok("[21] the sender-only chat_media blob is deleted explicitly (no FK covers match_id NULL rows)",
-    set.has("public.chat_media") && /delete from public\.chat_media where sender_id = \$\{id\}/.test(acct));
-  // match_messages is deliberately absent: `match_messages.match_id -> matches.id` is
-  // on delete cascade (pg_constraint, 2026-10-30), so the schema covers it. This list is
-  // for what the schema CANNOT cover plus what the erasure contract promises anyway.
+    set.has("public.chat_media") && /delete from public\.chat_media where sender_id = \$\{id\}/.test(erasure));
   const REQUIRED = ["public.messages","public.matches","public.profile_photos",
     "public.user_swipes","public.blocked_users","public.reports","public.chat_media","public.message_reactions",
     "public.verification_requests","public.verification_selfie_checks","public.verification_challenges",
     "public.verification_audit_logs","public.verification_rate_limits","public.user_private_settings",
     "public.user_private_locations","public.discovery_preferences","public.notification_preferences",
     "public.user_trust_history","public.support_requests","public.event_interests","public.sessions",
-    "public.accounts","public.user_profiles","auth.users","auth.identities","auth.refresh_tokens",
-    "public.moderation_actions"];
+    "public.accounts","public.user_profiles",
+    "public.moderation_actions","public.call_sessions"];
   const absent = REQUIRED.filter((t) => !set.has(t));
   ok("[21] every table the 2026-10-30 FK audit named is in the delete list", absent.length === 0, absent.join(","));
-  ok("[21] and the auth rows go LAST, so a failed child delete cannot orphan an auth account",
-    deletes.indexOf("auth.users") === deletes.length - 1 && deletes.indexOf("public.user_profiles") < deletes.indexOf("auth.users"));
-  ok("[21] the bucket sweep runs before the row deletes (objects first, or the paths are unreadable afterwards)",
-    acct.indexOf("list(") < acct.indexOf("delete from public.profile_photos"));
+  const authBridge = readFileSync(new URL("../../supabase/migrations/20261102080000_fb14_auth_erasure_bridge.sql", import.meta.url), "utf8");
+  ok("[21] auth erasure goes LAST through a pinned service-role-only DEFINER bridge, not direct app-role auth grants",
+    erasure.includes("select public.fb14_delete_auth_rows(${id}::uuid)") &&
+    erasure.indexOf("delete from public.accounts") < erasure.indexOf("fb14_delete_auth_rows") &&
+    authBridge.includes("delete from auth.refresh_tokens where user_id = p_account_id::text") &&
+    authBridge.includes("delete from auth.identities") &&
+    authBridge.includes("delete from auth.users") &&
+    authBridge.indexOf("delete from auth.refresh_tokens") < authBridge.indexOf("delete from auth.users") &&
+    authBridge.includes("security definer") && authBridge.includes("set search_path = public, pg_temp") &&
+    authBridge.includes("grant execute on function public.fb14_delete_auth_rows(uuid) to service_role") &&
+    !/grant execute on function public\.fb14_delete_auth_rows[^;]+to (anon|authenticated)/i.test(authBridge));
+  ok("[21] active sign-in counts use the same least-privilege auth bridge",
+    acct.includes("select public.fb14_active_signins(${user.id}::uuid) as n") &&
+    authBridge.includes("grant execute on function public.fb14_active_signins(uuid) to service_role"));
+  ok("[21] deletion and the durable storage outbox share one transaction, with the outbox written before member rows disappear",
+    erasure.includes("db.transaction") && erasure.includes("pg_advisory_xact_lock") &&
+    erasure.indexOf("insert(storageCleanupJobs)") < erasure.indexOf("delete from public.profile_photos"));
+  ok("[21] the API never reports permanent deletion while cleanup is outstanding",
+    acct.includes("requestAccountDeletion(user.id, user.email)") && acct.includes("{ status: 202 }") &&
+    acct.includes("completed: false") && !acct.includes("listBucketPaths"));
 }
 
 
@@ -2466,6 +2484,58 @@ console.log("\n[24] design system — the shared control contract, the migration
     readMig.includes("for select to authenticated") &&
     readMig.includes("(select auth.uid()) in (caller_id, callee_id)") &&
     !/grant (insert|update|delete|all)/i.test(readMig));
+}
+
+/* [27] FB-14 — durable deletion queue, owned-path cleanup, honest scheduling. */
+console.log("\n[27] account deletion is durable, owned-path scoped, and never falsely complete");
+{
+  const core = readFileSync(new URL("../../supabase/migrations/20261102040000_fb14_durable_account_deletion.sql", import.meta.url), "utf8");
+  const sched = readFileSync(new URL("../../supabase/migrations/20261102040100_fb14_cleanup_scheduling.sql", import.meta.url), "utf8");
+  const worker = readFileSync(new URL("../../supabase/functions/fb14-storage-cleanup/index.ts", import.meta.url), "utf8");
+  const config = readFileSync(new URL("../../supabase/config.toml", import.meta.url), "utf8");
+  const settings = src("src/components/app/settings-view.tsx");
+  const notice = src("src/components/landing/deletion-notice.tsx");
+  const id = "11111111-1111-4111-8111-111111111111";
+  const other = "22222222-2222-4222-8222-222222222222";
+  ok("[27] owned-path validation accepts only the member folder and the legacy member-named selfie",
+    isOwnedStoragePath(id, "profile-photos", `${id}/a.jpg`) &&
+    isOwnedStoragePath(id, "verification-selfies", `selfie-${id}-1.jpg`) &&
+    !isOwnedStoragePath(id, "profile-photos", `selfie-${id}-1.jpg`) &&
+    !isOwnedStoragePath(id, "profile-photos", `${other}/a.jpg`) &&
+    !isOwnedStoragePath(id, "profile-photos", `${id}/../${other}/a.jpg`) &&
+    !isOwnedStoragePath(id, "profile-photos", `https://example.test/${id}/a.jpg`) &&
+    !isOwnedStoragePath(id, "profile-photos", `/${id}/a.jpg`));
+  ok("[27] queue tables are additive, RLS-forced, and invisible to client roles",
+    core.includes("create table if not exists public.account_deletion_requests") &&
+    core.includes("create table if not exists public.storage_cleanup_jobs") &&
+    core.includes("force row level security") &&
+    core.includes("revoke all on public.storage_cleanup_jobs from public, anon, authenticated") &&
+    core.includes("for all to service_role") &&
+    !/drop table|truncate table|delete from public\.(accounts|user_profiles)/i.test(core));
+  ok("[27] privileged queue functions pin search_path and are not executable by clients",
+    core.includes("set search_path = public, pg_temp") &&
+    core.includes("revoke all on function public.fb14_claim_cleanup_jobs(integer) from public, anon, authenticated") &&
+    core.includes("revoke all on function public.fb14_deletion_status(uuid) from public, anon, authenticated") &&
+    !/grant execute on function public\.fb14_(claim_cleanup_jobs|complete_cleanup_job|fail_cleanup_job|requeue_failed_jobs)[^;]+to (anon|authenticated)/i.test(core));
+  ok("[27] leases, backoff, exhaustion and operator requeue are all present",
+    core.includes("for update skip locked") && core.includes("lease_expires_at") &&
+    core.includes("interval '30 seconds' * power(2") && core.includes("fb14_requeue_failed_jobs"));
+  ok("[27] the worker uses injected Supabase server credentials and revalidates every explicit path",
+    worker.includes("Deno.env.get(\"SUPABASE_SERVICE_ROLE_KEY\")") &&
+    worker.includes("SUPABASE_SECRET_KEYS") &&
+    worker.includes("fb14_owned_storage_path") &&
+    worker.includes("owner_prefix !== `${accountId}/`") &&
+    !worker.includes("console.log") &&
+    config.includes("verify_jwt = false"));
+  ok("[27] scheduling uses pg_cron/pg_net/Vault and a dedicated caller secret, not the service-role key",
+    sched.includes("create extension if not exists pg_cron") &&
+    sched.includes("create extension if not exists pg_net") &&
+    sched.includes("vault.create_secret") && sched.includes("fb14_cleanup_secret") &&
+    sched.includes("cron.schedule") && sched.includes("net.http_post") &&
+    !sched.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  ok("[27] the UI keeps deletion pending until the worker proves completion",
+    settings.includes("account-deletion-pending") && settings.includes("json.completed === true") &&
+    notice.includes("json.status === \"completed\"") && notice.includes("File cleanup is still in progress"));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

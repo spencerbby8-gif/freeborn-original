@@ -1,0 +1,5 @@
+# FB-14: the cleanup worker is invoked by pg_cron/pg_net with a Vault-stored
+# shared secret, not by an end-user JWT. The handler verifies that secret before
+# claiming any job. Keep JWT verification off for this service-to-service route.
+[functions.fb14-storage-cleanup]
+verify_jwt = false
