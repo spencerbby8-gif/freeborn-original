@@ -223,7 +223,16 @@ function parseVerdict<T>(text: string | null): T | null {
 
 function parsePoseVerdict(text: string | null): PoseVerdict | null {
   const v = parseVerdict<PoseVerdict>(text);
-  if (!v || v.faceCount !== 1 || v.lightingOk !== true || typeof v.matchesAsked !== "boolean") return null;
+  /* Parse the observation, then let the objective gates below name the refusal.
+     Rejecting faceCount !== 1 or lightingOk === false here collapsed "2 faces" and
+     "poor lighting" into the generic unreadable-photo branch, so the audit row lost
+     the engine's actual reason. */
+  if (
+    !v ||
+    typeof v.faceCount !== "number" ||
+    typeof v.lightingOk !== "boolean" ||
+    typeof v.matchesAsked !== "boolean"
+  ) return null;
   return v;
 }
 

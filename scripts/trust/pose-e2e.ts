@@ -137,7 +137,10 @@ async function seed(n: number, withPhotos: boolean): Promise<Member> {
   if (withPhotos) {
     await db
       .insert(profilePhotos)
-      .values({ userId: id, storagePath: `${GATEWAY}/__e2e_photo?m=${addr}`, position: 0, isPrimary: true })
+      /* FB-03 hardened profilePhotoRef to reject absolute URLs. Seed a bucket-relative
+         path and let profilePhotoUrl resolve it against SUPABASE_URL (the local gateway
+         double in pose-run), which serves /storage/ with the same 1×1 PNG. */
+      .values({ userId: id, storagePath: `e2e/${addr}.png`, position: 0, isPrimary: true })
       .onConflictDoNothing({ target: profilePhotos.storagePath });
   }
   const m = { email: addr, id, hasPhotos: withPhotos };
@@ -872,19 +875,21 @@ async function runOneEngine(): Promise<void> {
   const refusedEngine = MODE === "refused";
   await scriptStage1("ok");
 
-  await test("stage 1 alone can approve, with both proofs present", async () => {
+  await test("stage 1 alone is held for review even with both proofs present (FB-04)", async () => {
     const m = await nextMember();
     const f = await flow(m);
       const r = await check(m, f.token, f.label);
     eqv(r.status, 200, "http status");
-    eqv(String(r.json.status), "approved", "verdict");
+    /* FB-04 closed the single-engine auto-approval gate: pose/freshness alone can no
+       longer grant a badge when the identity-comparison engine cannot run. */
+    eqv(String(r.json.status), "review", "verdict");
     eqv(String(r.json.engine), "single", "the response says a single engine ran");
     const row = await rowOf(m, r, "this attempt");
-    eqv(row!.status, "approved", "audit status");
+    eqv(row!.status, "pending", "audit status");
     match(row!.method, /single_model:/, "the audit row says which chain decided");
     match(row!.method, /\+fresh\b/, "and that freshness was proven");
     match(row!.method, /\+pose\b/, "and that the pose was ours");
-    eqv((await profileState(m)).is_verified, true, "the seal is applied on the honest path");
+    eqv((await profileState(m)).is_verified, false, "no seal without the second engine");
   });
 
   await test("stage 1 alone cannot approve without a fresh token", async () => {

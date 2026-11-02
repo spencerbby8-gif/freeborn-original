@@ -9,7 +9,7 @@
 import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { callChannel, destroyChannel, publish, traceCall, type RingPayload } from "@/lib/call-bus";
+import { callChannel, destroyChannel, getCallSession, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
 
@@ -26,7 +26,7 @@ export function CallListener() {
 
   useEffect(() => {
     let cancelled = false;
-    let ring: ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null = null;
+    let ring: Awaited<ReturnType<typeof ringChannel>> | null = null;
 
     (async () => {
       const supabase = createSupabaseBrowserClient();
@@ -35,39 +35,49 @@ export function CallListener() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      ring = supabase.channel(`fb-ring:${user.id}`);
+      ring = await ringChannel(user.id);
+      if (cancelled) { destroyChannel(ring); return; }
 
-      ring.on("broadcast", { event: "ring" }, (msg) => {
-        const payload = msg.payload as RingPayload;
-        if (!payload?.callId || cancelled) return;
-        traceCall(payload.callId, "callee", "rx-ring");
-        if (busyRef.current) {
-          // Already ringing or on a call — tell the caller we're busy,
-          // on THIS call's own channel.
-          const busyChan = callChannel(payload.callId);
-          busyChan.subscribe((s) => {
+      const respondBusy = (callId: string) => {
+        void (async () => {
+          const chan = await callChannel(callId);
+          chan.subscribe((s) => {
             if (s === "SUBSCRIBED") {
-              publish(busyChan, "control", { t: "busy" });
-              setTimeout(() => destroyChannel(busyChan), 2000);
+              publish(chan, "control", { t: "busy" });
+              setTimeout(() => {
+                destroyChannel(chan);
+                void updateCallSession(callId, "decline").catch(() => undefined);
+              }, 500);
             }
           });
-          return;
-        }
-        setIncoming(payload);
-        startRingtone();
+        })().catch(() => undefined);
+      };
+
+      ring.on("broadcast", { event: "ring" }, (msg) => {
+        void (async () => {
+          const hint = msg.payload as Partial<RingPayload> | null;
+          if (!hint?.callId || cancelled) return;
+          // The broadcast is only a hint. Identity, match and call kind come from
+          // the server-issued session, so a forged payload cannot impersonate a peer.
+          const session = await getCallSession(hint.callId);
+          if (cancelled || session.status !== "ringing" || session.calleeId !== user.id) return;
+          const payload: RingPayload = { callId: session.id, matchId: session.matchId, kind: session.kind, from: session.peer };
+          traceCall(payload.callId, "callee", "rx-ring");
+          if (busyRef.current) { respondBusy(payload.callId); return; }
+          setIncoming(payload);
+          startRingtone();
+        })().catch(() => undefined);
       });
 
-      ring.subscribe();
+      ring.subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") traceCall("ring", "callee", "ring-channel-error", String(status));
+      });
     })();
 
     return () => {
       cancelled = true;
       stopRingtone();
-      try {
-        ring?.unsubscribe();
-      } catch {
-        /* gone */
-      }
+      destroyChannel(ring);
     };
   }, []);
 
@@ -91,13 +101,19 @@ export function CallListener() {
   const decline = useCallback(() => {
     if (!incoming) return;
     stopRingtone();
-    const chan = callChannel(incoming.callId);
-    chan.subscribe((s) => {
-      if (s === "SUBSCRIBED") {
-        publish(chan, "control", { t: "declined" });
-        setTimeout(() => destroyChannel(chan), 2000);
-      }
-    });
+    const callId = incoming.callId;
+    void (async () => {
+      const chan = await callChannel(callId);
+      chan.subscribe((s) => {
+        if (s === "SUBSCRIBED") {
+          publish(chan, "control", { t: "declined" });
+          setTimeout(() => {
+            destroyChannel(chan);
+            void updateCallSession(callId, "decline").catch(() => undefined);
+          }, 500);
+        }
+      });
+    })().catch(() => undefined);
     setIncoming(null);
   }, [incoming]);
 

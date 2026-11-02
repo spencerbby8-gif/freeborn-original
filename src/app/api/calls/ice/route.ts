@@ -1,61 +1,35 @@
-/**
- * GET /api/calls/ice — ICE configuration for Freeborn calls.
- *
- * THE critical piece for mobile: STUN alone cannot connect two phones on
- * carrier networks (symmetric CGNAT blocks hole-punching). A TURN relay is
- * mandatory for reliable calls, exactly like every production call app.
- *
- * Configure your own relay with FREEBORN_TURN_URL (turn: or turns:),
- * FREEBORN_TURN_USER and FREEBORN_TURN_CRED in Vercel.
- *
- * WHAT CHANGED (audit finding F-F, 2026-10-28)
- * --------------------------------------------
- * When none of those three were set the route fell back to a hardcoded public
- * relay (openrelay.metered.ca, username/credential `openrelayproject`) and handed
- * it to whoever asked — and nothing asked first: the route was anonymous. That is
- * two separate problems. (1) Anyone could enumerate and use a shared third-party
- * relay whose credentials are published in a public repository, so relay quota and
- * traffic attribution were not yours. (2) The app silently depended on a
- * community service with no uptime obligation, which is precisely the failure mode
- * this file's own comment warned about for mobile users — it would fail as
- * "calls don't connect", not as "TURN is not configured".
- *
- * Now: no fallback relay is served. Unconfigured means STUN-only plus
- * `relayConfigured: false`, and the client can say so honestly instead of
- * pretending a call is expected to work on carrier NAT. `getIceConfig()` in
- * src/lib/call-bus.ts already accepts any non-empty iceServers array, so the
- * response shape is unchanged for working configurations.
- */
+import { getMember } from "@/lib/app-auth";
+import { findParticipantSession, isCallSessionLive } from "@/lib/call-session-server";
+import { buildTurnServer } from "@/lib/turn-credentials";
+import { badIdResponse, isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
-/** STUN keeps LAN / same-ISP and most desktop calls working, and is free. */
-const STUN_ONLY: Array<Record<string, unknown>> = [
+/** STUN is a direct-path aid, not a relay and not a guarantee of connectivity. */
+const STUN_ONLY: RTCIceServer[] = [
   { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"] },
   { urls: "stun:stun.nextcloud.com:443" },
 ];
 
+/** GET /api/calls/ice?callId=… — authenticated, session-scoped ICE issuance.
+ *  TURN stays explicitly unconfigured until a compatible relay and shared secret
+ *  are provisioned. Static TURN usernames/passwords are deliberately not served. */
 export async function GET(request: Request) {
-  const turnUrl = (process.env.FREEBORN_TURN_URL ?? "").trim();
-  const turnUser = (process.env.FREEBORN_TURN_USER ?? "").trim();
-  const turnCred = (process.env.FREEBORN_TURN_CRED ?? "").trim();
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const callId = new URL(request.url).searchParams.get("callId");
+  if (!isUuid(callId)) return badIdResponse();
+  const session = await findParticipantSession(callId, member.id);
+  if (!session) return Response.json({ error: "Call not found." }, { status: 404 });
+  if (!isCallSessionLive(session)) return Response.json({ error: "This call has expired." }, { status: 410 });
 
-  const iceServers: Array<Record<string, unknown>> = [...STUN_ONLY];
-  let relayConfigured = false;
-
-  if (turnUrl) {
-    if (!turnUser || !turnCred) {
-      /* Half-configured is worse than unconfigured: the client would believe a
-         relay exists and blame the network when authentication fails. Report it,
-         but do not advertise a relay that cannot be used. */
-      console.error(
-        "[calls/ice] FREEBORN_TURN_URL is set but FREEBORN_TURN_USER/FREEBORN_TURN_CRED are not; serving STUN only",
-      );
-    } else {
-      iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
-      relayConfigured = true;
-    }
-  }
+  const turn = buildTurnServer(member.id, {
+    FREEBORN_TURN_URL: process.env.FREEBORN_TURN_URL,
+    FREEBORN_TURN_SHARED_SECRET: process.env.FREEBORN_TURN_SHARED_SECRET,
+    FREEBORN_TURN_TTL_SECONDS: process.env.FREEBORN_TURN_TTL_SECONDS,
+  });
+  const iceServers: RTCIceServer[] = [...STUN_ONLY];
+  if (turn) iceServers.push(turn.server);
 
   return Response.json(
     {
@@ -63,14 +37,10 @@ export async function GET(request: Request) {
       iceTransportPolicy: "all",
       bundlePolicy: "max-bundle",
       rtcpMuxPolicy: "require",
-      relayConfigured,
+      relayConfigured: Boolean(turn),
+      relayStatus: turn ? "configured-unverified" : "unconfigured",
+      ...(turn ? { credentialExpiresAt: turn.expiresAt, credentialTtlSeconds: turn.ttl } : {}),
     },
-    {
-      headers: {
-        /* Credentials for a customer's relay must never be cacheable by a shared
-           cache or readable from another tenant's browser history. */
-        "Cache-Control": "private, no-store",
-      },
-    },
+    { headers: { "Cache-Control": "private, no-store" } },
   );
 }
