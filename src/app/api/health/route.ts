@@ -12,6 +12,6 @@ export async function GET() {
     const code = err instanceof Error && err.name ? err.name : "unknown";
     // Log full error for Vercel runtime logs; return sanitized type to client
     console.error("[health] DB connection failed:", code, msg);
-    return Response.json({ ok: false, error: code }, { status: 500 });
+    return Response.json({ ok: false, error: msg }, { status: 500 });
   }
 }
