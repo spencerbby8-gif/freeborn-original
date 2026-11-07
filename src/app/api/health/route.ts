@@ -9,9 +9,9 @@ export async function GET() {
     return Response.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const code = err instanceof Error && err.name ? err.name : "unknown";
-    // Log full error for Vercel runtime logs; return sanitized type to client
-    console.error("[health] DB connection failed:", code, msg);
-    return Response.json({ ok: false, error: msg }, { status: 500 });
+    const cause = (err as any)?.cause ? String((err as any).cause) : "none";
+    const stack = err instanceof Error && err.stack ? err.stack.split("\n").slice(0, 5).join(" | ") : "none";
+    console.error("[health] DB connection failed:", msg, "cause:", cause, "stack:", stack);
+    return Response.json({ ok: false, error: msg, cause, stack }, { status: 500 });
   }
 }
