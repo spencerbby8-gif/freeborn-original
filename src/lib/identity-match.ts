@@ -319,10 +319,11 @@ function classifyFailure(result: EngineResult): string {
  */
 const MAX_CONTENT_ATTEMPTS = 2;
 
-async function askEngine(target: EngineTarget, images: string[]): Promise<EngineReply> {
+async function askEngine(target: EngineTarget, images: string[], signal?: AbortSignal): Promise<EngineReply> {
   let lastReason = "unreachable";
   for (let i = 0; i < MAX_CONTENT_ATTEMPTS; i++) {
-    const result = await callEngine(target, MATCH_PROMPT, { images, maxTokens: 220 });
+    if (signal?.aborted) return { ok: false, reason: "aborted" };
+    const result = await callEngine(target, MATCH_PROMPT, { images, maxTokens: 220, signal });
     if (!result.ok) return { ok: false, reason: classifyFailure(result) };
     const text = result.text ?? "";
     /* The model answered but ignored the images. Reported distinctly because it is a
@@ -335,16 +336,16 @@ async function askEngine(target: EngineTarget, images: string[]): Promise<Engine
   return { ok: false, reason: lastReason };
 }
 
-async function askEngine1(images: string[]): Promise<EngineReply> {
+async function askEngine1(images: string[], signal?: AbortSignal): Promise<EngineReply> {
   if (!A_BASE || !A_KEY) return { ok: false, reason: "unconfigured" };
-  return askEngine(MATCH_ENGINE_1, images);
+  return askEngine(MATCH_ENGINE_1, images, signal);
 }
 
-async function askEngine2(images: string[]): Promise<EngineReply> {
+async function askEngine2(images: string[], signal?: AbortSignal): Promise<EngineReply> {
   if (!V_BASE || !V_KEY) return { ok: false, reason: "unconfigured" };
   /* VoidAI documents its key format as sk-voidai-… — fail fast otherwise. */
   if (!V_KEY.startsWith("sk-voidai-")) return { ok: false, reason: "invalid-key" };
-  return askEngine(MATCH_ENGINE_2, images);
+  return askEngine(MATCH_ENGINE_2, images, signal);
 }
 
 /* --- In-memory rate limit (per account) ------------------------------------ */
@@ -366,7 +367,8 @@ async function runIdentityMatchInner(
   memberId: string,
   newPhotoDataUrl: string,
   origin: string,
-  started: number
+  started: number,
+  signal?: AbortSignal
 ): Promise<MatchOutcome> {
   const baselines = await collectBaselines(memberId, origin);
   if (baselines.length === 0) {
@@ -398,7 +400,7 @@ async function runIdentityMatchInner(
   }
 
   const images = [newPhoto, ...refs];
-  const [e1, e2] = await Promise.all([askEngine1(images), askEngine2(images)]);
+  const [e1, e2] = await Promise.all([askEngine1(images, signal), askEngine2(images, signal)]);
   const decided = decideMatch(e1, e2);
   return {
     ...decided,
@@ -416,10 +418,10 @@ async function runIdentityMatchInner(
 }
 
 /**
- * Budgeted entry point. Netlify caps functions at 26s; a hanging engine must
- * degrade to the gate's designed fallback (photo added, audit row written,
- * seal revoked only if a check actually ran) — never to a platform-killed 502
- * that skips the fallback.
+ * Budgeted entry point. Vercel caps serverless functions at the plan's
+ * maxDuration; a hanging engine must degrade to the gate's designed fallback
+ * (photo added, audit row written, seal revoked only if a check actually ran) —
+ * never to a platform-killed 502 that skips the fallback.
  */
 export async function runIdentityMatch(
   memberId: string,
@@ -428,7 +430,7 @@ export async function runIdentityMatch(
 ): Promise<MatchOutcome> {
   const started = Date.now();
   return withBudget(
-    runIdentityMatchInner(memberId, newPhotoDataUrl, origin, started),
+    (signal) => runIdentityMatchInner(memberId, newPhotoDataUrl, origin, started, signal),
     ENGINE_BUDGET_MS,
     (): MatchOutcome => ({
       decision: "unclear",

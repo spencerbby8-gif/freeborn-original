@@ -186,7 +186,7 @@ export async function POST(request: Request) {
     /* Engine budget: the appeal is already stored — a hanging gateway
        degrades the investigation to human review, never a 502. */
     const result = await withBudget(
-      investigateAppeal(plea, record),
+      (signal) => investigateAppeal(plea, record, signal),
       ENGINE_BUDGET_MS,
       () => null
     );

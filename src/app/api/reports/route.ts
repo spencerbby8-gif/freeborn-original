@@ -182,13 +182,15 @@ export async function POST(request: Request) {
     /* Engine budget: a hanging gateway must never 502 a filed report —
        the report row is already stored; triage degrades to human review. */
     const verdict = await withBudget(
-      factCheckReport(
-        safeReason,
-        safeDetails ?? "",
-        targetSummary,
-        priorReports,
-        Boolean(target.isVerified)
-      ),
+      (signal) =>
+        factCheckReport(
+          safeReason,
+          safeDetails ?? "",
+          targetSummary,
+          priorReports,
+          Boolean(target.isVerified),
+          signal
+        ),
       ENGINE_BUDGET_MS,
       () => null
     );

@@ -91,8 +91,8 @@ const ENGINE_2: EngineTarget = {
  */
 const recentFailures: string[] = [];
 
-async function ask(engine: EngineTarget, prompt: string): Promise<string | null> {
-  const result = await callEngine(engine, prompt, { maxTokens: 220 });
+async function ask(engine: EngineTarget, prompt: string, signal?: AbortSignal): Promise<string | null> {
+  const result = await callEngine(engine, prompt, { maxTokens: 220, signal });
   if (result.ok) return result.text ?? null;
   const detail = result.attempts
     .map((a) => `${a.model}/${a.rung} -> ${a.status}${a.error ? ` ${a.error}` : ""}`)
@@ -147,13 +147,14 @@ export async function factCheckReport(
   details: string,
   targetSummary: string,
   reportCount: number,
-  targetIsVerified: boolean
+  targetIsVerified: boolean,
+  signal?: AbortSignal
 ): Promise<JusticeOutcome | null> {
   const prompt = buildPrompt(reason, details, targetSummary, reportCount);
 
   const [textA, textV] = await Promise.all([
-    ask(ENGINE_1, prompt),
-    ask(ENGINE_2, prompt),
+    ask(ENGINE_1, prompt, signal),
+    ask(ENGINE_2, prompt, signal),
   ]);
 
   const vA = parseVerdict(textA);
@@ -211,7 +212,8 @@ export async function triageReport(reason: string, details: string): Promise<{ s
  */
 export async function investigateAppeal(
   plea: string,
-  securityRecord: string
+  securityRecord: string,
+  signal?: AbortSignal
 ): Promise<{ botRisk: "low" | "medium" | "high"; summary: string } | null> {
   const prompt =
     "You are one of two independent investigators reviewing a suspended dating-app account's appeal. " +
@@ -221,8 +223,8 @@ export async function investigateAppeal(
     '{"botRisk":"low|medium|high","summary":"<fifteen words max>"}';
 
   const [textA, textV] = await Promise.all([
-    ask(ENGINE_1, prompt),
-    ask(ENGINE_2, prompt),
+    ask(ENGINE_1, prompt, signal),
+    ask(ENGINE_2, prompt, signal),
   ]);
 
   const parse = (t: string | null) => {

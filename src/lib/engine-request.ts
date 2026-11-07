@@ -170,9 +170,9 @@ async function readErrorBody(res: Response): Promise<string> {
 export async function callEngine(
   target: EngineTarget,
   prompt: string,
-  opts: { images?: string[]; maxTokens?: number } = {},
+  opts: { images?: string[]; maxTokens?: number; signal?: AbortSignal } = {},
 ): Promise<EngineResult> {
-  const { images, maxTokens = 220 } = opts;
+  const { images, maxTokens = 220, signal } = opts;
   const attempts: Attempt[] = [];
 
   if (!target.baseUrl || !target.apiKey) {
@@ -216,10 +216,21 @@ export async function callEngine(
   }
 
   for (const step of plan) {
-    /* Stop walking the ladder once the budget is spent. Before this, a route
+    /* Stop walking the ladder once the budget is spent or the external abort
+       signal fires (e.g. from withBudget's deadline). Before this, a route
        awaiting callEngine inside withBudget() kept burning upstream attempts after
        its own fallback had already been returned — wasted spend and, on the
        health probe, a function that could outlive maxDuration. */
+    if (signal?.aborted) {
+      attempts.push({
+        model: step.model,
+        rung: step.rung.id,
+        status: -4,
+        ms: Date.now() - ladderStartedAt,
+        error: "external abort signal received (budget deadline or caller cancellation)",
+      });
+      break;
+    }
     if (ladderDeadlineMs && Date.now() - ladderStartedAt >= ladderDeadlineMs) {
       attempts.push({
         model: step.model,
@@ -233,6 +244,11 @@ export async function callEngine(
     const t0 = Date.now();
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    /* Bridge the external signal to the internal controller so an in-flight
+       fetch is aborted immediately when the budget wins, not when its own
+       per-attempt timeout fires. */
+    const onExternalAbort = () => ctrl.abort();
+    signal?.addEventListener("abort", onExternalAbort, { once: true });
     try {
       const res = await fetch(`${target.baseUrl}/chat/completions`, {
         method: "POST",
@@ -281,6 +297,7 @@ export async function callEngine(
       });
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onExternalAbort);
     }
   }
 

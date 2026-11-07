@@ -1,37 +1,39 @@
 /**
  * ENGINE CALL BUDGET
  *
- * Netlify caps synchronous functions at 26 seconds on paid plans (10s on
- * free). Every AI-calling route on Freeborn must therefore finish — or
- * fail over to its designed fallback — well inside that window, or the
- * platform kills the function mid-flight and the client sees a 502 even
- * though the work (a filed report, an uploaded photo) may have partially
- * happened.
+ * Vercel caps serverless functions at the plan's maxDuration (60s on reports/appeals,
+ * 120s on verification and media). Every AI-calling route on Freeborn must finish — or
+ * fail over to its designed fallback — well inside that window, or the platform kills
+ * the function mid-flight and the client sees a 502 even though the work (a filed report,
+ * an uploaded photo) may have partially happened.
  *
- * withBudget() races a promise against a deadline and resolves with a
- * caller-supplied fallback value when the deadline wins. The design rule:
- * the fallback must be the SAME state the route already produces when an
- * engine is unavailable — never a silent success, never a crash.
+ * withBudget() races a promise against a deadline and resolves with a caller-supplied
+ * fallback value when the deadline wins. The design rule: the fallback must be the SAME
+ * state the route already produces when an engine is unavailable — never a silent success,
+ * never a crash.
  *
- * The losing promise keeps running server-side until its own abort fires;
- * its result is simply discarded. Callers must not let the losing promise
- * write to the database after the race is lost (keep DB writes outside the
- * raced promise, or make them idempotent).
+ * FIX (2026-11-07 remediation): the losing promise is now cancelled via AbortController
+ * instead of being left running. The caller passes a factory function that receives an
+ * AbortSignal, so callEngine can abort its in-flight fetch immediately when the budget
+ * wins. This eliminates the wasted upstream spend and the risk of the losing promise
+ * outliving the route's maxDuration.
  */
 
 export function withBudget<T>(
-  promise: Promise<T>,
+  createPromise: (signal: AbortSignal) => Promise<T>,
   ms: number,
   fallback: () => T
 ): Promise<T> {
   return new Promise<T>((resolve) => {
+    const controller = new AbortController();
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      controller.abort();
       resolve(fallback());
     }, ms);
-    promise.then(
+    createPromise(controller.signal).then(
       (value) => {
         if (settled) return;
         settled = true;
