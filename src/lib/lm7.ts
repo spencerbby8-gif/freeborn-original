@@ -1,35 +1,31 @@
 /**
- * SECOND ENGINE — Freeborn's independent identity re-verifier (voidai.app).
+ * SECOND ENGINE — independent identity re-verification.
  *
- * Stage 1 runs on Antigravity/Gemini; this engine re-verifies the same selfie
- * afterwards, one after the other, before any verdict is final.
- *
- * Model chain selected by live accuracy testing against Freeborn's own pose
- * guides (peace sign / OK sign / thumbs up / hand-under-chin), in order of
- * measured reliability on the account:
- *   gpt-4.1  — 3/3 correct, fastest, clean JSON discipline (primary)
- *   gpt-4o   — 3/3 correct (fallback)
- *   kimi-k3, gemini-3.5-flash — last resort
- *
- * If nothing in the chain answers, the engine reports so honestly and the
- * flow degrades to the single-engine path — it never pretends a second
- * opinion happened when it didn't.
- *
- * NOTE: voidai sits behind Cloudflare and rejects the default Node fetch
- * user-agent (error 1010) — every call MUST carry our custom User-Agent.
+ * Uses the same bounded caller as stage 1, moderation, and identity matching.
+ * At most three upstream attempts share ENGINE_BUDGET_MS; there is no longer a
+ * separate 4 x 20 second chain that can outlive the route's budget.
  */
+import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
+import { callEngine, type EngineTarget } from "@/lib/engine-request";
 
 const VOID_BASE = (process.env.VOID_AI_BASE_URL ?? "").replace(/\/$/, "");
 const VOID_KEY = process.env.VOID_AI_API_KEY ?? "";
-/* Legacy env names kept as a safety net if the account ever rotates. */
 const LEGACY_BASE = (process.env.LM7_BASE_URL ?? "").replace(/\/$/, "");
 const LEGACY_KEY = process.env.LM7_API_KEY ?? "";
-
 const BASE = VOID_BASE || LEGACY_BASE;
 const KEY = VOID_KEY || LEGACY_KEY;
 
 export const LM7_MODEL = "gpt-4.1";
 export const LM7_VISION_CHAIN = ["gpt-4.1", "gpt-4o", "kimi-k3", "gemini-3.5-flash"];
+
+const TARGET: EngineTarget = {
+  name: "voidai-verification",
+  baseUrl: BASE,
+  apiKey: KEY,
+  models: LM7_VISION_CHAIN,
+  budgetMs: ENGINE_BUDGET_MS,
+  maxAttempts: 3,
+};
 
 export function lm7Configured(): boolean {
   return Boolean(BASE && KEY);
@@ -37,68 +33,31 @@ export function lm7Configured(): boolean {
 
 export type Lm7Reply =
   | { ok: true; text: string }
-  | { ok: false; reason: "unconfigured" | "invalid-key" | "vision-disabled" | "unreachable" };
+  | { ok: false; reason: "unconfigured" | "invalid-key" | "vision-disabled" | "timeout" | "unreachable"; detail?: string };
 
-const INVALID_KEY_RE = /invalid|expired|revoked|does not have access/i;
-/* VoidAI free plans disable vision/OCR outright — a plan state, not a
-   transient failure: fail fast instead of walking the whole model chain. */
+const INVALID_KEY_RE = /invalid[^\n]{0,50}(api[ _-]?key|key|token)|expired[^\n]{0,50}(key|token)|revoked[^\n]{0,50}(key|token)|does not have access/i;
 const VISION_DISABLED_RE = /vision[^\n]{0,60}disabled|vision_disabled/i;
 
-async function callOnce(model: string, content: Array<Record<string, unknown>>): Promise<Lm7Reply> {
-  const ctrl = new AbortController();
-  /* 20s: Netlify caps functions at 26s — a hanging gateway must fail
-     fast so the caller can degrade instead of being killed mid-flight. */
-  const timer = setTimeout(() => ctrl.abort(), 20_000);
-  try {
-    const res = await fetch(`${BASE}/chat/completions`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${KEY}`,
-        /* Cloudflare in front of voidai bans default clients — required. */
-        "User-Agent": "freeborn-verify/1.0",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content }],
-        max_tokens: 400,
-        temperature: 0,
-      }),
-    });
-    const json = (await res.json().catch(() => null)) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-      error?: { message?: string };
-    } | null;
-    const text = json?.choices?.[0]?.message?.content ?? "";
-    if (text) return { ok: true, text };
-    const errMsg = json?.error?.message ?? "";
-    if (VISION_DISABLED_RE.test(errMsg)) return { ok: false, reason: "vision-disabled" };
-    if (INVALID_KEY_RE.test(errMsg)) return { ok: false, reason: "invalid-key" };
-    return { ok: false, reason: "unreachable" };
-  } catch {
-    return { ok: false, reason: "unreachable" };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Walk the vision chain. Honest about why nothing worked. */
-export async function askLm7(content: Array<Record<string, unknown>>): Promise<Lm7Reply> {
+export async function askLm7(content: Array<Record<string, unknown>>, signal?: AbortSignal): Promise<Lm7Reply> {
   if (!lm7Configured()) return { ok: false, reason: "unconfigured" };
-  /* VoidAI documents its key format as sk-voidai-… (docs.voidai.app/authentication).
-     A key that doesn't match can never authenticate — fail fast with a clear
-     reason instead of surfacing an opaque gateway 500. Legacy LM7_* keys are
-     exempt (their format predates this convention). */
-  if (VOID_KEY && !VOID_KEY.startsWith("sk-voidai-")) {
-    return { ok: false, reason: "invalid-key" };
+  if (VOID_KEY && !VOID_KEY.startsWith("sk-voidai-")) return { ok: false, reason: "invalid-key" };
+  const prompt = content
+    .filter((part) => part.type === "text")
+    .map((part) => String(part.text ?? ""))
+    .join("\n");
+  const images = content
+    .filter((part) => part.type === "image_url")
+    .map((part) => (part.image_url as { url?: unknown } | undefined)?.url)
+    .filter((url): url is string => typeof url === "string" && url.length > 0);
+  const result = await callEngine(TARGET, prompt, { images, maxTokens: 400, signal });
+  if (result.ok) return { ok: true, text: result.text ?? "" };
+  const errors = result.attempts.map((a) => a.error ?? "").join(" ");
+  const statuses = [...new Set(result.attempts.map((a) => a.status))];
+  const detail = `statuses=${statuses.join(",")}`;
+  if (VISION_DISABLED_RE.test(errors)) return { ok: false, reason: "vision-disabled", detail };
+  if (statuses.some((s) => s === 401 || s === 403) || INVALID_KEY_RE.test(errors)) {
+    return { ok: false, reason: "invalid-key", detail };
   }
-  let last: Lm7Reply = { ok: false, reason: "unreachable" };
-  for (const model of LM7_VISION_CHAIN) {
-    const reply = await callOnce(model, content);
-    if (reply.ok) return reply;
-    last = reply;
-    if (reply.reason === "invalid-key" || reply.reason === "vision-disabled") return reply; // plan-wide state — stop early
-  }
-  return last;
+  if (statuses.some((s) => [-3, -4, -5].includes(s))) return { ok: false, reason: "timeout", detail };
+  return { ok: false, reason: "unreachable", detail };
 }

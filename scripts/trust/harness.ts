@@ -451,6 +451,9 @@ const liveSrc = readFileSync(new URL("../../src/lib/liveness-challenge.ts", impo
 const chalSrc = readFileSync(new URL("../../src/app/api/verification/challenge/route.ts", import.meta.url), "utf8");
 const queueSrc = readFileSync(new URL("../../src/app/api/admin/review-queue/route.ts", import.meta.url), "utf8");
 const schemaSrc = readFileSync(new URL("../../src/db/schema.ts", import.meta.url), "utf8");
+const engineRequestSrc = readFileSync(new URL("../../src/lib/engine-request.ts", import.meta.url), "utf8");
+const engineHealthSrc = readFileSync(new URL("../../src/app/api/health/engines/route.ts", import.meta.url), "utf8");
+const publicHealthSrc = readFileSync(new URL("../../src/app/api/health/route.ts", import.meta.url), "utf8");
 
 /* -- the reason/CHECK drift that 500'd live reports ------------------------------ */
 const migReasonBlock = /reports_reason_check check \(\s*reason in \(([\s\S]*?)\)\s*\);/.exec(migOps)?.[1] ?? "";
@@ -566,7 +569,24 @@ ok("a malformed token id cannot reach the database at all",
    (the configured model id does not exist behind the free gateway) and each one was written up as
    a REJECTED selfie. The route must distinguish "the call failed" from "the photo was unreadable". */
 ok("stage 1 reports WHY it has no answer, instead of returning a bare null",
-  verifSrc.includes("reason: Stage1Failure | null") && verifSrc.includes("return { text: null, reason: lastReason };"));
+  verifSrc.includes("reason: Stage1Failure | null") && verifSrc.includes('return { text: null, reason: "empty" };'));
+ok("stage 1 uses the shared bounded caller instead of a frozen hand-written retry loop",
+  verifSrc.includes("callEngine(VERIFY_ENGINE_1") && !verifSrc.includes("ATTEMPT_TIMEOUT_MS"));
+ok("the engine ladder enforces a real upstream attempt cap, not only a time cap",
+  engineRequestSrc.includes("plan.slice(0, maxAttempts)") && engineRequestSrc.includes("attempt cap ${maxAttempts} enforced"));
+ok("engine failures distinguish timeouts and redact credentials before diagnostics",
+  engineRequestSrc.includes("attempt timeout after ${timeoutMs}ms") &&
+    engineRequestSrc.includes('out.split(secret).join("[redacted]")') &&
+    engineRequestSrc.includes('replace(/Bearer\\s+'));
+ok("the second verification engine shares the same three-attempt budget",
+  readFileSync(new URL("../../src/lib/lm7.ts", import.meta.url), "utf8").includes("maxAttempts: 3"));
+ok("engine diagnostics require an operator allowlist in every environment",
+  engineHealthSrc.includes("if (adminAllowlist.length === 0)") &&
+    engineHealthSrc.includes("if (!member || !adminAllowlist.includes") &&
+    !engineHealthSrc.includes("if (isProduction)"));
+ok("the public database health response cannot expose upstream text or a stack",
+  publicHealthSrc.includes('Response.json({ ok: false }, { status: 500 })') &&
+    !/Response\.json\(\{[^}]*(?:error|stack|code)/.test(publicHealthSrc));
 ok("an unavailable engine parks the attempt as pending rather than rejecting the member",
   verifSrc.includes("if (stage1.reason !== null) {") &&
     verifSrc.includes("stage1: unavailable (") &&
@@ -1204,7 +1224,22 @@ const rls1Src = readFileSync(new URL("../../db/migrations/2026-10-16-rls-and-med
    an authorization branch), and a mirrored /uploads row is likewise passed through —
    which is exactly how it stayed broken forever. */
 ok("[15] an /api/chat/media path reaches the browser unchanged", resolvePhotoUrl("/api/chat/media/aa11") === "/api/chat/media/aa11");
-ok("[15] a bucket path is prefixed with the public object URL", resolvePhotoUrl("u1/p.jpg").endsWith("/storage/v1/object/public/profile-photos/u1/p.jpg"));
+const savedPublicSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const savedServerSupabaseUrl = process.env.SUPABASE_URL;
+delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+delete process.env.SUPABASE_URL;
+ok("[15] a bucket path never falls back to the production project when configuration is missing", resolvePhotoUrl("u1/p.jpg") === "");
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://isolated-preview.invalid";
+ok("[15] a bucket path is prefixed with the configured isolated project URL", resolvePhotoUrl("u1/p.jpg") === "https://isolated-preview.invalid/storage/v1/object/public/profile-photos/u1/p.jpg");
+if (savedPublicSupabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+else process.env.NEXT_PUBLIC_SUPABASE_URL = savedPublicSupabaseUrl;
+if (savedServerSupabaseUrl === undefined) delete process.env.SUPABASE_URL;
+else process.env.SUPABASE_URL = savedServerSupabaseUrl;
+ok("[15] no Supabase client retains an inlined production URL/key fallback",
+  ["browser", "server", "api-auth", "proxy"].every((name) => {
+    const source = readFileSync(new URL(`../../src/lib/supabase/${name}.ts`, import.meta.url), "utf8");
+    return !source.includes("ihwtpwlszegrjgakqsxx") && !source.includes("sb_publishable_");
+  }));
 ok("[15] a mirrored /uploads path resolves as-is, so it can only ever 404", resolvePhotoUrl("/uploads/x.jpg") === "/uploads/x.jpg");
 ok("[15] no path yields no URL, never a guessed one", resolvePhotoUrl(null) === "" && resolvePhotoUrl("") === "");
 
@@ -2472,6 +2507,8 @@ console.log("\n[24] design system — the shared control contract, the migration
   ok("[26] call media permission comes after server session authorization",
     overlaySrc.indexOf("createCallSession(matchId, kind)") < overlaySrc.indexOf("navigator.mediaDevices.getUserMedia") &&
     overlaySrc.includes("updateCallSession(session.id, \"accept\")"));
+  ok("[26] INSERT-only callers publish rings without a SELECT subscription",
+    overlaySrc.includes('ring.httpSend("ring"') && !overlaySrc.includes("ring.subscribe("));
   ok("[26] migration adds participant-scoped Realtime policies without altering realtime RLS ownership",
     mig.includes("can_use_call_topic") && mig.includes("on realtime.messages for select to authenticated") &&
     mig.includes("on realtime.messages for insert to authenticated") && !/alter table realtime\.messages/i.test(mig));

@@ -107,6 +107,8 @@ export type EngineTarget = {
    * resolved by its own fallback while the ladder keeps burning a 35s attempt.
    */
   budgetMs?: number;
+  /** Hard cap on upstream attempts. Time budgets alone allow unlimited fast failures. */
+  maxAttempts?: number;
 };
 
 export type Attempt = {
@@ -151,11 +153,22 @@ export function buildContent(prompt: string, images?: string[]): unknown {
   ];
 }
 
+/** Return a bounded diagnostic excerpt without reflecting credentials. */
+function cleanErrorText(text: string, secrets: string[] = []): string {
+  let out = text.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+  for (const secret of secrets) {
+    if (secret.length > 6) out = out.split(secret).join("[redacted]");
+  }
+  return out
+    .replace(/Bearer\s+[A-Za-z0-9._~+\/-]+/gi, "Bearer [redacted]")
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[redacted]")
+    .slice(0, 400);
+}
+
 /** Read a short, safe excerpt of a response body for diagnostics. */
-async function readErrorBody(res: Response): Promise<string> {
+async function readErrorBody(res: Response, secrets: string[] = []): Promise<string> {
   try {
-    const text = await res.text();
-    return text.slice(0, 400);
+    return cleanErrorText(await res.text(), secrets);
   } catch {
     return "<unreadable body>";
   }
@@ -189,8 +202,9 @@ export async function callEngine(
      timeoutMs is honoured, so any caller that has not been migrated behaves
      exactly as before. */
   const ladderDeadlineMs = target.budgetMs ? Math.max(2_000, target.budgetMs - 1_500) : 0;
+  const maxAttempts = Math.max(1, Math.floor(target.maxAttempts ?? 3));
   const timeoutMs = target.budgetMs
-    ? Math.max(1_500, Math.floor((target.budgetMs - 1_500) / 3))
+    ? Math.max(1_500, Math.floor((target.budgetMs - 1_500) / maxAttempts))
     : (target.timeoutMs ?? 30_000);
   const ladderStartedAt = Date.now();
 
@@ -215,7 +229,8 @@ export async function callEngine(
     }
   }
 
-  for (const step of plan) {
+  const boundedPlan = plan.slice(0, maxAttempts);
+  for (const step of boundedPlan) {
     /* Stop walking the ladder once the budget is spent or the external abort
        signal fires (e.g. from withBudget's deadline). Before this, a route
        awaiting callEngine inside withBudget() kept burning upstream attempts after
@@ -237,7 +252,7 @@ export async function callEngine(
         rung: step.rung.id,
         status: -3,
         ms: Date.now() - ladderStartedAt,
-        error: `ladder deadline ${ladderDeadlineMs}ms reached; ${plan.length - plan.indexOf(step)} attempt(s) not tried`,
+        error: `ladder deadline ${ladderDeadlineMs}ms reached; ${boundedPlan.length - boundedPlan.indexOf(step)} attempt(s) not tried`,
       });
       break;
     }
@@ -263,7 +278,7 @@ export async function callEngine(
           rung: step.rung.id,
           status: res.status,
           ms: Date.now() - t0,
-          error: await readErrorBody(res),
+          error: await readErrorBody(res, [target.apiKey]),
         });
         continue;
       }
@@ -288,12 +303,17 @@ export async function callEngine(
       winners.set(key, { model: step.model, rung: step.rung });
       return { ok: true, text, model: step.model, rung: step.rung.id, attempts };
     } catch (err) {
+      const externallyAborted = Boolean(signal?.aborted);
       attempts.push({
         model: step.model,
         rung: step.rung.id,
-        status: -1,
+        status: externallyAborted ? -4 : ctrl.signal.aborted ? -5 : -1,
         ms: Date.now() - t0,
-        error: err instanceof Error ? err.message.slice(0, 400) : String(err).slice(0, 400),
+        error: externallyAborted
+          ? "external abort signal received"
+          : ctrl.signal.aborted
+            ? `attempt timeout after ${timeoutMs}ms`
+            : cleanErrorText(err instanceof Error ? err.message : String(err), [target.apiKey]),
       });
     } finally {
       clearTimeout(timer);
@@ -301,6 +321,15 @@ export async function callEngine(
     }
   }
 
+  if (plan.length > boundedPlan.length) {
+    attempts.push({
+      model: "-",
+      rung: "-",
+      status: -6,
+      ms: Date.now() - ladderStartedAt,
+      error: `attempt cap ${maxAttempts} enforced; ${plan.length - boundedPlan.length} fallback combination(s) not tried`,
+    });
+  }
   return { ok: false, attempts };
 }
 

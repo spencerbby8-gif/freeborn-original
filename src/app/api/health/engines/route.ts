@@ -107,11 +107,9 @@ const PROBE_PROMPT = "Reply with exactly: PONG";
  * Soft rate limit. One full check per 30s per instance.
  *
  * Raised from 10s because a failing engine now walks a ladder of models and
- * parameter rungs, so one request can issue several upstream calls. This route is
- * unauthenticated, and without a limit an anonymous caller could drive that cost.
+ * parameter rungs, so one request can issue several upstream calls. Without a limit, even an operator session could accidentally drive repeated cost.
  * It is per-instance, so with several instances running the real ceiling is a
- * multiple of this; that is acceptable for an operator diagnostic and is noted here
- * rather than left implicit.
+ * multiple of this. The operator gate is the primary cost and disclosure control.
  */
 let lastCall = 0;
 
@@ -175,30 +173,16 @@ async function handleGet(request: Request) {
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  /* WHAT CHANGED (audit finding F-B, 2026-10-28)
-   * ------------------------------------------------
-   * The fail-closed rule "no allowlist => nobody reads it, 404" was correct for
-   * production and wrong everywhere else: FREEBORN_ADMIN_EMAILS is configured for
-   * production+preview only, so development and any deployment that forgets the var
-   * made the single route that measures the real engine stack permanently
-   * unreadable. That is how the ladder/deadline problems in engine-request went
-   * unmeasured for weeks. The disclosure concern that motivated F2 does not apply
-   * to a non-production deployment: preview URLs are not indexed, are gated by
-   * Vercel deployment protection, and already expose far more via build logs.
-   *
-   * Rule now: production stays allowlist-gated and fail-closed (unchanged, and the
-   * bare-404 shape is kept so a wrong session and no session are indistinguishable).
-   * Non-production is open, so a reviewer can measure before shipping.
-   */
-  const isProduction = process.env.NODE_ENV === "production";
-  if (isProduction) {
-    if (adminAllowlist.length === 0) {
-      return new Response("Not found", { status: 404 });
-    }
-    const member = await getMember(request);
-    if (!member || !adminAllowlist.includes(member.email.toLowerCase())) {
-      return new Response("Not found", { status: 404 });
-    }
+  /* Fail closed in EVERY environment. Preview deployments are not an
+   * authorization boundary, and NODE_ENV=production is also used by preview
+   * builds. Only an authenticated operator allowlisted for this deployment may
+   * spend upstream budget or read model/gateway diagnostics. */
+  if (adminAllowlist.length === 0) {
+    return new Response("Not found", { status: 404 });
+  }
+  const member = await getMember(request);
+  if (!member || !adminAllowlist.includes(member.email.toLowerCase())) {
+    return new Response("Not found", { status: 404 });
   }
 
   /* `?fresh=1` clears the cached winning combination so the ladder runs from
@@ -262,7 +246,7 @@ async function handleGet(request: Request) {
        gateway's own error text is summarised, so a check performed during an
        incident is evidence that survives the instance. Table had 0 rows. */
     audit: await recordCheck({
-      email: isProduction ? (await getMember(request))?.email ?? null : null,
+      email: member.email ?? null,
       db: dbOk,
       engine1Ok: e1text.ok && e1vision.ok,
       engine2Ok: e2text.ok && e2vision.ok,
@@ -291,7 +275,7 @@ export async function GET(request: Request) {
   } catch (err) {
     /* A crash must be diagnosable JSON, not an HTML error page. */
     return Response.json(
-      { error: "Engine check failed.", detail: err instanceof Error ? err.message : String(err) },
+      { error: "Engine check failed.", detail: scrub(err instanceof Error ? err.message : String(err)) },
       { status: 500 },
     );
   }

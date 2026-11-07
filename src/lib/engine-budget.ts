@@ -33,7 +33,7 @@ export function withBudget<T>(
       controller.abort();
       resolve(fallback());
     }, ms);
-    createPromise(controller.signal).then(
+    Promise.resolve().then(() => createPromise(controller.signal)).then(
       (value) => {
         if (settled) return;
         settled = true;

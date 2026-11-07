@@ -371,7 +371,9 @@ try {
 
   // ---- 9. Scheduling migration (pg_cron/pg_net/Vault emulated) -------------
   console.log("scheduling (emulated pg_cron/pg_net/Vault)");
-  await client.query(`create schema if not exists vault;
+  await client.query(`create schema if not exists extensions;
+    create extension if not exists pgcrypto with schema extensions;
+    create schema if not exists vault;
     create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
     create or replace view vault.decrypted_secrets as select id, name, secret as decrypted_secret, description from vault.secrets;
     create or replace function vault.create_secret(new_secret text, new_name text, new_description text) returns uuid language sql as $$ insert into vault.secrets (name, secret, description) values (new_name, new_secret, new_description) returning id $$;

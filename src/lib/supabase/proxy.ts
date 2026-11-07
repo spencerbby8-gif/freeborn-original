@@ -1,9 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const FALLBACK_URL = "https://ihwtpwlszegrjgakqsxx.supabase.co";
-const FALLBACK_KEY = "sb_publishable_7N1q-Cnr7bXvBKJQGuG4zg_MCML5bPc";
-
 /**
  * SameSite for the Supabase session cookies.
  *
@@ -65,11 +62,11 @@ export async function updateSession(
 
   let response = next();
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? FALLBACK_URL;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.SUPABASE_PUBLISHABLE_KEY ??
-    FALLBACK_KEY;
+    "";
 
   if (!url || !anonKey) {
     return response;

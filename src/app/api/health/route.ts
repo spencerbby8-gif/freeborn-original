@@ -2,16 +2,19 @@ import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
+/** Public liveness only. Operational details stay in server logs and the
+ * operator-gated engine probe; never return upstream text or stack traces. */
 export async function GET() {
   try {
     await db.execute(sql`select 1`);
     return Response.json({ ok: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const cause = (err as any)?.cause ? String((err as any).cause) : "none";
-    const stack = err instanceof Error && err.stack ? err.stack.split("\n").slice(0, 5).join(" | ") : "none";
-    console.error("[health] DB connection failed:", msg, "cause:", cause, "stack:", stack);
-    return Response.json({ ok: false, error: msg, cause, stack }, { status: 500 });
+    const code = err && typeof err === "object" && "code" in err
+      ? String((err as { code?: unknown }).code ?? "unknown")
+      : "unknown";
+    console.error(`[health] database check failed (code=${code})`);
+    return Response.json({ ok: false }, { status: 500 });
   }
 }

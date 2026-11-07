@@ -11,6 +11,7 @@ import {
   type BrowserObservations,
 } from "@/lib/browser-integrity";
 import { ENGINE_BUDGET_MS } from "@/lib/engine-budget";
+import { callEngine, type EngineTarget } from "@/lib/engine-request";
 import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
 import { consumeLivenessChallenge, freshnessTag } from "@/lib/liveness-challenge";
 import { consumePoseChallenge, poseTag, type PoseOutcome } from "@/lib/pose-challenge";
@@ -101,9 +102,6 @@ const MIN_VERIFY_MS = 14_000;
  * mid-hold loses the verdict the member waited for, so the attempt timeout is now
  * derived from the same ENGINE_BUDGET_MS the rest of the product uses, and the
  * hold runs concurrently with the engine call rather than after it. */
-const ATTEMPT_TIMEOUT_MS = Math.max(3_000, Math.floor((ENGINE_BUDGET_MS - 1_500) / 3));
-const MAX_ATTEMPTS = 2;
-
 /* The id must exist on the GATEWAY in front of ANTIGRAVITY_BASE_URL, not just in a model list
    somewhere. Measured 2026-10-30 against the production gateway with a temporary probe route
    (branch arena/engine-probe-20261030, since deleted): `gemini-3.6-flash-high` -> 502 wrapping a
@@ -125,9 +123,10 @@ const KEY = process.env.ANTIGRAVITY_FREE_API_KEY ?? "";
  * being refused for our configuration while they were told their photograph was the problem.
  * The classes are named now, they are carried into the audit row, and only the honest ones
  * count as a decision about the member. */
-type Stage1Failure = "timeout" | "image-dropped" | "empty" | `http-${number}`;
+type Stage1Failure = "timeout" | "image-dropped" | "empty" | "unconfigured" | `http-${number}`;
 interface Stage1Reply {
   text: string | null;
+  model?: string;
   /** null ONLY when a usable answer came back. Non-null means the CALL failed, which is
    *  never a judgement about the member and must not be recorded as one. */
   reason: Stage1Failure | null;
@@ -145,68 +144,46 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
   return false;
 }
 
-/* --- Stage 1 engine call (with retry — the free proxy drops images) -------- */
+/* --- Stage 1 engine call: the same bounded ladder as moderation/identity --- */
 
 const IMAGE_DROPPED_RE =
   /no (reference )?image|please upload|cannot see|can't see|image (was )?(not )?(provided|missing|available)|provide (an? )?image/i;
 
-/* WHY THIS LANE DOES NOT USE THE SHARED ENGINE CALLER (measured, not assumed, 2026-10-30)
- * identity-match.ts:334 and moderation.ts:88 both go through callEngine() in
- * lib/engine-request.ts, which walks a ladder of models and request RUNGS and caches the winner.
- * That is why the gateway's model-id breakage took VERIFICATION down for weeks while the identity
- * gate kept answering: the ladder fell into a combination that worked and remembered it. This lane
- * hand-rolls one frozen model id with three identical retries, so a 404 here had no fallback.
- * Aligning it with callEngine is the principled fix and deliberately NOT done here: this PR is
- * already changing what a member is told and what is recorded, and rewiring which model answers
- * stage 1 in the same commit would make the two effects impossible to separate in review. The
- * default below is now at least a working id, overridable by ANTIGRAVITY_MODEL.
- */
+const VERIFY_ENGINE_1: EngineTarget = {
+  name: "antigravity-verification",
+  baseUrl: BASE,
+  apiKey: KEY,
+  models: [MODEL, "gemini-3-flash", "gemini-2.5-flash"],
+  sendApiKeyHeader: true,
+  budgetMs: ENGINE_BUDGET_MS,
+  maxAttempts: 3,
+};
+
+/** Preserve the existing public failure vocabulary while using the shared
+ * three-attempt caller. Provider text is never stored in the member's row. */
 async function askGemini(content: Array<Record<string, unknown>>): Promise<Stage1Reply> {
-  let lastReason: Stage1Failure = "empty";
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), ATTEMPT_TIMEOUT_MS);
-    try {
-      const res = await fetch(`${BASE}/v1/chat/completions`, {
-        method: "POST",
-        signal: ctrl.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${KEY}`,
-          /* The Antigravity gateway documents x-api-key as its client header —
-             send both so either contract keeps working. */
-          "x-api-key": KEY,
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [{ role: "user", content }],
-          max_tokens: 220,
-          temperature: 0,
-        }),
-      });
-      if (!res.ok) {
-        lastReason = `http-${res.status}` as Stage1Failure;
-        throw new Error(`http ${res.status}`);
-      }
-      const json = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
-      const text = json.choices?.[0]?.message?.content ?? "";
-      if (!text) throw new Error("empty");
-      if (IMAGE_DROPPED_RE.test(text)) {
-        lastReason = "image-dropped";
-        throw new Error("image-dropped");
-      }
-      return { text, reason: null };
-    } catch (err) {
-      if (ctrl.signal.aborted) lastReason = "timeout";
-      /* Back off for at most the time the remaining budget allows. */
-      await new Promise((r) => setTimeout(r, 700));
-    } finally {
-      clearTimeout(timer);
-    }
+  const prompt = content
+    .filter((part) => part.type === "text")
+    .map((part) => String(part.text ?? ""))
+    .join("\n");
+  const images = content
+    .filter((part) => part.type === "image_url")
+    .map((part) => (part.image_url as { url?: unknown } | undefined)?.url)
+    .filter((url): url is string => typeof url === "string" && url.length > 0);
+  const result = await callEngine(VERIFY_ENGINE_1, prompt, { images, maxTokens: 220 });
+  if (result.ok) {
+    const text = result.text ?? "";
+    if (IMAGE_DROPPED_RE.test(text)) return { text: null, reason: "image-dropped", model: result.model };
+    return { text, reason: null, model: result.model };
   }
-  return { text: null, reason: lastReason };
+  if (result.attempts.some((a) => a.status === -2)) return { text: null, reason: "unconfigured" };
+  if (result.attempts.some((a) => [-3, -4, -5].includes(a.status))) {
+    return { text: null, reason: "timeout" };
+  }
+  const http = [...result.attempts].reverse().find((a) => a.status > 0);
+  if (http?.status === 200) return { text: null, reason: "empty" };
+  if (http) return { text: null, reason: `http-${http.status}` };
+  return { text: null, reason: "empty" };
 }
 
 function parseVerdict<T>(text: string | null): T | null {
@@ -599,7 +576,9 @@ export async function POST(request: Request) {
      (a bad key, a disabled vision capability — a one-minute fix an operator would never
      look for, because the audit row looks like a design choice). Both the response and the
      audit row carry which one it was. */
-  const degradationTag = lm7.ok ? "" : `+lm7:${lm7.reason ?? "unavailable"}`;
+  const degradationTag = lm7.ok
+    ? ""
+    : `+lm7:${lm7.reason ?? "unavailable"}${!lm7.ok && lm7.detail ? `(${lm7.detail})` : ""}`;
   const engineReason = lm7.ok ? null : (lm7.reason ?? "unavailable");
   /** Why the review is happening, for the response only — `lm7.reason` is a provider
    *  condition ("invalid-key"), not anything the member did. */
@@ -739,7 +718,7 @@ export async function POST(request: Request) {
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
-    method: `single_model:${MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}${degradationTag}${
+    method: `single_model:${stage1.model ?? MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}${degradationTag}${
       sameEnough && !(challengeProven && poseProven) ? "+unproven:legacy-pose" : ""
     }`,
     selfieMedia: selfie,

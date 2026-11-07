@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { resolveDatabaseConnection } from "./tls";
 
 /**
  * Database connection (Supabase transaction pooler).
@@ -49,13 +50,15 @@ function createDb() {
     );
   }
 
-  const isLocal =
-    databaseUrl.includes("127.0.0.1") || databaseUrl.includes("localhost");
+  const connection = resolveDatabaseConnection(databaseUrl, {
+    caCertificate: process.env.DATABASE_CA_CERT,
+    vercelEnv: process.env.VERCEL_ENV,
+  });
 
   const pool =
     globalForDb.__freebornPgPool ??
     new Pool({
-      connectionString: databaseUrl,
+      connectionString: connection.connectionString,
       /* node-postgres defaults to max:10. On Vercel EVERY serverless
          instance builds its own pool, so 50 concurrent instances means 500
          connections aimed at the Supabase transaction pooler — which refuses
@@ -63,11 +66,10 @@ function createDb() {
          and it can exhaust the project's connection budget for everyone.
          Keep per-instance pools tiny; on serverless, few and short-lived wins. */
       max: Number(process.env.PGPOOL_MAX ?? 2),
-      /* Supabase requires TLS. rejectUnauthorized:false is the standard
-         workaround because the pooler certificate CN does not match the host;
-         the connection is still encrypted. Never enable this for a local
-         sandbox Postgres, which typically has no certificate at all. */
-      ssl: isLocal ? undefined : { rejectUnauthorized: false },
+      /* One explicit policy after removing DSN TLS keys that would otherwise
+         overwrite it. Production requires DATABASE_CA_CERT; preview may use
+         encrypted-only Supabase TLS during isolated validation. */
+      ssl: connection.ssl,
       /* Bound every statement. Vercel caps functions at 26s on paid plans, so
          a runaway query must die before the platform kills the invocation and
          leaves the connection in an unknown state. */

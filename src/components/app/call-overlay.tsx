@@ -68,7 +68,6 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localRef = useRef<MediaStream | null>(null);
   const chanRef = useRef<Awaited<ReturnType<typeof callChannel>> | null>(null);
-  const ringChanRef = useRef<Awaited<ReturnType<typeof ringChannel>> | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -192,8 +191,6 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     localRef.current = null;
     destroyChannel(chanRef.current);
     chanRef.current = null;
-    destroyChannel(ringChanRef.current);
-    ringChanRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kind/onCallEnd are read at call time; a stable cleanup avoids rebuilding the WebRTC channel.
   }, []);
 
@@ -478,24 +475,26 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
             void (async () => {
               const ring = await ringChannel(peer.id);
               if (cancelled || closedRef.current) { destroyChannel(ring); return; }
-              ringChanRef.current = ring;
-              ring.subscribe((s) => {
-                if (s === "SUBSCRIBED" && !closedRef.current) {
-                  void ring
-                    .send({
-                      type: "broadcast",
-                      event: "ring",
-                      payload: {
-                        callId: callIdRef.current,
-                        matchId,
-                        kind,
-                        from: session.self,
-                      } satisfies RingPayload,
-                    })
-                    .then(() => traceCall(callIdRef.current, role, "tx-ring"))
-                    .catch((e) => traceCall(callIdRef.current, role, "tx-ring-fail", String(e)));
-                }
-              });
+              /* The callee has SELECT-only access to their personal ring topic;
+                 the caller has INSERT-only access for this live session. Subscribing
+                 here therefore failed by design and, if SELECT were widened to make
+                 it pass, one caller could observe other members' incoming rings.
+                 Realtime's explicit REST broadcast needs no subscription and still
+                 evaluates the caller's INSERT policy with their user JWT. */
+              try {
+                await ring.httpSend("ring", {
+                  callId: callIdRef.current,
+                  matchId,
+                  kind,
+                  from: session.self,
+                } satisfies RingPayload);
+                traceCall(callIdRef.current, role, "tx-ring");
+              } catch (e) {
+                traceCall(callIdRef.current, role, "tx-ring-fail", String(e));
+                throw e;
+              } finally {
+                destroyChannel(ring);
+              }
             })().catch(() => {
               if (!cancelled && !closedRef.current) {
                 cleanup(false);

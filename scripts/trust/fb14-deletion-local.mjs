@@ -36,6 +36,14 @@ try {
     if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
     if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
   end $$;`);
+  // Minimal disposable Auth fixture for the bridge's exact three relations.
+  // This never runs against Supabase; production/preview use their real Auth schema.
+  await client.query(`
+    create schema if not exists auth;
+    create table if not exists auth.users (id uuid primary key);
+    create table if not exists auth.identities (user_id uuid not null);
+    create table if not exists auth.refresh_tokens (user_id text not null, revoked boolean);
+  `);
   const migration = await readFile(new URL("../../supabase/migrations/20261102040000_fb14_durable_account_deletion.sql", import.meta.url), "utf8");
   await client.query(migration);
   const authBridge = await readFile(new URL("../../supabase/migrations/20261102080000_fb14_auth_erasure_bridge.sql", import.meta.url), "utf8");
@@ -127,8 +135,28 @@ try {
   const keys = Object.keys(status.rows[0].status ?? {}).sort();
   ok("public status is minimal", JSON.stringify(keys) === JSON.stringify(["completedAt", "requestedAt", "status"]));
 
+  const authAccount = randomUUID();
+  await client.query("insert into auth.users(id) values($1::uuid)", [authAccount]);
+  await client.query("insert into auth.identities(user_id) values($1::uuid)", [authAccount]);
+  await client.query(
+    "insert into auth.refresh_tokens(user_id,revoked) values($1,false),($1,false),($1,true)",
+    [authAccount],
+  );
+  const active = await client.query("select public.fb14_active_signins($1::uuid) as n", [authAccount]);
+  ok("Auth bridge counts only unrevoked refresh tokens", active.rows[0].n === 2);
+  await client.query("select public.fb14_delete_auth_rows($1::uuid)", [authAccount]);
+  const erased = await client.query(
+    `select (select count(*)::int from auth.users where id=$1::uuid) as users,
+            (select count(*)::int from auth.identities where user_id=$1::uuid) as identities,
+            (select count(*)::int from auth.refresh_tokens where user_id=$1::text) as tokens`,
+    [authAccount],
+  );
+  ok("Auth bridge erases tokens, identities, and the synthetic user", erased.rows[0].users === 0 && erased.rows[0].identities === 0 && erased.rows[0].tokens === 0);
+
   await client.query("set role authenticated");
   await expectSqlError("authenticated cannot read cleanup jobs", "select count(*) from public.storage_cleanup_jobs", "42501");
+  await expectSqlError("authenticated cannot enumerate Auth signins", `select public.fb14_active_signins('${randomUUID()}'::uuid)`, "42501");
+  await expectSqlError("authenticated cannot erase Auth rows", `select public.fb14_delete_auth_rows('${randomUUID()}'::uuid)`, "42501");
   const authStatus = await client.query("select public.fb14_deletion_status($1::uuid) as status", [token]);
   ok("authenticated can use only the token status function", authStatus.rows[0].status?.status === "completed");
   await client.query("reset role");

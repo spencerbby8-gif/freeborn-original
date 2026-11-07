@@ -1,21 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-const FALLBACK_URL = "https://ihwtpwlszegrjgakqsxx.supabase.co";
-const FALLBACK_KEY = "sb_publishable_7N1q-Cnr7bXvBKJQGuG4zg_MCML5bPc";
-
 function resolveConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? FALLBACK_URL;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
     process.env.SUPABASE_PUBLISHABLE_KEY ??
-    FALLBACK_KEY;
+    "";
   return { url, anonKey };
 }
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
   const { url, anonKey } = resolveConfig();
+  if (!url || !anonKey) {
+    throw new Error("Supabase server configuration is missing; refusing to use a production fallback.");
+  }
 
   return createServerClient(url, anonKey, {
     cookieOptions: {

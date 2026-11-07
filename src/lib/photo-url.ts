@@ -16,15 +16,16 @@
  * and 0 rows of that shape remain in production, re-measured the same day.
  */
 
-const FALLBACK_SUPABASE_URL = "https://ihwtpwlszegrjgakqsxx.supabase.co";
-
 function supabaseBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? FALLBACK_SUPABASE_URL).replace(/\/$/, "");
+  // A missing preview configuration must not silently resolve member photos
+  // from the production project.
+  return (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
 }
 
 export function resolvePhotoUrl(storagePath: string | null | undefined): string {
   if (!storagePath) return "";
   if (/^https?:\/\//.test(storagePath)) return storagePath;
   if (storagePath.startsWith("/")) return storagePath;
-  return `${supabaseBaseUrl()}/storage/v1/object/public/profile-photos/${storagePath}`;
+  const base = supabaseBaseUrl();
+  return base ? `${base}/storage/v1/object/public/profile-photos/${storagePath}` : "";
 }
