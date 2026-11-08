@@ -1402,7 +1402,14 @@ ok("[15] the disk mirror is gone from the onboarding store",
 ok("[15] a storage failure falls back to Postgres bytes at a served path",
   /storePhotoBytesInDatabase\(userId, photo\.src\)/.test(onboardSrc) &&
   /`\/api\/chat\/media\/\$\{media\.id\}`/.test(onboardSrc));
-ok("[15] both fallback sites were converted, not just the first", (onboardSrc.match(/storePhotoBytesInDatabase/g) ?? []).length >= 3);
+ok("[15] onboarding has one centralized Postgres fallback and no duplicate catch mirror",
+  (onboardSrc.match(/storePhotoBytesInDatabase/g) ?? []).length === 2 &&
+  !onboardSrc.includes("photo save failed, mirroring to the database"));
+ok("[15] onboarding write failures surface and photo_count stays trigger-owned",
+  onboardSrc.includes("if (profileError) throw") &&
+  onboardSrc.includes("if (preferencesError) throw") &&
+  onboardSrc.includes("Could not complete onboarding") &&
+  !onboardSrc.includes(".update({ photo_count:"));
 ok("[15] replace-all onboarding removes old objects before deleting old rows",
   onboardSrc.indexOf(".remove(removable)") > 0 &&
   onboardSrc.indexOf('from("profile_photos").delete()') > onboardSrc.indexOf(".remove(removable)"));

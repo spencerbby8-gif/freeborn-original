@@ -22,9 +22,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 2
 ROOT="$PWD"
-export PATH=/home/user/toolchain/node/bin:$PATH
-export LD_LIBRARY_PATH=/home/user/pgroot/usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
-PSQL=${PSQL:-/home/user/pgroot/usr/lib/postgresql/17/bin/psql}
+PSQL=${PSQL:-psql}
+command -v "$PSQL" >/dev/null 2>&1 || { echo "pose-negctl requires a PostgreSQL client (set PSQL)" >&2; exit 2; }
 PSQL_URL=${PSQL_URL:-postgresql://postgres:postgres@127.0.0.1:5432/app_db}
 OUT=${NEGCTL_DIR:-/home/user/re/analysis-2026-10-29/negctl}   # evidence lives in the workspace, not /tmp
 mkdir -p "$OUT"
@@ -211,20 +210,30 @@ control 5b "only the consuming CAS relaxed (expected MASKED: the read guard stil
 if [[ -z "$ONLY" || ",$ONLY," == *",6,"* ]]; then
   TOTAL=$((TOTAL+1))
   echo "-- control 6: human_challenges_single_live goes back to including status (the lockout)"
-  "$PSQL" "$PSQL_URL" -q <<'SQL' >/dev/null 2>&1
+  # Start with no historical rows: duplicate expired rows from earlier modes
+  # would make the mutation itself fail and leave no index at all. Never hide a
+  # failed mutation behind a green application run.
+  if ! "$PSQL" "$PSQL_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+delete from public.verification_challenges;
+delete from public.human_challenges;
 drop index if exists public.human_challenges_single_live;
 create unique index human_challenges_single_live on public.human_challenges (email, purpose, status);
 SQL
-  rc="$(run_mode main "$OUT/c6.log")"
-  "$PSQL" "$PSQL_URL" -q <<'SQL' >/dev/null 2>&1
+  then
+    echo "   MUTATION FAILED — the lockout index could not be installed"
+    MISSED=$((MISSED+1))
+  else
+    rc="$(run_mode main "$OUT/c6.log")"
+    "$PSQL" "$PSQL_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
 drop index if exists public.human_challenges_single_live;
 create unique index if not exists human_challenges_single_live on public.human_challenges (email, purpose) where status = 'issued';
 SQL
-  if caught "$rc" "$OUT/c6.log" "23505 regression"; then
-    echo "   CAUGHT  (the suite's re-issue test saw the lockout)"
-  else
-    echo "   MISSED  (exit $rc): the lockout has no test behind it"
-    MISSED=$((MISSED+1))
+    if caught "$rc" "$OUT/c6.log" "23505 regression" "issuing mints a single-use token"; then
+      echo "   CAUGHT  (the suite's challenge-issuance tests saw the lockout)"
+    else
+      echo "   MISSED  (exit $rc): the lockout has no test behind it"
+      MISSED=$((MISSED+1))
+    fi
   fi
 fi
 

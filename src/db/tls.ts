@@ -31,8 +31,9 @@ function isSupabaseHost(hostname: string): boolean {
  *
  * Remove every driver-level TLS key and return one unambiguous TLS policy.
  * Verification uses the project CA downloaded from Supabase Database Settings.
- * Preview may use encrypted-but-unverified TLS temporarily; Vercel production
- * fails closed until DATABASE_CA_CERT is present. No global TLS bypass is used.
+ * Every Supabase environment fails closed until DATABASE_CA_CERT is present.
+ * No environment is allowed to silently downgrade to unverified TLS, and no
+ * global TLS bypass is used.
  */
 export function resolveDatabaseConnection(
   databaseUrl: string,
@@ -67,10 +68,9 @@ export function resolveDatabaseConnection(
   }
 
   if (isSupabaseHost(url.hostname)) {
-    return {
-      connectionString: url.toString(),
-      ssl: { rejectUnauthorized: false },
-    };
+    throw new Error(
+      "DATABASE_CA_CERT is required for Supabase in every environment; refusing unverified TLS.",
+    );
   }
 
   // Other managed Postgres providers normally use a public CA. Keep Node's

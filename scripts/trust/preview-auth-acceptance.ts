@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { Pool } from "pg";
 import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import { resolveDatabaseConnection } from "../../src/db/tls";
@@ -9,9 +9,13 @@ type Result = { id: string; pass: boolean; detail?: string | number | boolean };
 
 const projectRef = process.env.PREVIEW_PROJECT_REF!;
 const publishable = process.env.PREVIEW_PUBLISHABLE_KEY!;
-const admin = readFileSync(process.env.PREVIEW_ADMIN_FILE!, "utf8").trim();
-const runtimePassword = readFileSync(process.env.PREVIEW_RUNTIME_PASSWORD_FILE!, "utf8").trim();
-const poolerHost = process.env.PREVIEW_POOLER_HOST!;
+const publicSignup = process.env.PREVIEW_PUBLIC_SIGNUP === "1";
+const deletionStateFile = process.env.PREVIEW_DELETION_STATE_FILE;
+const admin = process.env.PREVIEW_ADMIN_FILE ? readFileSync(process.env.PREVIEW_ADMIN_FILE, "utf8").trim() : "";
+const runtimePassword = process.env.PREVIEW_RUNTIME_PASSWORD_FILE ? readFileSync(process.env.PREVIEW_RUNTIME_PASSWORD_FILE, "utf8").trim() : "";
+const poolerHost = process.env.PREVIEW_POOLER_HOST ?? "";
+if (!publicSignup && (!admin || !runtimePassword || !poolerHost)) throw new Error("privileged acceptance requires admin/runtime inputs");
+if (publicSignup && !deletionStateFile) throw new Error("public signup acceptance requires PREVIEW_DELETION_STATE_FILE");
 const appBase = process.env.APP_BASE_URL ?? "http://127.0.0.1:3000";
 const appOrigin = process.env.APP_ORIGIN ?? appBase;
 const supabaseUrl = `https://${projectRef}.supabase.co`;
@@ -20,7 +24,8 @@ const users: User[] = [];
 const results: Result[] = [];
 const realtimeClients: SupabaseClient[] = [];
 const realtimeErrors = new WeakMap<RealtimeChannel, string>();
-let pool: Pool;
+let pool: Pool | undefined;
+let deferredDeletion = false;
 
 function check(id: string, pass: boolean, detail?: string | number | boolean) {
   results.push({ id, pass, ...(detail === undefined ? {} : { detail }) });
@@ -67,6 +72,27 @@ async function createSyntheticUser(label: string) {
   check(`password_signin_${label}`, signin.status === 200 && typeof signin.body?.access_token === "string", signin.status);
   if (signin.status !== 200 || !signin.body?.access_token) throw new Error(`synthetic user ${label} sign-in failed`);
   users.push({ label, id: body.id, email, password, token: signin.body.access_token, deleted: false });
+}
+
+async function createPublicSyntheticUser(label: string) {
+  const password = `${randomBytes(30).toString("base64url")}aA1!`;
+  const email = `fb-${runId}-${label}@example.invalid`;
+  const signup = await jsonRequest(`${supabaseUrl}/auth/v1/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, data: { full_name: `Preview ${label.toUpperCase()}` } }),
+  }, "publishable");
+  const id = signup.body?.user?.id ?? signup.body?.id;
+  check(`create_confirmed_synthetic_${label}`, signup.status === 200 && typeof id === "string" && typeof signup.body?.access_token === "string", signup.status);
+  if (signup.status !== 200 || !id || !signup.body?.access_token) throw new Error(`public synthetic user ${label} signup failed`);
+  const signin = await jsonRequest(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }, "publishable");
+  check(`password_signin_${label}`, signin.status === 200 && typeof signin.body?.access_token === "string", signin.status);
+  if (signin.status !== 200 || !signin.body?.access_token) throw new Error(`synthetic user ${label} sign-in failed`);
+  users.push({ label, id, email, password, token: signin.body.access_token, deleted: false });
 }
 
 async function api(user: User | null, path: string, init: RequestInit = {}) {
@@ -195,18 +221,21 @@ async function cleanup() {
     await pool.end();
   }
   for (const user of users) {
-    if (user.deleted) continue;
+    if (user.deleted || publicSignup) continue;
     const response = await request(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, { method: "DELETE" }, "admin").catch(() => null);
     check(`synthetic_auth_cleanup_${user.label}`, response?.status === 204 || response?.status === 404 || response?.status === 200, response?.status ?? "network_error");
   }
 }
 
 async function main() {
-  const dsn = `postgresql://${encodeURIComponent(`freeborn_runtime.${projectRef}`)}:${encodeURIComponent(runtimePassword)}@${poolerHost}:6543/postgres?sslmode=require&pgbouncer=true`;
-  const connection = resolveDatabaseConnection(dsn, { vercelEnv: "preview" });
-  pool = new Pool({ connectionString: connection.connectionString, ssl: connection.ssl, max: 2, connectionTimeoutMillis: 8_000 });
+  if (!publicSignup) {
+    const dsn = `postgresql://${encodeURIComponent(`freeborn_runtime.${projectRef}`)}:${encodeURIComponent(runtimePassword)}@${poolerHost}:6543/postgres?sslmode=require&pgbouncer=true`;
+    const connection = resolveDatabaseConnection(dsn, { vercelEnv: "preview" });
+    pool = new Pool({ connectionString: connection.connectionString, ssl: connection.ssl, max: 2, connectionTimeoutMillis: 8_000 });
+  }
+  console.log(`synthetic_run=${runId}`);
   try {
-    for (const label of ["a", "b", "c"]) await createSyntheticUser(label);
+    for (const label of ["a", "b", "c"]) await (publicSignup ? createPublicSyntheticUser(label) : createSyntheticUser(label));
     const [a, b, c] = users;
     for (const user of users) {
       const response = await api(user, "/api/chat/matches");
@@ -217,8 +246,58 @@ async function main() {
     const settings = await api(a, "/api/settings");
     check("member_settings_read", settings.status === 200 && typeof settings.body?.account?.email === "string", settings.status);
 
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4S8AAAAASUVORK5CYII=", "base64");
+    const photoData = `data:image/png;base64,${png.toString("base64")}`;
+    const anonymousOnboarding = await api(null, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "identity", patch: {} }) });
+    check("anonymous_onboarding_denied", anonymousOnboarding.status === 401, anonymousOnboarding.status);
+    const underage = await api(a, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "identity", patch: { birth_date: "2012-01-01" } }) });
+    check("underage_onboarding_denied", underage.status === 400, underage.status);
+    const onboardingSteps = [
+      ["identity", { display_name: "Preview A", birth_date: "1990-01-01", gender: "non_binary" }],
+      ["location", { city: "Lagos", region: "Lagos", country_code: "NG", location_source: "manual" }],
+      ["relationship_intent", { relationship_goals: ["long_term"], values: ["Honesty"] }],
+      ["bio", { bio: "Synthetic Preview member profile for acceptance testing.", occupation: "Engineer", education: "Bachelor's degree" }],
+      ["interests", { lifestyle_preferences: ["Homebody"], interests: ["Reading", "Cooking", "Art"] }],
+      ["photos", { photos: [{ id: "pixel", src: photoData, isCover: true }] }],
+    ] as const;
+    for (const [step, patch] of onboardingSteps) {
+      const saved = await api(a, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step, patch }) });
+      check(`onboarding_${step}_saved`, saved.status === 200 && saved.body?.ok === true, saved.status);
+    }
+    const completedOnboarding = await api(a, "/api/onboarding/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    check("onboarding_completed", completedOnboarding.status === 200 && completedOnboarding.body?.ok === true, completedOnboarding.body?.error ?? completedOnboarding.status);
+    const onboardingState = await api(a, "/api/onboarding/state");
+    check("onboarding_state_readable", onboardingState.status === 200, onboardingState.status);
+    const ownProfile = await api(a, "/api/profile/me");
+    check("profile_and_onboarding_photo_readable", ownProfile.status === 200 && ownProfile.body?.profile?.displayName === "Preview A" && ownProfile.body?.profile?.photos?.length > 0, `${ownProfile.status}/${ownProfile.body?.profile?.displayName ?? "missing"}/${ownProfile.body?.profile?.photos?.length ?? 0}`);
+    const invalidHeight = await api(a, "/api/profile/me", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ heightCmProfile: 4 }) });
+    check("invalid_profile_height_denied", invalidHeight.status === 400, invalidHeight.status);
+    const updatedProfile = await api(a, "/api/profile/me", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: "Preview A Updated", city: "Lagos" }) });
+    check("profile_update_allowed", updatedProfile.status === 200, updatedProfile.status);
+    const forgedVerification = await jsonRequest(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify({ is_verified: true }) }, "user", a.token);
+    const verificationAfterForgery = await jsonRequest(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${a.id}&select=is_verified`, {}, "user", a.token);
+    const persistedVerification = Array.isArray(verificationAfterForgery.body) ? verificationAfterForgery.body[0]?.is_verified : undefined;
+    check("client_profile_verification_update_denied", (forgedVerification.status === 401 || forgedVerification.status === 403) && verificationAfterForgery.status === 200 && persistedVerification === false, `${forgedVerification.status}/${verificationAfterForgery.status}/${String(persistedVerification)}`);
+    const profilePhoto = await api(a, "/api/profile/photos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: photoData }) });
+    check("profile_photo_upload_allowed", profilePhoto.status === 200 && profilePhoto.body?.ok === true, profilePhoto.status);
+    const invalidPhoto = await api(a, "/api/profile/photos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: "data:text/plain;base64,AA==" }) });
+    check("profile_photo_mime_denied", invalidPhoto.status === 400, invalidPhoto.status);
+    const directMatch = await jsonRequest(`${supabaseUrl}/rest/v1/matches`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_a: a.id, user_b: c.id, initiated_by: a.id }) }, "user", a.token);
+    check("client_match_insert_denied", directMatch.status === 401 || directMatch.status === 403, directMatch.status);
+    const directVerification = await jsonRequest(`${supabaseUrl}/rest/v1/verification_requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account_id: a.id, status: "approved" }) }, "user", a.token);
+    check("client_verification_insert_denied", directVerification.status === 401 || directVerification.status === 403, directVerification.status);
+    const crossProfile = await jsonRequest(`${supabaseUrl}/rest/v1/user_profiles?id=eq.${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify({ display_name: "cross-account-write" }) }, "user", b.token);
+    check("cross_account_profile_update_empty", crossProfile.status === 200 && Array.isArray(crossProfile.body) && crossProfile.body.length === 0, crossProfile.status);
+
     const [userA, userB] = [a.id, b.id].sort();
-    await pool.query(`insert into public.user_swipes(liker_id,liked_id,action) values($1,$2,'like'),($2,$1,'like') on conflict do nothing`, [userA, userB]);
+    if (publicSignup) {
+      for (const [user, liked, label] of [[a, b.id, "a"], [b, a.id, "b"]] as const) {
+        const swipe = await jsonRequest(`${supabaseUrl}/rest/v1/user_swipes`, { method: "POST", headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ liker_id: user.id, liked_id: liked, action: "like" }) }, "user", user.token);
+        check(`mutual_like_${label}_recorded`, swipe.status === 200 || swipe.status === 201, swipe.status);
+      }
+    } else {
+      await pool!.query(`insert into public.user_swipes(liker_id,liked_id,action) values($1,$2,'like'),($2,$1,'like') on conflict do nothing`, [userA, userB]);
+    }
     const started = await api(a, "/api/chat/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ with: b.id }) });
     const matchId = started.body?.matchId;
     check("participant_match_creation", started.status === 200 && typeof matchId === "string", started.status);
@@ -233,7 +312,6 @@ async function main() {
     const readC = await api(c, `/api/chat/messages?match=${matchId}`);
     check("nonparticipant_message_read_denied", readC.status === 404, readC.status);
 
-    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4S8AAAAASUVORK5CYII=", "base64");
     const form = new FormData();
     form.set("file", new File([png], "pixel.png", { type: "image/png" }));
     form.set("kind", "image");
@@ -326,7 +404,7 @@ async function main() {
     check("realtime_database_nonparticipant_transport", dbStatusC === "SUBSCRIBED" || dbStatusC === "CHANNEL_ERROR", dbStatusC);
     const second = await api(a, "/api/chat/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: matchId, text: `signal-${runId}` }) });
     check("second_message_for_realtime", second.status === 200, second.status);
-    const storedSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, "admin");
+    const storedSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, publicSignup ? "user" : "admin", publicSignup ? b.token : undefined);
     const participantSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, "user", b.token);
     const nonparticipantSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, "user", c.token);
     const participantPredicate = await jsonRequest(`${supabaseUrl}/rest/v1/rpc/is_match_participant`, {
@@ -353,6 +431,11 @@ async function main() {
       if (accepted) { user.deleted = true; user.deletionToken = deleted.body.deletionToken; }
     }
     if (users.every((user) => user.deleted)) {
+      if (publicSignup) {
+        writeFileSync(deletionStateFile!, JSON.stringify({ runId, projectRef, users, results }), { mode: 0o600 });
+        deferredDeletion = true;
+        return;
+      }
       await processDeletionQueues();
       for (const user of users) {
         const status = await api(null, `/api/account/deletion-status?token=${user.deletionToken}`);
@@ -368,6 +451,11 @@ async function main() {
 
 main()
   .then(() => {
+    if (deferredDeletion) {
+      console.log(JSON.stringify({ status: "awaiting_queue_drain", runId, syntheticUserIds: users.map((user) => user.id), passed: results.filter((result) => result.pass).length, failed: results.filter((result) => !result.pass).length }, null, 2));
+      if (results.some((result) => !result.pass)) process.exitCode = 1;
+      return;
+    }
     const failed = results.filter((result) => !result.pass);
     console.log(JSON.stringify({ status: failed.length ? "fail" : "pass", passed: results.length - failed.length, failed: failed.length, results }, null, 2));
     if (failed.length) process.exitCode = 1;

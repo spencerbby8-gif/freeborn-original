@@ -16,7 +16,15 @@
     "test:pose:negctl": "bash scripts/trust/pose-negctl.sh",
     "test:security": "npm run test:harness && npm run test:engines && npm run test:pose",
     "test:engines": "esbuild scripts/trust/engine-request.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.engine-request.build.mjs --packages=external && node scripts/trust/.engine-request.build.mjs",
-    "test:db-tls": "esbuild scripts/trust/db-tls.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.db-tls.build.mjs --packages=external && node scripts/trust/.db-tls.build.mjs"
+    "test:db-tls": "esbuild scripts/trust/db-tls.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.db-tls.build.mjs --packages=external && node scripts/trust/.db-tls.build.mjs",
+    "check:env": "node scripts/check-env-isolation.mjs",
+    "check:migrations": "node scripts/db/check-migrations.mjs",
+    "db:clean-replay": "node scripts/db/clean-replay.mjs",
+    "test:preview-auth": "esbuild scripts/trust/preview-auth-acceptance.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-auth-acceptance.build.mjs --packages=external && node scripts/trust/.preview-auth-acceptance.build.mjs",
+    "test:preview-deletion-verify": "esbuild scripts/trust/preview-auth-deletion-verify.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-auth-deletion-verify.build.mjs --packages=external && node scripts/trust/.preview-auth-deletion-verify.build.mjs",
+    "test:prepare-local": "node scripts/trust/prepare-local-db.mjs",
+    "test:preview-deletion-drain": "esbuild scripts/trust/preview-deletion-drain.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-deletion-drain.build.mjs --packages=external && node scripts/trust/.preview-deletion-drain.build.mjs",
+    "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

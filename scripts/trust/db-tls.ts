@@ -12,14 +12,15 @@ const SUPABASE_DSN =
   "postgresql://runtime.preview:p%40ss%2Fword@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true&sslrootcert=ignored.pem";
 
 test("DSN TLS keys cannot overwrite the explicit pool policy", () => {
-  const resolved = resolveDatabaseConnection(SUPABASE_DSN, { vercelEnv: "preview" });
+  const pem = "-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----";
+  const resolved = resolveDatabaseConnection(SUPABASE_DSN, { vercelEnv: "preview", caCertificate: pem });
   const url = new URL(resolved.connectionString);
   assert.equal(url.searchParams.has("sslmode"), false);
   assert.equal(url.searchParams.has("sslrootcert"), false);
   assert.equal(url.searchParams.get("pgbouncer"), "true");
   assert.equal(url.username, "runtime.preview");
   assert.equal(url.password, "p%40ss%2Fword");
-  assert.deepEqual(resolved.ssl, { rejectUnauthorized: false });
+  assert.deepEqual(resolved.ssl, { ca: pem, rejectUnauthorized: true });
 });
 
 test("a PEM CA enables certificate and hostname verification", () => {
@@ -45,6 +46,15 @@ test("Vercel production fails closed without the Supabase CA", () => {
     () => resolveDatabaseConnection(SUPABASE_DSN, { vercelEnv: "production" }),
     /DATABASE_CA_CERT is required/,
   );
+});
+
+test("Preview and development also fail closed without the Supabase CA", () => {
+  for (const vercelEnv of ["preview", "development"]) {
+    assert.throws(
+      () => resolveDatabaseConnection(SUPABASE_DSN, { vercelEnv }),
+      /every environment/,
+    );
+  }
 });
 
 test("a CA path or opaque secret is not mistaken for a certificate", () => {
@@ -80,7 +90,10 @@ test("non-Postgres schemes are rejected", () => {
 
 test("no process-global TLS bypass is introduced", () => {
   const before = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  resolveDatabaseConnection(SUPABASE_DSN, { vercelEnv: "preview" });
+  resolveDatabaseConnection(SUPABASE_DSN, {
+    vercelEnv: "preview",
+    caCertificate: "-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----",
+  });
   assert.equal(process.env.NODE_TLS_REJECT_UNAUTHORIZED, before);
 });
 

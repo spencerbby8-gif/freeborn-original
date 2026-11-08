@@ -1,0 +1,25 @@
+-- PREVIEW COMPATIBILITY BASELINE ONLY. Add only columns absent after recovered July migrations.
+begin;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "vaccination_status" text DEFAULT 'prefer_not_to_say' NOT NULL;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "language" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "religion" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "marital_status" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "has_kids" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "wants_kids" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "drinking" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "smoking" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "education_level" text;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "height_cm_profile" integer;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "message_privacy" text DEFAULT 'everyone' NOT NULL;
+ALTER TABLE public."user_profiles" ADD COLUMN IF NOT EXISTS "discover_privacy" text DEFAULT 'everyone' NOT NULL;
+ALTER TABLE public."discovery_preferences" ADD COLUMN IF NOT EXISTS "vaccination_preference" text DEFAULT 'any' NOT NULL;
+ALTER TABLE public."profile_photos" ADD COLUMN IF NOT EXISTS "phash_d" char(16);
+ALTER TABLE public."profile_photos" ADD COLUMN IF NOT EXISTS "phash_a" char(16);
+ALTER TABLE public."profile_photos" ADD COLUMN IF NOT EXISTS "phash_bytes" character(64);
+ALTER TABLE public."profile_photos" ADD COLUMN IF NOT EXISTS "phash_at" timestamp with time zone;
+ALTER TABLE public."user_trust_history" ADD COLUMN IF NOT EXISTS "scam_flags_7d" integer DEFAULT 0 NOT NULL;
+ALTER TABLE public."user_trust_history" ADD COLUMN IF NOT EXISTS "scam_flag_last_at" timestamp with time zone;
+ALTER TABLE public."user_trust_history" ADD COLUMN IF NOT EXISTS "duplicate_photo_hits" integer DEFAULT 0 NOT NULL;
+ALTER TABLE public."user_trust_history" ADD COLUMN IF NOT EXISTS "shared_device_accounts" integer DEFAULT 0 NOT NULL;
+ALTER TABLE public."user_trust_history" ADD COLUMN IF NOT EXISTS "suppression_active" boolean DEFAULT false NOT NULL;
+commit;

@@ -18,9 +18,25 @@ jobs:
   verify:
     name: verify
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for applied-migration immutability checks
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -33,6 +49,15 @@ jobs:
 
       - name: Secret scan (blocking)
         run: npm run check:secrets
+
+      - name: Environment isolation (blocking)
+        run: npm run check:env
+
+      - name: Migration completeness and immutability (blocking)
+        run: npm run check:migrations
+
+      - name: Dependency advisories (blocking)
+        run: npm audit --audit-level=moderate
 
       - name: Typecheck
         run: npm run typecheck
@@ -51,8 +76,32 @@ jobs:
       - name: Trust harness (blocking)
         run: npm run test:harness
 
+      - name: Engine request controls (blocking)
+        run: npm run test:engines
+
+      - name: Database TLS controls (blocking)
+        run: npm run test:db-tls
+
+      - name: Prepare disposable application schema
+        run: npm run test:prepare-local
+
+      - name: FB-14 deletion regression (blocking)
+        run: npm run test:deletion-local
+
+      - name: FB-15 retention regression (blocking)
+        run: npm run test:retention-local
+
       - name: FB-15 retention worker unit tests (blocking)
         run: npm run test:retention-worker
+
+      - name: Pose end-to-end acceptance (blocking)
+        run: npm run test:pose
+
+      - name: Pose negative control (blocking)
+        run: npm run test:pose:negctl
+
+      - name: Profile member/server write trigger regression (blocking)
+        run: npm run test:profile-trigger
 
       - name: Production build
         env:

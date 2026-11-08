@@ -68,7 +68,8 @@ export async function ensureProfileRow(
   const supabase = supabaseOverride ?? (await createSupabaseServerClient());
   const existing = await loadProfileRow(userId, supabase);
   if (existing) return existing;
-  await supabase.from("user_profiles").insert({ id: userId, email });
+  const { error } = await supabase.from("user_profiles").insert({ id: userId, email });
+  if (error) throw new Error(`Could not initialize onboarding profile: ${error.message}`);
   return loadProfileRow(userId, supabase);
 }
 
@@ -252,27 +253,27 @@ async function savePhotos(
   userId: string,
   photos: OnboardingDraft["photos"]
 ) {
-  /* Re-saving onboarding replaces the whole set. Deleting the rows without
-     deleting their objects leaks a public, permanently retrievable bucket object
-     on every re-save — production held exactly one such orphan when this was
-     measured (11 objects vs 10 rows). Paths come from the database, never from
-     the draft, so a caller cannot name an arbitrary object, and the bucket's
-     owner-scoped DELETE policy limits removal to this member's own folder. */
-  const { data: previous } = await supabase
+  /* Re-saving onboarding replaces the whole set. Paths come from the database,
+     never from the draft, and every failed write is either mirrored or surfaced. */
+  const { data: previous, error: previousError } = await supabase
     .from("profile_photos")
     .select("storage_path")
     .eq("user_id", userId);
+  if (previousError) throw new Error(`Could not read existing onboarding photos: ${previousError.message}`);
   const removable = ((previous ?? []) as Array<{ storage_path: string }>)
     .map((row) => row.storage_path)
     .filter((p) => typeof p === "string" && p.length > 0 && !p.startsWith("/") && !/^https?:\/\//.test(p));
   if (removable.length > 0) {
-    await supabase.storage.from("profile-photos").remove(removable);
+    const { error } = await supabase.storage.from("profile-photos").remove(removable);
+    if (error) throw new Error(`Could not replace existing onboarding photos: ${error.message}`);
   }
-  await supabase.from("profile_photos").delete().eq("user_id", userId);
+  const { error: deleteError } = await supabase.from("profile_photos").delete().eq("user_id", userId);
+  if (deleteError) throw new Error(`Could not replace onboarding photo rows: ${deleteError.message}`);
 
-  let position = 0;
+  let storedCount = 0;
   for (const photo of photos.slice(0, 6)) {
     let storagePath: string | null = null;
+    let uploadedObject = false;
     const match = /^data:image\/(jpeg|jpg|png);base64,(.+)$/.exec(photo.src);
 
     if (match) {
@@ -287,6 +288,7 @@ async function savePhotos(
         });
       if (!error) {
         storagePath = path;
+        uploadedObject = true;
       } else {
         console.warn(`[onboarding] photo ${photo.id} was not stored: ${error.message}`);
       }
@@ -295,34 +297,41 @@ async function savePhotos(
     }
 
     if (storagePath) {
-      await supabase.from("profile_photos").insert({
+      const { error } = await supabase.from("profile_photos").insert({
         user_id: userId,
         storage_path: storagePath,
-        position: position++,
+        position: storedCount,
         is_primary: photo.isCover,
       });
-    } else {
-      // No bucket object — store the bytes where they can still be served, and
-      // never write a path the deployment cannot read back.
-      const mirrored = await storePhotoBytesInDatabase(userId, photo.src);
-      if (mirrored) {
-        await db.insert(localProfilePhotos).values({
-          userId,
-          storagePath: mirrored,
-          position: position++,
-          isPrimary: photo.isCover,
-        });
-      } else {
-        console.warn(`[onboarding] photo ${photo.id} could not be stored; it is not on the profile.`);
+      if (!error) {
+        storedCount += 1;
+        continue;
       }
+      console.warn(`[onboarding] photo row ${photo.id} was not stored: ${error.message}`);
+      if (uploadedObject) {
+        const { error: cleanupError } = await supabase.storage.from("profile-photos").remove([storagePath]);
+        if (cleanupError) console.warn(`[onboarding] orphaned photo cleanup failed: ${cleanupError.message}`);
+      }
+      storagePath = null;
+    }
+
+    // No durable Storage row — mirror image bytes in Postgres and serve them
+    // through the authorized media route. Never invent an unreadable path.
+    const mirrored = await storePhotoBytesInDatabase(userId, photo.src);
+    if (mirrored) {
+      await db.insert(localProfilePhotos).values({
+        userId,
+        storagePath: mirrored,
+        position: storedCount,
+        isPrimary: photo.isCover,
+      });
+      storedCount += 1;
+    } else {
+      console.warn(`[onboarding] photo ${photo.id} could not be stored; it is not on the profile.`);
     }
   }
 
-  // Count reflects what is actually stored — Supabase or mirror alike.
-  await supabase
-    .from("user_profiles")
-    .update({ photo_count: Math.min(photos.length, 6) })
-    .eq("id", userId);
+  // photo_count is maintained by profile_photos row triggers. Do not overwrite it.
 }
 
 /* --- apply a step patch ----------------------------------------------------- */
@@ -361,10 +370,11 @@ export async function applyStepPatch(
     profilePatch.onboarding_stage = "profile_setup";
   }
 
-  await supabase.from("user_profiles").update(profilePatch).eq("id", userId);
+  const { error: profileError } = await supabase.from("user_profiles").update(profilePatch).eq("id", userId);
+  if (profileError) throw new Error(`Could not save onboarding profile: ${profileError.message}`);
 
   if (has("city") || has("region") || has("location_source") || has("latitude")) {
-    await supabase.from("user_private_locations").upsert(
+    const { error: locationError } = await supabase.from("user_private_locations").upsert(
       {
         user_id: userId,
         latitude: patch.latitude ?? null,
@@ -377,6 +387,7 @@ export async function applyStepPatch(
       },
       { onConflict: "user_id" }
     );
+    if (locationError) throw new Error(`Could not save onboarding location: ${locationError.message}`);
   }
 
   const prefsTouched =
@@ -404,50 +415,22 @@ export async function applyStepPatch(
     if (has("verified_only")) prefsPatch.verified_only = patch.verified_only;
     if (has("photos_required")) prefsPatch.photos_required = patch.photos_required;
 
-    await supabase
+    const { error: preferencesError } = await supabase
       .from("discovery_preferences")
       .upsert(prefsPatch, { onConflict: "user_id" });
+    if (preferencesError) throw new Error(`Could not save onboarding preferences: ${preferencesError.message}`);
   }
 
   if (has("photos")) {
     // Security rule: any new face photo invalidates the identity check until
     // the member re-verifies — mirrors /api/profile/photos exactly, so the
     // reminder comes back no matter which upload path was used.
-    await supabase.from("user_profiles").update({ is_verified: false }).eq("id", userId);
+    const { error: verificationResetError } = await supabase.from("user_profiles").update({ is_verified: false }).eq("id", userId);
+    if (verificationResetError) throw new Error(`Could not reset photo verification: ${verificationResetError.message}`);
 
-    /* Photos must never block onboarding — but the retry has to land the bytes
-       somewhere a browser can read back. The previous version of this catch
-       wrote them to `public/uploads/` and stored that path, which on a read-only
-       serverless filesystem means the profile shows a broken image forever. It
-       now mirrors into Postgres via the same helper savePhotos uses. */
-    try {
-      await savePhotos(supabase, userId, patch.photos ?? []);
-    } catch (err) {
-      console.warn("[onboarding] photo save failed, mirroring to the database:", (err as Error).message);
-      let position = 0;
-      for (const photo of (patch.photos ?? []).slice(0, 6)) {
-        const mirrored = await storePhotoBytesInDatabase(userId, photo.src);
-        if (!mirrored) continue;
-        await db
-          .insert(accounts)
-          .values({ id: userId, email: email || `${userId}@mirror.local` })
-          .onConflictDoNothing({ target: accounts.id });
-        await db
-          .insert(localUserProfiles)
-          .values({ id: userId, email: email || `${userId}@mirror.local`, discoverable: false })
-          .onConflictDoNothing({ target: localUserProfiles.id });
-        await db.insert(localProfilePhotos).values({
-          userId,
-          storagePath: mirrored,
-          position: position++,
-          isPrimary: photo.isCover,
-        });
-      }
-      await supabase
-        .from("user_profiles")
-        .update({ photo_count: Math.min((patch.photos ?? []).length, 6) })
-        .eq("id", userId);
-    }
+    // Expected Storage failures are mirrored inside savePhotos. Unexpected
+    // database failures must surface rather than returning false success.
+    await savePhotos(supabase, userId, patch.photos ?? []);
   }
 
   if (patch.verification?.status === "submitted" && patch.verification.selfie) {
@@ -469,13 +452,14 @@ export async function applyStepPatch(
           });
         if (!error) path = uploadPath;
       }
-      await supabase.from("verification_selfie_checks").insert({
+      const { error: verificationError } = await supabase.from("verification_selfie_checks").insert({
         user_id: userId,
         storage_path: path,
         pose_id: "onboarding",
         pose_asset_path: "onboarding",
         status: "pending",
       });
+      if (verificationError) throw new Error(`Could not save onboarding verification: ${verificationError.message}`);
     }
   }
 
@@ -486,7 +470,7 @@ export async function applyStepPatch(
 
 export async function completeOnboarding(userId: string, supabaseOverride?: SbClient) {
   const supabase = supabaseOverride ?? (await createSupabaseServerClient());
-  await supabase
+  const { error } = await supabase
     .from("user_profiles")
     .update({
       profile_status: "active",
@@ -496,6 +480,7 @@ export async function completeOnboarding(userId: string, supabaseOverride?: SbCl
       discoverable: true,
     })
     .eq("id", userId);
+  if (error) throw new Error(`Could not complete onboarding: ${error.message}`);
 }
 
 /* --- local preview-room helpers ----------------------------------------------- */

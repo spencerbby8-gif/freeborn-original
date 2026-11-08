@@ -136,6 +136,34 @@ try {
     if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
     if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
   end $$;`);
+  // Self-contained disposable fixtures. The full application schema is tested
+  // separately; this suite needs only the relations referenced by FB-15.
+  await client.query(`
+    create schema if not exists storage;
+    create table if not exists public.accounts (
+      id uuid primary key default gen_random_uuid(), email text not null unique
+    );
+    create table if not exists public.user_profiles (
+      id uuid primary key, email text not null, is_verified boolean not null default false
+    );
+    create table if not exists public.verification_requests (
+      id uuid primary key default gen_random_uuid(),
+      account_id uuid not null references public.accounts(id) on delete cascade,
+      status text not null default 'pending', selfie_media text,
+      submitted_at timestamptz not null default now()
+    );
+    create table if not exists public.verification_selfie_checks (
+      id uuid primary key default gen_random_uuid(), user_id uuid not null,
+      storage_path text, pose_id text, pose_asset_path text, status text not null
+    );
+    create table if not exists public.account_deletion_requests (
+      account_id uuid primary key, status text not null default 'pending'
+    );
+    create table if not exists storage.objects (
+      id uuid primary key default gen_random_uuid(), bucket_id text not null,
+      name text not null, created_at timestamptz not null default now()
+    );
+  `);
   const migration = await readFile(new URL("../../supabase/migrations/20261102090000_fb15_selfie_retention.sql", import.meta.url), "utf8");
   await client.query(migration);
   await client.query(migration);
