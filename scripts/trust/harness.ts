@@ -2653,6 +2653,74 @@ console.log("\n[27] account deletion is durable, owned-path scoped, and never fa
     pkg.includes("\"test:retention-local\"") && pkg.includes("fb15-retention-local.mjs") && pkg.includes("\"test:retention-worker\""));
 }
 
+/* [29] Private, server-originated chat nudges: member JWT, no content, cleanup. */
+console.log("\n[29] private chat broadcast and bounded fallback");
+{
+  const { publishChatNotice, CHAT_NOTICE_TIMEOUT_MS } = await import("@/lib/chat-notify-core");
+  const matchId = "11111111-1111-4111-8111-111111111111";
+  let auth = "", topic = "", removed = 0;
+  let config: Record<string, unknown> = {};
+  let sentPayload: Record<string, unknown> = {};
+  let sendOptions: Record<string, unknown> = {};
+  const fake = {
+    realtime: { setAuth: async (token: string) => { auth = token; } },
+    channel: (name: string, options: { config: Record<string, unknown> }) => {
+      topic = name; config = options.config;
+      return {
+        httpSend: async (_event: string, payload: Record<string, unknown>, options: Record<string, unknown>) => {
+          sentPayload = payload; sendOptions = options; return { success: true };
+        },
+      };
+    },
+    removeChannel: async () => { removed += 1; return "ok"; },
+  };
+  const delivered = await publishChatNotice(
+    fake as unknown as Parameters<typeof publishChatNotice>[0],
+    "member-jwt-not-a-service-key", matchId, "message", () => "2026-11-08T00:00:00.000Z",
+  );
+  ok("[29] REST nudge uses the member token on the private match topic and removes its channel",
+    delivered && auth === "member-jwt-not-a-service-key" && topic === `fb-chat:${matchId}` &&
+    (config as { private?: boolean }).private === true && removed === 1);
+  ok("[29] payload is only a content-free fetch hint and delivery has a bounded timeout",
+    JSON.stringify(sentPayload) === JSON.stringify({ kind: "message", at: "2026-11-08T00:00:00.000Z" }) &&
+    !/text|body|sender|email|matchId|media/.test(Object.keys(sentPayload).join(",")) &&
+    sendOptions.timeout === CHAT_NOTICE_TIMEOUT_MS && CHAT_NOTICE_TIMEOUT_MS <= 1_500);
+
+  let failedAsDesigned = false, failedChannelRemoved = false;
+  const failing = {
+    realtime: { setAuth: async () => undefined },
+    channel: () => ({ httpSend: async () => { throw new Error("synthetic realtime outage"); } }),
+    removeChannel: async () => { failedChannelRemoved = true; return "ok"; },
+  };
+  try {
+    await publishChatNotice(failing as unknown as Parameters<typeof publishChatNotice>[0], "member", matchId, "cleared");
+  } catch { failedAsDesigned = true; }
+  ok("[29] a failed accelerator propagates to the best-effort wrapper and still cleans up",
+    failedAsDesigned && failedChannelRemoved);
+
+  const bus = src("src/lib/chat-bus.ts");
+  const msg = src("src/app/api/chat/messages/route.ts");
+  const unmatch = src("src/app/api/chat/unmatch/route.ts");
+  ok("[29] browser chat refreshes auth, joins privately and rejects stale async connects",
+    bus.includes("await client.realtime.setAuth()") && bus.includes("private: true") &&
+    bus.includes("version !== connectionVersion") && bus.indexOf("await client.realtime.setAuth()") < bus.indexOf(".channel(chatChannelName"));
+  ok("[29] message, clear and sever writes schedule a server nudge after their durable mutations",
+    msg.includes('scheduleChatNotice(request, matchId, "message")') &&
+    msg.includes('scheduleChatNotice(request, matchId, "cleared")') &&
+    unmatch.includes('scheduleChatNotice(request, updated.id, "severed")'));
+  ok("[29] a healthy or missed socket cannot hide a message for the old 45-second heartbeat",
+    SYNC_LIMITS.pollHeartbeatMs === 10_000 && SYNC_LIMITS.pollNotifiedMs <= 5_000 &&
+    SYNC_LIMITS.pollRecoveringMs < SYNC_LIMITS.pollNotifiedMs);
+
+  const migration = readFileSync(new URL("../../supabase/migrations/20261108010000_private_chat_broadcasts.sql", import.meta.url), "utf8");
+  ok("[29] migration limits private chat receive/send to participants without altering Realtime ownership",
+    migration.includes("can_use_chat_topic") && migration.includes("public.is_match_participant") &&
+    migration.includes("grant select on public.chat_signals to authenticated") &&
+    migration.includes("on realtime.messages for select to authenticated") &&
+    migration.includes("on realtime.messages for insert to authenticated") &&
+    !/alter table realtime\.messages|grant .* to anon|drop table|truncate/i.test(migration));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

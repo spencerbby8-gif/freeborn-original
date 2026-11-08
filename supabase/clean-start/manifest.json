@@ -12,7 +12,7 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 43,
+    "steps": 44,
     "publicTables": 42,
     "publicColumns": 435,
     "publicIndexes": 122,
@@ -270,6 +270,12 @@
       "name": "20261108000000_fix_profile_update_noop",
       "path": "supabase/migrations/20261108000000_fix_profile_update_noop.sql",
       "sha256": "567427b077f1829e95e29dd4f6551cacbd1adb7341c3601b629567f0f4cbb8f2"
+    },
+    {
+      "version": "20261108010000",
+      "name": "20261108010000_private_chat_broadcasts",
+      "path": "supabase/migrations/20261108010000_private_chat_broadcasts.sql",
+      "sha256": "465b8e0e25f6d19040f6e7f1e5355f410aa6e3548166ae0a62e35759cd9b79f2"
     },
     {
       "version": "20261105000800",

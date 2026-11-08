@@ -7,6 +7,7 @@ import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/
 import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isBlockedPair } from "@/lib/conversation-access";
+import { scheduleChatNotice } from "@/lib/chat-notify";
 
 async function ownsMatch(
   matchId: string,
@@ -272,10 +273,11 @@ export async function POST(request: Request) {
 
   /* REALTIME SIGNAL (2026-10-30) — see db/migrations/2026-10-30-chat-signals.sql.
      A content-free row in `chat_signals` is the only notification path this deployment can
-     use: the chat tables are RLS-forced with zero policies, so `postgres_changes` on
-     `messages` would deliver nothing to a client, and there is no service-role key to call
-     Realtime's broadcast REST API with. It carries the match id and a kind, never message
-     text, and it is written AFTER the message is stored — so a client that reacts to the
+     use as its durable path: the chat tables are RLS-forced with zero policies, so
+     `postgres_changes` on `messages` would deliver nothing to a client. A separate private
+     broadcast uses the member's JWT after this authorized write; no service-role key is needed.
+     The row carries the match id and a kind, never message text, and it is written AFTER the
+     message is stored — so a client that reacts to the
      signal and refetches cannot read a half-written conversation.
 
      Whole block is best-effort on purpose: a signal failure must never turn a delivered
@@ -292,6 +294,9 @@ export async function POST(request: Request) {
   } catch {
     /* notification is an accelerator */
   }
+  // Independent of postgres_changes: the already authorized member JWT can ask
+  // Realtime for a private, content-free REST broadcast. No service key is used.
+  scheduleChatNotice(request, matchId, "message");
 
   /* The stored id comes back so the client can retire its optimistic echo by IDENTITY.
      Matching by body text within a window (what this route used to force on the client) makes
@@ -353,5 +358,6 @@ export async function DELETE(request: Request) {
   } catch (err) {
     console.warn("[chat] cleared signal skipped:", (err as Error).message);
   }
+  scheduleChatNotice(request, matchId, "cleared");
   return Response.json({ ok: true, deleted: removed.length });
 }

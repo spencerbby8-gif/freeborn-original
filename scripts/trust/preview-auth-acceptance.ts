@@ -393,17 +393,46 @@ async function main() {
       for (const [client, channel] of [[clientA, channelA], [clientB, channelB], [clientC, channelC], [clientAnon, channelAnon], [clientA, ringA], [clientB, ringB], [clientC, ringC]] as const) await removeChannel(client, channel);
     }
 
-    const [dbB, dbC] = await Promise.all([realtime(b.token), realtime(c.token)]);
+    const [dbB, dbC, dbAnon] = await Promise.all([realtime(b.token), realtime(c.token), realtime()]);
+    type Notice = { kind?: string; at?: string } & Record<string, unknown>;
     let signalB: string | null = null, signalC: string | null = null;
-    const dbChannelB = dbB.channel(`preview-db-b-${runId}`)
+    let noticeB: Notice | null = null, noticeC: Notice | null = null, noticeAnon: Notice | null = null;
+    const chatTopic = `fb-chat:${matchId}`;
+    const privateConfig = { private: true, broadcast: { self: false, ack: true } } as const;
+    const validNotice = (notice: Notice | null) => Boolean(
+      notice && notice.kind === "message" && typeof notice.at === "string" &&
+      Object.keys(notice).sort().join(",") === "at,kind"
+    );
+    const dbChannelB = dbB.channel(chatTopic, { config: privateConfig })
+      .on("broadcast", { event: "fb-message" }, (payload) => { noticeB = payload.payload as Notice; })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_signals", filter: `match_id=eq.${matchId}` }, (payload) => { signalB = String(payload.new?.match_id ?? "missing_match"); });
-    const dbChannelC = dbC.channel(`preview-db-c-${runId}`)
+    const dbChannelC = dbC.channel(chatTopic, { config: privateConfig })
+      .on("broadcast", { event: "fb-message" }, (payload) => { noticeC = payload.payload as Notice; })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_signals", filter: `match_id=eq.${matchId}` }, (payload) => { signalC = String(payload.new?.match_id ?? "missing_match"); });
-    const [dbStatusB, dbStatusC] = await Promise.all([subscribe(dbChannelB), subscribe(dbChannelC)]);
-    check("realtime_database_participant_subscription", dbStatusB === "SUBSCRIBED", dbStatusB);
-    check("realtime_database_nonparticipant_transport", dbStatusC === "SUBSCRIBED" || dbStatusC === "CHANNEL_ERROR", dbStatusC);
-    const second = await api(a, "/api/chat/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: matchId, text: `signal-${runId}` }) });
-    check("second_message_for_realtime", second.status === 200, second.status);
+    const dbChannelAnon = dbAnon.channel(chatTopic, { config: privateConfig })
+      .on("broadcast", { event: "fb-message" }, (payload) => { noticeAnon = payload.payload as Notice; });
+    const [dbStatusB, dbStatusC, dbStatusAnon] = await Promise.all([subscribe(dbChannelB), subscribe(dbChannelC), subscribe(dbChannelAnon)]);
+    check("realtime_database_participant_subscription", dbStatusB === "SUBSCRIBED", `${dbStatusB}/${subscriptionError(dbChannelB)}`);
+    check("nonparticipant_private_chat_denied", dbStatusC !== "SUBSCRIBED", `${dbStatusC}/${subscriptionError(dbChannelC)}`);
+    check("anonymous_private_chat_denied", dbStatusAnon !== "SUBSCRIBED", `${dbStatusAnon}/${subscriptionError(dbChannelAnon)}`);
+
+    const participantTopicRead = await jsonRequest(`${supabaseUrl}/rest/v1/rpc/can_use_chat_topic`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ p_topic: chatTopic, p_write: false }),
+    }, "user", b.token);
+    const participantTopicWrite = await jsonRequest(`${supabaseUrl}/rest/v1/rpc/can_use_chat_topic`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ p_topic: chatTopic, p_write: true }),
+    }, "user", b.token);
+    const nonparticipantTopic = await jsonRequest(`${supabaseUrl}/rest/v1/rpc/can_use_chat_topic`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ p_topic: chatTopic, p_write: true }),
+    }, "user", c.token);
+    const anonymousTopic = await jsonRequest(`${supabaseUrl}/rest/v1/rpc/can_use_chat_topic`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ p_topic: chatTopic, p_write: true }),
+    }, "publishable");
+    check("participant_private_chat_read_predicate", participantTopicRead.status === 200 && participantTopicRead.body === true, `${participantTopicRead.status}/${participantTopicRead.body}`);
+    check("participant_private_chat_write_predicate", participantTopicWrite.status === 200 && participantTopicWrite.body === true, `${participantTopicWrite.status}/${participantTopicWrite.body}`);
+    check("nonparticipant_private_chat_predicate", nonparticipantTopic.status === 200 && nonparticipantTopic.body === false, `${nonparticipantTopic.status}/${nonparticipantTopic.body}`);
+    check("anonymous_private_chat_predicate", anonymousTopic.status === 401 || anonymousTopic.status === 403, `${anonymousTopic.status}/${anonymousTopic.body}`);
+
     const storedSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, publicSignup ? "user" : "admin", publicSignup ? b.token : undefined);
     const participantSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, "user", b.token);
     const nonparticipantSignals = await jsonRequest(`${supabaseUrl}/rest/v1/chat_signals?select=id,match_id&match_id=eq.${matchId}`, {}, "user", c.token);
@@ -418,11 +447,25 @@ async function main() {
     check("nonparticipant_chat_signal_rest_denied", nonparticipantSignals.status === 200 && Array.isArray(nonparticipantSignals.body) && nonparticipantSignals.body.length === 0, nonparticipantSignals.status);
     check("participant_chat_signal_predicate", participantPredicate.status === 200 && participantPredicate.body === true, `${participantPredicate.status}/${participantPredicate.body}`);
     check("nonparticipant_chat_signal_predicate", nonparticipantPredicate.status === 200 && nonparticipantPredicate.body === false, `${nonparticipantPredicate.status}/${nonparticipantPredicate.body}`);
-    const gotB = await waitFor(() => signalB !== null, 12_000);
+
+    let sentRounds = 0, databaseRounds = 0, broadcastRounds = 0;
+    for (let round = 1; round <= 5; round += 1) {
+      signalB = null; noticeB = null;
+      const sentRound = await api(a, "/api/chat/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match: matchId, text: `signal-${runId}-${round}` }) });
+      if (sentRound.status === 200) sentRounds += 1;
+      const gotDatabase = await waitFor(() => signalB !== null, 12_000);
+      const gotBroadcast = await waitFor(() => validNotice(noticeB), 8_000);
+      if (gotDatabase && signalB === matchId) databaseRounds += 1;
+      if (gotBroadcast) broadcastRounds += 1;
+    }
+    check("realtime_message_rounds_send_5_of_5", sentRounds === 5, `${sentRounds}/5`);
+    check("participant_database_signal_received_5_of_5", databaseRounds === 5, `${databaseRounds}/5`);
+    check("participant_private_server_broadcast_received_5_of_5", broadcastRounds === 5, `${broadcastRounds}/5`);
     await new Promise((resolve) => setTimeout(resolve, 1_500));
-    check("participant_database_signal_received", gotB && signalB === matchId, signalB ?? "none");
     check("nonparticipant_database_signal_not_received", signalC === null, signalC ?? "none");
-    await removeChannel(dbB, dbChannelB); await removeChannel(dbC, dbChannelC);
+    check("nonparticipant_private_broadcast_not_received", noticeC === null, noticeC ? "received" : "none");
+    check("anonymous_private_broadcast_not_received", noticeAnon === null, noticeAnon ? "received" : "none");
+    await removeChannel(dbB, dbChannelB); await removeChannel(dbC, dbChannelC); await removeChannel(dbAnon, dbChannelAnon);
 
     for (const user of users) {
       const deleted = await api(user, "/api/account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete" }) });

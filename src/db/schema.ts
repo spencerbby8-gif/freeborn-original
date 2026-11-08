@@ -1163,10 +1163,10 @@ export const humanChallenges = pgTable(
  *
  * Why a table at all: `messages`, `matches` and `chat_media` are RLS-forced with ZERO policies,
  * so a member client cannot subscribe to their changes — `postgres_changes` applies the same RLS
- * that denies the direct read, and would deliver nothing. The app also has no service-role key,
- * so a route cannot publish to Realtime's broadcast API either. A tiny table with ONE narrow
- * policy (participants may read, nobody may write) is the way to carry a notification through
- * the same Postgres the message itself was just written to.
+ * that denies the direct read, and would deliver nothing. A tiny table with ONE narrow
+ * policy (participants may read, nobody may write) carries a durable notification through
+ * the same Postgres as the message. A separate private broadcast may use the authenticated
+ * member's JWT after an authorized route write; no service-role key or bypass is needed.
  *
  * It holds no message text, no ids of messages, no member data — only which conversation
  * changed and in what way. That is deliberate: this table is readable by any authenticated

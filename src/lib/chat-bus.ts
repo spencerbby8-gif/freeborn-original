@@ -9,11 +9,12 @@
  *   - `postgres_changes` on `public.chat_signals` (RLS: participants read, nobody writes from
  *     a client) — durable, works even when the sender's browser dies, and is what carries the
  *     "the other side ended this" and "delete" notices;
- *   - a content-free broadcast relayed by the sender's own client — sub-100 ms while both are
- *     online, and harmless to lose.
+ *   - a content-free private broadcast, sent by the server after its authorized write and
+ *     redundantly relayed by the sender's client — sub-100 ms while both are online, and
+ *     harmless to lose. Realtime RLS restricts the topic to match participants.
  *
- * Neither path is trusted with content or with authorisation. A member who is not in the match
- * learns nothing useful from a channel name, and the HTTP route still decides everything.
+ * Neither path is trusted with content or as authorization for an HTTP read. Private Realtime
+ * policies exclude nonparticipants; the HTTP route independently decides every conversation read.
  */
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -56,9 +57,9 @@ function nowIso(): string {
 }
 
 /**
- * Relay a "look again" hint to the other member from the sender's own client.
- * Fire-and-forget: if the channel is not joined we simply do not relay, and the signal row the
- * server wrote still arrives. This must never await, retry or throw into a send path.
+ * Relay a redundant "look again" hint from the sender's own client.
+ * Fire-and-forget: if the private channel is not joined we simply do not relay; the durable
+ * signal row and the server's own post-write REST nudge remain independent of this browser.
  */
 export function relayMessageNotice(matchId: string, kind: ChatNotice["kind"] = "message"): void {
   try {
@@ -88,6 +89,7 @@ export function joinChatChannel(matchId: string, handlers: ChatBusHandlers): Cha
   let disposed = false;
   let channel: RealtimeChannel | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let connectionVersion = 0;
 
   const emit = (next: ChannelPhase) => {
     phase = next;
@@ -127,7 +129,7 @@ export function joinChatChannel(matchId: string, handlers: ChatBusHandlers): Cha
     }, delay);
   };
 
-  function connect() {
+  async function connect() {
     if (disposed) return;
     if (shouldGiveUpReconnecting(attempt)) {
       // Stop trying the socket. Polling continues at its own rate and a later `online`/
@@ -135,10 +137,26 @@ export function joinChatChannel(matchId: string, handlers: ChatBusHandlers): Cha
       step({ t: "error" });
       return;
     }
+    const version = ++connectionVersion;
     step({ t: "start" });
     detach();
+    try {
+      // Callback token mode lets Realtime refresh authorization on heartbeats instead of
+      // pinning a stale JWT for the life of an open conversation.
+      await client.realtime.setAuth();
+    } catch {
+      if (disposed || version !== connectionVersion) return;
+      step({ t: "error" });
+      attempt += 1;
+      schedule(reconnectDelayMs(attempt, Math.random));
+      return;
+    }
+    // A slower auth refresh may finish after dispose or a newer reconnect attempt.
+    if (disposed || version !== connectionVersion) return;
     const ch = client
-      .channel(chatChannelName(matchId), { config: { broadcast: { self: false } } })
+      .channel(chatChannelName(matchId), {
+        config: { private: true, broadcast: { self: false, ack: true } },
+      })
       .on("broadcast", { event: SYNC_EVENT }, (payload) => {
         const p = (payload?.payload ?? {}) as Partial<ChatNotice>;
         handlers.onNotice({ kind: typeof p.kind === "string" ? p.kind : "message", matchId, at: typeof p.at === "string" ? p.at : nowIso() });
@@ -157,7 +175,7 @@ export function joinChatChannel(matchId: string, handlers: ChatBusHandlers): Cha
       );
     channel = ch;
     ch.subscribe((status) => {
-      if (disposed) return;
+      if (disposed || version !== connectionVersion) return;
       if (status === "SUBSCRIBED") {
         attempt = 0;
         step({ t: "subscribed" });
@@ -204,11 +222,12 @@ export function joinChatChannel(matchId: string, handlers: ChatBusHandlers): Cha
   }
   if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
 
-  connect();
+  void connect();
 
   return {
     dispose: () => {
       disposed = true;
+      connectionVersion += 1;
       if (timer) clearTimeout(timer);
       timer = null;
       if (typeof window !== "undefined") {

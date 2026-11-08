@@ -4,6 +4,7 @@ import { chatSignals, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUnmatchReason } from "@/lib/match-lifecycle";
+import { scheduleChatNotice } from "@/lib/chat-notify";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,7 @@ export async function POST(request: Request) {
   } catch {
     /* notification is an accelerator */
   }
+  scheduleChatNotice(request, updated.id, "severed");
 
   return Response.json({ ok: true, unmatched: true, matchId: updated.id });
 }

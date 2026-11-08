@@ -21,23 +21,23 @@
  * `relforcerowsecurity = true` with **zero policies**: the member client may read none of them,
  * and `postgres_changes` applies the same RLS, so subscribing to `messages` would deliver
  * nothing at all. There is also no service-role key in this app's environment (drizzle reaches
- * Postgres through `SUPABASE_TRANSACTION_POOLER`), so a route cannot POST to the realtime
- * broadcast API either.
+ * Postgres through `SUPABASE_TRANSACTION_POOLER`). The server therefore uses the already
+ * authenticated member's JWT for a private, content-free REST nudge; Realtime RLS checks the
+ * same participant boundary and no bypass credential is introduced.
  *
  * So the design is three layers, and each one is allowed to fail:
  *
  *   1. NOTIFY — a `chat_signals` row (RLS: participants may SELECT, nobody may write from the
- *      client) lands on `postgres_changes`; plus the sender's own client relays a content-free
- *      broadcast. Instant when it works.
+ *      client) lands on `postgres_changes`; after the authorized write the server schedules a
+ *      private broadcast, and the sender's client redundantly relays the same content-free hint.
  *   2. POLL — an interval that widens to a heartbeat while notify is healthy and tightens back
  *      down the moment it is not. This is the guarantee, and it is what makes losing a
  *      notification a latency event rather than a lost message.
  *   3. RESYNC — any of wake/online/rejoin/gap runs an immediate full fetch.
  *
  * Notifications carry no message content on purpose: they say "look again", never "here is the
- * text". A channel name is a UUID, but a channel is not a secret, so anything sent over it must
- * be safe to read. Authorisation stays entirely in the HTTP route (`decideMatchAccess`), which is
- * the only place that has a verified member.
+ * text". A channel name is a UUID, not a capability: private Realtime policies restrict it to
+ * participants, and the HTTP route (`decideMatchAccess`) independently authorizes every fetch.
  *
  * This module is pure and has no Supabase import, exactly like `match-lifecycle.ts` and
  * `media-access.ts`: the whole fact space is then executable in the harness
@@ -88,8 +88,10 @@ export const SYNC_LIMITS = {
   jitterMs: 100,
   /** Poll cadences (ms). `null` = do not poll at all. */
   pollLiveMs: 2_500,
-  pollNotifiedMs: 20_000,
-  pollHeartbeatMs: 45_000,
+  pollNotifiedMs: 5_000,
+  // A missed event must not hide a new message for 45 seconds. Broadcast plus
+  // this bounded heartbeat provides recovery without restoring the old 2.5 s storm.
+  pollHeartbeatMs: 10_000,
   pollRecoveringMs: 1_000,
   /** A pending echo older than this stops being shown; the server copy wins. */
   pendingTtlMs: 60_000,
