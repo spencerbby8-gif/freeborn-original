@@ -14,6 +14,33 @@ begin
   if n <> 0 then raise exception 'clean replay has % tables without enabled+forced RLS',n; end if;
   select count(*) into n from information_schema.table_privileges where table_schema='public' and grantee='anon';
   if n <> 0 then raise exception 'clean replay has % anonymous public table grants',n; end if;
+  if exists (
+    select 1 from information_schema.table_privileges tp
+    where tp.table_schema='public' and tp.grantee='authenticated'
+      and not exists (
+        select 1 from pg_policies p
+        where p.schemaname='public' and p.tablename=tp.table_name
+          and (p.cmd='ALL' or p.cmd=tp.privilege_type)
+          and (p.roles @> array['authenticated']::name[] or p.roles @> array['public']::name[])
+      )
+  ) then
+    raise exception 'clean replay has authenticated table privileges without a matching member RLS policy';
+  end if;
+  if exists (
+    select 1 from pg_class c join pg_namespace ns on ns.oid=c.relnamespace
+    cross join lateral aclexplode(c.relacl) a join pg_roles g on g.oid=a.grantee
+    where ns.nspname='public' and c.relkind='S'
+      and c.relname in ('chat_signals_id_seq','verification_selfie_retention_audit_id_seq')
+      and g.rolname in ('anon','authenticated')
+  ) then
+    raise exception 'clean replay has anonymous/member sequence grants';
+  end if;
+  if exists (
+    select 1 from pg_proc p join pg_namespace ns on ns.oid=p.pronamespace
+    where ns.nspname='public' and p.proname in ('__tmp_probe1','__tmp_probe2')
+  ) then
+    raise exception 'clean replay contains historical audit probe functions';
+  end if;
   if (select public from storage.buckets where id='profile-photos') is not true then raise exception 'profile photo visibility mismatch'; end if;
   if (select public from storage.buckets where id='verification-selfies') is not false then raise exception 'selfie bucket is not private'; end if;
   if (select public from storage.buckets where id='chat-media') is not false then raise exception 'chat bucket is not private'; end if;

@@ -97,7 +97,7 @@ try {
     (select count(*)::int from auth.users) as auth_users,
     (select count(*)::int from storage.objects) as storage_objects`);
   const actual = verification.rows[0];
-  const expected = { tables: 42, columns: 435, indexes: 122, checks: 74, rls_enabled_forced: 42, anon_grants: 0, migrations: 44, auth_users: 0, storage_objects: 0 };
+  const expected = { tables: 42, columns: 435, indexes: 122, checks: 74, rls_enabled_forced: 42, anon_grants: 0, migrations: 46, auth_users: 0, storage_objects: 0 };
   for (const [key, value] of Object.entries(expected)) {
     if (actual[key] !== value) fail(`post-replay verification ${key}=${actual[key]}, expected ${value}`);
   }
