@@ -676,6 +676,12 @@ export const verificationRequests = pgTable(
     status: text("status").notNull().default("pending"),
     method: text("method").notNull().default("selfie"),
     selfieMedia: text("selfie_media"),
+    /* MED-INLINE-SELFIE: the photograph's real home is the private
+       `verification-selfies` bucket. `selfie_media` above is retained only as the
+       documented fallback for a runtime with no Supabase project configured (the
+       local pose E2E harness) and as the source the verified mover reads from;
+       the two columns are mutually exclusive by check constraint. */
+    selfieStoragePath: text("selfie_storage_path"),
     rejectReason: text("reject_reason"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().default(utcNow),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),

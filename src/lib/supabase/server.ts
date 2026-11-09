@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 function resolveConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
@@ -11,6 +10,12 @@ function resolveConfig() {
 }
 
 export async function createSupabaseServerClient() {
+  /* Imported here rather than at module scope on purpose. `next/headers` only
+     exists inside a Next.js request, and a top-level import drags it into every
+     bundle that merely reaches this module — including the plain-Node trust
+     harnesses, where the subpath does not resolve and the whole bundle fails to
+     load. Nothing below runs outside a request in any case. */
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   const { url, anonKey } = resolveConfig();
   if (!url || !anonKey) {

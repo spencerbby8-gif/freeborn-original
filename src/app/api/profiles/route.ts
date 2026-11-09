@@ -230,6 +230,13 @@ export async function GET(request: Request) {
 
   /* Incognito members are visible only to members they liked or matched
      with (Bumble semantics) — everyone else never sees their card. */
+  /* AUDIT NOTE (2026-11-09, acceptance evidence): the `admirerIds.has(row.id)` half of the
+     exception below is unreachable in the deck. An admirer is by definition a member who
+     already liked this profile, and the "no silent recycling" rule above adds every swiped
+     profile to `hiddenIds`, which is applied before this loop. The incognito exclusion
+     itself is exercised and passes; the admirer carve-out can only ever matter for a
+     surface that does not filter swiped profiles. Recorded rather than silently removed,
+     because changing either rule is a product decision, not a test fix. */
   const admirerIds = new Set<string>();
   const mutualIds = new Set<string>();
   if (viewerId) {

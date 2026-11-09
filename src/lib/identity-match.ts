@@ -30,6 +30,7 @@ import { callEngine, type EngineResult, type EngineTarget } from "@/lib/engine-r
  */
 
 import { and, desc, eq } from "drizzle-orm";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { db } from "@/db";
 import {
   chatMedia,
@@ -38,6 +39,7 @@ import {
   verificationRequests,
 } from "@/db/schema";
 import { ENGINE_BUDGET_MS, withBudget } from "@/lib/engine-budget";
+import { readSelfieDataUrl } from "@/lib/selfie-storage";
 import { fetchImageAsDataUrl, profilePhotoRef, profilePhotoUrl } from "@/lib/safe-image-fetch";
 
 const A_BASE = (process.env.ANTIGRAVITY_BASE_URL ?? "").replace(/\/$/, "");
@@ -222,12 +224,19 @@ async function photoRowToDataUrl(storagePath: string, origin: string): Promise<s
   return fetchImageAsDataUrl(url, 6 * 1024 * 1024);
 }
 
-async function collectBaselines(memberId: string, origin: string): Promise<string[]> {
+async function collectBaselines(
+  memberId: string,
+  origin: string,
+  selfieClient: SupabaseClient | null
+): Promise<string[]> {
   const out: string[] = [];
   /* Strongest reference: the selfie from the member's latest APPROVED
      verification — captured live, blink-gated, reviewed by the engines. */
   const [approved] = await db
-    .select({ selfieMedia: verificationRequests.selfieMedia })
+    .select({
+      selfieMedia: verificationRequests.selfieMedia,
+      selfieStoragePath: verificationRequests.selfieStoragePath,
+    })
     .from(verificationRequests)
     .where(
       and(
@@ -237,7 +246,17 @@ async function collectBaselines(memberId: string, origin: string): Promise<strin
     )
     .orderBy(desc(verificationRequests.submittedAt))
     .limit(1);
-  if (approved?.selfieMedia) out.push(approved.selfieMedia);
+  /* MED-INLINE-SELFIE: the approved selfie normally lives in the private bucket
+     now. Read it back through the member-scoped client (Storage RLS authorises
+     the owner); fall back to an inline value for a runtime with no Supabase
+     project, and to no baseline at all when the object cannot be read — a
+     missing reference degrades the comparison, it never blocks the upload. */
+  if (approved?.selfieMedia) {
+    out.push(approved.selfieMedia);
+  } else if (approved?.selfieStoragePath && selfieClient) {
+    const stored = await readSelfieDataUrl(selfieClient, memberId, approved.selfieStoragePath);
+    if (stored) out.push(stored);
+  }
 
   const rows = await db
     .select()
@@ -368,9 +387,10 @@ async function runIdentityMatchInner(
   newPhotoDataUrl: string,
   origin: string,
   started: number,
+  selfieClient: SupabaseClient | null,
   signal?: AbortSignal
 ): Promise<MatchOutcome> {
-  const baselines = await collectBaselines(memberId, origin);
+  const baselines = await collectBaselines(memberId, origin, selfieClient);
   if (baselines.length === 0) {
     return {
       decision: "unclear",
@@ -426,11 +446,12 @@ async function runIdentityMatchInner(
 export async function runIdentityMatch(
   memberId: string,
   newPhotoDataUrl: string,
-  origin: string
+  origin: string,
+  selfieClient: SupabaseClient | null = null
 ): Promise<MatchOutcome> {
   const started = Date.now();
   return withBudget(
-    (signal) => runIdentityMatchInner(memberId, newPhotoDataUrl, origin, started, signal),
+    (signal) => runIdentityMatchInner(memberId, newPhotoDataUrl, origin, started, selfieClient, signal),
     ENGINE_BUDGET_MS,
     (): MatchOutcome => ({
       decision: "unclear",

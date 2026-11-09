@@ -16,6 +16,7 @@ import { askLm7, lm7Configured, LM7_MODEL } from "@/lib/lm7";
 import { consumeLivenessChallenge, freshnessTag } from "@/lib/liveness-challenge";
 import { consumePoseChallenge, poseTag, type PoseOutcome } from "@/lib/pose-challenge";
 import { fetchImageAsDataUrl, profilePhotoRef, profilePhotoUrl } from "@/lib/safe-image-fetch";
+import { parseSelfieDataUrl, SELFIE_STORAGE_RETRY_MESSAGE, storeVerificationSelfie } from "@/lib/selfie-storage";
 
 /* afterVerificationSuccess — post-approval identity bookkeeping.
    Writes the member's photo-set anchor, checks whether another account holds the same
@@ -320,6 +321,13 @@ export async function POST(request: Request) {
 
     return Response.json({ error: "A live selfie is required." }, { status: 400 });
   }
+  /* MED-INLINE-SELFIE: decoded and validated once. The engines below are still
+     handed the in-memory data URL exactly as before; only what is STORED changes
+     — a reference to the member's private bucket object instead of the bytes. */
+  const parsedSelfie = parseSelfieDataUrl(selfie);
+  if (!parsedSelfie) {
+    return Response.json({ error: "A live selfie is required." }, { status: 400 });
+  }
   if (!poseLabel || poseLabel.length > 120) {
     return Response.json({ error: "A pose prompt is required." }, { status: 400 });
   }
@@ -397,17 +405,38 @@ export async function POST(request: Request) {
     }
   };
 
-  const finish = async (payload: Record<string, unknown>) => {
+  const finish = async (payload: Record<string, unknown>, status = 200) => {
     await holdUntilDone();
-    return Response.json(payload);
+    return Response.json(payload, { status });
+  };
+
+  /* The photograph is uploaded AT MOST ONCE, and only by an insert that actually
+     keeps it. A refused attempt never calls this, so "a refused selfie is never
+     stored" (Clause 7, below) stays literally true in either home. When the
+     bucket cannot be reached the attempt is refused with a retryable 503 and
+     nothing is written: a pending row without its photograph would be an
+     unreviewable entry in the human queue, and writing the photograph into
+     `selfie_media` instead is the exact thing this control removes. The member
+     restarts the challenge — the liveness token was already consumed above,
+     which is also true of every other failure in this flow. */
+  let storedSelfie: { path: string | null; inline: string | null } | null | undefined;
+  const keepSelfie = async (): Promise<{ path: string | null; inline: string | null } | null> => {
+    if (storedSelfie === undefined) {
+      const stored = await storeVerificationSelfie(request, member.id, parsedSelfie, selfie);
+      storedSelfie = stored.status === "stored" ? { path: stored.path, inline: stored.inline } : null;
+    }
+    return storedSelfie;
   };
 
   if (!BASE || !KEY) {
+    const kept = await keepSelfie();
+    if (!kept) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "pending",
       method: "selfie",
-      selfieMedia: selfie,
+      selfieStoragePath: kept.path,
+      selfieMedia: kept.inline,
     });
     return finish({ status: "pending-fallback", engine: "none" });
   }
@@ -439,11 +468,14 @@ export async function POST(request: Request) {
        Mirrors the "no engine configured" branch above, which already answers `pending` /
        `engine:"none"`; what it never did was cover a *configured* engine that failed. */
     if (stage1.reason !== null) {
+      const keptStage1 = await keepSelfie();
+      if (!keptStage1) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
       await db.insert(verificationRequests).values({
         accountId: member.id,
         status: "pending",
         method: `dual_model+stage1:${stage1.reason}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}`,
-        selfieMedia: selfie,
+        selfieStoragePath: keptStage1.path,
+        selfieMedia: keptStage1.inline,
         rejectReason: `stage1: unavailable (${stage1.reason})`,
         reviewedAt: null,
       });
@@ -587,18 +619,26 @@ export async function POST(request: Request) {
   if (lm7.ok) {
     const verdict = parseReverifyVerdict(lm7.text);
     if (verdict) {
-      const record = (status: string, reason: string, methodSuffix = "") =>
-        db.insert(verificationRequests).values({
+      /* Returns false only when a row that NEEDS the photograph could not store
+         it; the three rejection callers never upload, so they cannot fail here. */
+      const record = async (status: string, reason: string, methodSuffix = ""): Promise<boolean> => {
+        /* Rejections are stored without the image (see the note on the stage-1
+           inserts) — and now also without an upload, so a refused selfie never
+           reaches the bucket either. A PENDING request keeps the photograph,
+           because a human reviewer needs it in order to make the call. */
+        const kept = status === "rejected" ? { path: null, inline: null } : await keepSelfie();
+        if (!kept) return false;
+        await db.insert(verificationRequests).values({
           accountId: member.id,
           status,
           method: `dual_model:${LM7_MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}${methodSuffix}`,
-          /* Rejections are stored without the image (see the note on the stage-1
-             inserts). A PENDING request keeps it, because a human reviewer needs
-             the photograph in order to make the call. */
-          selfieMedia: status === "rejected" ? null : selfie,
+          selfieStoragePath: kept.path,
+          selfieMedia: kept.inline,
           rejectReason: reason,
           reviewedAt: status === "pending" ? null : new Date(),
         });
+        return true;
+      };
 
       if (verdict.livePerson === false) {
         await record("rejected", "stage2: no live person");
@@ -660,13 +700,14 @@ export async function POST(request: Request) {
              camera, so a migration or pool fault there would otherwise strand every honest member
              in the review queue while both engines are working fine. */
       if (!approvable || !freshnessProven || !poseProven) {
-        await record(
+        const recordedReview = await record(
           "pending",
           approvable
             ? `stage2 pass, challenge unproven (freshness: ${freshness.detail}; pose: ${poseChallenge.detail}); held for human review`
             : "stage2: not confidently positive, human review",
           degradationTag
         );
+        if (!recordedReview) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
         return finish({ status: "review", stage: "reverify", engine, ...reviewExtras });
       }
 
@@ -679,13 +720,16 @@ export async function POST(request: Request) {
          `method like '%unproven%'` is the list of every such grant, which is the point: a
          temporary relaxation an operator can also REVOKE and re-verify afterwards. */
       const grantedUnproven = !challengeProven;
-      await record(
+      const recordedApproval = await record(
         "approved",
         grantedUnproven
           ? "stage1+stage2 pass, badge granted by the legacy hatch"
           : "stage1+stage2 pass",
         `${degradationTag}${grantedUnproven ? "+unproven:legacy-pose" : ""}`
       );
+      /* The seal is lit only when the row that justifies it was really written:
+         an approval whose photograph could not be stored is not an approval. */
+      if (!recordedApproval) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
       await db
         .update(userProfiles)
         .set({ isVerified: true, lastVerifiedAt: new Date() })
@@ -694,11 +738,14 @@ export async function POST(request: Request) {
       return finish({ status: "approved", stage: "reverify", engine });
     }
     // Second engine answered but unparseably → honest fallback to review.
+    const keptUnreadable = await keepSelfie();
+    if (!keptUnreadable) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
     await db.insert(verificationRequests).values({
       accountId: member.id,
       status: "pending",
       method: "dual_model",
-      selfieMedia: selfie,
+      selfieStoragePath: keptUnreadable.path,
+      selfieMedia: keptUnreadable.inline,
       rejectReason: "stage2: unreadable verdict, human review",
     });
     return finish({ status: "review", stage: "reverify", engine });
@@ -715,13 +762,16 @@ export async function POST(request: Request) {
      identity-comparison engine cannot run, the attempt is held for human review;
      pose/freshness alone can no longer grant a badge. */
   const sameEnough = false;
+  const keptSingle = await keepSelfie();
+  if (!keptSingle) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503);
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: sameEnough ? "approved" : "pending",
     method: `single_model:${stage1.model ?? MODEL}${blinkTag}${freshnessTag(freshness.state)}${poseTag(poseChallenge.state)}${degradationTag}${
       sameEnough && !(challengeProven && poseProven) ? "+unproven:legacy-pose" : ""
     }`,
-    selfieMedia: selfie,
+    selfieStoragePath: keptSingle.path,
+    selfieMedia: keptSingle.inline,
     rejectReason: sameEnough
       ? poseServed
         ? null

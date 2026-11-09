@@ -34,6 +34,7 @@
  *   the failure count. A skip is never a pass — the runner prints the totals.
  */
 import { randomUUID } from "node:crypto";
+import { crc32, deflateSync } from "node:zlib";
 import { eq, sql } from "drizzle-orm";
 import { POST as checkPost } from "@/app/api/verification/check/route";
 import { POST as challengePost } from "@/app/api/verification/challenge/route";
@@ -49,8 +50,47 @@ const MODE = (process.env.POSE_E2E_MODE ?? "main") as PoseE2eMode;
 const BASE = process.env.__POSE_E2E_BASE ?? "";
 const GATEWAY = BASE;
 
-const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
-const SELFIE = `data:image/png;base64,${PNG}`;
+/* A REAL, decodable 1x1 PNG, generated here rather than pasted as base64.
+
+   Two reasons this is built and not a constant:
+
+   1. The constant this suite used for years was corrupt. Its IDAT CRC did not match its own bytes
+      and its zlib stream failed its adler check, so no decoder could ever open it. That stayed
+      invisible while the route only prefix-matched `data:image/png;base64,`. MED-INLINE-SELFIE made
+      the product validate the whole data URL and the decoded magic bytes, because what it stores is
+      now an object in the member's private bucket rather than inert text — so the fixture has to be
+      an image a decoder can actually open.
+   2. Every request needs its own unique image, so `rowByTag` can find the exact row that request
+      produced. Uniqueness used to come from appending `#<tag>` AFTER the base64 payload, which only
+      ever worked because validation stopped at the prefix. Appended junk is now refused — correctly,
+      since the bytes validated are the bytes uploaded and digested — so the marker travels INSIDE
+      the file as a tEXt chunk: still one valid PNG, still unique per request. */
+function pngChunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const typeBytes = Buffer.from(type, "ascii");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])) >>> 0, 0);
+  return Buffer.concat([length, typeBytes, data, crc]);
+}
+
+/** One request's selfie: a 1x1 truecolour PNG carrying `tag` in a tEXt chunk. */
+function selfieFor(tag: string): string {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0); /* width  */
+  ihdr.writeUInt32BE(1, 4); /* height */
+  ihdr[8] = 8; /* bit depth */
+  ihdr[9] = 2; /* colour type: truecolour RGB */
+  const scanline = Buffer.from([0, 0x40, 0x80, 0xc0]); /* filter byte + one RGB pixel */
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("tEXt", Buffer.from(`Comment\0${tag}`, "latin1")),
+    pngChunk("IDAT", deflateSync(scanline)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  return `data:image/png;base64,${png.toString("base64")}`;
+}
 const CLEAN_BROWSER = {
   timezoneOffsetMinutes: 300,
   language: "en-US",
@@ -139,7 +179,7 @@ async function seed(n: number, withPhotos: boolean): Promise<Member> {
       .insert(profilePhotos)
       /* FB-03 hardened profilePhotoRef to reject absolute URLs. Seed a bucket-relative
          path and let profilePhotoUrl resolve it against SUPABASE_URL (the local gateway
-         double in pose-run), which serves /storage/ with the same 1×1 PNG. */
+         double in pose-run), which serves /storage/ with a decodable 1×1 PNG. */
       .values({ userId: id, storagePath: `e2e/${addr}.png`, position: 0, isPrimary: true })
       .onConflictDoNothing({ target: profilePhotos.storagePath });
   }
@@ -169,6 +209,10 @@ async function issue(m: Member, opts: { origin?: string | null } = {}): Promise<
 
 /** POST /api/verification/check. `over` replaces any field, including setting it to undefined. */
 const sentTags = new Map<string, number>();
+/** tag -> the exact data URL that request sent, so the row it produced can be found by equality. */
+const sentSelfies = new Map<string, string>();
+/** member id -> every data URL sent for that member, for the image-free-refusal guard. */
+const memberSelfies = new Map<string, string[]>();
 
 async function check(
   m: Member,
@@ -178,14 +222,20 @@ async function check(
   headerOver: Record<string, string | null> = {}
 ): Promise<{ status: number; json: Json; tag: string }> {
   const { noBrowser, ...rest } = over;
-  /* A per-request tag in the data URL, after the base64 payload. The route's own validation is a
-     prefix match, so the tag is inert to the product and unique to this request — and a rejected
-     attempt never stores the image at all, which is itself something this suite asserts. */
+  /* A per-request tag carried INSIDE a valid PNG (see selfieFor). The product validates the whole
+     data URL now, so the marker cannot ride along after the payload; it is a tEXt chunk, which
+     keeps the image decodable and the request uniquely identifiable — and a refused attempt still
+     stores no image at all, which is itself something this suite asserts. */
   const n = (sentTags.get(m.id) ?? 0) + 1;
   sentTags.set(m.id, n);
   const tag = `${m.email}-${n}`;
+  const selfie = selfieFor(tag);
+  if (!over.selfie) {
+    sentSelfies.set(tag, selfie);
+    memberSelfies.set(m.id, [...(memberSelfies.get(m.id) ?? []), selfie]);
+  }
   const body: Json = {
-    selfie: `${SELFIE}#${tag}`,
+    selfie,
     poseLabel,
     liveness: { gate: "ok", blink: true, singleFace: true },
     ...(token === null ? {} : { livenessToken: token }),
@@ -218,13 +268,16 @@ type ReqRow = {
   reviewed_at: string | null;
 };
 
-/** The row THIS request produced, found by the tag it carried. Immune to the route's own updates
- *  of older rows, which is what made both ctid and xmin unusable here. */
+/** The row THIS request produced, found by equality on the exact image it sent. Immune to the
+ *  route's own updates of older rows, which is what made both ctid and xmin unusable here, and
+ *  stricter than the old `like '%#<tag>'` suffix match it replaces. */
 async function rowByTag(m: Member, tag: string): Promise<ReqRow | null> {
+  const selfie = sentSelfies.get(tag);
+  if (!selfie) return null;
   const rows = await q<ReqRow>(
     "select id, status, method, selfie_media, reject_reason, reviewed_at from verification_requests " +
-      "where account_id = $1::uuid and selfie_media like $2 order by ctid limit 1",
-    [m.id, `%#${tag}`]
+      "where account_id = $1::uuid and selfie_media = $2 order by ctid limit 1",
+    [m.id, selfie]
   );
   return rows[0] ?? null;
 }
@@ -235,14 +288,17 @@ async function rowByTag(m: Member, tag: string): Promise<ReqRow | null> {
 async function rowOf(m: Member, r: { tag: string }, what: string): Promise<ReqRow> {
   const tagged = await rowByTag(m, r.tag);
   if (tagged) return tagged;
-  /* No row carries this request's tag, which happens on exactly one kind of path: a refusal, which
+  /* No row holds this request's image, which happens on exactly one kind of path: a refusal, which
      stores no image by design (Privacy Policy clause 7). So the fallback is not a guess about
-     ordering — it is the product's own retention rule, and onlyRow asserts it. */
+     ordering — it is the product's own retention rule, and onlyRow asserts it. The guard is the
+     same one the old `like '%#%'` shape expressed, but against the images this member's requests
+     actually sent rather than against a punctuation accident in the fixture. */
   const refusal = await q<ReqRow>(
     "select id, status, method, selfie_media, reject_reason, reviewed_at from verification_requests " +
       "where account_id = $1::uuid and selfie_media is null and status in ('rejected','pending') " +
-      "and id not in (select id from verification_requests where selfie_media like '%#%')",
-    [m.id]
+      "and not exists (select 1 from verification_requests v2 " +
+      "  where v2.account_id = $1::uuid and v2.selfie_media = any($2::text[]))",
+    [m.id, memberSelfies.get(m.id) ?? []]
   );
   /* Exactly one image-less row for this member: with a member this test created, that is the
      refusal. If it is not unique, the instrument is wrong, not the product — say so. */
@@ -386,7 +442,7 @@ async function runMain(): Promise<void> {
       new Request(`${BASE}/api/verification/check`, {
         method: "POST",
         headers: { "content-type": "application/json", ...BROWSER_HEADERS },
-        body: JSON.stringify({ selfie: SELFIE, poseLabel: "wave", liveness: { gate: "ok", blink: true } }),
+        body: JSON.stringify({ selfie: selfieFor("unauthenticated"), poseLabel: "wave", liveness: { gate: "ok", blink: true } }),
       })
     );
     eqv(res.status, 401, "no-credential status");
@@ -864,7 +920,7 @@ async function runLegacy(): Promise<void> {
 
   await test("an unparseable or garbage body never becomes a hatch grant", async () => {
     const m = await nextMember();
-    const r = await check(m, null, null, { selfie: SELFIE });
+    const r = await check(m, null, null, { selfie: selfieFor("garbage-body") });
     eqv(r.status, 400, "missing pose label is a 400 in every mode");
   });
 }

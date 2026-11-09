@@ -9,6 +9,7 @@ import {
 } from "@/lib/identity-match";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import { selfieStorageConfigured } from "@/lib/selfie-storage";
 import { deriveAnchor, hashImageBytes } from "@/lib/photo-hash";
 import { findDuplicatePhotos, findSharedAnchor, openCase, recordDuplicatePhotoHits, recomputeTrust, upsertFingerprint } from "@/lib/identity-resolve";
 
@@ -126,7 +127,14 @@ export async function POST(request: Request) {
     } else {
       try {
         const origin = new URL(request.url).origin;
-        const outcome = await runIdentityMatch(member.id, photoData, origin);
+        /* The verified selfie lives in the member's private bucket, so the
+           comparison needs a member-scoped client to read it back. Built inside
+           the try: a runtime with no Supabase project (loopback suites) simply
+           compares against the remaining baselines. */
+        const selfieClient = selfieStorageConfigured()
+          ? await createSupabaseClientForApi(request)
+          : null;
+        const outcome = await runIdentityMatch(member.id, photoData, origin, selfieClient);
         identityMatch = {
           decision: outcome.decision,
           engine: outcome.engine,

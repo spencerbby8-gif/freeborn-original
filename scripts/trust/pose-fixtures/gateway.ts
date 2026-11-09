@@ -38,10 +38,12 @@ export type Stage2Mode =
   | "unparseable"
   | "empty";
 
-/** A 1×1 PNG. Real enough for `content-type` and length checks; the engines are scripted, so no
- *  pixels are interpreted and none are needed. */
+/** A 1x1 PNG that a real decoder can open: signature, IHDR, an IDAT whose CRC and adler
+ *  check both pass, and IEND. The engines are scripted so no pixel is interpreted — but a
+ *  fixture that claims to be an image should survive being read as one, which the constant
+ *  this replaced did not (its IDAT CRC was wrong and its zlib stream failed its own check). */
 const PNG_1x1 = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==",
   "base64"
 );
 

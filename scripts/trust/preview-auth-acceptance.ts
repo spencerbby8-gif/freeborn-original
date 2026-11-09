@@ -246,7 +246,7 @@ async function main() {
     const settings = await api(a, "/api/settings");
     check("member_settings_read", settings.status === 200 && typeof settings.body?.account?.email === "string", settings.status);
 
-    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4S8AAAAASUVORK5CYII=", "base64");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==", "base64");
     const photoData = `data:image/png;base64,${png.toString("base64")}`;
     const anonymousOnboarding = await api(null, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "identity", patch: {} }) });
     check("anonymous_onboarding_denied", anonymousOnboarding.status === 401, anonymousOnboarding.status);
@@ -466,6 +466,279 @@ async function main() {
     check("nonparticipant_private_broadcast_not_received", noticeC === null, noticeC ? "received" : "none");
     check("anonymous_private_broadcast_not_received", noticeAnon === null, noticeAnon ? "received" : "none");
     await removeChannel(dbB, dbChannelB); await removeChannel(dbC, dbChannelC); await removeChannel(dbAnon, dbChannelAnon);
+
+    /* ---------- 30. signed-in trust, privacy, lifecycle and report surfaces ----------
+       These close the crosswalk gaps the hosted suite never exercised: REA-TRUST
+       (/api/trust/self), ARC2-PRIVACY + RES-INCOGNITO-RLS (snooze, incognito, hide
+       distance, active status, read receipts, blocked manager), REA-VERIFICATION-FILTER
+       (verified-only discovery), REA-SCAM (a filed scam report) and RES-UNMATCH-LIVE
+       (two-account unmatch, then the documented read/send/report behaviour afterwards).
+
+       Every exclusion check below is anchored to a POSITIVE baseline first: the member
+       must be visible in the deck before the privacy control is turned on, otherwise an
+       empty deck would make "excluded" pass for the wrong reason. */
+    const onboardForDiscovery = async (user: User, name: string) => {
+      const steps: Array<[string, Record<string, unknown>]> = [
+        ["identity", { display_name: name, birth_date: "1992-02-02", gender: "non_binary" }],
+        ["location", { city: "Lagos", region: "Lagos", country_code: "NG", location_source: "manual" }],
+        ["relationship_intent", { relationship_goals: ["long_term"], values: ["Honesty"] }],
+        ["bio", { bio: "Synthetic Preview member profile for acceptance testing.", occupation: "Engineer", education: "Bachelor's degree" }],
+        ["interests", { lifestyle_preferences: ["Homebody"], interests: ["Reading", "Cooking", "Art"] }],
+        ["photos", { photos: [{ id: "pixel", src: photoData, isCover: true }] }],
+      ];
+      for (const [step, patch] of steps) {
+        await api(user, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step, patch }) });
+      }
+      const done = await api(user, "/api/onboarding/complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      return done.status === 200 && done.body?.ok === true;
+    };
+    const deckIds = async (viewer: User, query = "") => {
+      const deck = await api(viewer, `/api/profiles${query}`);
+      const list = Array.isArray(deck.body?.profiles) ? (deck.body.profiles as Array<Record<string, unknown>>) : [];
+      return { status: deck.status, ids: list.map((row) => String(row.id)), rows: list, facets: deck.body?.facets };
+    };
+    /* The deck is a ranked feed: src/app/api/profiles/route.ts scores every candidate with
+       a `Math.random() * 4` jitter and then applies the viewer's own filters in a second
+       pass, so a single response is a sample, not a membership oracle. A POSITIVE
+       expectation therefore reads the deck up to `tries` times and accepts a hit in any of
+       them. A NEGATIVE expectation (a privacy control must exclude somebody) still uses a
+       single read: retrying could only make an exclusion check weaker, never stronger. */
+    const deckContains = async (viewer: User, targetId: string, tries = 4) => {
+      const seen: string[] = [];
+      for (let attempt = 0; attempt < tries; attempt += 1) {
+        const deck = await deckIds(viewer);
+        seen.push(...deck.ids);
+        if (deck.ids.includes(targetId)) return { hit: true, attempts: attempt + 1, seen: [...new Set(seen)] };
+      }
+      return { hit: false, attempts: tries, seen: [...new Set(seen)] };
+    };
+
+    check("onboarding_completed_for_second_member", await onboardForDiscovery(b, "Preview B"), b.id);
+
+    const trustSelf = await api(a, "/api/trust/self");
+    check(
+      "trust_self_signed_in_http_verification",
+      trustSelf.status === 200 && typeof trustSelf.body?.score === "number" && typeof trustSelf.body?.band === "string",
+      `${trustSelf.status}/${typeof trustSelf.body?.score}`,
+    );
+    const trustAnonymous = await api(null, "/api/trust/self");
+    check("trust_self_anonymous_denied", trustAnonymous.status === 401, trustAnonymous.status);
+
+    const baselineB = await deckContains(c, b.id);
+    const baselineHasB = baselineB.hit;
+    check(
+      "discovery_deck_baseline_contains_second_member",
+      baselineHasB,
+      `attempts=${baselineB.attempts}/seen=${baselineB.seen.length}`,
+    );
+    const baselineA = await deckContains(c, a.id);
+    const baselineHasA = baselineA.hit;
+    check(
+      "discovery_deck_baseline_contains_first_member",
+      baselineHasA,
+      `attempts=${baselineA.attempts}/seen=${baselineA.seen.length}`,
+    );
+
+    const verifiedDeck = await deckIds(c, "?verified=1");
+    check(
+      "verified_only_filter_excludes_the_unverified_member",
+      verifiedDeck.status === 200 && baselineHasB && !verifiedDeck.ids.includes(b.id) && verifiedDeck.rows.every((row) => row.verified === true),
+      `${verifiedDeck.status}/baseline=${baselineHasB}/verified_deck=${verifiedDeck.ids.length}`,
+    );
+
+    const privacyWrite = await api(a, "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy: { discoveryPaused: false, hideDistance: true, hideActiveStatus: true, readReceipts: false } }),
+    });
+    check("privacy_matrix_write_accepted", privacyWrite.status === 200 && privacyWrite.body?.ok === true, privacyWrite.status);
+    const privacyRead = await api(a, "/api/settings");
+    const privacyBody = (privacyRead.body?.privacy ?? {}) as Record<string, unknown>;
+    check(
+      "privacy_matrix_roundtrip_display_and_receipt_controls",
+      privacyRead.status === 200
+        && privacyBody.hideDistance === true
+        && privacyBody.hideActiveStatus === true
+        && privacyBody.readReceipts === false
+        && privacyBody.discoveryPaused === false,
+      JSON.stringify(privacyBody),
+    );
+    /* A ONE-WAY like from C to A. It cannot be used to observe the incognito admirer
+       carve-out, because the same swipe puts A into C's `hiddenIds` under the
+       "no silent recycling" rule — which is exactly why that carve-out is unreachable in
+       the deck (see the audit note in src/app/api/profiles/route.ts). It is asserted here
+       for the rule that IS observable, and incognito exclusion is then measured from B,
+       who has no like or match relationship with A. */
+    const admirerLike = await jsonRequest(`${supabaseUrl}/rest/v1/user_swipes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ liker_id: c.id, liked_id: a.id, action: "like" }),
+    }, "user", c.token);
+    check("one_way_admirer_like_recorded", admirerLike.status === 200 || admirerLike.status === 201, admirerLike.status);
+    /* "No silent recycling" (src/app/api/profiles/route.ts): every profile the viewer has
+       already swiped leaves their deck. This is asserted because it is the reason the
+       incognito admirer exception in the same file is unreachable — see the note there.
+       The positive half is retried for the ranking jitter; the exclusion half is not. */
+    check(
+      "member_visible_in_an_unrelated_deck_before_any_like",
+      baselineHasA,
+      `attempts=${baselineA.attempts}/seen=${baselineA.seen.length}`,
+    );
+    const afterLike = await deckIds(c);
+    check(
+      "swiped_member_leaves_the_likers_deck_no_silent_recycling",
+      afterLike.status === 200 && baselineHasA && !afterLike.ids.includes(a.id),
+      `before=${baselineHasA}/after=${afterLike.ids.includes(a.id)}/deck=${afterLike.ids.length}`,
+    );
+    await api(a, "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy: { incognito: true } }),
+    });
+    const incognitoDeckForB = await deckIds(b);
+    check(
+      "incognito_member_excluded_from_a_deck_with_no_like_relationship",
+      incognitoDeckForB.status === 200 && !incognitoDeckForB.ids.includes(a.id),
+      `${incognitoDeckForB.status}/${incognitoDeckForB.ids.length}`,
+    );
+    await api(a, "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy: { incognito: false, hideDistance: false, hideActiveStatus: false, readReceipts: true } }),
+    });
+
+    await api(b, "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy: { discoveryPaused: true } }),
+    });
+    const snoozeDeck = await deckIds(c);
+    check(
+      "snoozed_member_excluded_from_discovery_deck",
+      snoozeDeck.status === 200 && baselineHasB && !snoozeDeck.ids.includes(b.id),
+      `baseline=${baselineHasB}/after=${snoozeDeck.ids.includes(b.id)}`,
+    );
+    await api(b, "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ privacy: { discoveryPaused: false } }),
+    });
+    const unsnoozed = await deckContains(c, b.id);
+    check(
+      "unsnoozed_member_returns_to_discovery_deck",
+      baselineHasB && unsnoozed.hit,
+      `attempts=${unsnoozed.attempts}/seen=${unsnoozed.seen.length}`,
+    );
+
+    const blockB = await api(c, "/api/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: b.id, reason: "synthetic" }),
+    });
+    check("block_write_accepted", blockB.status === 200 && blockB.body?.ok === true, blockB.status);
+    const blockDeck = await deckIds(c);
+    check(
+      "blocked_member_excluded_from_discovery_deck",
+      blockDeck.status === 200 && baselineHasB && !blockDeck.ids.includes(b.id),
+      `baseline=${baselineHasB}/after=${blockDeck.ids.includes(b.id)}`,
+    );
+    const blockList = await api(c, "/api/blocks");
+    check(
+      "blocked_manager_lists_the_blocked_member",
+      blockList.status === 200
+        && Array.isArray(blockList.body?.blocked)
+        && (blockList.body.blocked as Array<Record<string, unknown>>).some((row) => row.id === b.id),
+      blockList.status,
+    );
+    const unblock = await api(c, "/api/blocks", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: b.id }),
+    });
+    check("unblock_accepted", unblock.status === 200 && unblock.body?.ok === true, unblock.status);
+    const blockListAfter = await api(c, "/api/blocks");
+    check(
+      "blocked_manager_no_longer_lists_the_unblocked_member",
+      blockListAfter.status === 200
+        && Array.isArray(blockListAfter.body?.blocked)
+        && !(blockListAfter.body.blocked as Array<Record<string, unknown>>).some((row) => row.id === b.id),
+      blockListAfter.status,
+    );
+
+    const unmatchUnconfirmed = await api(a, "/api/chat/unmatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ with: b.id }),
+    });
+    check(
+      "unmatch_requires_explicit_confirmation",
+      unmatchUnconfirmed.status === 409 && unmatchUnconfirmed.body?.needsConfirmation === true,
+      unmatchUnconfirmed.status,
+    );
+    const unmatchBadReason = await api(a, "/api/chat/unmatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ with: b.id, reason: "not_one_of_ours", destructive: true }),
+    });
+    check("unmatch_unknown_reason_denied", unmatchBadReason.status === 400, unmatchBadReason.status);
+    const unmatched = await api(a, "/api/chat/unmatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ with: b.id, reason: "not_interested", destructive: true }),
+    });
+    check(
+      "unmatch_confirmed_succeeds_for_both_accounts",
+      unmatched.status === 200 && unmatched.body?.unmatched === true,
+      unmatched.status,
+    );
+    /* Documented contract in src/app/api/chat/messages/route.ts: the member who was
+       unmatched keeps read access so they can still quote and report what was sent to
+       them; the member who ended it loses their own copy. Neither may send. */
+    const readByUnmatchedMember = await api(b, `/api/chat/messages?match=${matchId}`);
+    check(
+      "unmatched_member_keeps_read_access_to_quote_and_report",
+      readByUnmatchedMember.status === 200 && Array.isArray(readByUnmatchedMember.body?.messages),
+      readByUnmatchedMember.status,
+    );
+    const readByActor = await api(a, `/api/chat/messages?match=${matchId}`);
+    check(
+      "member_who_unmatched_loses_read_access_to_their_own_copy",
+      readByActor.status === 403 && readByActor.body?.ended === true,
+      readByActor.status,
+    );
+    const sendAfterUnmatch = await api(b, "/api/chat/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ match: matchId, text: `after-unmatch-${runId}` }),
+    });
+    check("unmatched_conversation_refuses_new_messages", sendAfterUnmatch.status === 403 || sendAfterUnmatch.status === 404, sendAfterUnmatch.status);
+    const reportAfterUnmatch = await api(b, "/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: a.id, reason: "harassment", details: `synthetic-${runId}` }),
+    });
+    check(
+      "report_path_still_available_after_unmatch",
+      reportAfterUnmatch.status === 200 && reportAfterUnmatch.body?.ok === true,
+      reportAfterUnmatch.status,
+    );
+
+    const scamReport = await api(c, "/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: b.id, reason: "scam", details: `synthetic scam report ${runId}` }),
+    });
+    check(
+      "scam_report_filed_and_triaged_over_http",
+      scamReport.status === 200 && scamReport.body?.ok === true && typeof scamReport.body?.triage === "string",
+      `${scamReport.status}/triage=${scamReport.body?.triage ?? "none"}/outcome=${scamReport.body?.outcome ?? "none"}`,
+    );
+    const selfReport = await api(c, "/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: c.id, reason: "scam" }),
+    });
+    check("self_report_denied", selfReport.status === 400, selfReport.status);
 
     for (const user of users) {
       const deleted = await api(user, "/api/account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete" }) });

@@ -12,11 +12,11 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 44,
-    "publicTables": 42,
-    "publicColumns": 435,
-    "publicIndexes": 122,
-    "publicChecks": 74
+    "steps": 48,
+    "publicTables": 43,
+    "publicColumns": 442,
+    "publicIndexes": 125,
+    "publicChecks": 79
   },
   "steps": [
     {
@@ -89,7 +89,7 @@
       "version": "20260714120000",
       "name": "clean_compat_missing_tables",
       "path": "supabase/clean-start/compat/20260714120000_missing_tables.sql",
-      "sha256": "6ae7e4967156a839a655dffce457e269b2aadcb4a793b17d91a03185ac24f80a"
+      "sha256": "d343beb296096533e79777fc8a0cdfba4ca8ec4f2047aa566fe29b0519909bcd"
     },
     {
       "version": "20260714120100",
@@ -278,10 +278,34 @@
       "sha256": "465b8e0e25f6d19040f6e7f1e5355f410aa6e3548166ae0a62e35759cd9b79f2"
     },
     {
+      "version": "20261108030000",
+      "name": "20261108030000_authenticated_grants_storage_bounds",
+      "path": "supabase/migrations/20261108030000_authenticated_grants_storage_bounds.sql",
+      "sha256": "5fff7aa4409993a6c4924892cf7fa27311deb1afb8157c69031a53ea4885537e"
+    },
+    {
+      "version": "20261108030100",
+      "name": "20261108030100_sequence_and_probe_cleanup",
+      "path": "supabase/migrations/20261108030100_sequence_and_probe_cleanup.sql",
+      "sha256": "e8010e347b6741a820de110092ae16814e156ad624ab70cfd2326d3a34b51ca8"
+    },
+    {
+      "version": "20261109030000",
+      "name": "fb15_selfie_storage_path",
+      "path": "supabase/migrations/20261109030000_fb15_selfie_storage_path.sql",
+      "sha256": "648757713cfe607003af3009eb430c8eea9615bcf967eb33a8fafe4715c1032a"
+    },
+    {
+      "version": "20261109040000",
+      "name": "fb15_selfie_move_audit_cascade",
+      "path": "supabase/migrations/20261109040000_fb15_selfie_move_audit_cascade.sql",
+      "sha256": "e6cbdf36bcfa547d5919b70e174c7f89f9dce3de14a9c2815681a38a7da8763b"
+    },
+    {
       "version": "20261105000800",
       "name": "clean_replay_verification",
       "path": "supabase/clean-start/compat/20261105000800_verify_clean_replay.sql",
-      "sha256": "1d7ffe5a658a5d10ca72dbe08798cb1aab74c033623c9281b89455c0ec7abb0d"
+      "sha256": "79aeb5416ea29f413030f457719b82157ea8a3456659601c937ad178d09c9136"
     }
   ]
 }
