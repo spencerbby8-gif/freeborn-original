@@ -1,7 +1,7 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
-import { chatMedia, matches, profilePhotos, userProfiles } from "@/db/schema";
+import { chatMedia, matches, profilePhotos, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { decideMediaAccess, needsPublishedProfilePhotoLookup } from "@/lib/media-access";
 import { badIdResponse, isUuid } from "@/lib/uuid";
@@ -97,6 +97,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     mediaMatchId: row.matchId,
     requesterIsParticipant,
     publishedAsVisibleProfilePhoto: false,
+    profilePhotoOwnerIncognito: false,
+    requesterIsOwnerAdmirerOrMatch: false,
   };
 
   if (needsPublishedProfilePhotoLookup(facts)) {
@@ -113,9 +115,14 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
        bucket this media substitutes for. It never widens a private conversation
        attachment: a blob counts only if the owner put it on their own profile. */
     const published = await db
-      .select({ id: profilePhotos.id })
+      .select({
+        id: profilePhotos.id,
+        ownerId: profilePhotos.userId,
+        ownerIncognito: userPrivateSettings.incognito,
+      })
       .from(profilePhotos)
       .innerJoin(userProfiles, eq(userProfiles.id, profilePhotos.userId))
+      .leftJoin(userPrivateSettings, eq(userPrivateSettings.userId, profilePhotos.userId))
       .where(
         and(
           eq(profilePhotos.storagePath, `/api/chat/media/${id}`),
@@ -125,7 +132,41 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
         )
       )
       .limit(1);
-    facts.publishedAsVisibleProfilePhoto = published.length > 0;
+    const photo = published[0];
+    facts.publishedAsVisibleProfilePhoto = Boolean(photo);
+    facts.profilePhotoOwnerIncognito = Boolean(photo?.ownerIncognito);
+    /* Incognito parity with the deck (src/app/api/profiles/route.ts): an incognito member
+       stays visible only to members they liked or matched with, so their published photo
+       must not stream to a stranger who learned its id another way. The owner never lands
+       here — their own blob is granted earlier as the legacy sender, a profile photo
+       carrying no match id — so this only ever narrows a stranger, never locks a member
+       out of their own picture. Both halves are gathered as facts and decided in
+       decideMediaAccess, so the full truth table stays executable under test. */
+    if (photo?.ownerIncognito && photo.ownerId !== member.id) {
+      const [likedByOwner] = await db
+        .select({ id: userSwipes.likerId })
+        .from(userSwipes)
+        .where(
+          and(
+            eq(userSwipes.likerId, photo.ownerId),
+            eq(userSwipes.likedId, member.id),
+            eq(userSwipes.action, "like")
+          )
+        )
+        .limit(1);
+      const [matchedOwner] = await db
+        .select({ id: matches.id })
+        .from(matches)
+        .where(
+          and(
+            or(eq(matches.userA, photo.ownerId), eq(matches.userB, photo.ownerId)),
+            or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
+            eq(matches.status, "active")
+          )
+        )
+        .limit(1);
+      facts.requesterIsOwnerAdmirerOrMatch = Boolean(likedByOwner || matchedOwner);
+    }
   }
 
   if (!decideMediaAccess(facts).allow) return new Response("Not found", { status: 404 });

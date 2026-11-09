@@ -24,6 +24,11 @@
  *      own profile has chosen that audience. Gated by the caller on the SAME predicate
  *      RLS enforces on `profile_photos` (active + discoverable + onboarded), so hiding
  *      or pausing a profile revokes it immediately without touching the media row.
+ *      NARROWED by incognito: if the owner is incognito, only a member they liked or
+ *      matched with keeps this grant (deck parity). This makes the route STRICTER than
+ *      the `profile_photos` RLS policy, which does not yet honour incognito — a safe
+ *      direction for a byte-serving route (it can only withhold, never over-expose), and
+ *      the closing RLS change is a separate, owner-gated Production migration.
  *   4. anything else                   -> deny.
  *
  * Monotone by construction: no fact can turn a grant into a deny. That is asserted, not
@@ -42,6 +47,16 @@ export type MediaAccessFacts = {
   requesterIsParticipant: boolean;
   /** The blob is the profile photo of a member whose profile is currently member-visible. */
   publishedAsVisibleProfilePhoto: boolean;
+  /** The published photo's owner has incognito on. Incognito members stay visible only to
+   *  members they liked or matched with (deck parity, `src/app/api/profiles/route.ts`), so
+   *  their published photo must not stream to anyone else who learned its id another way
+   *  (e.g. a direct `profile_photos` read). Irrelevant unless `publishedAsVisibleProfilePhoto`.
+   *  The owner is never affected: their own blob is granted earlier as the legacy sender,
+   *  because a profile photo carries no `match_id`. */
+  profilePhotoOwnerIncognito: boolean;
+  /** The requester is a member the incognito owner liked, or has an active match with — the
+   *  exact audience the deck keeps an incognito member visible to. */
+  requesterIsOwnerAdmirerOrMatch: boolean;
 };
 
 export type MediaAccessReason =
@@ -51,6 +66,7 @@ export type MediaAccessReason =
   | "deny:anonymous"
   | "deny:not-participant"
   | "deny:no-relationship"
+  | "deny:incognito"
   | "deny:missing-row";
 
 export type MediaAccessDecision = { allow: boolean; reason: MediaAccessReason };
@@ -72,6 +88,16 @@ export function decideMediaAccess(facts: MediaAccessFacts): MediaAccessDecision 
     return { allow: true, reason: "grant:legacy-sender" };
   }
   if (facts.publishedAsVisibleProfilePhoto) {
+    /* Incognito narrows rule 3 ONLY. An incognito owner's published photo streams to a
+       member they liked or matched with, and to nobody else — the same audience the deck
+       keeps them visible to. Rules 1-2 already ran above, so a conversation participant
+       and the owner (legacy sender, since a profile photo has no match id) are decided
+       before this point and are never affected. Withholding the public-photo audience an
+       owner paused can only turn a would-be rule-3 grant into a deny; it can never revoke
+       a rule-1/2 grant, so the monotonicity the route's lazy lookup leans on still holds. */
+    if (facts.profilePhotoOwnerIncognito && !facts.requesterIsOwnerAdmirerOrMatch) {
+      return { allow: false, reason: "deny:incognito" };
+    }
     return { allow: true, reason: "grant:published-profile-photo" };
   }
   return {
