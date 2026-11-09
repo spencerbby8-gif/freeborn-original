@@ -7,9 +7,9 @@ begin
   select count(*) into n from information_schema.columns col join pg_class t on t.relname=col.table_name join pg_namespace ns on ns.oid=t.relnamespace and ns.nspname=col.table_schema where col.table_schema='public' and t.relkind='r';
   if n <> 442 then raise exception 'clean replay public column count %, expected 442',n; end if;
   select count(*) into n from pg_indexes where schemaname='public';
-  if n <> 125 then raise exception 'clean replay public index count %, expected 125',n; end if;
+  if n <> 126 then raise exception 'clean replay public index count %, expected 126',n; end if;
   select count(*) into n from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace s on s.oid=t.relnamespace where s.nspname='public' and c.contype='c';
-  if n <> 79 then raise exception 'clean replay check constraint count %, expected 79',n; end if;
+  if n <> 81 then raise exception 'clean replay check constraint count %, expected 81',n; end if;
   select count(*) into n from pg_class t join pg_namespace ns on ns.oid=t.relnamespace where ns.nspname='public' and t.relkind='r' and (not t.relrowsecurity or not t.relforcerowsecurity);
   if n <> 0 then raise exception 'clean replay has % tables without enabled+forced RLS',n; end if;
   select count(*) into n from information_schema.table_privileges where table_schema='public' and grantee='anon';
