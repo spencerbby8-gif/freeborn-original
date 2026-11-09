@@ -1291,6 +1291,8 @@ const EMPTY: MediaAccessFacts = {
   mediaMatchId: null,
   requesterIsParticipant: false,
   publishedAsVisibleProfilePhoto: false,
+  profilePhotoOwnerIncognito: false,
+  requesterIsOwnerAdmirerOrMatch: false,
 };
 const decide = (over: Partial<MediaAccessFacts>) => decideMediaAccess({ ...EMPTY, ...over });
 const MEDIA_RULES: Array<[string, Partial<MediaAccessFacts>, boolean]> = [
@@ -1303,6 +1305,10 @@ const MEDIA_RULES: Array<[string, Partial<MediaAccessFacts>, boolean]> = [
   ["sender is REFUSED a linked blob they no longer participate in — the sender fallback is legacy-only", { requesterId: U, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: false }, false],
   ["eligible viewer opens a published profile photo", { requesterId: X, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
   ["owner opens their own published profile photo", { requesterId: U, mediaSenderId: U, publishedAsVisibleProfilePhoto: true }, true],
+  ["a stranger is refused an incognito member's published photo", { requesterId: X, mediaSenderId: U, publishedAsVisibleProfilePhoto: true, profilePhotoOwnerIncognito: true, requesterIsOwnerAdmirerOrMatch: false }, false],
+  ["a member the incognito owner liked still opens the published photo", { requesterId: X, mediaSenderId: U, publishedAsVisibleProfilePhoto: true, profilePhotoOwnerIncognito: true, requesterIsOwnerAdmirerOrMatch: true }, true],
+  ["an incognito owner opens their own published photo (legacy sender fires first)", { requesterId: U, mediaSenderId: U, publishedAsVisibleProfilePhoto: true, profilePhotoOwnerIncognito: true, requesterIsOwnerAdmirerOrMatch: false }, true],
+  ["a conversation participant opens an incognito member's blob (rule 1 untouched by incognito)", { requesterId: V, mediaSenderId: U, mediaMatchId: M, requesterIsParticipant: true, publishedAsVisibleProfilePhoto: true, profilePhotoOwnerIncognito: true, requesterIsOwnerAdmirerOrMatch: false }, true],
   ["no row to decide on", { requesterId: X }, false],
   ["a null sender id alone must not read as 'no relationship, allow'", { requesterId: X, mediaMatchId: M, requesterIsParticipant: false }, false],
 ];
@@ -1321,8 +1327,10 @@ for (const requesterId of [U, V, X, null])
   for (const mediaSenderId of [U, V, null])
     for (const mediaMatchId of [null, M])
       for (const requesterIsParticipant of [false, true])
-        for (const publishedAsVisibleProfilePhoto of [false, true]) {
-          const base = { requesterId, mediaSenderId, mediaMatchId, publishedAsVisibleProfilePhoto };
+        for (const publishedAsVisibleProfilePhoto of [false, true])
+          for (const profilePhotoOwnerIncognito of [false, true])
+            for (const requesterIsOwnerAdmirerOrMatch of [false, true]) {
+          const base = { requesterId, mediaSenderId, mediaMatchId, publishedAsVisibleProfilePhoto, profilePhotoOwnerIncognito, requesterIsOwnerAdmirerOrMatch };
           const asAsked = { ...base, requesterIsParticipant };
           const noLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: false });
           const withLookup = decideMediaAccess({ ...asAsked, publishedAsVisibleProfilePhoto: true });
