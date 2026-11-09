@@ -25,7 +25,7 @@ ROOT="$PWD"
 PSQL=${PSQL:-psql}
 command -v "$PSQL" >/dev/null 2>&1 || { echo "pose-negctl requires a PostgreSQL client (set PSQL)" >&2; exit 2; }
 PSQL_URL=${PSQL_URL:-postgresql://postgres:postgres@127.0.0.1:5432/app_db}
-OUT=${NEGCTL_DIR:-/home/user/re/analysis-2026-10-29/negctl}   # evidence lives in the workspace, not /tmp
+OUT=${NEGCTL_DIR:-$ROOT/scripts/trust/.negctl}   # evidence lives in the workspace (repo-relative, so it is writable in CI and in any sandbox); override with NEGCTL_DIR
 mkdir -p "$OUT"
 LOG="$OUT/$(date -u +%Y%m%dT%H%M%SZ).log"
 ONLY="${NEGCTL_ONLY:-}"
