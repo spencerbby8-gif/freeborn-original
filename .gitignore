@@ -31,6 +31,7 @@ PLAN.md
 # throwaway bundles produced by the trust harness / live proofs (esbuild output)
 scripts/**/*.build.mjs
 scripts/trust/.ctl.*
+scripts/trust/.negctl/
 scripts/trust/.gen-parity.mjs
 scripts/trust/tsconfig.e2e.json
 scripts/trust/.backfill-bytes.*
