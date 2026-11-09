@@ -12,7 +12,7 @@ const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
 
 check(manifest.schemaVersion === 1, "unsupported clean-start manifest schema");
-check(manifest.steps.length === 48, `expected 48 replay steps, found ${manifest.steps.length}`);
+check(manifest.steps.length === 49, `expected 49 replay steps, found ${manifest.steps.length}`);
 check(new Set(manifest.steps.map((step) => step.version)).size === manifest.steps.length, "duplicate replay versions");
 check(new Set(manifest.steps.map((step) => step.name)).size === manifest.steps.length, "duplicate replay names");
 check(new Set(manifest.steps.map((step) => step.path)).size === manifest.steps.length, "duplicate replay paths");
