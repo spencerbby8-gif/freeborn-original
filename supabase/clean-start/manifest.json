@@ -12,7 +12,7 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 49,
+    "steps": 50,
     "publicTables": 43,
     "publicColumns": 442,
     "publicIndexes": 126,
@@ -306,6 +306,12 @@
       "name": "20261109050000_reconcile_replay_to_production",
       "path": "supabase/clean-start/compat/20261109050000_reconcile_replay_to_production.sql",
       "sha256": "6dcf61e01a61835dc864d50747cf3113b6d1dabb189138bd4f0ea415d2f6cab2"
+    },
+    {
+      "version": "20261109202434",
+      "name": "incognito_profile_photo_rls",
+      "path": "supabase/migrations/20261109202434_incognito_profile_photo_rls.sql",
+      "sha256": "57d8e3544aea01c262d390d5adf464077d43f022f2630be72ea9af9c62ea1208"
     },
     {
       "version": "20261105000800",
