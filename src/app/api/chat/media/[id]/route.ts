@@ -38,7 +38,11 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const member = await getMember(request);
-  if (!member) return new Response("Not signed in.", { status: 401 });
+  // 401 uses the same JSON error shape as every other route (`{ error }`) so the
+  // shared client reader (describeFailure/readJsonSafe) surfaces the server's own
+  // message instead of falling back to a generic line. The 404s below stay bare and
+  // indistinguishable on purpose (missing vs not-yours must not differ — see line 52).
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
   const { id } = await ctx.params;
   if (!isUuid(id)) return badIdResponse();
