@@ -4,6 +4,7 @@ import {
   accountDeletionRequests,
   profilePhotos,
   storageCleanupJobs,
+  verificationRequests,
   verificationSelfieChecks,
 } from "@/db/schema";
 
@@ -81,10 +82,20 @@ export async function requestAccountDeletion(accountId: string, email: string): 
       .select({ storagePath: profilePhotos.storagePath })
       .from(profilePhotos)
       .where(eq(profilePhotos.userId, id));
-    const selfieRows = await tx
+    const selfieCheckRows = await tx
       .select({ storagePath: verificationSelfieChecks.storagePath })
       .from(verificationSelfieChecks)
       .where(eq(verificationSelfieChecks.userId, id));
+    /* MED-INLINE-SELFIE: a verification attempt's photograph can also live in the
+       private bucket, referenced from verification_requests. The `<id>/` prefix
+       sweep below already covers those objects, but naming them explicitly keeps
+       the cleanup job self-describing if a prefix listing ever comes back short,
+       and it keeps erasure honest about every place a selfie can be. */
+    const requestSelfieRows = await tx
+      .select({ storagePath: verificationRequests.selfieStoragePath })
+      .from(verificationRequests)
+      .where(eq(verificationRequests.accountId, id));
+    const selfieRows = [...selfieCheckRows, ...requestSelfieRows];
 
     const [request] = await tx
       .insert(accountDeletionRequests)

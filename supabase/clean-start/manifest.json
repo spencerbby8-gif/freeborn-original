@@ -12,11 +12,11 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 46,
-    "publicTables": 42,
-    "publicColumns": 435,
-    "publicIndexes": 122,
-    "publicChecks": 74
+    "steps": 47,
+    "publicTables": 43,
+    "publicColumns": 442,
+    "publicIndexes": 125,
+    "publicChecks": 79
   },
   "steps": [
     {
@@ -89,7 +89,7 @@
       "version": "20260714120000",
       "name": "clean_compat_missing_tables",
       "path": "supabase/clean-start/compat/20260714120000_missing_tables.sql",
-      "sha256": "6ae7e4967156a839a655dffce457e269b2aadcb4a793b17d91a03185ac24f80a"
+      "sha256": "d343beb296096533e79777fc8a0cdfba4ca8ec4f2047aa566fe29b0519909bcd"
     },
     {
       "version": "20260714120100",
@@ -290,10 +290,16 @@
       "sha256": "e8010e347b6741a820de110092ae16814e156ad624ab70cfd2326d3a34b51ca8"
     },
     {
+      "version": "20261109030000",
+      "name": "fb15_selfie_storage_path",
+      "path": "supabase/migrations/20261109030000_fb15_selfie_storage_path.sql",
+      "sha256": "648757713cfe607003af3009eb430c8eea9615bcf967eb33a8fafe4715c1032a"
+    },
+    {
       "version": "20261105000800",
       "name": "clean_replay_verification",
       "path": "supabase/clean-start/compat/20261105000800_verify_clean_replay.sql",
-      "sha256": "e9595dc6a8769ee819fdb154b563ecb4f9a812eeb1219665c39b64d1515ce636"
+      "sha256": "79aeb5416ea29f413030f457719b82157ea8a3456659601c937ad178d09c9136"
     }
   ]
 }

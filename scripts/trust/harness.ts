@@ -2721,6 +2721,110 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     !/alter table realtime\.messages|grant .* to anon|drop table|truncate/i.test(migration));
 }
 
+/* [30] MED-INLINE-SELFIE — a verification selfie's home is the private bucket, not a
+   relational column. Behavioural proof: scripts/trust/fb15-retention-local.mjs (section
+   "MED-INLINE-SELFIE") and supabase/migrations/20261109030000_fb15_selfie_storage_path.sql. */
+{
+  const store = readFileSync(new URL("../../src/lib/selfie-storage.ts", import.meta.url), "utf8");
+  const selfieMig = readFileSync(new URL("../../supabase/migrations/20261109030000_fb15_selfie_storage_path.sql", import.meta.url), "utf8");
+  const mover = readFileSync(new URL("../../scripts/db/migrate-inline-selfies.mjs", import.meta.url), "utf8");
+  const vRoute = readFileSync(new URL("../../src/app/api/verification/route.ts", import.meta.url), "utf8");
+  const cRoute = readFileSync(new URL("../../src/app/api/verification/check/route.ts", import.meta.url), "utf8");
+  const identity = readFileSync(new URL("../../src/lib/identity-match.ts", import.meta.url), "utf8");
+  const photos = readFileSync(new URL("../../src/app/api/profile/photos/route.ts", import.meta.url), "utf8");
+  const erasure = readFileSync(new URL("../../src/lib/account-deletion.ts", import.meta.url), "utf8");
+  const schema = readFileSync(new URL("../../src/db/schema.ts", import.meta.url), "utf8");
+
+  ok("[30] selfies go to the private bucket, under the member's own folder, never overwriting",
+    store.includes(`SELFIE_BUCKET = "verification-selfies"`) &&
+    store.includes("`${id}/selfie-${randomUUID()}.${ext}`") &&
+    store.includes("upsert: false") &&
+    store.includes("MAX_SELFIE_BYTES = 6 * 1024 * 1024"));
+  ok("[30] the accepted shapes are exactly the bucket's MIME bound",
+    store.includes('"image/jpeg": "jpg"') && store.includes('"image/png": "png"') &&
+    store.includes('"image/webp": "webp"') && store.includes("looksLikeImage"));
+  ok("[30] a production runtime can never fall back to inline bytes",
+    store.includes('process.env.VERCEL_ENV === "production"') &&
+    store.includes("if (selfieStorageMandatory()) return { status: \"refused\"") &&
+    store.includes("selfieStorageConfigured"));
+  ok("[30] neither verification route writes the data URL into the column any more",
+    !vRoute.includes("selfieMedia: data") && !cRoute.includes("selfieMedia: selfie") &&
+    vRoute.includes("selfieStoragePath: storedSelfie.path") &&
+    cRoute.includes("selfieStoragePath: kept.path"));
+  ok("[30] the upload happens once per attempt and only for an attempt that keeps the image",
+    cRoute.includes("const keepSelfie = async") &&
+    cRoute.includes('status === "rejected" ? { path: null, inline: null } : await keepSelfie()'));
+  ok("[30] an unstorable selfie fails the attempt instead of landing in the database",
+    vRoute.includes("{ status: 503 }") && cRoute.includes("SELFIE_STORAGE_RETRY_MESSAGE }, 503") &&
+    cRoute.includes("if (!recordedApproval) return finish({ error: SELFIE_STORAGE_RETRY_MESSAGE }, 503)"));
+  ok("[30] the seal is never lit by an approval whose row was not written",
+    cRoute.indexOf("if (!recordedApproval)") < cRoute.indexOf("set({ isVerified: true, lastVerifiedAt: new Date() })"));
+  ok("[30] superseded selfies are still released before the new attempt is stored",
+    vRoute.indexOf("fb15_supersede_pending_requests") < vRoute.indexOf("db.insert(verificationRequests)") &&
+    cRoute.indexOf("fb15_supersede_pending_requests") < cRoute.indexOf("db.insert(verificationRequests)"));
+  ok("[30] the identity gate reads the stored selfie back and degrades when it cannot",
+    identity.includes("selfieStoragePath: verificationRequests.selfieStoragePath") &&
+    identity.includes("readSelfieDataUrl(selfieClient, memberId, approved.selfieStoragePath)") &&
+    photos.includes("selfieStorageConfigured()") && photos.includes("runIdentityMatch(member.id, photoData, origin, selfieClient)"));
+  ok("[30] one selfie, one home: the columns are mutually exclusive in the schema and in SQL",
+    schema.includes('selfieStoragePath: text("selfie_storage_path")') &&
+    selfieMig.includes("verification_requests_selfie_one_home") &&
+    selfieMig.includes("not (selfie_media is not null and selfie_storage_path is not null)"));
+  ok("[30] a request reference must be an object inside the member's own folder",
+    selfieMig.includes("verification_requests_selfie_path_owned") &&
+    selfieMig.includes("selfie_storage_path like account_id::text || '/%'"));
+  ok("[30] the mover's commit point re-proves the digest and the object inside the database",
+    selfieMig.includes("encode(sha256(v_row.selfie_media::bytea), 'hex')") &&
+    selfieMig.includes("'digest_mismatch'") && selfieMig.includes("'size_mismatch'") &&
+    selfieMig.includes("'object_absent'") && selfieMig.includes("'erasure_in_progress'") &&
+    selfieMig.includes("for update"));
+  /* Every assignment the migration makes to a verification_requests row, checked
+     clause by clause: the two selfie columns and nothing else. A WHERE clause
+     that mentions `status` is not an assignment to it, so the SET segment is
+     isolated before the test rather than pattern-matched across the statement. */
+  const requestUpdates = [...selfieMig.matchAll(/update public\.verification_requests\s+set([\s\S]*?)\s+where/gi)]
+    .map((m) => m[1]);
+  ok("[30] the move preserves history: only the two selfie columns are ever assigned",
+    requestUpdates.length >= 3 &&
+    requestUpdates.every((clause) => /selfie_media|selfie_storage_path/i.test(clause)) &&
+    requestUpdates.every((clause) =>
+      !/(^|[\s,])(id|account_id|status|method|reject_reason|submitted_at|reviewed_at)\s*=/i.test(clause)));
+  ok("[30] the move swaps both homes in one statement, so a row is never without one",
+    selfieMig.includes("set selfie_storage_path = p_storage_path,") &&
+    selfieMig.includes("selfie_media = null") &&
+    selfieMig.includes("and encode(sha256(selfie_media::bytea), 'hex') = lower(p_sha256)"));
+  ok("[30] a referenced selfie can never be swept as an orphan",
+    selfieMig.includes("not exists (select 1 from public.verification_requests r where r.selfie_storage_path = o.name)"));
+  ok("[30] retention enqueues Storage-backed request selfies under their own asset key",
+    selfieMig.includes("'request-storage:' || r.id::text") &&
+    selfieMig.includes("fb15_scan_retention") && selfieMig.includes("fb15_withdraw_selfies") &&
+    selfieMig.includes("fb15_supersede_pending_requests"));
+  ok("[30] completion clears the reference only for the exact path proven absent",
+    selfieMig.includes("and selfie_storage_path = v_job.storage_path"));
+  ok("[30] the move audit is metadata-only, RLS-forced and service-role only",
+    selfieMig.includes("revoke all on public.verification_selfie_move_audit from public, anon, authenticated") &&
+    selfieMig.includes("alter table public.verification_selfie_move_audit force row level security") &&
+    !/account_id|storage_path|selfie_media|data_url/i.test(
+      selfieMig.slice(selfieMig.indexOf("create table if not exists public.verification_selfie_move_audit"),
+                      selfieMig.indexOf("create index if not exists vsma_request_idx"))) &&
+    selfieMig.includes("revoke all on function public.fb15_finalize_selfie_move(uuid, text, text, integer) from public, anon, authenticated"));
+  ok("[30] the migration is fail-closed and append-only",
+    selfieMig.includes("raise exception 'MED-INLINE-SELFIE") &&
+    !/drop table|drop column|truncate|delete from public\.verification_requests|alter table public\.verification_requests\s+alter column/i.test(selfieMig));
+  ok("[30] account erasure names selfie objects referenced by verification attempts",
+    erasure.includes("verificationRequests.selfieStoragePath") &&
+    erasure.includes("const selfieRows = [...selfieCheckRows, ...requestSelfieRows]"));
+  ok("[30] the one-time mover is dry-run by default, refuses Production without an ack, and needs a service key",
+    mover.includes('const apply = flag("--apply")') &&
+    mover.includes('const PRODUCTION_REF = "ihwtpwlszegrjgakqsxx"') &&
+    mover.includes("--ack-move-inline-selfies-") &&
+    mover.includes("refusing to run with a publishable key") &&
+    mover.includes("fb15_finalize_selfie_move"));
+  ok("[30] the mover never prints an image, a path or an account id",
+    !/console\.log\([^)]*(dataUrl|selfie_media|path|accountId)/.test(mover) &&
+    mover.includes("requestId: item.requestId, code, sha256: item.sha256, imageBytes: item.imageBytes"));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

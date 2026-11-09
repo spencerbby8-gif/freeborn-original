@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS public."verification_requests" (
 	"status" text DEFAULT 'pending' NOT NULL,
 	"method" text DEFAULT 'selfie' NOT NULL,
 	"selfie_media" text,
+	"selfie_storage_path" text,
 	"reject_reason" text,
 	"submitted_at" timestamp with time zone DEFAULT timezone('utc', now()) NOT NULL,
 	"reviewed_at" timestamp with time zone,

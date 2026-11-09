@@ -2,6 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, userProfiles, verificationRequests } from "@/db/schema";
 import { getMember, getLocalProfile } from "@/lib/app-auth";
+import { parseSelfieDataUrl, storeVerificationSelfie } from "@/lib/selfie-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,17 @@ export async function POST(request: Request) {
     return Response.json({ error: "Selfie is too large (max 6 MB)." }, { status: 400 });
   }
 
+  /* MED-INLINE-SELFIE: decode and validate once, here. What gets stored is a
+     reference to the private bucket object, not the photograph itself, so the
+     image bytes never enter the application database on this path. */
+  const parsedSelfie = parseSelfieDataUrl(data);
+  if (!parsedSelfie) {
+    return Response.json(
+      { error: "A live selfie photo is required (JPEG, PNG or WebP)." },
+      { status: 400 }
+    );
+  }
+
   if (rateLimited(member.id, 3, 60 * 60 * 1000)) {
     return Response.json(
       { error: "Too many verification attempts. Try again in an hour." },
@@ -140,13 +152,22 @@ export async function POST(request: Request) {
      row, so an older undecided attempt can still be holding a photograph.
      Release those images before storing this one, so at most one undecided
      selfie per member exists at any time. Verdicts and reasons are kept. */
+  /* Store the photograph BEFORE releasing the superseded ones. If the upload
+     cannot be completed, nothing has been released and no row is written: the
+     member retries, and the attempt leaves no half-state behind. */
+  const storedSelfie = await storeVerificationSelfie(request, member.id, parsedSelfie, data);
+  if (storedSelfie.status === "refused") {
+    return Response.json({ error: storedSelfie.error }, { status: 503 });
+  }
+
   await db.execute(sql`select public.fb15_supersede_pending_requests(${member.id}::uuid)`);
 
   await db.insert(verificationRequests).values({
     accountId: member.id,
     status: "pending",
     method: "selfie",
-    selfieMedia: data,
+    selfieStoragePath: storedSelfie.path,
+    selfieMedia: storedSelfie.inline,
   });
 
   return Response.json({ ok: true, status: "pending" });

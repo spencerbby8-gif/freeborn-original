@@ -3,13 +3,13 @@ do $$
 declare n integer;
 begin
   select count(*) into n from pg_tables where schemaname='public';
-  if n <> 42 then raise exception 'clean replay public table count %, expected 42',n; end if;
+  if n <> 43 then raise exception 'clean replay public table count %, expected 43',n; end if;
   select count(*) into n from information_schema.columns col join pg_class t on t.relname=col.table_name join pg_namespace ns on ns.oid=t.relnamespace and ns.nspname=col.table_schema where col.table_schema='public' and t.relkind='r';
-  if n <> 435 then raise exception 'clean replay public column count %, expected 435',n; end if;
+  if n <> 442 then raise exception 'clean replay public column count %, expected 442',n; end if;
   select count(*) into n from pg_indexes where schemaname='public';
-  if n <> 122 then raise exception 'clean replay public index count %, expected 122',n; end if;
+  if n <> 125 then raise exception 'clean replay public index count %, expected 125',n; end if;
   select count(*) into n from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace s on s.oid=t.relnamespace where s.nspname='public' and c.contype='c';
-  if n <> 74 then raise exception 'clean replay check constraint count %, expected 74',n; end if;
+  if n <> 79 then raise exception 'clean replay check constraint count %, expected 79',n; end if;
   select count(*) into n from pg_class t join pg_namespace ns on ns.oid=t.relnamespace where ns.nspname='public' and t.relkind='r' and (not t.relrowsecurity or not t.relforcerowsecurity);
   if n <> 0 then raise exception 'clean replay has % tables without enabled+forced RLS',n; end if;
   select count(*) into n from information_schema.table_privileges where table_schema='public' and grantee='anon';

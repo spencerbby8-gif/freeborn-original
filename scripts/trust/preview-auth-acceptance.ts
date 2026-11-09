@@ -246,7 +246,7 @@ async function main() {
     const settings = await api(a, "/api/settings");
     check("member_settings_read", settings.status === 200 && typeof settings.body?.account?.email === "string", settings.status);
 
-    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z4S8AAAAASUVORK5CYII=", "base64");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==", "base64");
     const photoData = `data:image/png;base64,${png.toString("base64")}`;
     const anonymousOnboarding = await api(null, "/api/onboarding", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step: "identity", patch: {} }) });
     check("anonymous_onboarding_denied", anonymousOnboarding.status === 401, anonymousOnboarding.status);

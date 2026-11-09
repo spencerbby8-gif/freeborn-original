@@ -6,9 +6,9 @@ This directory makes the reviewed application schema reproducible from an empty 
 
 - The 11 historical migrations recovered from `spencerbby8-gif/FREEBORN` commit `79820bc5a99763213b7c361754a5e602fa83ecc9` are restored byte-for-byte under `supabase/migrations/`.
 - The existing `db/migrations/` and `supabase/migrations/` files from reviewed commit `ad3d9d16ab5f9a083343ccf5a6ad4cd890404d83` are hash-checked by CI.
-- `manifest.json` records the exact 43-step clean-start order and SHA-256 of every input. Application-derived compatibility statements are explicit inputs, not misrepresented as recovered Production SQL.
+- `manifest.json` records the exact 47-step clean-start order and SHA-256 of every input. Application-derived compatibility statements are explicit inputs, not misrepresented as recovered Production SQL.
 - FB-14 and FB-15 scheduling files are deliberately excluded. In particular, clean Preview replay never activates FB-15.
-- The final replay step verifies 42 public tables, 435 columns, 122 indexes, 74 check constraints, enabled+forced RLS, zero anonymous table grants, only policy-backed authenticated table privileges, storage bounds, and paused FB-15 scheduling.
+- The final replay step verifies 43 public tables, 442 columns, 125 indexes, 79 check constraints, enabled+forced RLS, zero anonymous table grants, only policy-backed authenticated table privileges, storage bounds, and paused FB-15 scheduling.
 - The final application steps remove only authenticated privileges that no member RLS policy can authorize, reconcile private bucket size/MIME bounds, revoke residual anon/member sequence privileges, and drop two historical audit probe functions. They add no grants and do not change runtime/service-role access, policies, member data, or scheduling.
 
 This proves clean Preview reproducibility. It does **not** prove Production migration provenance or authorize a Production deployment.
