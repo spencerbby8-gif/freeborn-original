@@ -12,7 +12,7 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 47,
+    "steps": 48,
     "publicTables": 43,
     "publicColumns": 442,
     "publicIndexes": 125,
@@ -294,6 +294,12 @@
       "name": "fb15_selfie_storage_path",
       "path": "supabase/migrations/20261109030000_fb15_selfie_storage_path.sql",
       "sha256": "648757713cfe607003af3009eb430c8eea9615bcf967eb33a8fafe4715c1032a"
+    },
+    {
+      "version": "20261109040000",
+      "name": "fb15_selfie_move_audit_cascade",
+      "path": "supabase/migrations/20261109040000_fb15_selfie_move_audit_cascade.sql",
+      "sha256": "e6cbdf36bcfa547d5919b70e174c7f89f9dce3de14a9c2815681a38a7da8763b"
     },
     {
       "version": "20261105000800",

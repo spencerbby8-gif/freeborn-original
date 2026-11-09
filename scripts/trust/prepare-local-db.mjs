@@ -32,6 +32,8 @@ try {
   const fb15 = readFileSync(join(root, "supabase/migrations/20261102090000_fb15_selfie_retention.sql"), "utf8");
   /* MED-INLINE-SELFIE: extends the FB-15 pipeline, so it is applied right after it. */
   const fb15SelfiePath = readFileSync(join(root, "supabase/migrations/20261109030000_fb15_selfie_storage_path.sql"), "utf8");
+  /* MED-INLINE-SELFIE follow-up: ties the move audit's lifetime to the request row. */
+  const fb15MoveAuditCascade = readFileSync(join(root, "supabase/migrations/20261109040000_fb15_selfie_move_audit_cascade.sql"), "utf8");
   await client.connect();
   await client.query("create schema if not exists extensions");
   await client.query("drop schema if exists public cascade");
@@ -58,6 +60,10 @@ try {
     );`);
   await client.query(fb15);
   await client.query(fb15SelfiePath);
+  /* Applied after the path migration because it adds a foreign key on the move
+     audit table that migration creates. Its own fail-closed block re-proves the
+     metadata-only + RLS-forced + service-role-only contract still holds. */
+  await client.query(fb15MoveAuditCascade);
   const result = await client.query(`select
     (select count(*)::int from pg_tables where schemaname='public') as tables,
     (select count(*)::int from information_schema.columns where table_schema='public') as columns,

@@ -2727,6 +2727,7 @@ console.log("\n[29] private chat broadcast and bounded fallback");
 {
   const store = readFileSync(new URL("../../src/lib/selfie-storage.ts", import.meta.url), "utf8");
   const selfieMig = readFileSync(new URL("../../supabase/migrations/20261109030000_fb15_selfie_storage_path.sql", import.meta.url), "utf8");
+  const cascadeMig = readFileSync(new URL("../../supabase/migrations/20261109040000_fb15_selfie_move_audit_cascade.sql", import.meta.url), "utf8");
   const mover = readFileSync(new URL("../../scripts/db/migrate-inline-selfies.mjs", import.meta.url), "utf8");
   const vRoute = readFileSync(new URL("../../src/app/api/verification/route.ts", import.meta.url), "utf8");
   const cRoute = readFileSync(new URL("../../src/app/api/verification/check/route.ts", import.meta.url), "utf8");
@@ -2823,6 +2824,24 @@ console.log("\n[29] private chat broadcast and bounded fallback");
   ok("[30] the mover never prints an image, a path or an account id",
     !/console\.log\([^)]*(dataUrl|selfie_media|path|accountId)/.test(mover) &&
     mover.includes("requestId: item.requestId, code, sha256: item.sha256, imageBytes: item.imageBytes"));
+
+  /* The move audit must not outlive the member. A Preview rehearsal proved the
+     defect empirically; these pins keep the cascade fix from silently regressing. */
+  ok("[30] the move audit's lifetime is tied to the request row by an ON DELETE CASCADE foreign key",
+    cascadeMig.includes("add constraint verification_selfie_move_audit_request_fkey") &&
+    cascadeMig.includes("references public.verification_requests (id)") &&
+    cascadeMig.includes("on delete cascade"));
+  ok("[30] the cascade fix refuses to run over an audit row that already outlives its request",
+    cascadeMig.includes("already outlive their request") &&
+    /select count\(\*\)[\s\S]*?not exists \([\s\S]*?from public\.verification_requests r where r\.id = a\.request_id/i.test(cascadeMig));
+  ok("[30] the cascade fix re-proves the audit is still metadata-only, service-role-only and RLS-forced",
+    cascadeMig.includes("if v_deltype <> 'c'") &&
+    cascadeMig.includes("carries more than metadata") &&
+    cascadeMig.includes("member-role grant(s) leaked onto the move audit") &&
+    cascadeMig.includes("not RLS enabled+forced"));
+  ok("[30] the cascade fix is fail-closed and append-only",
+    cascadeMig.includes("raise exception 'MED-INLINE-SELFIE") &&
+    !/drop table|drop column|truncate|delete from public\.verification_requests|alter table public\.verification_requests\s+alter column/i.test(cascadeMig));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.

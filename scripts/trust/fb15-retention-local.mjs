@@ -173,6 +173,10 @@ try {
   await client.query(selfiePathMigration);
   await client.query(selfiePathMigration);
   ok("migration 20261109030000 applies twice (idempotent)", true);
+  const cascadeMigration = await readFile(new URL("../../supabase/migrations/20261109040000_fb15_selfie_move_audit_cascade.sql", import.meta.url), "utf8");
+  await client.query(cascadeMigration);
+  await client.query(cascadeMigration);
+  ok("migration 20261109040000 applies twice (idempotent)", true);
 
   // ---- 1. Path ownership -------------------------------------------------
   console.log("path ownership");
@@ -596,6 +600,55 @@ try {
     ok("the scanner still excludes referenced objects from the orphan sweep",
       (await one(`select pg_get_functiondef('public.fb15_scan_retention(integer)'::regprocedure) as d`)).d
         .includes("not exists (select 1 from public.verification_requests r where r.selfie_storage_path = o.name)"));
+  }
+
+  // ---- 8b. MED-INLINE-SELFIE follow-up: the move audit cannot outlive the member.
+  // A Preview rehearsal proved the defect: after FB-14 erasure deleted the request
+  // row, the audit row survived holding a sha256 of the member's selfie against a
+  // request_id that no longer resolved. The 20261109040000 cascade closes it.
+  {
+    const M = await mkAccount();
+    const inline = SELFIE(marker("cascade"));
+    const imageBytes = Buffer.byteLength(inline.slice(inline.indexOf(",") + 1), "base64");
+    const rid = await mkRequest({ account: M, status: "approved", selfie: inline });
+    const path = selfiePath(M);
+    await mkSelfieObject(path, imageBytes);
+    ok("a real move writes an audit row",
+      (await one(`select public.fb15_finalize_selfie_move($1,$2,$3,$4) as r`, [rid, path, shaOf(inline), imageBytes])).r === "moved");
+    ok("the audit row exists while the member does",
+      (await one(`select count(*)::int as n from verification_selfie_move_audit where request_id=$1`, [rid])).n === 1);
+
+    const fk = await one(
+      `select confdeltype from pg_constraint
+       where conname='verification_selfie_move_audit_request_fkey'
+         and contype='f'
+         and conrelid='public.verification_selfie_move_audit'::regclass
+         and confrelid='public.verification_requests'::regclass`);
+    ok("the audit foreign key is ON DELETE CASCADE", fk?.confdeltype === "c", `confdeltype=${fk?.confdeltype}`);
+
+    // Erasing the member's request row must take the digest with it, same transaction.
+    await q(`delete from verification_requests where id=$1`, [rid]);
+    ok("erasing the request row cascades away the audit digest",
+      (await one(`select count(*)::int as n from verification_selfie_move_audit where request_id=$1`, [rid])).n === 0);
+
+    // An audit row can never name a request that does not exist (the mover's own
+    // invariant, now also a database invariant).
+    await expectSqlError(
+      "an audit row cannot reference a request that does not exist",
+      `insert into verification_selfie_move_audit (request_id, sha256, byte_length, event) values ($1,$2,$3,'moved')`,
+      [randomUUID(), shaOf(inline), imageBytes],
+      "23503"
+    );
+
+    // A refusal is still audited while the member exists — the cascade must not
+    // make the table useless for its stated operator purpose.
+    const R = await mkAccount();
+    const rInline = SELFIE(marker("refused"));
+    const rBytes = Buffer.byteLength(rInline.slice(rInline.indexOf(",") + 1), "base64");
+    const rId = await mkRequest({ account: R, status: "approved", selfie: rInline });
+    ok("a refused move is still audited while the member exists",
+      (await one(`select public.fb15_finalize_selfie_move($1,$2,$3,$4) as r`, [rId, `${(await mkAccount())}/selfie-x.jpg`, shaOf(rInline), rBytes])).r === "path_invalid" &&
+      (await one(`select count(*)::int as n from verification_selfie_move_audit where request_id=$1 and event='refused'`, [rId])).n === 1);
   }
 
   console.log("audit + grants");
