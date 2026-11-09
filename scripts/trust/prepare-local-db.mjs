@@ -40,7 +40,14 @@ try {
   await client.query("drop schema if exists storage cascade");
   await client.query("create schema public");
   await client.query("create extension if not exists citext with schema extensions");
-  await client.query("create extension if not exists vector with schema extensions");
+  /* Production (ihwtpwlszegrjgakqsxx) installs citext ONLY: it has no vector
+     extension (pg_type typname='vector' count = 0) and the drizzle baseline
+     generated from src/db/schema.ts references no vector column (verified: 0
+     vector refs, 4 citext refs). Creating vector here would (a) fail on the CI
+     postgres:17 service, which does not bundle pgvector, and (b) diverge this
+     disposable schema from Production. Keep this list aligned to Production's
+     actual extensions; add vector only if a migration ever uses it AND
+     Production enables it (then also move CI to a pgvector-capable image). */
   await client.query("grant usage on schema public, extensions to public");
   await client.query("set search_path = public, extensions");
   await client.query(`do $$ begin
