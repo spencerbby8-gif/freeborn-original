@@ -42,9 +42,19 @@ async function isPwnedPassword(password: string): Promise<boolean | null> {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("")
       .toUpperCase();
-    const res = await fetch(`https://api.pwnedpasswords.com/range/${hex.slice(0, 5)}`, {
-      headers: { "Add-Padding": "true" },
-    });
+    /* Hard timeout: a slow/unreachable HIBP must NEVER stall the submit button.
+       Fail-open (null) so signup/sign-in never hangs on this external call. */
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    let res: Response;
+    try {
+      res = await fetch(`https://api.pwnedpasswords.com/range/${hex.slice(0, 5)}`, {
+        headers: { "Add-Padding": "true" },
+        signal: ctl.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) return null;
     const body = await res.text();
     return body
@@ -101,6 +111,19 @@ export function AuthExperience({
   const [pending, setPending] = useState<"email" | "google" | null>(null);
   /** Turnstile human-check token (active only when the site key is set). */
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  /* Server-provided notices (e.g. the post-redirect "check your email" status)
+     render inline at the TOP of a long card — off-screen if the user is scrolled
+     down. Mirror every notice into the viewport-pinned toast so the outcome is
+     always visible without scrolling. */
+  useEffect(() => {
+    if (!notice) return;
+    showToast({
+      tone: notice.tone === "error" ? "error" : "success",
+      title: notice.title,
+      body: notice.body,
+    });
+  }, [notice]);
 
   /* Coming back from the Google redirect (including the browser's back/forward
      cache) must never leave a stale "Connecting…" spinner on the screen. */
@@ -361,7 +384,7 @@ export function AuthExperience({
 
   return (
     <div className="w-full max-w-[480px]">
-      <div className="surface magic-border relative overflow-hidden rounded-[40px] p-7 shadow-[var(--shadow-card-lg)] sm:p-10">
+      <div className="surface magic-border relative overflow-hidden rounded-[32px] p-6 shadow-[var(--shadow-card-lg)] sm:p-8">
         <div key={mode} className="animate-fade-in">
           <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--color-sand)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
@@ -399,7 +422,7 @@ export function AuthExperience({
 
         {/* Tabs: Sign in / Create account */}
         {isAuth ? (
-          <div className="relative mt-8 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+          <div className="relative mt-6 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
             <span
               className="absolute inset-y-1.5 w-[calc(50%-6px)] rounded-xl bg-[var(--gradient-ember-warm)] shadow-[0_8px_20px_-8px_rgba(239,94,94,0.8)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
               style={{ left: mode === "sign-up" ? "calc(50% + 1.5px)" : "4.5px" }}
@@ -428,7 +451,7 @@ export function AuthExperience({
             type="button"
             onClick={() => void handleGoogle()}
             disabled={pending === "google"}
-            className="group mt-6 flex h-[56px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group mt-4 flex h-[52px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <GoogleGlyph size={20} />
             {pending === "google" ? "Connecting…" : "Continue with Google"}
@@ -436,14 +459,14 @@ export function AuthExperience({
         ) : null}
 
         {isAuth ? (
-          <div className="my-8 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-ash)]">
+          <div className="my-5 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-ash)]">
             <span className="h-px flex-1 bg-white/5" />
             or use email
             <span className="h-px flex-1 bg-white/5" />
           </div>
         ) : null}
 
-        <form className="space-y-6" onSubmit={(e) => void handleEmailSubmit(e)} noValidate>
+        <form className="space-y-4" onSubmit={(e) => void handleEmailSubmit(e)} noValidate>
           {mode !== "update-password" ? (
             <AuthInput
               id="email"
@@ -489,8 +512,13 @@ export function AuthExperience({
           ) : null}
 
           {mode === "sign-up" || mode === "update-password" ? (
-            <div className="space-y-6">
-              {mode === "sign-up" ? <PasswordStrength password={values.password} /> : null}
+            <div className="space-y-4">
+              {/* Reserve a fixed slot so the strength meter appearing/disappearing
+                  does NOT reflow the page mid-typing (which pushed the focused field
+                  out of view on mobile). */}
+              <div className="min-h-[52px]">
+                {mode === "sign-up" ? <PasswordStrength password={values.password} /> : null}
+              </div>
               <AuthInput
                 id="confirmPassword"
                 label={mode === "update-password" ? "Confirm new password" : "Confirm password"}
