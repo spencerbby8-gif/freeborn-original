@@ -2,11 +2,14 @@ import { Nav } from "@/components/landing/nav";
 import { DeletionNotice } from "@/components/landing/deletion-notice";
 import { Hero } from "@/components/landing/hero";
 import { Room } from "@/components/landing/room";
-import { Manifesto, Marquee } from "@/components/landing/story";
+/* The manifesto and the "built on what other apps got wrong" comparison were
+   removed in the 2026-11-10 landing cut: ~3,700px of prose that restated what
+   the hero and the member cards already show, on a page that measured 23 phone
+   screens. The member-card room, marquee, FAQ and CTA stay. */
+import { Marquee } from "@/components/landing/story";
 import { HowItWorks } from "@/components/landing/how";
 import { Standard } from "@/components/landing/standard";
 import { Safety } from "@/components/landing/safety";
-import { WhyFreeborn } from "@/components/landing/why-freeborn";
 import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
@@ -65,11 +68,9 @@ export default async function LandingPage() {
         <Hero />
         <Room />
         <Marquee />
-        <Manifesto />
         <HowItWorks />
         <Standard />
         <Safety />
-        <WhyFreeborn />
         <Faq />
         <FinalCta />
       </main>

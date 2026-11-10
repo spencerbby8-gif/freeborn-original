@@ -51,7 +51,7 @@ export function HowItWorks() {
 
   return (
     <section id="how" className="relative border-t hairline bg-gradient-to-b from-night to-midnight/40">
-      <div className="mx-auto grid max-w-6xl gap-14 px-5 py-28 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24 lg:py-36">
+      <div className="mx-auto grid max-w-6xl gap-14 px-5 py-16 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24 lg:py-24">
         {/* sticky intro column */}
         <div className="lg:sticky lg:top-32 lg:self-start">
           <Reveal>
