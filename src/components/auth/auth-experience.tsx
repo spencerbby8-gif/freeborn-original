@@ -31,6 +31,29 @@ const switchItems: Array<{ mode: "sign-in" | "sign-up"; label: string }> = [
   { mode: "sign-in", label: "Sign in" },
   { mode: "sign-up", label: "Create account" },
 ];
+
+/**
+ * SINGLE SOURCE OF TRUTH for the human check.
+ *
+ * Bug this prevents (found live on Production, 2026-11-10): the submit guard
+ * required a Turnstile token in EVERY mode, but <TurnstileGate> was rendered
+ * only for sign-in/sign-up. On /auth?mode=reset-password the page therefore
+ * demanded "complete the human check below" while rendering no check at all and
+ * returned early — zero /auth/v1/recover requests were ever sent, so password
+ * recovery silently never emailed anyone.
+ *
+ * Both the guard and the widget now derive from this one predicate, so they
+ * cannot drift apart again.
+ *
+ *  - sign-in / sign-up: challenge (credential stuffing + bulk account creation).
+ *  - reset-password:    challenge (it triggers an outbound email = spam vector).
+ *  - update-password:   NO challenge. The member arrived through a signed,
+ *                       single-use recovery link and already holds a session;
+ *                       nothing is emailed, and blocking here would strand them
+ *                       at the last step of recovery.
+ */
+const requiresHumanCheck = (mode: AuthScreenMode): boolean => mode !== "update-password";
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
@@ -182,6 +205,9 @@ export function AuthExperience({
     if (next === mode) return;
     setMode(next);
     setErrors({});
+    /* Drop any token issued for the previous mode; the remounted widget (keyed by
+       mode) will supply a fresh one. Prevents submitting a spent token. */
+    setCaptchaToken(null);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("mode", next);
@@ -213,7 +239,7 @@ export function AuthExperience({
     setErrors({});
     if (pending === "email") return;
     if (!validate()) return;
-    if (turnstileEnabled() && !captchaToken) {
+    if (turnstileEnabled() && requiresHumanCheck(mode) && !captchaToken) {
       showToast({
         tone: "error",
         title: "One quick check first",
@@ -527,8 +553,12 @@ export function AuthExperience({
             </div>
           ) : null}
 
-          {mode === "sign-in" || mode === "sign-up" ? (
-            <TurnstileGate onToken={setCaptchaToken} />
+          {requiresHumanCheck(mode) ? (
+            /* key={mode}: a Turnstile token is single-use, so switching tabs must
+               mount a fresh widget and issue a fresh token rather than carrying a
+               spent one into the next submit. The wrapper reserves min-h-[65px],
+               so remounting cannot reflow the page. */
+            <TurnstileGate key={mode} onToken={setCaptchaToken} />
           ) : null}
 
           <button
