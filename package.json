@@ -17,6 +17,7 @@
     "test:security": "npm run test:harness && npm run test:engines && npm run test:pose",
     "test:engines": "esbuild scripts/trust/engine-request.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.engine-request.build.mjs --packages=external && node scripts/trust/.engine-request.build.mjs",
     "test:db-tls": "esbuild scripts/trust/db-tls.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.db-tls.build.mjs --packages=external && node scripts/trust/.db-tls.build.mjs",
+    "test:turn": "esbuild scripts/trust/turn-cloudflare.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.turn-cloudflare.build.mjs --packages=external && node scripts/trust/.turn-cloudflare.build.mjs",
     "check:env": "node scripts/check-env-isolation.mjs",
     "check:migrations": "node scripts/db/check-migrations.mjs",
     "db:clean-replay": "node scripts/db/clean-replay.mjs",

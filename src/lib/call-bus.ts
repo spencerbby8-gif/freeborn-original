@@ -20,8 +20,10 @@ export const ICE_SERVERS: RTCConfiguration = {
 
 export type CallIceConfig = RTCConfiguration & {
   relayConfigured: boolean;
-  relayStatus: "unconfigured" | "configured-unverified" | "unavailable";
+  relayStatus: "unconfigured" | "configured-unverified" | "cloudflare-live" | "unavailable";
+  relayProvider?: "cloudflare" | "coturn";
   credentialExpiresAt?: number;
+  credentialTtlSeconds?: number;
 };
 
 export type CallPerson = { id: string; name: string; photo: string };
