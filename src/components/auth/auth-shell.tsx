@@ -31,8 +31,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="orb drift absolute -left-24 -top-24 h-[600px] w-[600px] rounded-full bg-[rgba(239,94,94,0.12)] blur-[80px]" />
       <div className="orb drift-alt absolute -right-24 top-20 h-[700px] w-[700px] rounded-full bg-[rgba(138,110,242,0.1)] blur-[100px]" />
 
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1400px] flex-col px-6 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between gap-3 py-4">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1400px] flex-col px-5 py-4 sm:px-8 lg:px-10">
+        <header className="flex items-center justify-between gap-3 py-2.5">
           <Link href="/" className="transition hover:opacity-80">
             <Wordmark size="md" />
           </Link>
@@ -40,7 +40,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
             <OpenInNewTab />
             <Link
               href="/"
-              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-bold text-[var(--color-pearl)] transition-all hover:bg-white/[0.08]"
+              className="group flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[12.5px] font-bold text-[var(--color-pearl)] transition-all hover:bg-white/[0.08]"
             >
               <ArrowIcon size={16} className="rotate-180 transition-transform group-hover:-translate-x-0.5" />
               Back to home
@@ -48,7 +48,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <section className="grid flex-1 items-start gap-10 py-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
+        <section className="grid flex-1 items-start gap-10 py-2 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-16">
           <div className="hidden lg:block">
             <div className="surface magic-border relative overflow-hidden rounded-[48px] p-10 shadow-[var(--shadow-card-lg)] xl:p-14">
               <div

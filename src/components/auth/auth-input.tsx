@@ -63,6 +63,11 @@ export function AuthInput({
         <input
           id={inputId}
           type={isPassword && revealed ? "text" : type}
+          onFocus={(e) => {
+            /* On phones the on-screen keyboard covers the lower half of the
+               viewport; keep the field being typed in clear of it. */
+            e.currentTarget.scrollIntoView({ block: "center", behavior: "smooth" });
+          }}
           onKeyDown={(e) => {
             if (isPassword && e.getModifierState) setCapsLock(e.getModifierState("CapsLock"));
             onKeyDown?.(e);
