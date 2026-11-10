@@ -26,21 +26,32 @@ export function OnboardingGate() {
     (async () => {
       try {
         const supabase = createSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
 
-        if (!user) {
-          window.location.replace("/auth?mode=sign-in&status=session-lost");
-          return;
+        /* One probe = "does this device still hold a usable session?". A null
+           answer means no client user OR a 401 from the state route. */
+        const probe = async (): Promise<Response | null> => {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) return null;
+          const token = await getAccessToken();
+          const res = await fetch("/api/onboarding/state", {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          return res.status === 401 ? null : res;
+        };
+
+        let res = await probe();
+        if (!res) {
+          /* A token caught mid-refresh is not a lost session: try ONE silent
+             refresh before bouncing the member to the auth screen. Without
+             this, refresh races read as "session-lost" and contribute to the
+             auth/gate redirect ping-pong. */
+          await supabase.auth.refreshSession().catch(() => undefined);
+          res = await probe();
         }
 
-        const token = await getAccessToken();
-        const res = await fetch("/api/onboarding/state", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-
-        if (res.status === 401) {
+        if (!res) {
           window.location.replace("/auth?mode=sign-in&status=session-lost");
           return;
         }

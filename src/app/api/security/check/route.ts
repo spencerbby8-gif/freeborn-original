@@ -17,6 +17,26 @@ export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
+  /* PREVIEW-ONLY QA allowlist — INERT IN PRODUCTION, BY CONSTRUCTION.
+   *
+   * Owner-authorised QA drives the app from a sandbox whose egress IP is a
+   * datacenter range, which this door suspends on sight (correct policy for
+   * the shipped product). To keep QA able to reach the authenticated app on
+   * Preview deployments only, emails listed in QA_SECURITY_BYPASS_EMAILS skip
+   * the door when VERCEL_ENV === "preview". The guard is a runtime equality
+   * check against "preview", so a production deployment can never enter this
+   * branch even if the variable were ever set there. No production policy,
+   * logging or suspension behaviour changes. */
+  if (process.env.VERCEL_ENV === "preview") {
+    const qaEmails = (process.env.QA_SECURITY_BYPASS_EMAILS ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (qaEmails.includes(member.email.toLowerCase())) {
+      return Response.json({ suspended: false, qaBypass: true });
+    }
+  }
+
   const ip = clientIp(request);
 
   /* Already suspended? Every retry hears the policy. */
