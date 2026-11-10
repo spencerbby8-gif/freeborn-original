@@ -82,6 +82,9 @@ jobs:
       - name: Database TLS controls (blocking)
         run: npm run test:db-tls
 
+      - name: Cloudflare TURN relay controls (blocking)
+        run: npm run test:turn
+
       - name: Prepare disposable application schema
         run: npm run test:prepare-local
 
