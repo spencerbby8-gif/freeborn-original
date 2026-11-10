@@ -28,7 +28,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
   const current = levels[levelIndex];
 
   return (
-    <div className="animate-scale-in space-y-3 px-1">
+    <div className="animate-scale-in space-y-2 px-1">
       <div className="flex gap-1.5">
         {[0, 1, 2, 3].map((i) => (
           <div

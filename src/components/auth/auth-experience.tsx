@@ -19,10 +19,14 @@ export type AuthScreenMode =
   | "update-password";
 
 type Notice = { tone: "success" | "error"; title: string; body: string };
-type Values = { email: string; password: string; confirmPassword: string };
+/* No "confirm password" field. A reveal-password toggle (already built into
+   AuthInput) is the modern, lower-friction equivalent: it removes an entire
+   error class ("passwords do not match"), removes a step, and takes ~96px off a
+   screen that was already forcing people to scroll. */
+type Values = { email: string; password: string };
 type Errors = Partial<Record<keyof Values, string>>;
 
-const emptyState: Values = { email: "", password: "", confirmPassword: "" };
+const emptyState: Values = { email: "", password: "" };
 const switchItems: Array<{ mode: "sign-in" | "sign-up"; label: string }> = [
   { mode: "sign-in", label: "Sign in" },
   { mode: "sign-up", label: "Create account" },
@@ -197,8 +201,6 @@ export function AuthExperience({
       else if (!/[A-Z]/.test(values.password)) next.password = "Add at least one uppercase letter.";
       else if (!/[a-z]/.test(values.password)) next.password = "Add at least one lowercase letter.";
       else if (!/[0-9]/.test(values.password)) next.password = "Add at least one number.";
-      if (values.confirmPassword.length === 0) next.confirmPassword = "Confirm your password.";
-      else if (values.password !== values.confirmPassword) next.confirmPassword = "Passwords do not match.";
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -274,7 +276,7 @@ export function AuthExperience({
           title: "One last step",
           body: `We sent a confirmation email to ${email}. Open it once, then come back and sign in with your password.`,
         });
-        setValues((current) => ({ ...current, password: "", confirmPassword: "" }));
+        setValues((current) => ({ ...current, password: "" }));
         setMode("sign-in");
         setPending(null);
         return;
@@ -348,20 +350,22 @@ export function AuthExperience({
             : "Welcome back",
     title:
       mode === "sign-up"
-        ? "Create your Freeborn account"
+        ? "Create your account"
         : mode === "reset-password"
           ? "Reset your password"
           : mode === "update-password"
             ? "Choose a new password"
             : "Welcome back",
+    /* Sign-in and sign-up are already self-evident from the tab switcher and the
+       field labels, so they get NO marketing paragraph. That paragraph alone was
+       126px tall and was the single biggest reason this screen needed scrolling.
+       The recovery modes still need one instructional line. */
     description:
-      mode === "sign-up"
-        ? "Choose an email and a strong password, then step into a relationship platform built for health autonomy, natural living, and long-term intention."
-        : mode === "reset-password"
-          ? "We'll send a secure link so you can set a new password. No stress."
-          : mode === "update-password"
-            ? "Set a strong password to finish restoring access to your account."
-            : "Sign in to pick up where you left off. Your values-forward profile is right where you left it.",
+      mode === "reset-password"
+        ? "We'll email you a secure link to choose a new password."
+        : mode === "update-password"
+          ? "Set a strong password to finish restoring access."
+          : null,
   };
 
   const isAuth = mode === "sign-in" || mode === "sign-up";
@@ -384,21 +388,25 @@ export function AuthExperience({
 
   return (
     <div className="w-full max-w-[480px]">
-      <div className="surface magic-border relative overflow-hidden rounded-[32px] p-6 shadow-[var(--shadow-card-lg)] sm:p-8">
+      <div className="surface magic-border relative overflow-hidden rounded-[28px] p-5 shadow-[var(--shadow-card-lg)] sm:p-7">
         <div key={mode} className="animate-fade-in">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--color-sand)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
+          {/* Eyebrow as plain micro-type instead of a 51px pill — same brand cue,
+              a fraction of the height. */}
+          <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.22em] text-[var(--color-sand)]">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
             {copy.eyebrow}
-          </div>
+          </p>
           <h1
-            className="mt-6 text-[clamp(2.1rem,5.5vw,2.9rem)] leading-[1.02] tracking-tight text-[var(--color-pearl)]"
+            className="mt-2.5 text-[clamp(1.7rem,6.5vw,2.25rem)] leading-[1.05] tracking-tight text-[var(--color-pearl)]"
             style={{ fontFamily: "var(--font-display-stack)", fontVariationSettings: "'opsz' 144, 'wght' 450" }}
           >
             {copy.title}
           </h1>
-          <p className="mt-4 max-w-[40ch] text-[15.5px] leading-relaxed text-[var(--color-mist)]">
-            {copy.description}
-          </p>
+          {copy.description ? (
+            <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-[var(--color-mist)]">
+              {copy.description}
+            </p>
+          ) : null}
         </div>
 
         {notice ? (
@@ -422,7 +430,7 @@ export function AuthExperience({
 
         {/* Tabs: Sign in / Create account */}
         {isAuth ? (
-          <div className="relative mt-6 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
+          <div className="relative mt-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
             <span
               className="absolute inset-y-1.5 w-[calc(50%-6px)] rounded-xl bg-[var(--gradient-ember-warm)] shadow-[0_8px_20px_-8px_rgba(239,94,94,0.8)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
               style={{ left: mode === "sign-up" ? "calc(50% + 1.5px)" : "4.5px" }}
@@ -435,7 +443,7 @@ export function AuthExperience({
                   key={item.mode}
                   type="button"
                   onClick={() => changeMode(item.mode)}
-                  className={`relative z-10 rounded-xl px-4 py-3 text-center text-[14px] font-bold transition-colors duration-300 ${
+                  className={`relative z-10 rounded-xl px-4 py-2.5 text-center text-[14px] font-bold transition-colors duration-300 ${
                     active ? "text-white" : "text-[var(--color-mist)] hover:text-[var(--color-pearl)]"
                   }`}
                 >
@@ -451,7 +459,7 @@ export function AuthExperience({
             type="button"
             onClick={() => void handleGoogle()}
             disabled={pending === "google"}
-            className="group mt-4 flex h-[52px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            className="group mt-3 flex h-[50px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <GoogleGlyph size={20} />
             {pending === "google" ? "Connecting…" : "Continue with Google"}
@@ -459,7 +467,7 @@ export function AuthExperience({
         ) : null}
 
         {isAuth ? (
-          <div className="my-5 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-ash)]">
+          <div className="my-4 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-ash)]">
             <span className="h-px flex-1 bg-white/5" />
             or use email
             <span className="h-px flex-1 bg-white/5" />
@@ -491,12 +499,20 @@ export function AuthExperience({
                 label={mode === "update-password" ? "New password" : "Password"}
                 type="password"
                 autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                enterKeyHint={mode === "sign-in" ? "done" : "next"}
+                enterKeyHint="done"
                 placeholder={mode === "sign-in" ? "Enter your password" : "Choose a strong password"}
                 value={values.password}
                 error={errors.password}
                 onChange={(event) => updateField("password", event.target.value)}
               />
+              {/* Reserved slot. The strength meter fading in must NOT reflow the
+                  page mid-typing — that is exactly what pushed the focused field
+                  behind the phone keyboard. Height is identical empty or filled. */}
+              {mode !== "sign-in" ? (
+                <div className="min-h-[30px]">
+                  <PasswordStrength password={values.password} />
+                </div>
+              ) : null}
               {mode === "sign-in" ? (
                 <div className="flex justify-end px-1">
                   <button
@@ -511,28 +527,6 @@ export function AuthExperience({
             </div>
           ) : null}
 
-          {mode === "sign-up" || mode === "update-password" ? (
-            <div className="space-y-4">
-              {/* Reserve a fixed slot so the strength meter appearing/disappearing
-                  does NOT reflow the page mid-typing (which pushed the focused field
-                  out of view on mobile). */}
-              <div className="min-h-[52px]">
-                {mode === "sign-up" ? <PasswordStrength password={values.password} /> : null}
-              </div>
-              <AuthInput
-                id="confirmPassword"
-                label={mode === "update-password" ? "Confirm new password" : "Confirm password"}
-                type="password"
-                autoComplete="new-password"
-                enterKeyHint="done"
-                placeholder="Repeat your password"
-                value={values.confirmPassword}
-                error={errors.confirmPassword}
-                onChange={(event) => updateField("confirmPassword", event.target.value)}
-              />
-            </div>
-          ) : null}
-
           {mode === "sign-in" || mode === "sign-up" ? (
             <TurnstileGate onToken={setCaptchaToken} />
           ) : null}
@@ -540,39 +534,18 @@ export function AuthExperience({
           <button
             type="submit"
             disabled={pending === "email"}
-            className="magic-button btn-shine group relative mt-2 flex h-[60px] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-5 text-[16px] font-bold text-[var(--color-ink)] shadow-[0_20px_40px_-12px_rgba(251,247,242,0.2)] transition-all hover:-translate-y-px hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+            className="magic-button btn-shine group relative mt-1 flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-5 text-[16px] font-bold text-[var(--color-ink)] shadow-[0_20px_40px_-12px_rgba(251,247,242,0.2)] transition-all hover:-translate-y-px hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           >
             {pending === "email" ? <Spinner /> : null}
             {submitLabel}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-[14px] font-medium text-[var(--color-mist)]">
-          {mode === "sign-in" ? (
-            <p>
-              New to Freeborn?{" "}
-              <button
-                type="button"
-                onClick={() => changeMode("sign-up")}
-                className="font-bold text-[var(--color-pearl)] underline decoration-white/20 underline-offset-4 transition-all hover:decoration-white/60"
-              >
-                Create your account
-              </button>
-            </p>
-          ) : null}
-          {mode === "sign-up" ? (
-            <p>
-              Already have an account?{" "}
-              <button
-                type="button"
-                onClick={() => changeMode("sign-in")}
-                className="font-bold text-[var(--color-pearl)] underline decoration-white/20 underline-offset-4 transition-all hover:decoration-white/60"
-              >
-                Sign in
-              </button>
-            </p>
-          ) : null}
-          {mode === "reset-password" || mode === "update-password" ? (
+        {/* Sign-in / Create-account already have the tab switcher at the top, so a
+            second "Already have an account? Sign in" link down here was pure
+            duplication - 53px of it. Keep the escape hatch for recovery modes only. */}
+        {!isAuth ? (
+          <div className="mt-5 text-center text-[14px] font-medium text-[var(--color-mist)]">
             <p>
               Remembered it?{" "}
               <button
@@ -583,23 +556,23 @@ export function AuthExperience({
                 Back to sign in
               </button>
             </p>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="mt-5 flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-ash)]">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {/* One line carrying both the security cue and the community standard,
+            instead of two stacked decorative blocks (was 33px + 54px + margins). */}
+        <p className="mt-4 flex items-start justify-center gap-1.5 text-[11px] font-medium leading-relaxed text-[var(--color-ash)]">
+          <svg className="mt-[2px] shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
             <path d="M8 10.5V7a4 4 0 018 0v3.5" />
           </svg>
-          Encrypted · private · yours alone
-        </div>
-
-        <p className="mt-6 text-center text-[11px] font-medium leading-relaxed text-[var(--color-ash)]">
-          By continuing you agree to keep Freeborn respectful: real photos, honest
-          details, and health autonomy honored.{" "}
-          <Link href="/#safety" className="underline decoration-white/20 underline-offset-2 hover:text-[var(--color-sand)]">
-            Read the standard
-          </Link>
+          <span>
+            Encrypted and private. By continuing you agree to keep Freeborn
+            respectful: real photos, honest details.{" "}
+            <Link href="/#safety" className="underline decoration-white/20 underline-offset-2 hover:text-[var(--color-sand)]">
+              Read the standard
+            </Link>
+          </span>
         </p>
       </div>
     </div>
