@@ -114,7 +114,7 @@ const principles = [
 export function Safety() {
   return (
     <section id="safety" className="relative border-t hairline bg-gradient-to-b from-night via-midnight/30 to-night">
-      <div className="mx-auto max-w-6xl px-5 py-28 sm:px-8 lg:py-36">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-24">
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
           <Reveal className="lg:sticky lg:top-32 lg:self-start">
             <p className="eyebrow">Safety & privacy</p>
@@ -159,7 +159,7 @@ export function Safety() {
         </div>
 
         {/* community principles */}
-        <div className="mt-24">
+        <div className="mt-12">
           <Reveal>
             <div className="rule-ember mb-12" />
             <p className="eyebrow">The community standard</p>

@@ -97,6 +97,38 @@ export async function middleware(request: NextRequest) {
 
   const response = await updateSession(request, requestHeaders);
 
+  /* Stale-session reconciliation (2026-11-10, /app <-> /onboarding lockout).
+   *
+   * When a flow bounces a member to /auth with an explicit status
+   * (`session-lost` after a client-side sign-out, `suspended` after the
+   * security door rejects the network), the member's HttpOnly cookie can
+   * briefly disagree with the cleared browser storage: the server still sees
+   * a session and /auth would 307 straight back to /onboarding, whose gate
+   * sees no client user and bounces back — an infinite ping-pong that also
+   * swallows the explanation the member was supposed to read.
+   *
+   * An explicit status param means "some flow signed this device out on
+   * purpose", so the stale cookie is exactly what must die. We expire the
+   * auth cookie (base name + every chunk) on THIS response, server-side, so
+   * the next request agrees with the client and the notice renders once.
+   * Production behaviour for ordinary /auth visits is untouched. */
+  const RECONCILE_STATUS = new Set(["session-lost", "suspended"]);
+  if (pathname === "/auth" && RECONCILE_STATUS.has(searchParams.get("status") ?? "")) {
+    const ref = process.env.SUPABASE_REF;
+    if (ref) {
+      const base = `sb-${ref}-auth-token`;
+      const names = [base, ...Array.from({ length: 8 }, (_, i) => `${base}.${i}`)];
+      if (names.some((n) => request.cookies.has(n))) {
+        for (const n of names) {
+          response.headers.append(
+            "Set-Cookie",
+            `${n}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`,
+          );
+        }
+      }
+    }
+  }
+
   for (const [name, value] of Object.entries(staticSecurityHeaders())) {
     response.headers.set(name, value);
   }

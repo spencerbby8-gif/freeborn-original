@@ -19,7 +19,7 @@ export function FinalCta() {
             "radial-gradient(closest-side, rgba(239,94,94,0.16), rgba(217,167,82,0.07) 55%, transparent 75%)",
         }}
       />
-      <div className="relative mx-auto max-w-6xl px-5 py-28 sm:px-8 lg:py-36">
+      <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-24">
         <Reveal>
           <div className="surface magic-border relative overflow-hidden rounded-[48px] p-10 text-center shadow-[var(--shadow-card-lg)] sm:p-16">
             <div
