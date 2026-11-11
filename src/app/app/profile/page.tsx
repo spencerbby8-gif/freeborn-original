@@ -489,16 +489,12 @@ function ProfileInner() {
 
   return (
     <div className="mx-auto max-w-[720px] pb-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="fb-h-hero">
-            {editing ? "Edit profile" : "Your profile"}
-          </h1>
-          <p className="fb-meta mt-1.5">
-            {editing ? "Fine-tune how others see you." : "How others see you in the room."}
-          </p>
-        </div>
-        {editing ? (
+      {editing ? (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="fb-h-hero">Edit profile</h1>
+            <p className="fb-meta mt-1.5">Fine-tune how others see you.</p>
+          </div>
           <button
             type="button"
             onClick={() => setEditing(false)}
@@ -510,119 +506,122 @@ function ProfileInner() {
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </button>
-        ) : null}
-        {!editing ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={startEdit}
-              className="fb-btn fb-btn-primary fb-btn-sm"
-            >
-              Edit profile
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setActionsOpen((o) => !o)}
-                aria-label="More profile actions"
-                aria-expanded={actionsOpen}
-                title="More actions"
-                className="btn-ghost flex h-[42px] w-[42px] items-center justify-center rounded-full px-0"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <circle cx="12" cy="5" r="2" />
-                  <circle cx="12" cy="12" r="2" />
-                  <circle cx="12" cy="19" r="2" />
-                </svg>
-              </button>
-              {actionsOpen ? (
-                <>
-                  <div className="fixed inset-0 z-[90]" onClick={() => setActionsOpen(false)} />
-                  <div className="animate-scale-in absolute right-0 top-[50px] z-[95] w-[230px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
-                    {profile?.id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsOpen(false);
-                          setViewAs(profile.id ?? null);
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-                      >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        View as others
-                      </button>
-                    ) : null}
-                    <a
-                      href="/app/settings"
-                      onClick={() => setActionsOpen(false)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] ${profile?.id ? "border-t border-white/[0.06]" : ""}`}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z" />
-                      </svg>
-                      Settings
-                    </a>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <h1 className="sr-only">Your profile — how others see you in the room</h1>
+      )}
 
-      {/* Hero — cover, avatar, identity strip, badges (X-profile pattern) */}
-      <div className="fb-card-lg mt-6 !p-0 overflow-hidden">
-        <div className="relative h-36 sm:h-44">
+      {/* Hero — immersive full-bleed portrait: identity lives on the photo.
+          Actions sit on the cover as glass controls; the name, age and meta
+          ride the scrim so the first screen reads as a person, not a form. */}
+      <section className="relative -mx-4 -mt-6 overflow-hidden sm:-mx-6 sm:mt-0 sm:rounded-[28px] sm:border sm:border-white/[0.07]">
+        <div className="relative h-[400px] sm:h-[440px]">
           {profile.photos[0] ? (
-            <PhotoImage src={profile.photos[0] ?? ""} alt="" className="h-full w-full" imgClassName="object-cover" />
+            <PhotoImage src={profile.photos[0] ?? ""} alt="" className="h-full w-full" imgClassName="object-cover object-[50%_20%]" />
           ) : (
             <div className="h-full w-full bg-[var(--gradient-ember-warm)]" aria-hidden />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0d18] via-[#0a0d18]/40 to-transparent" />
-          <div className="absolute bottom-3 right-4 flex items-center gap-2">
-            {profile.isVerified ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-sm">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
-                  <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#070a12] via-[#070a12]/30 to-[#070a12]/10" />
+          {profile.isVerified ? (
+            <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/45 bg-[#070a12]/75 px-3 py-1.5 text-[10.5px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-md">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M12 2.5l7.5 3v5.2c0 5-3.2 8.6-7.5 10.3-4.3-1.7-7.5-5.3-7.5-10.3V5.5l7.5-3z" />
+                <path d="M8.8 12l2.2 2.2 4.2-4.6" />
+              </svg>
+              Verified
+            </span>
+          ) : null}
+          {!editing ? (
+            <div className="absolute right-3 top-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={startEdit}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#070a12]/70 px-3.5 py-2 text-[12px] font-black text-[var(--color-pearl)] backdrop-blur-md transition hover:bg-[#070a12]/90"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
-                Verified
+                Edit
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActionsOpen((o) => !o)}
+                  aria-label="More profile actions"
+                  aria-expanded={actionsOpen}
+                  title="More actions"
+                  className="flex h-[36px] w-[36px] items-center justify-center rounded-full border border-white/15 bg-[#070a12]/70 text-[var(--color-pearl)] backdrop-blur-md transition hover:bg-[#070a12]/90"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <circle cx="12" cy="5" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="12" cy="19" r="2" />
+                  </svg>
+                </button>
+                {actionsOpen ? (
+                  <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setActionsOpen(false)} />
+                    <div className="animate-scale-in absolute right-0 top-[44px] z-[95] w-[230px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                      {profile?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActionsOpen(false);
+                            setViewAs(profile.id ?? null);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          Preview — view as others
+                        </button>
+                      ) : null}
+                      <a
+                        href="/app/settings"
+                        onClick={() => setActionsOpen(false)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] ${profile?.id ? "border-t border-white/[0.06]" : ""}`}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 01-2.9-2.9l.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 012.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 012.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 010 4h-.2a1.7 1.7 0 00-1.5 1z" />
+                        </svg>
+                        Settings
+                      </a>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+            <div className="flex items-end gap-4">
+              <span className="flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-[#070a12] bg-[var(--color-abyss)] shadow-[0_18px_50px_-12px_rgba(0,0,0,0.9)] ring-2 ring-white/20 sm:h-24 sm:w-24">
+                {profile.photos[0] ? (
+                  <PhotoImage src={profile.photos[0] ?? ""} alt={profile.displayName} className="h-full w-full" imgClassName="object-cover" />
+                ) : (
+                  <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
+                    {(profile.displayName || "You").charAt(0)}
+                  </span>
+                )}
               </span>
-            ) : null}
-            {profile.vaccinationStatus === "unvaccinated" ? (
-              <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-gold-300)] backdrop-blur-sm">
-                Unvaccinated
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="relative flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:px-6">
-          <span className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-14 sm:h-28 sm:w-28">
-            {profile.photos[0] ? (
-              <PhotoImage src={profile.photos[0] ?? ""} alt={profile.displayName} className="h-full w-full" imgClassName="object-cover" />
-            ) : (
-              <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
-                {(profile.displayName || "You").charAt(0)}
-              </span>
-            )}
-          </span>
-          <div className="min-w-0 flex-1 pb-1">
-            <h2 className="fb-h-display">
-              {profile.displayName || "Add your name"}
-              {profile.age ? <span className="text-[var(--color-gold-300)]">{`, ${profile.age}`}</span> : null}
-            </h2>
-            <p className="fb-meta mt-1">
-              {[profile.occupation, [profile.city, profile.region].filter(Boolean).join(", ")]
-                .filter(Boolean)
-                .join(" · ") || "Add your details"}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <div className="min-w-0 flex-1 pb-1">
+                <h2 className="font-display text-[27px] font-bold leading-[1.1] text-white sm:text-[30px]">
+                  {profile.displayName || "Add your name"}
+                  {profile.age ? <span className="text-[var(--color-gold-300)]">{`, ${profile.age}`}</span> : null}
+                </h2>
+                <p className="mt-1 truncate text-[13px] font-semibold text-white/75">
+                  {[profile.occupation, [profile.city, profile.region].filter(Boolean).join(", ")]
+                    .filter(Boolean)
+                    .join(" · ") || "Add your details"}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3.5 flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {profile.memberSince ? (
-                <span className="fb-chip">
+                <span className="fb-chip shrink-0 !border-white/15 !bg-white/10 !text-white/90 backdrop-blur-sm">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                     <circle cx="12" cy="12" r="9" />
                     <path d="M12 7v5l3 2" />
@@ -631,50 +630,29 @@ function ProfileInner() {
                 </span>
               ) : null}
               {profile.relationshipGoals.length > 0 ? (
-                <span className="fb-chip fb-chip-gold">{prettyText(profile.relationshipGoals[0])}</span>
+                <span className="fb-chip fb-chip-gold shrink-0">{prettyText(profile.relationshipGoals[0])}</span>
               ) : null}
-              <span className="fb-chip">{profile.photos.length}/6 photos</span>
+              <span className="fb-chip shrink-0 !border-white/15 !bg-white/10 !text-white/90 backdrop-blur-sm tabular-nums">{profile.photos.length}/6 photos</span>
+              {profile.vaccinationStatus === "unvaccinated" ? (
+                <span className="fb-chip shrink-0 !border-[var(--color-gold-500)]/45 !bg-[#070a12]/70 !text-[var(--color-gold-300)] backdrop-blur-sm">Unvaccinated</span>
+              ) : null}
             </div>
           </div>
-          <div className="flex shrink-0 gap-2 pb-1">
-            <button
-              type="button"
-              disabled={photoBusy}
-              onClick={() => setPhotoManagerOpen(true)}
-              className="fb-btn fb-btn-ghost fb-btn-sm"
-            >
-              Manage photos
-            </button>
-            {profile.id ? (
-              <button
-                type="button"
-                onClick={() => setViewAs(profile.id ?? null)}
-                className="fb-btn fb-btn-ghost fb-btn-sm"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                Preview
-              </button>
-            ) : null}
-          </div>
         </div>
-      </div>
-
-      {/* Live stats — reply rate, match rate, conversations (real counts) */}
-      <div className="mt-4 grid grid-cols-3 gap-2.5">
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats?.replyRate === null || stats?.replyRate === undefined ? "New" : `${stats.replyRate}%`}</p>
-          <p className="fb-stat-label">Reply rate</p>
+      </section>
+      {/* Live stats — one instrument panel, divided, no wrapping labels */}
+      <div className="fb-card mt-4 grid grid-cols-3 divide-x divide-white/[0.07] !p-0">
+        <div className="px-2 py-3.5 text-center">
+          <p className="text-[19px] font-black tabular-nums text-[var(--color-pearl)]">{stats?.replyRate === null || stats?.replyRate === undefined ? "New" : `${stats.replyRate}%`}</p>
+          <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-ash)]">Reply rate</p>
         </div>
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats?.matchRate === null || stats?.matchRate === undefined ? "New" : `${stats.matchRate}%`}</p>
-          <p className="fb-stat-label">Match rate</p>
+        <div className="px-2 py-3.5 text-center">
+          <p className="text-[19px] font-black tabular-nums text-[var(--color-pearl)]">{stats?.matchRate === null || stats?.matchRate === undefined ? "New" : `${stats.matchRate}%`}</p>
+          <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-ash)]">Match rate</p>
         </div>
-        <div className="fb-stat">
-          <p className="fb-stat-num">{stats ? stats.conversationCount : "—"}</p>
-          <p className="fb-stat-label">Conversations</p>
+        <div className="px-2 py-3.5 text-center">
+          <p className="text-[19px] font-black tabular-nums text-[var(--color-pearl)]">{stats ? stats.conversationCount : "—"}</p>
+          <p className="mt-0.5 truncate text-[9.5px] font-bold uppercase tracking-[0.08em] text-[var(--color-ash)]">Conversations</p>
         </div>
       </div>
       {/* Identity check status */}
@@ -1035,9 +1013,9 @@ function ProfileInner() {
                   Manage
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-2.5 p-4">
+              <div className="flex snap-x gap-2.5 overflow-x-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {profile.photos.map((src, i) => (
-                  <div key={`${src}-${i}`} className="group relative overflow-hidden rounded-2xl border border-white/10">
+                  <div key={`${src}-${i}`} className="group relative w-[118px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10">
                     <PhotoImage
                       src={src}
                       alt={`Your photo ${i + 1}`}
@@ -1121,40 +1099,8 @@ function ProfileInner() {
             )}
           </div>
 
-          {/* The details — a clean, editorial two-column register */}
-          <div className="py-5 first:pt-0 last:pb-0">
-            <p className="fb-eyebrow">The details</p>
-            <div className="mt-3 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
-              {[
-                { label: "Occupation", value: profile.occupation, field: "occupation" },
-                { label: "Education", value: profile.educationLevel || profile.education, field: "educationLevel" },
-                { label: "Language", value: profile.language, field: "language" },
-                { label: "Religion", value: profile.religion, field: "religion" },
-                { label: "Marital status", value: profile.maritalStatus, field: "maritalStatus" },
-                { label: "Kids", value: profile.hasKids, field: "hasKids" },
-                { label: "Wants kids", value: profile.wantsKids, field: "wantsKids" },
-                { label: "Drinking", value: profile.drinking, field: "drinking" },
-                { label: "Smoking", value: profile.smoking, field: "smoking" },
-                { label: "Height", value: profile.heightCmProfile ? `${profile.heightCmProfile} cm` : "", field: "heightCmProfile" },
-                { label: "Vaccination", value: VAX_LABELS[profile.vaccinationStatus], field: "vaccinationStatus" },
-              ]
-                .filter((f) => f.value)
-                .map((f) => (
-                  <div
-                    key={f.label}
-                    className="flex items-baseline justify-between gap-4 border-b border-white/[0.05] py-3 last:border-b-0"
-                  >
-                    <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">
-                      {f.label}
-                    </p>
-                    <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(f.value)}</p>
-                  </div>
-                ))}
-            </div>
-          </div>
-
           {profile.values.length || profile.interests.length || profile.lifestyle.length ? (
-            <div className="space-y-4 py-5 first:pt-0 last:pb-0">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 py-5 first:pt-0 last:pb-0 sm:grid-cols-2">
               {profile.values.length ? (
                 <div>
                   <p className="fb-eyebrow">Values</p>
@@ -1197,6 +1143,38 @@ function ProfileInner() {
               ) : null}
             </div>
           ) : null}
+          {/* The details — a clean, editorial two-column register */}
+          <div className="py-5 first:pt-0 last:pb-0">
+            <p className="fb-eyebrow">The details</p>
+            <div className="mt-3 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+              {[
+                { label: "Occupation", value: profile.occupation, field: "occupation" },
+                { label: "Education", value: profile.educationLevel || profile.education, field: "educationLevel" },
+                { label: "Language", value: profile.language, field: "language" },
+                { label: "Religion", value: profile.religion, field: "religion" },
+                { label: "Marital status", value: profile.maritalStatus, field: "maritalStatus" },
+                { label: "Kids", value: profile.hasKids, field: "hasKids" },
+                { label: "Wants kids", value: profile.wantsKids, field: "wantsKids" },
+                { label: "Drinking", value: profile.drinking, field: "drinking" },
+                { label: "Smoking", value: profile.smoking, field: "smoking" },
+                { label: "Height", value: profile.heightCmProfile ? `${profile.heightCmProfile} cm` : "", field: "heightCmProfile" },
+                { label: "Vaccination", value: VAX_LABELS[profile.vaccinationStatus], field: "vaccinationStatus" },
+              ]
+                .filter((f) => f.value)
+                .map((f) => (
+                  <div
+                    key={f.label}
+                    className="flex items-baseline justify-between gap-4 border-b border-white/[0.05] py-3 last:border-b-0"
+                  >
+                    <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">
+                      {f.label}
+                    </p>
+                    <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(f.value)}</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+
           </div>
 
           {/* Growth: niche communities scale one trusted invite at a time */}
