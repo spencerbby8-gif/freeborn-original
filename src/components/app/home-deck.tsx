@@ -834,9 +834,12 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     className="absolute inset-x-0 bottom-0 z-10 px-5 pb-3.5 pt-10 text-left"
                     aria-label={`View ${profile.name}'s full profile`}
                   >
-                    <div className="flex items-baseline gap-2">
-                      <h2 className="font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
-                      <span className="font-display text-[22px] text-gold-300">{profile.age}</span>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                        <h2 className="truncate font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
+                        <span className="shrink-0 font-display text-[22px] text-gold-300">{profile.age}</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
                       {(() => {
                         /* The badge now says what the window behind it actually
                            was. "Online" over 24 hours was a claim this data could
@@ -882,10 +885,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                           New here
                         </span>
                       ) : null}
-                      <svg className="ml-auto h-4 w-4 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M12 8v4M12 16h.01" />
-                      </svg>
+                        <svg className="h-4 w-4 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M12 8v4M12 16h.01" />
+                        </svg>
+                      </div>
                     </div>
                     <p className="text-[12px] tracking-wide text-sand">
                       {profile.occupation} · {profile.city}
@@ -939,7 +943,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div>
+                    <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-[var(--color-ash)]">Their traits</p>
+                    <div className="flex flex-wrap gap-1.5">
                     {profile.traits.map((trait) => (
                       <span
                         key={trait}
@@ -948,6 +954,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                         {trait}
                       </span>
                     ))}
+                    </div>
                   </div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-ash)]">
                     Swipe to skip · tap for photos · double-tap to Super Like
