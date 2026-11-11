@@ -33,6 +33,13 @@ export default async function AuthPage({
   const rawStatus = Array.isArray(params.status) ? params.status[0] : params.status;
   const mode = parseMode(rawMode);
 
+  /* An explicit status means a flow parked the member here ON PURPOSE
+     (session-lost, suspended, …) with a notice to read. Auto-redirecting a
+     still-visible server session back to /onboarding in that state both
+     destroys the explanation and re-enters the gate/auth ping-pong; the
+     middleware expires any stale cookie on this same response instead. */
+  const hasExplicitStatus = Boolean(rawStatus && rawStatus in authStatusMessages);
+
   // Fallback-aware: the config constants survive even when the platform
   // resets .env between rebuilds.
   const configured = isWebSupabaseConfigured;
@@ -47,7 +54,7 @@ export default async function AuthPage({
       // Session check is best-effort; the flow still renders.
     }
   }
-  if (alreadySignedIn && mode !== "update-password") {
+  if (alreadySignedIn && mode !== "update-password" && !hasExplicitStatus) {
     redirect("/onboarding");
   }
 

@@ -35,7 +35,7 @@ const ledger = [
 export function Standard() {
   return (
     <section id="standard" className="relative border-t hairline">
-      <div className="mx-auto max-w-6xl px-5 py-28 sm:px-8 lg:py-36">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-24">
         <Reveal className="max-w-2xl">
           <p className="eyebrow">The Freeborn standard</p>
           <h2 className="mt-5 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-pearl">
@@ -48,7 +48,7 @@ export function Standard() {
           </p>
         </Reveal>
 
-        <div className="mt-16">
+        <div className="mt-10">
           {pillars.map((pillar, i) => (
             <Reveal key={pillar.index} delay={i * 90}>
               <div className="group grid gap-4 border-t hairline py-10 transition-all duration-500 hover:bg-pearl/[0.02] sm:grid-cols-[110px_1fr] sm:gap-8 lg:py-12">
@@ -80,7 +80,7 @@ export function Standard() {
               "radial-gradient(closest-side, rgba(217,167,82,0.09), transparent 70%)",
           }}
         />
-        <div className="relative mx-auto max-w-6xl px-5 py-20 sm:px-8 lg:py-24">
+        <div className="relative mx-auto max-w-6xl px-5 py-14 sm:px-8 lg:py-14">
           <Reveal>
             <p className="eyebrow text-center">The trust ledger</p>
             <p className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-mist">
@@ -88,7 +88,7 @@ export function Standard() {
               rules the product actually ships with.
             </p>
           </Reveal>
-          <div className="mt-14 grid gap-px overflow-hidden rounded-[24px] border hairline bg-pearl/[0.06] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-px overflow-hidden rounded-[24px] border hairline bg-pearl/[0.06] sm:grid-cols-2 lg:grid-cols-4">
             {ledger.map((item, i) => (
               <Reveal key={item.stat} delay={i * 80} className="bg-night">
                 <div className="flex h-full flex-col justify-between px-7 py-9 transition-colors duration-500 hover:bg-midnight">

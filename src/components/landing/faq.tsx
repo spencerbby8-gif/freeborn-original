@@ -44,7 +44,7 @@ export const faqs = [
 export function Faq() {
   return (
     <section id="faq" className="relative border-t hairline">
-      <div className="mx-auto grid max-w-6xl gap-12 px-5 py-28 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20 lg:py-36">
+      <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20 lg:py-24">
         <Reveal className="lg:sticky lg:top-32 lg:self-start">
           <p className="eyebrow">Questions, answered</p>
           <h2 className="mt-5 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-pearl">
