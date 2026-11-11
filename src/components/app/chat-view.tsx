@@ -251,7 +251,14 @@ function VideoTile({
           const v = ref.current;
           if (!v) return;
           if (Number.isFinite(v.duration) && v.duration > 0) setSeconds(v.duration);
-          if (v.duration > 0.25 && v.currentTime < 0.05) v.currentTime = 0.1;
+          /* Recorded webms report Infinity until first seek. */
+          if ((v.duration > 0.25 || v.duration === Infinity) && v.currentTime < 0.05) {
+            v.currentTime = 0.1;
+          }
+        }}
+        onSeeked={() => {
+          const v = ref.current;
+          if (v && Number.isFinite(v.duration) && v.duration > 0) setSeconds(v.duration);
         }}
         className="max-h-[300px] w-full rounded-xl object-cover"
       />
@@ -870,9 +877,24 @@ function Thread({
         if (kind === "video") {
           const probe = document.createElement("video");
           probe.preload = "metadata";
-          probe.onloadedmetadata = () =>
-            add(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined);
-          probe.onerror = () => add(undefined);
+          let settled = false;
+          const settle = (dur?: number) => {
+            if (settled) return;
+            settled = true;
+            add(dur);
+          };
+          probe.onloadedmetadata = () => {
+            if (Number.isFinite(probe.duration) && probe.duration > 0) {
+              settle(probe.duration);
+            } else if (probe.duration === Infinity) {
+              probe.currentTime = 0.1;
+            } else {
+              settle(undefined);
+            }
+          };
+          probe.onseeked = () =>
+            settle(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined);
+          probe.onerror = () => settle(undefined);
           probe.src = URL.createObjectURL(file);
         } else {
           add(undefined);
