@@ -510,17 +510,17 @@ export function AuthExperience({
               Enter your code
             </h1>
             <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-[var(--color-mist)]">
-              We sent a 6-digit code to{" "}
+              We sent a confirmation code to{" "}
               <span className="font-bold text-[var(--color-pearl)]">{codeStep.email}</span>.
-              Type it below to finish creating your account.
+              Enter it below to finish creating your account.
             </p>
             <input
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="••••••"
-              aria-label="6-digit confirmation code"
+              aria-label="Confirmation code"
               className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-[26px] font-bold tracking-[0.35em] text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)] focus:bg-white/[0.06]"
               style={{ fontFamily: "var(--font-display-stack)" }}
             />
@@ -529,7 +529,7 @@ export function AuthExperience({
             ) : null}
             <button
               type="submit"
-              disabled={codeBusy || code.length !== 6}
+              disabled={codeBusy || code.length < 6}
               className="magic-button btn-shine mt-4 flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] text-[15px] font-bold text-[var(--color-ink)] transition-all hover:-translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {codeBusy ? "Checking…" : "Confirm and continue"}
