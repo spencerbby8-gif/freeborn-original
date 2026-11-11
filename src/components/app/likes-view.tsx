@@ -43,13 +43,18 @@ function Card({ p, badge, action }: { p: LikedProfile; badge: string; action?: R
           <p className="text-[11px] text-[var(--color-sand)]">{p.city}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-teal-300)]">{badge}</span>
-        {action ?? (
-          <span className="text-[11px] text-[var(--color-ash)]">
-            {new Date(p.likedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
-          </span>
-        )}
+      <div className="flex flex-col gap-1.5 px-3.5 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-[11px] font-bold uppercase tracking-wider text-[var(--color-teal-300)]">{badge}</span>
+          {action ? null : (
+            <span className="shrink-0 text-[11px] text-[var(--color-ash)]">
+              {new Date(p.likedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+            </span>
+          )}
+        </div>
+        {action ? (
+          <div className="whitespace-nowrap [&>*]:w-full [&>*]:justify-center">{action}</div>
+        ) : null}
       </div>
     </article>
   );
@@ -220,7 +225,7 @@ export function LikesView() {
                 action={
                   <a
                     href={p.matchId ? `/app/chat?match=${p.matchId}` : "/app/chat"}
-                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px]"
+                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px] whitespace-nowrap"
                   >
                     Open chat
                   </a>
@@ -258,7 +263,7 @@ export function LikesView() {
                     type="button"
                     disabled={busyId === p.id}
                     onClick={() => void likeBack(p)}
-                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px] disabled:opacity-50"
+                    className="fb-btn fb-btn-primary fb-btn-sm !min-h-0 !px-3.5 !py-1.5 !text-[11px] whitespace-nowrap disabled:opacity-50"
                   >
                     {busyId === p.id ? "\u2026" : "Like back"}
                   </button>
@@ -298,7 +303,7 @@ export function LikesView() {
                     disabled={busyId === p.id}
                     onClick={() => void unlike(p)}
                     aria-label={`Unlike ${p.name}`}
-                    className="fb-btn fb-btn-ghost fb-btn-sm !min-h-0 !px-3 !py-1.5 !text-[10.5px] disabled:opacity-50"
+                    className="fb-btn fb-btn-ghost fb-btn-sm !min-h-0 !px-3 !py-1.5 !text-[10.5px] whitespace-nowrap disabled:opacity-50"
                   >
                     {busyId === p.id ? "\u2026" : "Unlike"}
                   </button>
