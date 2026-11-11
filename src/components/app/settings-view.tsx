@@ -292,7 +292,7 @@ function ToggleRow({
       aria-pressed={value}
       data-search={search ?? `${label} ${body}`}
       className={`fb-row transition ${
-        value ? "border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/[0.06]" : "hover:bg-white/[0.045]"
+        value ? "border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/[0.07]" : "hover:bg-white/[0.045]"
       }`}
     >
       <span className="fb-row-body">
@@ -311,7 +311,7 @@ function SaveRow({ state, onSave }: { state: "idle" | "saving" | "saved" | "erro
         type="button"
         onClick={onSave}
         disabled={state === "saving"}
-        className="btn-ember btn-shine relative overflow-hidden rounded-full px-7 py-2.5 text-[13px] font-bold disabled:opacity-60"
+        className="btn-ember btn-shine relative overflow-hidden rounded-full px-8 py-3 text-[13.5px] font-bold disabled:opacity-60"
       >
         {state === "saving" ? "Saving…" : "Save changes"}
       </button>
@@ -1076,7 +1076,7 @@ export function SettingsView() {
               type="button"
               onClick={() => setArea(a.id)}
               aria-pressed={active}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4.5 py-2.5 text-[13px] font-bold transition ${
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-5 py-3 text-[13.5px] font-bold transition ${
                 active
                   ? "border-transparent bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
                   : "border-white/10 bg-white/[0.03] text-[var(--color-sand)] hover:border-white/25 hover:text-[var(--color-pearl)]"
@@ -1178,9 +1178,9 @@ export function SettingsView() {
                             : [...p.dealBreakers, opt],
                         })
                       }
-                      className={`rounded-full border px-3.5 py-1.5 text-[12px] font-bold transition disabled:opacity-35 ${
+                      className={`rounded-full border px-4 py-2 text-[12.5px] font-bold transition disabled:opacity-35 ${
                         on
-                          ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/15 text-[var(--color-pearl)]"
+                          ? "border-[var(--color-teal-400)]/60 bg-[var(--color-teal-500)]/15 text-[var(--color-teal-200)] shadow-[0_0_18px_-8px_rgba(79,184,167,0.55)]"
                           : "border-white/10 bg-white/[0.02] text-[var(--color-sand)] hover:border-white/25"
                       }`}
                     >
