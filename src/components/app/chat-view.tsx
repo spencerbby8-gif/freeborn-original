@@ -68,7 +68,23 @@ const ICEBREAKERS = [
   "What's something you're building right now?",
 ];
 
-type StagedItem = { id: number; kind: "image" | "video"; dataUrl: string };
+type StagedItem = {
+  id: number;
+  kind: "image" | "video";
+  dataUrl: string;
+  file?: File;
+};
+
+/** CSP-safe data-URL to Blob. connect-src deliberately excludes data:, so
+ *  attachments must never be fetched back through the network stack. */
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [meta, base64] = dataUrl.split(",");
+  const mime = /^data:([^;,]+)/.exec(meta)?.[1] ?? "application/octet-stream";
+  const bin = atob(base64 ?? "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+};
 
 const MEDIA_RE = /^\[\[(image|video|voice|call):([^\]|]+)(?:\|([\d.]+))?\]\]$/;
 const QUOTE_RE = /^\[\[quote:([^|]{1,60})\|(.{1,220})\]\]$/;
@@ -765,7 +781,7 @@ function Thread({
     setCameraOpen(false);
     setUploading(true);
     try {
-      const blob = await (await fetch(dataUrl)).blob();
+      const blob = dataUrlToBlob(dataUrl);
       const url = await uploadMedia(blob, "image");
       if (url) await postMessage(buildBody(`[[image:${url}]]`));
     } finally {
@@ -811,7 +827,7 @@ function Thread({
         setStaged((s) =>
           s.length >= MAX_PACKET_ITEMS
             ? s
-            : [...s, { id: Date.now() + Math.random(), kind, dataUrl: String(reader.result) }]
+            : [...s, { id: Date.now() + Math.random(), kind, dataUrl: String(reader.result), file }]
         );
       };
       reader.readAsDataURL(file);
@@ -834,7 +850,7 @@ function Thread({
     const markers: string[] = [];
     for (const item of items) {
       try {
-        const blob = await (await fetch(item.dataUrl)).blob();
+        const blob = item.file ?? dataUrlToBlob(item.dataUrl);
         const url = await uploadMedia(blob, item.kind);
         if (url) markers.push(`[[${item.kind}:${url}]]`);
       } catch {
