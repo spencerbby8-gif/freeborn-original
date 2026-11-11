@@ -119,8 +119,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const openProfileTap = (id: string, now: number) => {
     if (now - lastDoubleAt.current < 500) return; // it was a super-like
     if (profileTapTimer.current) {
-      clearTimeout(profileTapTimer.current);
-      profileTapTimer.current = null;
+      /* Already opening. Pointer-captured taps fire here twice (pointerup on
+         the card + click on the label); the second call must not cancel the
+         first the way a genuine double-tap does. */
       return;
     }
     profileTapTimer.current = setTimeout(() => {
@@ -543,10 +544,22 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       lastTap.current = { t: now, x: e.clientX, y: e.clientY };
       // Taps that started on the name/bio button open the profile (the button
       // handles it); taps on the photo open the lightbox.
-      const onProfileButton = Boolean(
-        (e.target as HTMLElement).closest?.("[data-profile-btn]")
-      );
-      if (onProfileButton) return;
+      /* The card setPointerCapture()s on pointerdown, so pointerup retargets
+         to the card and e.target can no longer see the label button. Hit-test
+         the coordinates as well, and open the profile from here so captured
+         (mouse/pen) taps behave exactly like touch taps. */
+      const onProfileButton =
+        Boolean((e.target as HTMLElement).closest?.("[data-profile-btn]")) ||
+        Boolean(
+          document
+            .elementFromPoint(e.clientX, e.clientY)
+            ?.closest("[data-profile-btn]")
+        );
+      if (onProfileButton) {
+        const tapped = profiles[index];
+        if (tapped) openProfileTap(tapped.id, now);
+        return;
+      }
       if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
       singleTapTimer.current = setTimeout(() => {
         singleTapTimer.current = null;
