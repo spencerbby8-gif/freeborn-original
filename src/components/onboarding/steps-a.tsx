@@ -503,6 +503,7 @@ export function IntentionsStep({ stepIndex, totalSteps, draft, onBack, onSave, p
 
       <ChipSelect
         label="Values you stand on"
+        collapseAfter={10}
         options={valueOptions}
         value={values}
         onChange={(next) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { CheckIcon } from "@/components/icons";
 
 type ChipSelectProps = {
@@ -12,9 +12,13 @@ type ChipSelectProps = {
   hint?: string;
   optional?: boolean;
   max?: number;
+  /** Show only the first N chips (plus any selected) until expanded — keeps
+      long option lists from burying the Continue button below the fold. */
+  collapseAfter?: number;
 };
 
-export function ChipSelect({ label, options, value, onChange, error, hint, optional, max }: ChipSelectProps) {
+export function ChipSelect({ label, options, value, onChange, error, hint, optional, max, collapseAfter }: ChipSelectProps) {
+  const [expanded, setExpanded] = useState(false);
   const toggle = useCallback(
     (option: string) => {
       if (!onChange) return;
@@ -29,6 +33,11 @@ export function ChipSelect({ label, options, value, onChange, error, hint, optio
   );
 
   const atMax = Boolean(max && value.length >= max);
+  const collapsible = Boolean(collapseAfter && options.length > collapseAfter);
+  const visibleOptions =
+    collapsible && !expanded
+      ? options.filter((o, i) => i < (collapseAfter ?? 0) || value.includes(o))
+      : options;
 
   return (
     <div className="group space-y-3">
@@ -50,7 +59,7 @@ export function ChipSelect({ label, options, value, onChange, error, hint, optio
         </div>
       </div>
       <div className="flex flex-wrap gap-2.5">
-        {options.map((option) => {
+        {visibleOptions.map((option) => {
           const active = value.includes(option);
           const disabled = !active && atMax;
           return (
@@ -74,6 +83,15 @@ export function ChipSelect({ label, options, value, onChange, error, hint, optio
           );
         })}
       </div>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="px-1 text-[12px] font-bold text-[var(--color-ash)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
+        >
+          {expanded ? "Show less" : `Show all ${options.length}`}
+        </button>
+      ) : null}
       {hint && !error ? (
         <p className="px-1 text-[12px] leading-relaxed text-[var(--color-mist)]">{hint}</p>
       ) : null}

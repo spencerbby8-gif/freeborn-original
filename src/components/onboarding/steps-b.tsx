@@ -216,6 +216,7 @@ export function VibeStep({ stepIndex, totalSteps, draft, onBack, onSave, pending
     >
       <ChipSelect
         label="Lifestyle"
+        collapseAfter={12}
         options={lifestyleOptions}
         value={lifestyle}
         onChange={(next) => {
@@ -228,6 +229,7 @@ export function VibeStep({ stepIndex, totalSteps, draft, onBack, onSave, pending
 
       <ChipSelect
         label="Interests"
+        collapseAfter={12}
         options={interestOptions}
         value={interests}
         onChange={(next) => {

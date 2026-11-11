@@ -135,9 +135,9 @@ export function StepShell({
             <div className="flex justify-center">
               <a
                 href="/app"
-                className="text-[12px] font-bold text-[var(--color-ash)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
+                className="text-center text-[12px] font-bold text-[var(--color-ash)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
               >
-                Save &amp; finish later, and you&apos;ll pick up right here
+                Save &amp; finish later — we&apos;ll keep your place.
               </a>
             </div>
           ) : null}
