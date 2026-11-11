@@ -489,16 +489,12 @@ function ProfileInner() {
 
   return (
     <div className="mx-auto max-w-[720px] pb-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="fb-h-hero">
-            {editing ? "Edit profile" : "Your profile"}
-          </h1>
-          <p className="fb-meta mt-1.5">
-            {editing ? "Fine-tune how others see you." : "How others see you in the room."}
-          </p>
-        </div>
-        {editing ? (
+      {editing ? (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="fb-h-hero">Edit profile</h1>
+            <p className="fb-meta mt-1.5">Fine-tune how others see you.</p>
+          </div>
           <button
             type="button"
             onClick={() => setEditing(false)}
@@ -510,79 +506,85 @@ function ProfileInner() {
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </button>
-        ) : null}
-        {!editing ? (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={startEdit}
-              className="fb-btn fb-btn-primary fb-btn-sm"
-            >
-              Edit profile
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setActionsOpen((o) => !o)}
-                aria-label="More profile actions"
-                aria-expanded={actionsOpen}
-                title="More actions"
-                className="btn-ghost flex h-[42px] w-[42px] items-center justify-center rounded-full px-0"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <circle cx="12" cy="5" r="2" />
-                  <circle cx="12" cy="12" r="2" />
-                  <circle cx="12" cy="19" r="2" />
-                </svg>
-              </button>
-              {actionsOpen ? (
-                <>
-                  <div className="fixed inset-0 z-[90]" onClick={() => setActionsOpen(false)} />
-                  <div className="animate-scale-in absolute right-0 top-[50px] z-[95] w-[230px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
-                    {profile?.id ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActionsOpen(false);
-                          setViewAs(profile.id ?? null);
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-                      >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        View as others
-                      </button>
-                    ) : null}
-                    <a
-                      href="/app/settings"
-                      onClick={() => setActionsOpen(false)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] ${profile?.id ? "border-t border-white/[0.06]" : ""}`}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z" />
-                      </svg>
-                      Settings
-                    </a>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-      </div>
+        </div>
+      ) : (
+        <h1 className="sr-only">Your profile — how others see you in the room</h1>
+      )}
 
       {/* Hero — cover, avatar, identity strip, badges (X-profile pattern) */}
       <div className="fb-card-lg mt-6 !p-0 overflow-hidden">
-        <div className="relative h-36 sm:h-44">
+        <div className="relative h-44 sm:h-52">
           {profile.photos[0] ? (
             <PhotoImage src={profile.photos[0] ?? ""} alt="" className="h-full w-full" imgClassName="object-cover" />
           ) : (
             <div className="h-full w-full bg-[var(--gradient-ember-warm)]" aria-hidden />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0d18] via-[#0a0d18]/40 to-transparent" />
+          {!editing ? (
+            <div className="absolute right-3 top-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={startEdit}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-[#0a0d18]/70 px-3.5 py-2 text-[12px] font-black text-[var(--color-pearl)] backdrop-blur-md transition hover:bg-[#0a0d18]/90"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Edit
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActionsOpen((o) => !o)}
+                  aria-label="More profile actions"
+                  aria-expanded={actionsOpen}
+                  title="More actions"
+                  className="flex h-[36px] w-[36px] items-center justify-center rounded-full border border-white/15 bg-[#0a0d18]/70 text-[var(--color-pearl)] backdrop-blur-md transition hover:bg-[#0a0d18]/90"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <circle cx="12" cy="5" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="12" cy="19" r="2" />
+                  </svg>
+                </button>
+                {actionsOpen ? (
+                  <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setActionsOpen(false)} />
+                    <div className="animate-scale-in absolute right-0 top-[44px] z-[95] w-[230px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                      {profile?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActionsOpen(false);
+                            setViewAs(profile.id ?? null);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          Preview — view as others
+                        </button>
+                      ) : null}
+                      <a
+                        href="/app/settings"
+                        onClick={() => setActionsOpen(false)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] ${profile?.id ? "border-t border-white/[0.06]" : ""}`}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 01-2.9-2.9l.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 012.9-2.9l.1.1a1.7 1.7 0 001.9.3h.1a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5h.1a1.7 1.7 0 001.9-.3l.1-.1a2 2 0 012.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9v.1a1.7 1.7 0 001.5 1h.2a2 2 0 010 4h-.2a1.7 1.7 0 00-1.5 1z" />
+                        </svg>
+                        Settings
+                      </a>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <div className="absolute bottom-3 right-4 flex items-center gap-2">
             {profile.isVerified ? (
               <span className="flex items-center gap-1.5 rounded-full border border-[var(--color-teal-500)]/40 bg-[#0a0d18]/80 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)] backdrop-blur-sm">
@@ -601,7 +603,7 @@ function ProfileInner() {
           </div>
         </div>
         <div className="relative flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:px-6">
-          <span className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-14 sm:h-28 sm:w-28">
+          <span className="-mt-14 flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-[#0a0d18] bg-[var(--color-abyss)] shadow-xl sm:-mt-16 sm:h-32 sm:w-32">
             {profile.photos[0] ? (
               <PhotoImage src={profile.photos[0] ?? ""} alt={profile.displayName} className="h-full w-full" imgClassName="object-cover" />
             ) : (
@@ -636,29 +638,6 @@ function ProfileInner() {
               <span className="fb-chip">{profile.photos.length}/6 photos</span>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2 pb-1">
-            <button
-              type="button"
-              disabled={photoBusy}
-              onClick={() => setPhotoManagerOpen(true)}
-              className="fb-btn fb-btn-ghost fb-btn-sm"
-            >
-              Manage photos
-            </button>
-            {profile.id ? (
-              <button
-                type="button"
-                onClick={() => setViewAs(profile.id ?? null)}
-                className="fb-btn fb-btn-ghost fb-btn-sm"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                Preview
-              </button>
-            ) : null}
-          </div>
         </div>
       </div>
 
@@ -666,15 +645,15 @@ function ProfileInner() {
       <div className="mt-4 grid grid-cols-3 gap-2.5">
         <div className="fb-stat">
           <p className="fb-stat-num">{stats?.replyRate === null || stats?.replyRate === undefined ? "New" : `${stats.replyRate}%`}</p>
-          <p className="fb-stat-label">Reply rate</p>
+          <p className="fb-stat-label truncate">Reply rate</p>
         </div>
         <div className="fb-stat">
           <p className="fb-stat-num">{stats?.matchRate === null || stats?.matchRate === undefined ? "New" : `${stats.matchRate}%`}</p>
-          <p className="fb-stat-label">Match rate</p>
+          <p className="fb-stat-label truncate">Match rate</p>
         </div>
         <div className="fb-stat">
           <p className="fb-stat-num">{stats ? stats.conversationCount : "—"}</p>
-          <p className="fb-stat-label">Conversations</p>
+          <p className="fb-stat-label truncate">Conversations</p>
         </div>
       </div>
       {/* Identity check status */}
@@ -1154,7 +1133,7 @@ function ProfileInner() {
           </div>
 
           {profile.values.length || profile.interests.length || profile.lifestyle.length ? (
-            <div className="space-y-4 py-5 first:pt-0 last:pb-0">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 py-5 first:pt-0 last:pb-0 sm:grid-cols-2">
               {profile.values.length ? (
                 <div>
                   <p className="fb-eyebrow">Values</p>
