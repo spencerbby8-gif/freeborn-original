@@ -454,10 +454,13 @@ export function AuthExperience({
       }
       setCodeError("That code didn't complete sign-in. Request a fresh one and try again.");
     } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
       setCodeError(
-        err instanceof Error && err.message
-          ? err.message
-          : "That code didn't match. Check the email and try again."
+        /expired or is invalid/i.test(raw)
+          ? "That code didn't match. Double-check the email and try again."
+          : /rate limit|too many/i.test(raw)
+            ? "Too many attempts right now. Wait a minute, then try again."
+            : raw || "That code didn't match. Check the email and try again."
       );
     } finally {
       setCodeBusy(false);
