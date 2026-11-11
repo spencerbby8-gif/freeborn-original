@@ -192,7 +192,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
     <>
       {/* Permission ask — once, polite, dismissible */}
       {askOpen ? (
-        <div className="pointer-events-none fixed inset-x-0 top-3 z-[310] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[310] flex justify-center px-4">
           <div className="pointer-events-auto animate-scale-in flex w-full max-w-[440px] items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/40 bg-[#10141f]/97 p-4 shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

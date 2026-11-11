@@ -39,6 +39,22 @@ export async function POST(request: Request) {
 
   const ip = clientIp(request);
 
+  /* Preview-only QA lane. Automated preview acceptance runs originate from
+   * datacenter IPs by nature; without this lane they would suspend the QA
+   * accounts they sign in with. The env var is scoped to preview targets in
+   * Vercel and does not exist in production, so shipped behaviour is
+   * untouched. */
+  const qaLane = (process.env.QA_SECURITY_BYPASS_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  if (
+    process.env.VERCEL_ENV === "preview" &&
+    qaLane.includes(member.email.toLowerCase())
+  ) {
+    return Response.json({ suspended: false, qaLane: true });
+  }
+
   /* Already suspended? Every retry hears the policy. */
   const [existing] = await db
     .select()
