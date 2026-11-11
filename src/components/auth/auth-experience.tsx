@@ -138,6 +138,10 @@ export function AuthExperience({
   const [pending, setPending] = useState<"email" | "google" | null>(null);
   /** Turnstile human-check token (active only when the site key is set). */
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [codeStep, setCodeStep] = useState<{ email: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   /* Server-provided notices (e.g. the post-redirect "check your email" status)
      render inline at the TOP of a long card — off-screen if the user is scrolled
@@ -269,7 +273,18 @@ export function AuthExperience({
           password: values.password,
           options: captchaToken ? { captchaToken } : undefined,
         });
-        if (error) throw error;
+        if (error) {
+          /* Account exists but the email was never confirmed: take them
+             straight to the code screen instead of a dead-end message. */
+          if (/confirm/i.test(error.message)) {
+            setCodeStep({ email });
+            setCode("");
+            setCodeError(null);
+            setPending(null);
+            return;
+          }
+          throw error;
+        }
         const { data: check } = await supabase.auth.getUser();
         if (!check?.user) {
           throw new Error(
@@ -297,13 +312,12 @@ export function AuthExperience({
           return;
         }
         // Email confirmation is required on this project before first sign-in.
-        showToast({
-          tone: "success",
-          title: "One last step",
-          body: `We sent a confirmation email to ${email}. Open it once, then come back and sign in with your password.`,
-        });
+        // The confirmation mail carries a 6-digit code; the member types it
+        // here instead of chasing a magic link through their inbox.
+        setCodeStep({ email });
+        setCode("");
+        setCodeError(null);
         setValues((current) => ({ ...current, password: "" }));
-        setMode("sign-in");
         setPending(null);
         return;
       }
@@ -412,9 +426,141 @@ export function AuthExperience({
             ? "Send reset link"
             : "Update password";
 
+  const verifyCode = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    if (!codeStep || codeBusy) return;
+    if (!supabase) {
+      setCodeError("Service unavailable. Refresh the page and try again.");
+      return;
+    }
+    setCodeBusy(true);
+    setCodeError(null);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: codeStep.email,
+        token: code.trim(),
+        type: "signup",
+      });
+      if (error) throw error;
+      if (data.session) {
+        showToast({
+          tone: "success",
+          title: "Email confirmed",
+          body: "Welcome to Freeborn. Let's build your profile.",
+        });
+        setCodeStep(null);
+        await enterAfterAuth();
+        return;
+      }
+      setCodeError("That code didn't complete sign-in. Request a fresh one and try again.");
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : "";
+      setCodeError(
+        /expired or is invalid/i.test(raw)
+          ? "That code didn't match. Double-check the email and try again."
+          : /rate limit|too many/i.test(raw)
+            ? "Too many attempts right now. Wait a minute, then try again."
+            : raw || "That code didn't match. Check the email and try again."
+      );
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
+  const resendCode = async () => {
+    if (!codeStep || codeBusy) return;
+    if (!supabase) {
+      setCodeError("Service unavailable. Refresh the page and try again.");
+      return;
+    }
+    setCodeBusy(true);
+    setCodeError(null);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: codeStep.email,
+      });
+      if (error) throw error;
+      showToast({
+        tone: "success",
+        title: "Code sent",
+        body: `A fresh code is on its way to ${codeStep.email}.`,
+      });
+    } catch {
+      setCodeError("Couldn't resend right now. Wait a moment and try again.");
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-[480px]">
       <div className="surface magic-border relative overflow-hidden rounded-[28px] p-5 shadow-[var(--shadow-card-lg)] sm:p-7">
+        {codeStep ? (
+          <form
+            onSubmit={(e) => void verifyCode(e)}
+            className="animate-fade-in"
+            data-search="confirmation code verify email signup"
+          >
+            <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.22em] text-[var(--color-sand)]">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
+              Confirm it&apos;s you
+            </p>
+            <h1
+              className="mt-2.5 text-[clamp(1.7rem,6.5vw,2.25rem)] leading-[1.05] tracking-tight text-[var(--color-pearl)]"
+              style={{ fontFamily: "var(--font-display-stack)", fontVariationSettings: "'opsz' 144, 'wght' 450" }}
+            >
+              Enter your code
+            </h1>
+            <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-[var(--color-mist)]">
+              We sent a confirmation code to{" "}
+              <span className="font-bold text-[var(--color-pearl)]">{codeStep.email}</span>.
+              Enter it below to finish creating your account.
+            </p>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="••••••"
+              aria-label="Confirmation code"
+              className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-[26px] font-bold tracking-[0.35em] text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)] focus:bg-white/[0.06]"
+              style={{ fontFamily: "var(--font-display-stack)" }}
+            />
+            {codeError ? (
+              <p className="mt-2 text-[12px] font-bold text-[var(--color-danger)]">{codeError}</p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={codeBusy || code.length < 6}
+              className="magic-button btn-shine mt-4 flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] text-[15px] font-bold text-[var(--color-ink)] transition-all hover:-translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {codeBusy ? "Checking…" : "Confirm and continue"}
+            </button>
+            <div className="mt-3 flex items-center justify-between text-[12px] font-bold">
+              <button
+                type="button"
+                onClick={() => void resendCode()}
+                disabled={codeBusy}
+                className="text-[var(--color-teal-300)] transition hover:text-[var(--color-teal-200)] disabled:opacity-50"
+              >
+                Resend code
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCodeStep(null);
+                  setCode("");
+                  setMode("sign-in");
+                }}
+                className="text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
+              >
+                Use a different email
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
         <div key={mode} className="animate-fade-in">
           {/* Eyebrow as plain micro-type instead of a 51px pill — same brand cue,
               a fraction of the height. */}
@@ -570,6 +716,8 @@ export function AuthExperience({
             {submitLabel}
           </button>
         </form>
+          </>
+        )}
 
         {/* Sign-in / Create-account already have the tab switcher at the top, so a
             second "Already have an account? Sign in" link down here was pure
