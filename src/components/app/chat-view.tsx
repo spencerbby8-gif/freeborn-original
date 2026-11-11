@@ -226,13 +226,13 @@ function MediaPacket({
                 onClick={() => onImage(item.url)}
                 onPointerDown={(e) => e.stopPropagation()}
                 aria-label="Open photo full size"
-                className="block overflow-hidden rounded-xl transition active:scale-[0.98]"
+                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition active:scale-[0.98]"
               >
                 <PhotoImage
                   src={item.url}
                   alt="Shared photo"
-                  className="block max-h-[300px] w-full rounded-xl"
-                  imgClassName="max-h-[300px] w-full object-cover"
+                  className="block max-h-[300px] w-full rounded-2xl"
+                  imgClassName="max-h-[300px] w-full rounded-2xl object-cover"
                 />
               </button>
             ) : (
@@ -252,6 +252,11 @@ function MediaPacket({
                     </svg>
                   </span>
                 </span>
+                {item.dur ? (
+                  <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-px text-[9px] font-black tabular-nums text-white/90">
+                    {`${Math.floor(item.dur / 60)}:${String(Math.round(item.dur) % 60).padStart(2, "0")}`}
+                  </span>
+                ) : null}
               </button>
             )
           )}
@@ -1094,18 +1099,18 @@ function Thread({
           aria-label={`View ${match.with.name}'s profile`}
           className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-85"
         >
-          <span className="relative shrink-0">
-            <Avatar photo={match.with.photo} name={match.with.name} size={40} />
+          <span className="relative shrink-0 rounded-full ring-2 ring-white/10">
+            <Avatar photo={match.with.photo} name={match.with.name} size={46} />
             {match.with.active ? (
               <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
             ) : null}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-black">{match.with.name}</p>
+            <p className="truncate font-display text-[16.5px] font-bold tracking-tight">{match.with.name}</p>
             <p className="flex items-center gap-1.5 truncate text-[12px] text-[var(--color-mist)]">
               {match.with.active ? (
-                <span className="flex items-center gap-1 font-bold text-[#5fd394]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#2fbf71]" />
+                <span className="flex items-center gap-1.5 rounded-full border border-[#2fbf71]/30 bg-[#2fbf71]/10 px-2 py-0.5 font-bold text-[#5fd394]">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2fbf71]" />
                   Active now
                 </span>
               ) : (
@@ -1122,7 +1127,7 @@ function Thread({
             onClick={() => setCall("voice")}
             aria-label={`Voice call ${match.with.name}`}
             title="Voice call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-teal-300)] transition hover:bg-white/[0.09] active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z" />
@@ -1133,7 +1138,7 @@ function Thread({
             onClick={() => setCall("video")}
             aria-label={`Video call ${match.with.name}`}
             title="Video call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-teal-300)] transition hover:bg-white/[0.09] active:scale-95"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="6" width="13" height="12" rx="2.5" />
@@ -1192,18 +1197,28 @@ function Thread({
 
       {/* Staged media packet */}
       {staged.length > 0 ? (
-        <div className="mb-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-2.5">
+        <div className="mb-2 rounded-2xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.06] p-2.5">
           <div className="flex items-center justify-between px-1 pb-2">
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--color-sand)]">
               Packet · {staged.length} {staged.length === 1 ? "item" : "items"}, sent together
             </p>
-            <button
-              type="button"
-              onClick={() => setStaged([])}
-              className="text-[11px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-            >
-              Clear
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void sendPacket()}
+                disabled={sending || uploading}
+                className="rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
+              >
+                Send packet
+              </button>
+              <button
+                type="button"
+                onClick={() => setStaged([])}
+                className="text-[11px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
+              >
+                Clear
+              </button>
+            </div>
           </div>
           <div className="flex gap-2.5 overflow-x-auto pb-1">
             {staged.map((item, i) => (
@@ -1212,7 +1227,7 @@ function Thread({
                   <img
                     src={item.dataUrl}
                     alt={`Staged photo ${i + 1}`}
-                    className="h-[76px] w-[76px] rounded-2xl border border-white/15 object-cover"
+                    className="h-[84px] w-[84px] rounded-2xl border border-white/15 object-cover ring-1 ring-white/20"
                   />
                 ) : (
                   <div className="relative">
@@ -1220,7 +1235,7 @@ function Thread({
                       src={item.dataUrl}
                       muted
                       playsInline
-                      className="h-[76px] w-[76px] rounded-2xl border border-white/15 bg-black object-cover"
+                      className="h-[84px] w-[84px] rounded-2xl border border-white/15 bg-black object-cover ring-1 ring-white/20"
                     />
                     <span className="absolute inset-0 flex items-center justify-center">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
