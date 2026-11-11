@@ -73,6 +73,7 @@ type StagedItem = {
   kind: "image" | "video";
   dataUrl: string;
   file?: File;
+  dur?: number;
 };
 
 /** CSP-safe data-URL to Blob. connect-src deliberately excludes data:, so
@@ -219,6 +220,57 @@ function Receipt({ read }: { read: boolean }) {
 
 /* --- Media packet (photos + videos + voice, one bubble) --------------------- */
 
+/** In-thread video tile: draws the first frame as its poster and shows the
+ *  runtime chip even for packets sent before durations were stamped. */
+function VideoTile({
+  url,
+  dur,
+  onOpen,
+}: {
+  url: string;
+  dur?: number;
+  onOpen: () => void;
+}) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [seconds, setSeconds] = useState<number | null>(dur ?? null);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      onPointerDown={(e) => e.stopPropagation()}
+      aria-label="Open video full size"
+      className="relative block overflow-hidden rounded-xl transition active:scale-[0.98]"
+    >
+      <video
+        ref={ref}
+        src={url}
+        muted
+        playsInline
+        preload="metadata"
+        onLoadedMetadata={() => {
+          const v = ref.current;
+          if (!v) return;
+          if (Number.isFinite(v.duration) && v.duration > 0) setSeconds(v.duration);
+          if (v.duration > 0.25 && v.currentTime < 0.05) v.currentTime = 0.1;
+        }}
+        className="max-h-[300px] w-full rounded-xl object-cover"
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
+          </svg>
+        </span>
+      </span>
+      {seconds ? (
+        <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-px text-[9px] font-black tabular-nums text-white/90">
+          {`${Math.floor(seconds / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function MediaPacket({
   items,
   onImage,
@@ -252,28 +304,12 @@ function MediaPacket({
                 />
               </button>
             ) : (
-              <button
+              <VideoTile
                 key={i}
-                type="button"
-                onClick={() => onVideo(item.url)}
-                onPointerDown={(e) => e.stopPropagation()}
-                aria-label="Open video full size"
-                className="relative block overflow-hidden rounded-xl transition active:scale-[0.98]"
-              >
-                <video src={item.url} muted playsInline preload="metadata" className="max-h-[300px] w-full rounded-xl object-cover" />
-                <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
-                    </svg>
-                  </span>
-                </span>
-                {item.dur ? (
-                  <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-px text-[9px] font-black tabular-nums text-white/90">
-                    {`${Math.floor(item.dur / 60)}:${String(Math.round(item.dur) % 60).padStart(2, "0")}`}
-                  </span>
-                ) : null}
-              </button>
+                url={item.url}
+                dur={item.dur}
+                onOpen={() => onVideo(item.url)}
+              />
             )
           )}
         </div>
@@ -824,11 +860,23 @@ function Thread({
       }
       const reader = new FileReader();
       reader.onload = () => {
-        setStaged((s) =>
-          s.length >= MAX_PACKET_ITEMS
-            ? s
-            : [...s, { id: Date.now() + Math.random(), kind, dataUrl: String(reader.result), file }]
-        );
+        const dataUrl = String(reader.result);
+        const add = (dur?: number) =>
+          setStaged((s) =>
+            s.length >= MAX_PACKET_ITEMS
+              ? s
+              : [...s, { id: Date.now() + Math.random(), kind, dataUrl, file, dur }]
+          );
+        if (kind === "video") {
+          const probe = document.createElement("video");
+          probe.preload = "metadata";
+          probe.onloadedmetadata = () =>
+            add(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined);
+          probe.onerror = () => add(undefined);
+          probe.src = URL.createObjectURL(file);
+        } else {
+          add(undefined);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -852,7 +900,7 @@ function Thread({
       try {
         const blob = item.file ?? dataUrlToBlob(item.dataUrl);
         const url = await uploadMedia(blob, item.kind);
-        if (url) markers.push(`[[${item.kind}:${url}]]`);
+        if (url) markers.push(`[[${item.kind}:${url}${item.dur ? `|${item.dur.toFixed(1)}` : ""}]]`);
       } catch {
         flash("One attachment couldn't be read, so it was skipped.");
       }
@@ -1263,6 +1311,11 @@ function Thread({
                     <span className="absolute bottom-1 left-1 rounded-md bg-black/70 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-white/90">
                       Video
                     </span>
+                    {item.dur ? (
+                      <span className="absolute bottom-1 right-1 rounded-md bg-black/70 px-1.5 py-px text-[8.5px] font-black tabular-nums text-white/90">
+                        {`${Math.floor(item.dur / 60)}:${String(Math.round(item.dur) % 60).padStart(2, "0")}`}
+                      </span>
+                    ) : null}
                   </div>
                 )}
                 <button
