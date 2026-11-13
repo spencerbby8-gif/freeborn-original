@@ -2,7 +2,8 @@
 
 The production app is **Next.js 16 (App Router) on Vercel**, git-linked to
 `spencerbby8-gif/freeborn-original`, production branch `main`, prod domain
-`freeborn-umber.vercel.app`. (A legacy `netlify.toml` from an earlier hosting era
+`freeborndating.com` (registered 2026-11-13; the Vercel default alias
+`freeborn-umber.vercel.app` stays attached and serves the same deployment). (A legacy `netlify.toml` from an earlier hosting era
 was removed 2026-10-27; nothing in the running product uses Netlify.)
 
 ## How deploys work

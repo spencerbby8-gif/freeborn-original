@@ -1,7 +1,7 @@
 # Freeborn
 
 Values-aligned dating platform (Next.js 16 App Router + Supabase). Production:
-**https://freeborn-umber.vercel.app**, git-linked to
+**https://freeborndating.com**, git-linked to
 `spencerbby8-gif/freeborn-original`, branch `main`.
 
 ## Local development

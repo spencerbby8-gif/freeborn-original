@@ -20,15 +20,27 @@
  *
  * NOTE ON THE CURRENT VALUE
  * -------------------------
- * `freeborn-umber.vercel.app` is the Vercel project's default domain on a Hobby
- * plan. It works, but it caps three things: search authority (a subdomain on a
- * shared apex), Resend domain verification for transactional email (you cannot add
- * DNS records to a domain you do not own), and Vercel's Hobby terms, which are for
- * non-commercial use. Swap this constant the day a real domain is registered.
+ * `freeborndating.com` is a registered domain, not a platform subdomain. Verisign
+ * handle 3167877741_DOMAIN_COM-VRSN, created 2026-11-13, expires 2027-11-13,
+ * registrar DomainRegistry.com LLC (Northwest Registered Agent's free-domain
+ * programme), status `active`, WHOIS privacy on, renewal fees covered while the
+ * account stays active. Nameservers are ns1/ns2.hosting.businessidentity.llc
+ * (PowerDNS), so the operator can edit A, AAAA, CNAME, MX, TXT, SRV and CAA
+ * records directly — which is what makes Vercel attachment, a Search Console
+ * *domain* property, and SPF/DKIM/DMARC for transactional mail all possible.
+ *
+ * Owning the apex removes the three caps the previous value had: search authority
+ * (no longer a subdomain on a shared apex), DNS-record verification for
+ * transactional email, and Vercel's Hobby non-commercial terms.
+ *
+ * The Vercel default alias `freeborn-umber.vercel.app` remains attached and serves
+ * the same deployment; it is no longer canonical. Both origins are present in the
+ * Supabase `uri_allow_list`, and `www.freeborndating.com` 308-redirects to the apex
+ * so there is exactly one canonical host for crawlers.
  */
 
 /** Canonical origin. No trailing slash. Every public URL derives from this. */
-export const SITE_URL = "https://freeborn-umber.vercel.app";
+export const SITE_URL = "https://freeborndating.com";
 
 /** Product name, as members see it. */
 export const SITE_NAME = "Freeborn";
