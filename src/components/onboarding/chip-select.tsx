@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { CheckIcon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
 
 type ChipSelectProps = {
   label: string;
@@ -84,13 +85,24 @@ export function ChipSelect({ label, options, value, onChange, error, hint, optio
         })}
       </div>
       {collapsible ? (
-        <button
-          type="button"
+        /* A disclosure toggle, so it states what it controls: `aria-expanded` is what makes
+           "Show all 12" announce as collapsed rather than as an opaque button. Routed through the
+           shared Button (ghost/sm) instead of a hand-written element — the raw-button ceiling may
+           only shrink, and this control gets the contract's `:focus-visible` ring, `:disabled`
+           styling and touch-height floor, which a 12px bare text link had none of. `-ml-2` buys
+           back the component's horizontal padding so the label still lines up with the chips.
+           (This file still hand-rolls its chip at line 67; migrating that to the shared Chip is
+           the follow-up that beats the ceiling to 190, but it restyles onboarding, so it is not
+           smuggled into a ratchet fix.) */
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className="px-1 text-[12px] font-bold text-[var(--color-ash)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
+          className="-ml-2 font-bold"
         >
           {expanded ? "Show less" : `Show all ${options.length}`}
-        </button>
+        </Button>
       ) : null}
       {hint && !error ? (
         <p className="px-1 text-[12px] leading-relaxed text-[var(--color-mist)]">{hint}</p>
