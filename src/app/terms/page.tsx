@@ -3,6 +3,8 @@ import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/component
 import {
   CONTACT_EMAIL,
   GOVERNING_LAW,
+  LEGAL_EFFECTIVE_DATE,
+  LEGAL_VERSION,
   MIN_AGE,
   OPERATOR_FORM,
   OPERATOR_NAME,
@@ -444,7 +446,10 @@ export default function TermsPage() {
           We can enforce it later.
         </p>
         <p className="pt-2 text-[13px] text-ash">
-          Version 1.0. Effective 19 October 2026. Questions:{" "}
+          Version {LEGAL_VERSION}. Effective {LEGAL_EFFECTIVE_DATE}. Version 1.0 was
+          effective 19 October 2026; 1.1 names the operator by its trading name,{" "}
+          {OPERATOR_NAME}, and moves the contact address to this domain. It changes no
+          obligation on either side. Questions:{" "}
           <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>
             {CONTACT_EMAIL}
           </a>

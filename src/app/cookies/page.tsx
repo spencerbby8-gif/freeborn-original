@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/components/legal-shell";
-import { CONTACT_EMAIL, SITE_NAME } from "@/lib/site";
+import { CONTACT_EMAIL, LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Cookie Policy",
@@ -252,7 +252,9 @@ export default function CookiesPage() {
 
       <Clause n="8" title="Changes and contact">
         <p>
-          Version 1.0, effective 19 October 2026. If we add anything that stores data
+          Version {LEGAL_VERSION}, effective {LEGAL_EFFECTIVE_DATE}. Version 1.0 was
+          first published on 19 October 2026; 1.1 changes only the name of the
+          operator and the contact address, not one cookie. If we add anything that stores data
           on your device, this page gets updated in the same change, and if it is not
           strictly necessary we will ask you first.
         </p>
