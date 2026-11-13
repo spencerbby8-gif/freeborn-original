@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/components/legal-shell";
-import { CONTACT_EMAIL, OPERATOR_FORM, OPERATOR_FORM_ARTICLE, OPERATOR_NAME, SITE_NAME } from "@/lib/site";
+import { CONTACT_EMAIL, LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, OPERATOR_FORM, OPERATOR_FORM_ARTICLE, OPERATOR_NAME, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -552,7 +552,14 @@ export default function PrivacyPage() {
 
       <Clause n="15" title="Changes to this policy">
         <p>
-          Version 1.0, effective 19 October 2026. This is the first published version.
+          Version {LEGAL_VERSION}, effective {LEGAL_EFFECTIVE_DATE}. Version 1.0 was
+          first published on 19 October 2026.
+        </p>
+        <p>
+          1.1 changes who this policy names and where you write to us: the operator is
+          identified by its trading name, {OPERATOR_NAME}, and contact moves from a
+          personal inbox to {CONTACT_EMAIL}. Nothing changed about what is collected,
+          why, who can see it, or how long it is kept.
         </p>
         <p>
           When we make a substantive change we will update the version number and the
