@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/components/legal-shell";
-import { CONTACT_EMAIL, OPERATOR_FORM, OPERATOR_NAME, SITE_NAME } from "@/lib/site";
+import { CONTACT_EMAIL, OPERATOR_FORM, OPERATOR_FORM_ARTICLE, OPERATOR_NAME, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
     >
       <Clause n="1" title="Who is responsible for your data">
         <p>
-          {SITE_NAME} is operated by {OPERATOR_NAME}, an {OPERATOR_FORM}. {OPERATOR_NAME}{" "}
+          {SITE_NAME} is operated by {OPERATOR_NAME}, {OPERATOR_FORM_ARTICLE} {OPERATOR_FORM}. {OPERATOR_NAME}{" "}
           is the data controller for everything described in this policy, which means
           it decides why and how your personal data is processed and it is answerable
           for it.

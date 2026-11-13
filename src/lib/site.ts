@@ -52,12 +52,27 @@ export const SITE_NAME = "Freeborn";
  * the brand. Keeping the two distinct here means the policy stays correct if the
  * product is ever renamed or a second product is launched under the same operator.
  *
- * Coldtruths is currently an unregistered sole proprietorship. Once a company is
- * registered, replace this string with the registered name and number, and update
- * the "Who runs Freeborn" section of /privacy to match.
+ * Coldtruths Technologies is a trading name, not a registered entity: the operator is
+ * a sole proprietorship. When a company is registered, replace OPERATOR_NAME with the
+ * registered name and number, set OPERATOR_FORM to that form, correct
+ * OPERATOR_FORM_ARTICLE with it, and review GOVERNING_LAW and OPERATOR_COUNTRY at the
+ * same time — incorporating changes where the contract is governed, not only what the
+ * operator is called.
  */
-export const OPERATOR_NAME = "Coldtruths";
+export const OPERATOR_NAME = "Coldtruths Technologies";
 export const OPERATOR_FORM = "sole proprietorship";
+
+/**
+ * Indefinite article for OPERATOR_FORM, written down rather than derived.
+ *
+ * /privacy rendered "operated by Coldtruths, an sole proprietorship" — a grammar error
+ * live on the page whose whole job is to look competent enough to be trusted with
+ * personal data. Deriving the article from the first letter would fix this case and
+ * break the next one: an acronym such as "LLC" takes "an" because it is pronounced
+ * "el-el-see", which a first-character test gets exactly backwards. So the article is
+ * stated here and reviewed whenever OPERATOR_FORM changes.
+ */
+export const OPERATOR_FORM_ARTICLE = "a";
 
 /**
  * Governing law for the Terms of Service.
@@ -76,19 +91,22 @@ export const GOVERNING_LAW = "the Federal Republic of Nigeria";
 export const OPERATOR_COUNTRY = "Nigeria";
 
 /**
- * Member-facing contact address.
+ * Member-facing contact address, on the app's own domain.
  *
- * INTERIM VALUE. This is the operator's existing public address (it already appears
- * in git commit metadata on a public repository, so publishing it here discloses
- * nothing new). Replace it with a dedicated address — privacy@yourdomain once a
- * domain exists, or a purpose-made mailbox before then — so that legal and privacy
- * correspondence does not land in a personal inbox.
+ * Was the operator's personal Gmail, which this file already flagged as interim: legal
+ * and privacy correspondence should not land in a personal inbox, and a policy that
+ * publishes a free webmail address undercuts the trust the rest of the page is built to
+ * earn. The mailbox is hosted on the domain's existing MX
+ * (mailserver.businessidentity.llc), so no new DNS record is involved — but the mailbox
+ * must exist before this ships, because publishing an address that bounces is worse
+ * than the personal one it replaced. Rendered as mailto: five times on /privacy and in
+ * clause 15 of /terms.
  */
-export const CONTACT_EMAIL = "spencerbby8@gmail.com";
+export const CONTACT_EMAIL = "support@freeborndating.com";
 
 /** Legal document version. Bump on every substantive edit; shown on each page. */
-export const LEGAL_VERSION = "1.0";
-export const LEGAL_EFFECTIVE_DATE = "19 October 2026";
+export const LEGAL_VERSION = "1.1";
+export const LEGAL_EFFECTIVE_DATE = "13 November 2026";
 
 /** Minimum membership age. Mirrors MIN_AGE in `src/lib/age.ts`. */
 export const MIN_AGE = 18;
