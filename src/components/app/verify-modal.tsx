@@ -600,11 +600,12 @@ export function VerifyGate() {
                 Verify your identity
               </h2>
               <p className="mt-2.5 text-[13.5px] leading-6 text-[var(--color-mist)]">
-                Freeborn keeps the room safe with a quick live selfie check, the same
-                method mainstream dating platforms use to keep out bots and impostors.
-                One thing to know before you submit: the verification engines are
-                unavailable right now, so a request is recorded and held as pending
-                rather than approved or rejected, and no new seals are being issued.
+                  Freeborn keeps the room safe with a quick live selfie check, the same
+                  method mainstream dating platforms use to keep out bots and impostors.
+                  One thing to know before you submit: if both engines cannot be reached
+                  at the moment your selfie is graded, the request is recorded and held
+                  as pending rather than guessed. Nothing is ever approved or rejected
+                  unchecked, and no seal is issued without a passing check.
               </p>
               <ul className="mt-5 space-y-3">
                 {[
