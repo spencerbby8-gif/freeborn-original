@@ -71,7 +71,7 @@ export const authStatusMessages = {
   "session-lost": {
     tone: "error" as const,
     title: "Your session didn't carry over",
-    body: "If you're inside a preview panel or iframe, your browser may block its cookies. Use 'Open in new tab' (top right) and sign in there, which always works.",
+    body: "Sign in again and you'll land back on the exact onboarding screen you left — your answers are saved on your profile, not in this browser. If you're inside a preview panel or iframe and sign-in loops, use 'Open in new tab' (top right).",
   },
   suspended: {
     tone: "error" as const,

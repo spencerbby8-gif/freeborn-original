@@ -105,6 +105,17 @@ function friendlyError(error: unknown): string {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
   if (msg.includes("already registered") || msg.includes("already been registered"))
     return "An account already exists for this email. Switch to the Sign in tab.";
+  /* A spent or server-rejected Turnstile token must never read as a credentials
+     problem: the password was fine, the human check simply expired between the
+     tick and the submit (slow connections, long form fills). */
+  if (msg.includes("captcha") || msg.includes("turnstile") || msg.includes("human check"))
+    return "The human check expired before we could use it. Tick the box once more, then continue.";
+  /* GoTrue answers both "unknown email" and "wrong password" with the same
+     text, on purpose, so this wording must not confirm that an account exists.
+     The nudge covers the real-world case behind most such reports: an account
+     created long ago (or re-created recently, which replaces the password). */
+  if (msg.includes("invalid login credentials"))
+    return "That email and password don't match our records. If the account is older — or was recently created again — the password reset below takes one email.";
   return getAuthErrorMessage(error);
 }
 
@@ -346,6 +357,10 @@ export function AuthExperience({
       });
       await enterAfterAuth();
     } catch (error) {
+      /* A Turnstile token is single-use: once a submit has carried it — success
+         or failure — it is spent. Drop it so the remounted widget issues a fresh
+         one and the next attempt cannot fail on a dead token. */
+      setCaptchaToken(null);
       showToast({ tone: "error", title: "We couldn't finish that", body: friendlyError(error) });
       setPending(null);
     }

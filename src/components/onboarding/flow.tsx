@@ -9,7 +9,7 @@ import {
   type OnboardingDraft,
   type OnboardingStepName,
 } from "@/lib/onboarding-data";
-import { getAccessToken } from "@/lib/supabase/browser";
+import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { ProgressRail } from "@/components/onboarding/rail";
 import { IdentityStep, IntentionsStep, LocationStep, WelcomeStep } from "./steps-a";
 import { AboutStep, PhotosStep, VibeStep } from "./steps-b";
@@ -77,7 +77,26 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
     };
 
     try {
-      const res = await postWithRetry("/api/onboarding", headers, JSON.stringify({ step, patch }));
+      let res = await postWithRetry("/api/onboarding", headers, JSON.stringify({ step, patch }));
+      if (res.status === 401) {
+        /* A token caught mid-refresh is not a lost member. Refresh silently and
+           retry the save ONCE before declaring the session gone: a slow step
+           (photo upload on 4G) can outlive the access token, and without this
+           the member's last screen never lands in onboarding_step, so their
+           return resumes one screen early. */
+        await createSupabaseBrowserClient()
+          .auth.refreshSession()
+          .catch(() => undefined);
+        const retryToken = await getAccessToken();
+        res = await postWithRetry(
+          "/api/onboarding",
+          {
+            "Content-Type": "application/json",
+            ...(retryToken ? { Authorization: `Bearer ${retryToken}` } : {}),
+          },
+          JSON.stringify({ step, patch }),
+        );
+      }
       if (res.status === 401) {
         setSaveStatus("Session expired");
         setFlowError("Your session expired mid-onboarding. Sign in again. Your progress is saved up to this screen.");
@@ -96,7 +115,23 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
       // Final screen: complete onboarding and enter the app.
       if (stepIndex >= TOTAL_STEPS - 1) {
         setSaveStatus("Finishing…");
-        const done = await postWithRetry("/api/onboarding/complete", headers, "");
+        let done = await postWithRetry("/api/onboarding/complete", headers, "");
+        if (done.status === 401) {
+          /* Same mid-refresh race as the step save: one silent refresh, one
+             retry, then — and only then — call the session gone. */
+          await createSupabaseBrowserClient()
+            .auth.refreshSession()
+            .catch(() => undefined);
+          const retryToken = await getAccessToken();
+          done = await postWithRetry(
+            "/api/onboarding/complete",
+            {
+              "Content-Type": "application/json",
+              ...(retryToken ? { Authorization: `Bearer ${retryToken}` } : {}),
+            },
+            "",
+          );
+        }
         if (done.status === 401) {
           setSaveStatus("Session expired");
           setFlowError("Your session expired mid-onboarding. Sign in again. Your progress is saved up to this screen.");
