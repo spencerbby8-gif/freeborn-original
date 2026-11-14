@@ -86,7 +86,7 @@ export function VerifyGate() {
   const [pose, setPose] = useState<Pose>(POSES[0]);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
-  /** Sample a different pose than the current one (every retry re-samples). */
+  /** Sample a different pose than the current one (local-mode fallback only). */
   const sampleNewPose = () => {
     /* A server-issued pose must NOT be re-rolled locally: the challenge row is already
        written for it, so re-sampling here would show a pose nothing will ever accept. */
@@ -94,6 +94,52 @@ export function VerifyGate() {
     const others = POSES.filter((p) => p.label !== pose.label);
     setPose(others[Math.floor(Math.random() * others.length)]);
   };
+
+  /** Issue (or re-issue) the pose challenge and show EXACTLY the pose the server
+      bound to it.
+
+      The pose the member sees and the pose the engine grades must be the same
+      server row. Issuing the challenge only when the camera opened (the pre-fix
+      behaviour) swapped the reference artwork between the pose screen and the
+      capture screen, and then graded the selfie against a pose the member never
+      saw — so even a perfect mimic read as a mismatch and the badge never
+      granted. The challenge is now issued the moment the pose screen appears,
+      re-issued on every retry (the route expires the previous live row), and the
+      camera step never touches it. */
+  const challengeInFlight = useRef(false);
+  const issueChallenge = useCallback(async (): Promise<void> => {
+    if (challengeInFlight.current) return;
+    challengeInFlight.current = true;
+    try {
+      const r = await fetch("/api/verification/challenge", {
+        method: "POST",
+        headers: await authHeaders(),
+      });
+      if (!r.ok) return; /* keep whatever pose is on screen: if it came from a
+        live challenge row, that row is still the one grading this attempt. */
+      const j = (await r.json().catch(() => ({}))) as {
+        livenessToken?: string;
+        pose?: { label?: string; demo?: string };
+      };
+      if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
+      if (typeof j.pose?.label === "string" && j.pose.label.length > 0) {
+        setPose((prev) => ({
+          label: j.pose!.label as string,
+          demo: typeof j.pose!.demo === "string" ? j.pose!.demo : prev.demo,
+        }));
+        setPoseSource("server");
+      } else {
+        /* Challenge write failed: keep the local sample so the member is never
+           blocked by a control we failed to deliver — the attempt is still
+           recorded with an explicit freshness verdict. */
+        setPoseSource("local");
+      }
+    } catch {
+      /* no challenge: the attempt degrades to unverified-freshness, not to an error */
+    } finally {
+      challengeInFlight.current = false;
+    }
+  }, []);
 
   /* Other screens (Profile tab, Settings) can summon this flow. */
   useEffect(() => {
@@ -259,47 +305,26 @@ export function VerifyGate() {
   };
 
   useEffect(() => {
+    if (step === "pose") {
+      /* The pose screen is where the challenge is born: what the member copies
+         here is exactly what /api/verification/check will grade against. */
+      void issueChallenge();
+    }
     if (step === "camera") {
       void startCamera();
-      /* Failures here are deliberately non-fatal to the flow: with no token the
-         server still records the attempt and returns an explicit
-         `freshness: "missing"` verdict, it just does not grant the badge. A member
-         must never be blocked by a control we failed to deliver. */
-      void (async () => {
-        try {
-          const r = await fetch("/api/verification/challenge", { method: "POST", headers: await authHeaders() });
-          if (!r.ok) return;
-          const j = (await r.json().catch(() => ({}))) as {
-            livenessToken?: string;
-            pose?: { label?: string; demo?: string };
-          };
-          if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
-          /* The pose to perform is the SERVER's, not the one we sampled locally. Until
-             this landed the client picked its own pose and the engine graded that, which
-             proved nothing: there was nothing to predict. If the server gave us no pose
-             (challenge write failed) we keep the local sample so the member is never
-             blocked by a control we failed to deliver — the attempt is still recorded. */
-          if (typeof j.pose?.label === "string" && j.pose.label.length > 0) {
-            /* Functional update: this effect must not depend on `pose` (it re-runs on
-               every pose change otherwise), and reading it directly here would capture a
-               stale value from the closure. Only the demo artwork can be stale, and the
-               pool supplies a correct default. */
-            setPose((prev) => ({
-              label: j.pose!.label as string,
-              demo: typeof j.pose!.demo === "string" ? j.pose!.demo : prev.demo,
-            }));
-            setPoseSource("server");
-          } else {
-            setPoseSource("local");
-          }
-        } catch {
-          /* no token: the attempt degrades to unverified-freshness, not to an error */
-        }
-      })();
+      /* The challenge was issued on the pose screen and must NOT be re-issued
+         here: a second issue expires the row the member is currently mimicking
+         and swaps the reference artwork mid-flow. Camera and gate failures stay
+         non-fatal by design - with no token the server still records the attempt
+         and returns an explicit freshness:"missing" verdict, it just does not
+         grant the badge. A member must never be blocked by a control we failed
+         to deliver. */
+    } else {
+      stopCamera();
     }
-    else stopCamera();
+
     return stopCamera;
-  }, [step, startCamera, stopCamera]);
+  }, [step, startCamera, stopCamera, issueChallenge]);
 
   /* On-device face gate: load MediaPipe (dynamically, so it never weighs
      down the main bundle) when the camera opens, poll its verdict for the
@@ -604,7 +629,6 @@ export function VerifyGate() {
               <button
                 type="button"
                 onClick={() => {
-                  sampleNewPose();
                   setStep("pose");
                 }}
                 className="btn-ember btn-shine relative mt-6 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
@@ -664,7 +688,10 @@ export function VerifyGate() {
               </button>
               <button
                 type="button"
-                onClick={sampleNewPose}
+                onClick={() => {
+                    if (poseSource === "server") void issueChallenge();
+                    else sampleNewPose();
+                  }}
                 className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
               >
                 Show me a different pose
@@ -782,7 +809,6 @@ export function VerifyGate() {
                 type="button"
                 onClick={() => {
                   setSelfie(null);
-                  sampleNewPose(); // every retry samples a fresh pose
                   setStep("pose");
                 }}
                 className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
@@ -834,7 +860,6 @@ export function VerifyGate() {
                 type="button"
                 onClick={() => {
                   setRejectReason(null);
-                  sampleNewPose(); // fresh pose on every retry, exactly like Bumble
                   setStep("pose");
                 }}
                 className="btn-ember btn-shine relative mt-6 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
