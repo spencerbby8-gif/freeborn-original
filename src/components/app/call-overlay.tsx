@@ -28,7 +28,7 @@ import {
   type CallSignal,
   type RingPayload,
 } from "@/lib/call-bus";
-import { setCallUiActive } from "@/lib/call-ui-state";
+import { holdCallUi } from "@/lib/call-ui-state";
 
 type CallProps = {
   kind: "voice" | "video";
@@ -65,14 +65,12 @@ const RING_TIMEOUT_MS = 45_000;
 const PEER_SILENCE_MS = 35_000;
 
 export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onCallEnd, onClose }: CallProps) {
-  /* While any call screen is up, incidental chrome - like the notification
+  /* While this screen is up, incidental chrome - like the notification
      permission ask, which paints at z-[310] over this overlay's z-[200] and
-     lands exactly on the Answer/Decline and speaker/mute/end controls - stands
-     down. See src/lib/call-ui-state.ts for the measured reason. */
-  useEffect(() => {
-    setCallUiActive(true);
-    return () => setCallUiActive(false);
-  }, []);
+     lands exactly on the speaker/mute/end controls - stands down. The incoming
+     ring takes its own hold in call-listener.tsx. See src/lib/call-ui-state.ts
+     for the measured evidence. */
+  useEffect(() => holdCallUi(), []);
   const [state, setState] = useState<CallState>("preparing");
   const [detail, setDetail] = useState(role === "caller" ? "Preparing your media…" : "Answering…");
   const [seconds, setSeconds] = useState(0);

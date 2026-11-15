@@ -12,6 +12,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { callChannel, destroyChannel, getCallSession, getIncomingCall, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
+import { holdCallUi } from "@/lib/call-ui-state";
 
 const RING_AUTO_MISS_MS = 45_000;
 
@@ -27,6 +28,15 @@ export function CallListener() {
     busyRef.current = incoming !== null || active !== null;
     handledIdRef.current = active?.payload.callId ?? incoming?.callId ?? null;
   }, [incoming, active]);
+
+  /* The incoming ring is plain JSX in this component (CallOverlay only mounts
+     once a call is answered or placed), so it takes its own hold: while it is
+     up, the notification-permission ask - which paints at z-[310], straight on
+     top of Answer/Decline - stands down. See src/lib/call-ui-state.ts. */
+  useEffect(() => {
+    if (incoming === null) return;
+    return holdCallUi();
+  }, [incoming]);
 
   /*
    * A ring for the call this member is ALREADY handling is a duplicate
