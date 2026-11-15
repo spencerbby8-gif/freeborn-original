@@ -945,6 +945,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   className="block max-h-[30dvh] w-full space-y-3 overflow-y-auto p-5 text-left"
                 >
                   <div>
+                    {profile.headline ? (
+                      <p className="line-clamp-2 mb-1.5 text-[13.5px] leading-relaxed text-white/80">
+                        {profile.headline}
+                      </p>
+                    ) : null}
                     <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
                     <p className="mt-1.5 text-[14px] leading-relaxed text-ivory/90">{profile.promptAnswer}</p>
                     {profile.inCommon &&
