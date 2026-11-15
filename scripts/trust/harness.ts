@@ -2712,6 +2712,27 @@ console.log("\n[29] private chat broadcast and bounded fallback");
   ok("[29] browser chat refreshes auth, joins privately and rejects stale async connects",
     bus.includes("await client.realtime.setAuth()") && bus.includes("private: true") &&
     bus.includes("version !== connectionVersion") && bus.indexOf("await client.realtime.setAuth()") < bus.indexOf(".channel(chatChannelName"));
+
+  /* The sender-side relay is the ONLY transport a typing notice has: unlike a
+     message it is never persisted to chat_signals, so a relay that silently
+     sends nothing means the indicator never appears. It used to compare the
+     bare topic from chatChannelName() against channel.topic, which supabase-js
+     stores PREFIXED ("realtime:fb-chat:<id>"), so it never matched. Proved live
+     on a preview walk: both channels joined with phx_reply ok, keystrokes fired
+     the relay, and zero frames left the sender. */
+  const chatSyncRules = await import("@/lib/chat-sync");
+  ok("[29] the relay can find its channel by the wire topic supabase-js actually stores",
+    chatSyncRules.isChatChannelForMatch("realtime:fb-chat:m1", "fb-chat:m1", "m1") === true &&
+    chatSyncRules.isChatChannelForMatch("fb-chat:m1", undefined, "m1") === true &&
+    chatSyncRules.isChatChannelForMatch(undefined, "fb-chat:m1", "m1") === true);
+  ok("[29] that lookup never mistakes another channel for this conversation",
+    chatSyncRules.isChatChannelForMatch("realtime:fb-chat:m2", "fb-chat:m2", "m1") === false &&
+    chatSyncRules.isChatChannelForMatch("realtime:fb-ring:m1", undefined, "m1") === false &&
+    chatSyncRules.isChatChannelForMatch(undefined, undefined, "m1") === false &&
+    chatSyncRules.isChatChannelForMatch("realtime:fb-chat:m1", "fb-chat:m1", "") === false);
+  ok("[29] the relay looks channels up with that predicate, not by bare-topic equality",
+    bus.includes("isChatChannelForMatch(c.topic, c.subTopic, matchId)") &&
+    !bus.includes("c.topic === chatChannelName(matchId)"));
   ok("[29] message, clear and sever writes schedule a server nudge after their durable mutations",
     msg.includes('scheduleChatNotice(request, matchId, "message")') &&
     msg.includes('scheduleChatNotice(request, matchId, "cleared")') &&

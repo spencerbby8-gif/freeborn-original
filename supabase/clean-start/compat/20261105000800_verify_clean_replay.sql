@@ -3,13 +3,17 @@ do $$
 declare n integer;
 begin
   select count(*) into n from pg_tables where schemaname='public';
-  if n <> 43 then raise exception 'clean replay public table count %, expected 43',n; end if;
+  -- 44 as of db/migrations/2026-11-16-message-requests.sql (message_requests).
+  if n <> 44 then raise exception 'clean replay public table count %, expected 44',n; end if;
   select count(*) into n from information_schema.columns col join pg_class t on t.relname=col.table_name join pg_namespace ns on ns.oid=t.relnamespace and ns.nspname=col.table_schema where col.table_schema='public' and t.relkind='r';
-  if n <> 442 then raise exception 'clean replay public column count %, expected 442',n; end if;
+  -- 448 = 442 + message_requests' six columns.
+  if n <> 448 then raise exception 'clean replay public column count %, expected 448',n; end if;
   select count(*) into n from pg_indexes where schemaname='public';
-  if n <> 126 then raise exception 'clean replay public index count %, expected 126',n; end if;
+  -- 130 = 126 + pkey + pair-unique + recipient + sender indexes.
+  if n <> 130 then raise exception 'clean replay public index count %, expected 130',n; end if;
   select count(*) into n from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace s on s.oid=t.relnamespace where s.nspname='public' and c.contype='c';
-  if n <> 81 then raise exception 'clean replay check constraint count %, expected 81',n; end if;
+  -- 82 = 81 + message_requests_status_check.
+  if n <> 82 then raise exception 'clean replay check constraint count %, expected 82',n; end if;
   select count(*) into n from pg_class t join pg_namespace ns on ns.oid=t.relnamespace where ns.nspname='public' and t.relkind='r' and (not t.relrowsecurity or not t.relforcerowsecurity);
   if n <> 0 then raise exception 'clean replay has % tables without enabled+forced RLS',n; end if;
   select count(*) into n from information_schema.table_privileges where table_schema='public' and grantee='anon';

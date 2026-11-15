@@ -970,6 +970,40 @@ export const supportRequests = pgTable("support_requests", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
 });
 
+/* --- Message requests (owner addendum 2026-11-15) ---------------------------
+ * Tapping "Message <name>" on a profile you have NOT mutually liked used to do
+ * nothing at all: /api/chat/start refused with 409 and the button swallowed it.
+ * A member's first reach-out is now a REQUEST the other member accepts or
+ * declines; accepting mints the match row every other part of chat already
+ * understands, so threads, topics, policies and the call engine stay untouched.
+ *
+ * Status transitions the RLS policies allow, and nothing else:
+ *   sender:    pending -> declined            (cancel)
+ *   recipient: pending -> accepted|declined   (respond)
+ * A sender can never accept their own request: the update policy for the
+ * sender's side only permits the declined state. */
+export const messageRequests = pgTable(
+  "message_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fromId: uuid("from_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    toId: uuid("to_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("message_requests_status_check", sql`${t.status} in ('pending','accepted','declined')`),
+    uniqueIndex("message_requests_pair_idx").on(t.fromId, t.toId),
+    index("message_requests_recipient_idx").on(t.toId, t.status),
+    index("message_requests_sender_idx").on(t.fromId, t.status),
+  ],
+);
+
 /* --- Cross-account identity evidence --------------------------------------
    Recovered design (see RE-MECHANICS.md): Tinder stores a face map/vector "to verify
    new photos, detect fraud, and prevent duplicate accounts" and Hinge "scans for

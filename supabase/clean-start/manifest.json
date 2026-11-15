@@ -12,11 +12,11 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 51,
-    "publicTables": 43,
-    "publicColumns": 442,
-    "publicIndexes": 126,
-    "publicChecks": 81
+    "steps": 52,
+    "publicTables": 44,
+    "publicColumns": 448,
+    "publicIndexes": 130,
+    "publicChecks": 82
   },
   "steps": [
     {
@@ -320,10 +320,16 @@
       "sha256": "89c702c19a69b49d5b7dd487d96576759db5fd953106df21aa023f3c25429393"
     },
     {
+      "version": "20261116000000",
+      "name": "message_requests",
+      "path": "db/migrations/2026-11-16-message-requests.sql",
+      "sha256": "3895c769e2e8a9b9713c74e561c0668e9f8380314e4639e9edad38ccf860aacc"
+    },
+    {
       "version": "20261105000800",
       "name": "clean_replay_verification",
       "path": "supabase/clean-start/compat/20261105000800_verify_clean_replay.sql",
-      "sha256": "de339277262645fe1c421d98d3bda2cfc160fb7040b13a571f65ddcc75c73b69"
+      "sha256": "3cc7c81c64c81a29b6307e4904bcaadcccf1e5aaada2768fbfd28fdc8dec565d"
     }
   ]
 }

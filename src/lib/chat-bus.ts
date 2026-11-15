@@ -22,6 +22,7 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   SYNC_LIMITS,
   chatChannelName,
+  isChatChannelForMatch,
   nextPhase,
   reconnectDelayMs,
   shouldGiveUpReconnecting,
@@ -64,8 +65,13 @@ function nowIso(): string {
 export function relayMessageNotice(matchId: string, kind: ChatNotice["kind"] = "message"): void {
   try {
     const client = createSupabaseBrowserClient();
-    // No getChannel() in this supabase-js version; find it by topic among the client's channels.
-    const ch = client.getChannels().find((c) => c.topic === chatChannelName(matchId));
+    /* No getChannel() in this supabase-js version; find it by topic among the
+       client's channels. supabase-js stores the WIRE topic ("realtime:fb-chat:<id>")
+       on .topic and the bare name on .subTopic, so comparing .topic to
+       chatChannelName() alone never matched and this relay silently sent nothing
+       at all — which left the typing indicator unreachable, since a typing notice
+       has no durable path. isChatChannelForMatch() accepts both spellings. */
+    const ch = client.getChannels().find((c) => isChatChannelForMatch(c.topic, c.subTopic, matchId));
     if (!ch) return;
     if ((ch.state as string) !== "joined" && (ch.state as string) !== "SUBSCRIBED") return;
     void ch.send({ type: "broadcast", event: SYNC_EVENT, payload: { kind, at: nowIso() } });
