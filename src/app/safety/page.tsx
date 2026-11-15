@@ -3,14 +3,21 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 
+import { ogCard } from "@/lib/site";
+import { PageStructuredData } from "@/components/seo/page-structured-data";
+
 export const metadata: Metadata = {
   title: "Safety & trust",
   description:
     "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
-  robots: { index: true, follow: true },
   /* Without this the page inherits the sitewide root canonical and tells search
      engines that /safety is a duplicate of the homepage. */
   alternates: { canonical: "/safety" },
+  /* Without a per-page og:url every shared /safety link would carry the layout's
+     og:url (the homepage) — the same attribution bug the canonical fix removed,
+     one tag over. og:title/og:description are set explicitly too, so the card
+     matches the page a person actually lands on. */
+  openGraph: ogCard("/safety", "Safety & trust · Freeborn", "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold."),
 };
 
 const iconProps = {
@@ -100,6 +107,7 @@ const sections = [
 export default function SafetyPage() {
   return (
     <main className="night-field min-h-[100dvh]">
+      <PageStructuredData path="/safety" name="Safety & trust" description="How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold." />
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
         <Link href="/" className="transition hover:opacity-80">
           <Wordmark size="md" />

@@ -143,9 +143,54 @@ export function absolute(path: string = "/"): string {
  * sitemap-vs-noindex contradiction happened. Keep the two in step.
  */
 export const INDEXABLE_PATHS = [
-  { path: "/", priority: 1, changeFrequency: "weekly" as const },
-  { path: "/safety", priority: 0.8, changeFrequency: "monthly" as const },
-  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const },
-  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const },
-  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const },
+  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-15" },
+  { path: "/safety", priority: 0.8, changeFrequency: "monthly" as const, lastModified: "2026-11-14" },
+  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
+  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
+  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-10-19" },
 ];
+
+/**
+ * The social share card, and the only image any crawler or messenger sees when a
+ * Freeborn link is pasted somewhere.
+ *
+ * Reverse-engineering the platforms' own crawler-facing HTML (B13, 2026-11-15)
+ * showed what the winners emit: TikTok serves Googlebot `og:image` plus
+ * `og:image:alt/width/height` on every content page and a trimmed og-only page to
+ * Twitterbot; Facebook serves Googlebot the full og set WITH `og:image:alt` plus a
+ * complete twitter set including `twitter:image` and `twitter:image:alt`; Google's
+ * own documentation pages carry `og:image` with explicit width and height. Freeborn
+ * declared `twitter:card: summary_large_image` sitewide while shipping NO image at
+ * all — a large-image card with no image renders as a text-only stub in every
+ * messenger and SERP feature that honours the card type.
+ *
+ * The file is the real asset at public/og/cover-1200x630.png (1200x630 exactly,
+ * the size Facebook and Twitter document for large cards). Width and height are
+ * declared so crawlers can lay the card out before fetching, and alt text is
+ * declared because both TikTok and Facebook ship og:image:alt and screen readers
+ * read shared cards too.
+ */
+/**
+ * The openGraph block for a page that keeps the sitewide share card. Next merges
+ * page metadata over layout metadata field-by-field, and `openGraph` is one
+ * field: a page-level openGraph REPLACES the layout's, images included. So any
+ * page that wants its own og:url (and every indexable page should — inheriting
+ * the homepage og:url misattributes the shared card) must carry the card itself.
+ * This helper is the single place that joins the two, so a page can never set a
+ * per-page og:url and silently drop the og:image.
+ */
+export const ogCard = (path: string, title: string, description: string) => ({
+  url: path,
+  title,
+  description,
+  images: [
+    { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: OG_IMAGE.alt },
+  ],
+});
+
+export const OG_IMAGE = {
+  path: "/og/cover-1200x630.png",
+  width: 1200,
+  height: 630,
+  alt: "Freeborn — Date like you mean it. A values-aligned dating platform for health autonomy, natural living and lasting commitment.",
+} as const;

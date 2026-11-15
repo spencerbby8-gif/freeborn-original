@@ -9,14 +9,21 @@ import {
   OPERATOR_FORM,
   OPERATOR_NAME,
   SITE_NAME,
+  ogCard
 } from "@/lib/site";
+
+import { PageStructuredData } from "@/components/seo/page-structured-data";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
     "The agreement between you and Freeborn: eligibility, your account, the community standard, verification and moderation, your content, liability, and how either side ends it.",
   alternates: { canonical: "/terms" },
-  robots: { index: true, follow: true },
+  /* Without a per-page og:url every shared /terms link would carry the layout's
+     og:url (the homepage) — the same attribution bug the canonical fix removed,
+     one tag over. og:title/og:description are set explicitly too, so the card
+     matches the page a person actually lands on. */
+  openGraph: ogCard("/terms", "Terms of Service · Freeborn", "The agreement between you and Freeborn: eligibility, your account, the community standard, verification and moderation, your content, liability, and how either side ends it."),
 };
 
 /**
@@ -35,7 +42,9 @@ export const metadata: Metadata = {
  */
 export default function TermsPage() {
   return (
-    <LegalShell
+    <>
+      <PageStructuredData path="/terms" name="Terms of Service" description="The agreement between you and Freeborn: eligibility, your account, the community standard, verification and moderation, your content, liability, and how either side ends it." />
+      <LegalShell
       eyebrow="Terms of Service"
       title={
         <>
@@ -457,5 +466,6 @@ export default function TermsPage() {
         </p>
       </Clause>
     </LegalShell>
+    </>
   );
 }
