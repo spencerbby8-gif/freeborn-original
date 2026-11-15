@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { retrySrcFor } from "@/lib/api-response";
+import { useAuthedMedia } from "@/lib/authed-media";
 
 /**
  * An <img> that says what happened.
@@ -84,6 +85,15 @@ export function PhotoImage({ src, alt, className = "", imgClassName = "object-co
 
   const activeSrc = attempt === 0 ? src : (retrySrcFor(src, attempt) ?? src);
 
+  /* Participant-only media cannot be loaded by a bare <img>. The element sends
+     no Authorization header and this app keeps its session in localStorage, not
+     cookies, so /api/chat/media/:id answers 401 and the member sees a broken
+     photo. useAuthedMedia fetches those bytes with the member's own token and
+     hands back a local blob URL; public storage objects pass straight through,
+     so every existing call site keeps behaving exactly as before. */
+  const media = useAuthedMedia(activeSrc);
+
+
   if (state === "failed") {
     return (
       <button
@@ -120,7 +130,10 @@ export function PhotoImage({ src, alt, className = "", imgClassName = "object-co
         />
       ) : null}
       <img
-        src={activeSrc}
+        /* If the authorised fetch failed, fall back to the plain src so the
+           element's own onError fires and the existing retry ladder runs -
+           bounded by maxRetries, ending in the "Didn't load" tile. */
+        src={media.status === "failed" ? activeSrc : media.src || undefined}
         alt={alt}
         draggable={false}
         loading={priority ? "eager" : "lazy"}

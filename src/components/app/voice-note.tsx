@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useAuthedMedia } from "@/lib/authed-media";
 
 export function fmtClock(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -64,6 +65,11 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
   const [progress, setProgress] = useState(0);
   const [rate, setRate] = useState(1);
   const [failed, setFailed] = useState(false);
+  /* The note is stored behind /api/chat/media/:id, which a bare <audio src>
+     cannot authenticate to (401 - no header, and the session lives in
+     localStorage, not cookies). Fetch it with the member's own token and play
+     the local blob instead. See src/lib/authed-media.ts. */
+  const media = useAuthedMedia(url);
   const [dur, setDur] = useState<number | null>(seconds ?? null);
   const bars = useMemo(() => seededBars(url, 30), [url]);
   const rateRef = useRef(1);
@@ -175,7 +181,11 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     }
   };
 
-  if (failed) {
+  /* Two different failures, one honest answer. `failed` is a decode error (the
+     bytes arrived and this device has no codec for them); media.status is an
+     authorised-fetch failure (the attachment is gone, or the conversation
+     ended). Derived at render rather than pushed into state from an effect. */
+  if (failed || media.status === "failed") {
     /* This device could not decode the recording. Replacing the waveform with a
        bare <audio controls> - the old fallback - just showed a second dead
        player, because a note stored as Opus-in-WebM has no iOS decoder and a
@@ -190,7 +200,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
           intact &mdash; download it to listen.
         </p>
         <a
-          href={url}
+          href={media.src || url}
           download
           className="inline-flex w-fit items-center rounded-full bg-white/25 px-3.5 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-white/35 active:scale-95"
         >
@@ -216,7 +226,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
         if (dx < -48 && Math.abs(dx) > Math.abs(dy) * 1.6) stopAndReset();
       }}
     >
-      <audio ref={audioRef} src={url} preload="auto" onError={() => setFailed(true)} />
+      <audio ref={audioRef} src={media.src || undefined} preload="auto" onError={() => setFailed(true)} />
       <button
         type="button"
         onClick={toggle}
