@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
+import { AuthedImg } from "@/components/ui/authed-media";
 import { PhotoLightbox } from "./photo-lightbox";
 import { EndConversationDialog, type EndConversationKind } from "./unmatch-dialog";
 import { readJsonSafe } from "@/lib/api-response";
@@ -653,7 +654,7 @@ export function ProfileView({
                   }}
                 >
                   {photos.map((src, i) => (
-                    <img
+                    <AuthedImg
                       key={i}
                       src={src}
                       alt={`${profile.name}, photo ${i + 1}`}

@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useAuthedMedia } from "@/lib/authed-media";
 
 export function fmtClock(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -64,6 +65,11 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
   const [progress, setProgress] = useState(0);
   const [rate, setRate] = useState(1);
   const [failed, setFailed] = useState(false);
+  /* The note is stored behind /api/chat/media/:id, which a bare <audio src>
+     cannot authenticate to (401 - no header, and the session lives in
+     localStorage, not cookies). Fetch it with the member's own token and play
+     the local blob instead. See src/lib/authed-media.ts. */
+  const media = useAuthedMedia(url);
   const [dur, setDur] = useState<number | null>(seconds ?? null);
   const bars = useMemo(() => seededBars(url, 30), [url]);
   const rateRef = useRef(1);
@@ -175,8 +181,33 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
     }
   };
 
-  if (failed) {
-    return <audio src={url} controls preload="auto" className="h-10 w-[250px] max-w-full" />;
+  /* Two different failures, one honest answer. `failed` is a decode error (the
+     bytes arrived and this device has no codec for them); media.status is an
+     authorised-fetch failure (the attachment is gone, or the conversation
+     ended). Derived at render rather than pushed into state from an effect. */
+  if (failed || media.status === "failed") {
+    /* This device could not decode the recording. Replacing the waveform with a
+       bare <audio controls> - the old fallback - just showed a second dead
+       player, because a note stored as Opus-in-WebM has no iOS decoder and a
+       404 or an expired id plays nowhere. Notes recorded before the recorder
+       started preferring MP4 are already in the store in that format, so this
+       path is reached by real members, not only by broken links. Say what
+       happened and hand over the file, which any device can open. */
+    return (
+      <div className="flex w-[262px] max-w-full flex-col gap-2 py-1">
+        <p className="text-[12.5px] leading-snug text-white/80">
+          This voice note won&rsquo;t play on your device. The recording itself is
+          intact &mdash; download it to listen.
+        </p>
+        <a
+          href={media.src || url}
+          download
+          className="inline-flex w-fit items-center rounded-full bg-white/25 px-3.5 py-1.5 text-[12.5px] font-bold text-white transition hover:bg-white/35 active:scale-95"
+        >
+          Download voice note
+        </a>
+      </div>
+    );
   }
 
   return (
@@ -195,7 +226,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
         if (dx < -48 && Math.abs(dx) > Math.abs(dy) * 1.6) stopAndReset();
       }}
     >
-      <audio ref={audioRef} src={url} preload="auto" onError={() => setFailed(true)} />
+      <audio ref={audioRef} src={media.src || undefined} preload="auto" onError={() => setFailed(true)} />
       <button
         type="button"
         onClick={toggle}
@@ -380,7 +411,21 @@ export function VoiceRecorder({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
       streamRef.current = stream;
-      const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+      /* Order decides what the RECIPIENT can play, so it is not a style choice.
+         Opus-in-WebM - what Chrome and Android pick, and what this list used to
+         ask for first - has no decoder on iOS at all, so every voice note sent
+         from a desktop or an Android to an iPhone was unplayable no matter how
+         well the server streamed it. MP4/AAC plays on iOS, macOS, Windows and
+         current Chrome and Android, so it is asked for first; WebM stays as the
+         fallback for browsers that cannot record MP4. isTypeSupported keeps this
+         honest per device: nothing is assumed about the browser. */
+      const candidates = [
+        "audio/mp4;codecs=mp4a.40.2",
+        "audio/mp4",
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/ogg;codecs=opus",
+      ];
       const mimeType = candidates.find((c) => MediaRecorder.isTypeSupported(c));
       const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       recRef.current = rec;

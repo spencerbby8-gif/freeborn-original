@@ -1,6 +1,7 @@
 "use client";
 
 import { PhotoImage } from "@/components/ui/photo-image";
+import { AuthedVideo } from "@/components/ui/authed-media";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -241,7 +242,7 @@ function VideoTile({
       aria-label="Open video full size"
       className="relative block overflow-hidden rounded-xl transition active:scale-[0.98]"
     >
-      <video
+      <AuthedVideo
         ref={ref}
         src={url}
         muted
@@ -1636,7 +1637,7 @@ function Thread({
             </p>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-            <video src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
+            <AuthedVideo src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
           </div>
         </div>
       ) : null}
