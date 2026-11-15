@@ -54,6 +54,14 @@ type CallState =
   | "failed";
 
 const RING_TIMEOUT_MS = 45_000;
+/**
+ * How long a live call tolerates total silence from the peer before it is
+ * declared over. The keepalive ping goes out every 10s, so this is three and a
+ * half missed pings - long enough to ride out a burst of packet loss or a
+ * Realtime reconnect, short enough that a member is not left staring at a call
+ * screen for a person who is no longer there.
+ */
+const PEER_SILENCE_MS = 35_000;
 
 export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onCallEnd, onClose }: CallProps) {
   const [state, setState] = useState<CallState>("preparing");
@@ -86,6 +94,9 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
   const acceptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const offerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingWatchRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /* Last moment ANYTHING arrived from the peer: ping, SDP, ICE or control. */
+  const peerSeenRef = useRef(0);
   const answerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const answerSentRef = useRef<RTCSessionDescriptionInit | null>(null);
   /** ICE candidates that arrive before the remote description are buffered,
@@ -131,6 +142,10 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     if (pingTimerRef.current) {
       clearInterval(pingTimerRef.current);
       pingTimerRef.current = null;
+    }
+    if (pingWatchRef.current) {
+      clearInterval(pingWatchRef.current);
+      pingWatchRef.current = null;
     }
     if (answerTimerRef.current) {
       clearInterval(answerTimerRef.current);
@@ -374,6 +389,36 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
                 }
               }, 10_000);
             }
+            /*
+             * ...and the other half of the keepalive, which was missing.
+             *
+             * The ping above was being SENT every 10s and then thrown away: the
+             * control handler dealt with accept / declined / busy / hangup and
+             * silently dropped ping, so nothing ever noticed a peer that had
+             * stopped sending them. Owner report B11 ("never holds"), measured
+             * live: answering a call sets the server session to active with
+             * expires_at = now + 4 hours, and POST /api/calls/session refuses to
+             * mint a new call once a member has 3 live sessions. A call that died
+             * without a clean hangup - app killed, network dropped, laptop shut -
+             * therefore sat "active" for four hours, and three of them locked the
+             * member out of calling entirely with "Too many call attempts. Please
+             * wait a moment." Hit exactly that during this walk.
+             *
+             * cleanup(true) sends the hangup AND PATCHes the session to ended, so
+             * the slot is released in ~35s instead of 4h, and the member is told
+             * the truth instead of being left on a live-looking screen.
+             */
+            peerSeenRef.current = Date.now();
+            if (!pingWatchRef.current) {
+              pingWatchRef.current = setInterval(() => {
+                if (closedRef.current || !peerSeenRef.current) return;
+                const silentFor = Date.now() - peerSeenRef.current;
+                if (silentFor < PEER_SILENCE_MS) return;
+                traceCall(callIdRef.current, role, "peer-silence", `silentFor=${Math.round(silentFor / 1000)}s`);
+                cleanup(true);
+                setStateBoth("failed", `${peer.name} stopped responding. The call has ended.`);
+              }, 5_000);
+            }
             return;
           }
           if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
@@ -408,10 +453,14 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
         const chan = await callChannel(callIdRef.current);
         if (cancelled || closedRef.current) { destroyChannel(chan); return; }
         chanRef.current = chan;
-        chan.on("broadcast", { event: "signal" }, (msg) => void handleSignal(msg.payload as CallSignal));
+        chan.on("broadcast", { event: "signal" }, (msg) => {
+          peerSeenRef.current = Date.now();
+          void handleSignal(msg.payload as CallSignal);
+        });
         chan.on("broadcast", { event: "control" }, (msg) => {
           const p = msg.payload as CallSignal;
           if (closedRef.current) return;
+          peerSeenRef.current = Date.now();
           if (p.t === "accept" || p.t === "declined" || p.t === "busy") {
             traceCall(callIdRef.current, role, `rx-${p.t}`);
           }
