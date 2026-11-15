@@ -9,7 +9,7 @@
 import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { callChannel, destroyChannel, getCallSession, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
+import { callChannel, destroyChannel, getCallSession, getIncomingCall, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
 
@@ -23,6 +23,38 @@ export function CallListener() {
   useEffect(() => {
     busyRef.current = incoming !== null || active !== null;
   }, [incoming, active]);
+
+  /* The floor under the broadcast ring. The socket above is the fast path; this
+     poll is what still delivers a ring when the socket is not joined yet, is
+     mid-reconnect, or is blocked outright - and it needs no Realtime at all.
+     Identity, match and kind still come from the server-issued session, never
+     from a payload, so nothing about the trust model changes. */
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || busyRef.current) return;
+      const session = await getIncomingCall();
+      if (cancelled || busyRef.current || !session) return;
+      /* The route already scopes this to the signed-in member's own live rings;
+         this is the cheap client-side sanity check on top. */
+      if (session.status !== "ringing") return;
+      const payload: RingPayload = {
+        callId: session.id,
+        matchId: session.matchId,
+        kind: session.kind,
+        from: session.peer,
+      };
+      traceCall(payload.callId, "callee", "rx-ring-poll");
+      setIncoming(payload);
+      startRingtone();
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
