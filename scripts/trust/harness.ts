@@ -2901,7 +2901,8 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     !sitemap.includes("lastModified: now,"));
   const subpages = ["safety", "privacy", "terms", "cookies"].map((slug) => src(`src/app/${slug}/page.tsx`));
   ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
-    subpages.every((f) => f.includes("openGraph: {") && f.includes("<PageStructuredData path=")) &&
+    subpages.every((f) => f.includes("ogCard(") && f.includes("<PageStructuredData path=")) &&
+    (layout.match(/"max-image-preview": "large"/g) || []).length >= 2 &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "BreadcrumbList"') &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "WebPage"'));
   ok("[31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages",

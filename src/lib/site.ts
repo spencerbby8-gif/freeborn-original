@@ -170,6 +170,24 @@ export const INDEXABLE_PATHS = [
  * declared because both TikTok and Facebook ship og:image:alt and screen readers
  * read shared cards too.
  */
+/**
+ * The openGraph block for a page that keeps the sitewide share card. Next merges
+ * page metadata over layout metadata field-by-field, and `openGraph` is one
+ * field: a page-level openGraph REPLACES the layout's, images included. So any
+ * page that wants its own og:url (and every indexable page should — inheriting
+ * the homepage og:url misattributes the shared card) must carry the card itself.
+ * This helper is the single place that joins the two, so a page can never set a
+ * per-page og:url and silently drop the og:image.
+ */
+export const ogCard = (path: string, title: string, description: string) => ({
+  url: path,
+  title,
+  description,
+  images: [
+    { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: OG_IMAGE.alt },
+  ],
+});
+
 export const OG_IMAGE = {
   path: "/og/cover-1200x630.png",
   width: 1200,

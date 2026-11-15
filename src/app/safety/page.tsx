@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/wordmark";
 
+import { ogCard } from "@/lib/site";
 import { PageStructuredData } from "@/components/seo/page-structured-data";
 
 export const metadata: Metadata = {
   title: "Safety & trust",
   description:
     "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
-  robots: { index: true, follow: true },
   /* Without this the page inherits the sitewide root canonical and tells search
      engines that /safety is a duplicate of the homepage. */
   alternates: { canonical: "/safety" },
@@ -17,11 +17,7 @@ export const metadata: Metadata = {
      og:url (the homepage) — the same attribution bug the canonical fix removed,
      one tag over. og:title/og:description are set explicitly too, so the card
      matches the page a person actually lands on. */
-  openGraph: {
-    url: "/safety",
-    title: "Safety & trust · Freeborn",
-    description: "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
-  },
+  openGraph: ogCard("/safety", "Safety & trust · Freeborn", "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold."),
 };
 
 const iconProps = {

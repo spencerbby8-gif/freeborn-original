@@ -81,6 +81,10 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    /* TikTok ships max-image-preview:large on its GENERIC robots meta (Google's
+       own pages likewise), because SERP image features and rich cards read the
+       generic tag; the googleBot block below only overrides for Google. */
+    "max-image-preview": "large",
     googleBot: {
       index: true,
       follow: true,
