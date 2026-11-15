@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import { openVerifyFlow } from "./verify-modal";
+import { loadFilters, saveFilters } from "./filters";
 import { FreebornSelect } from "@/components/select-menu";
 import { showToast } from "@/components/toast-host";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
@@ -1223,8 +1224,10 @@ export function SettingsView() {
               data-search="standing preferences filters session defaults note"
               className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-[12px] font-semibold leading-[1.5] text-[var(--color-sand)]"
             >
-              These apply to every session. The Filters panel can narrow a single
-              session further.
+                These apply to every session, and the Filters panel on the discovery
+                screen reads and writes the same values - change them in either door
+                and the other follows. The panel can still narrow a single session
+                further with interests, lifestyle and more.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
@@ -1337,12 +1340,29 @@ export function SettingsView() {
             </div>
             <SaveRow
               state={discoveryState}
-              onSave={async () => {
-                setDiscoveryState("saving");
-                const ok = await post({ discovery: d });
-                setDiscoveryState(ok ? "saved" : "error");
-                setTimeout(() => setDiscoveryState("idle"), 2500);
-              }}
+                onSave={async () => {
+                  setDiscoveryState("saving");
+                  const ok = await post({ discovery: d });
+                  if (ok) {
+                    /* B6: one preference, two doors. Mirror what was just saved into
+                       the device filter store so the discovery panel, its active-count
+                       badge and the deck apply exactly these values immediately, and
+                       opening the panel shows the standing preference, not a stale
+                       session copy. saveFilters dispatches FILTERS_EVENT, which the
+                       deck listens to, so an open deck re-queries at once. */
+                    saveFilters({
+                      ...loadFilters(),
+                      ageMin: d.ageMin,
+                      ageMax: d.ageMax,
+                      distance: d.distanceKm,
+                      genders: d.showGenders,
+                      verifiedOnly: d.verifiedOnly,
+                      vax: d.vaccinationPreference,
+                    });
+                  }
+                  setDiscoveryState(ok ? "saved" : "error");
+                  setTimeout(() => setDiscoveryState("idle"), 2500);
+                }}
             />
           </div>
         ) : null}
