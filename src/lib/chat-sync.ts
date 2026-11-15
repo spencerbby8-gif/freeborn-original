@@ -354,6 +354,47 @@ export function chatChannelName(matchId: string): string {
   return `${SYNC_TOPICS.channelPrefix}${matchId}`;
 }
 
+/**
+ * The prefix supabase-js puts on the wire. `client.channel(chatChannelName(id))`
+ * builds `new RealtimeChannel("realtime:" + topic)`, so the object it hands back
+ * carries the PREFIXED string on `.topic` and the bare name on `.subTopic`.
+ */
+export const REALTIME_WIRE_PREFIX = "realtime:";
+
+/**
+ * Does this Realtime channel carry `matchId`'s conversation?
+ *
+ * WHY THIS EXISTS — a defect this predicate is the fix for, not a convenience:
+ * the sender-side relay in `chat-bus.ts` looked its channel up with
+ * `c.topic === chatChannelName(matchId)`. `chatChannelName` returns the BARE
+ * topic (`fb-chat:<id>`) while `c.topic` holds the WIRE topic
+ * (`realtime:fb-chat:<id>`), so the comparison never matched and
+ * `relayMessageNotice()` returned without sending a single frame — for every
+ * kind, since the day it was written. A live two-browser walk proved it: both
+ * members' channels joined with `phx_reply {"status":"ok"}` on
+ * `realtime:fb-chat:<matchId>`, keystrokes fired the relay, and zero frames
+ * left the sender.
+ *
+ * Losing the "message" relay only ever cost latency, because the durable
+ * `chat_signals` row and the server's own post-write nudge are independent of
+ * the sender's browser. A typing notice has NO durable path by design (it is
+ * content-free and deliberately never persisted), so with the relay dead the
+ * typing indicator could not appear at all.
+ *
+ * Both spellings are accepted; a different conversation, a call topic, and an
+ * empty matchId never match.
+ */
+export function isChatChannelForMatch(
+  topic: string | undefined | null,
+  subTopic: string | undefined | null,
+  matchId: string,
+): boolean {
+  if (!matchId) return false;
+  const bare = chatChannelName(matchId);
+  if (topic === bare || topic === `${REALTIME_WIRE_PREFIX}${bare}`) return true;
+  return subTopic === bare;
+}
+
 export function signalFilter(matchId: string): string {
   return `match_id=eq.${matchId}`;
 }
