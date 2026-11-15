@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { chatMedia, matches, profilePhotos, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
@@ -36,6 +36,92 @@ export const dynamic = "force-dynamic";
  *   db/migrations/2026-10-16-rls-and-media-ownership.sql — apply the migration
  *   BEFORE deploying this file.
  */
+/* ── Byte-range serving ────────────────────────────────────────────────────────
+   Safari - every iPhone, every Mac - will not play an <audio> or <video> whose
+   server cannot answer a Range request. It opens with `bytes=0-1` and expects
+   206 Partial Content carrying a Content-Range. Answered with a bare 200 and no
+   Accept-Ranges, the media element errors out immediately: that is exactly "the
+   voice note will not play" and "the video will not play", and it is why a
+   member on an iPhone heard nothing at all. Seeking needs ranges too - without
+   them there is no way to jump into the middle of a blob, so the waveform scrub
+   and the video progress bar could never move.
+
+   Only single ranges are parsed. A multi-range or malformed header falls back to
+   the whole body, which is what a browser media element always wants anyway. */
+type ByteRange = { start: number; end: number };
+
+function parseByteRange(
+  header: string | null,
+  total: number
+): ByteRange | "unsatisfiable" | null {
+  if (!header || total <= 0) return null;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!m) return null;
+  const rawStart = m[1];
+  const rawEnd = m[2];
+  if (rawStart === "" && rawEnd === "") return null;
+
+  let start: number;
+  let end: number;
+  if (rawStart === "") {
+    /* Suffix form - the last N bytes. */
+    const n = Number(rawEnd);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    start = Math.max(0, total - n);
+    end = total - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === "" ? total - 1 : Math.min(Number(rawEnd), total - 1);
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0) return null;
+  if (start >= total || start > end) return "unsatisfiable";
+  return { start, end };
+}
+
+/** Bytes backed by a plain ArrayBuffer, which is what Response accepts as a
+    body. node-postgres hands bytea back as a Buffer; the hex form is decoded
+    too rather than serving garbage if a driver or proxy ever surfaces it as
+    text. */
+function toBytes(value: unknown): Uint8Array<ArrayBuffer> {
+  if (!value) return new Uint8Array(new ArrayBuffer(0));
+  if (typeof value === "string") {
+    const hex = value.startsWith("\\x") ? value.slice(2) : value;
+    const out = new Uint8Array(new ArrayBuffer(Math.floor(hex.length / 2)));
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    return out;
+  }
+  if (value instanceof Uint8Array) {
+    const buf = new ArrayBuffer(value.byteLength);
+    new Uint8Array(buf).set(value);
+    return new Uint8Array(buf);
+  }
+  return new Uint8Array(new ArrayBuffer(0));
+}
+
+/** The whole blob - fetched only after access has been granted. */
+async function wholeMedia(id: string): Promise<Uint8Array<ArrayBuffer>> {
+  const [r] = await db
+    .select({ data: chatMedia.data })
+    .from(chatMedia)
+    .where(eq(chatMedia.id, id))
+    .limit(1);
+  return toBytes(r?.data);
+}
+
+/** One window of the blob, cut by Postgres, so answering a seek on a 20 MB
+    video does not pull 20 MB into the function. `substring` on bytea is
+    1-based and inclusive. */
+async function sliceMedia(id: string, start: number, length: number): Promise<Uint8Array<ArrayBuffer>> {
+  const [r] = await db
+    .select({
+      slice: sql<Buffer>`substring(${chatMedia.data} from ${start + 1} for ${length})`,
+    })
+    .from(chatMedia)
+    .where(eq(chatMedia.id, id))
+    .limit(1);
+  return toBytes(r?.slice);
+}
+
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const member = await getMember(request);
   // 401 uses the same JSON error shape as every other route (`{ error }`) so the
@@ -47,8 +133,19 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   if (!isUuid(id)) return badIdResponse();
 
+  /* Metadata first, bytes second. The old shape dragged the whole blob (up to
+     20 MB) out of Postgres before deciding whether this requester may see it at
+     all, and then had to send all of it in a single 200. Size comes from
+     octet_length so a Range can be answered without loading bytes nobody asked
+     for, and a rejected request now costs a metadata read instead of a
+     multi-megabyte transfer. */
   const [row] = await db
-    .select({ mime: chatMedia.mime, data: chatMedia.data, matchId: chatMedia.matchId, senderId: chatMedia.senderId })
+    .select({
+      mime: chatMedia.mime,
+      matchId: chatMedia.matchId,
+      senderId: chatMedia.senderId,
+      size: sql<number>`octet_length(${chatMedia.data})`,
+    })
     .from(chatMedia)
     .where(eq(chatMedia.id, id))
     .limit(1);
@@ -171,14 +268,34 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
   if (!decideMediaAccess(facts).allow) return new Response("Not found", { status: 404 });
 
-  return new Response(new Uint8Array(row.data), {
-    headers: {
-      "Content-Type": row.mime,
-      // private: no shared cache may store this. no-store: do not persist it.
-      // Media is immutable in principle, but privacy beats the byte savings.
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Content-Disposition": "inline",
-    },
+  const total = Number(row.size) || 0;
+  const range = parseByteRange(request.headers.get("range"), total);
+
+  const headers = new Headers({
+    "Content-Type": row.mime,
+    // private: no shared cache may store this. no-store: do not persist it.
+    // Media is immutable in principle, but privacy beats the byte savings.
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Disposition": "inline",
+    /* Advertising ranges is half the fix: a player told that ranges work asks
+       for metadata first instead of stalling on the whole file. */
+    "Accept-Ranges": "bytes",
   });
+
+  if (range === "unsatisfiable") {
+    headers.set("Content-Range", `bytes */${total}`);
+    return new Response(null, { status: 416, headers });
+  }
+
+  if (range) {
+    const body = await sliceMedia(id, range.start, range.end - range.start + 1);
+    headers.set("Content-Range", `bytes ${range.start}-${range.end}/${total}`);
+    headers.set("Content-Length", String(body.byteLength));
+    return new Response(body, { status: 206, headers });
+  }
+
+  const body = await wholeMedia(id);
+  headers.set("Content-Length", String(body.byteLength));
+  return new Response(body, { status: 200, headers });
 }
