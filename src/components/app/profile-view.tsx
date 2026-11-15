@@ -421,6 +421,40 @@ export function ProfileView({
   };
 
   const [msgBusy, setMsgBusy] = useState(false);
+  /* Is a request already flying between us? The button must say so instead of
+     offering to send a second one. */
+  const [msgRequest, setMsgRequest] = useState<"none" | "outgoing" | "incoming">("none");
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    void (async () => {
+      const t = await getAccessToken().catch(() => null);
+      if (!t || cancelled) return;
+      const res = await fetch("/api/chat/requests", {
+        headers: { Authorization: `Bearer ${t}` },
+        cache: "no-store",
+      }).catch(() => null);
+      if (!res?.ok || cancelled) return;
+      const json = (await res.json().catch(() => null)) as {
+        incoming?: Array<{ from: { id: string } }>;
+        outgoing?: Array<{ to: { id: string } }>;
+      } | null;
+      if (!json || cancelled) return;
+      if (json.outgoing?.some((r) => r.to.id === profile.id)) setMsgRequest("outgoing");
+      else if (json.incoming?.some((r) => r.from.id === profile.id)) setMsgRequest("incoming");
+      else setMsgRequest("none");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile]);
+
+  /* Owner addendum 2026-11-15: this button used to call /api/chat/start, which
+     demands a mutual like and answered 409 without one - and the 409 was
+     swallowed here, so a member tapped "Message <name>" and NOTHING happened.
+     The tap now creates a message request the other member answers in
+     Messages; if a live conversation already exists it opens it, and if THEY
+     already asked, it says so instead of queueing paper. */
   const handleMessage = async () => {
     if (!profile || msgBusy) return;
     setMsgBusy(true);
@@ -430,18 +464,41 @@ export function ProfileView({
         window.location.href = "/auth?mode=sign-in";
         return;
       }
-      const res = await fetch("/api/chat/start", {
+      const res = await fetch("/api/chat/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ with: profile.id }),
+        body: JSON.stringify({ to: profile.id }),
       });
-      if (res.ok) {
-        const json = (await res.json()) as { matchId?: string };
-        if (json.matchId) {
-          window.location.assign(`/app/chat?match=${json.matchId}`);
-          return;
-        }
+      const json = (await res.json().catch(() => null)) as
+        | { matchId?: string; requestId?: string; incomingId?: string; error?: string }
+        | null;
+      if (res.ok && json?.matchId) {
+        window.location.assign(`/app/chat?match=${json.matchId}`);
+        return;
       }
+      if (res.ok && json?.requestId) {
+        setMsgRequest("outgoing");
+        showToast({
+          tone: "success",
+          title: "Message request sent",
+          body: `${profile.name} can accept it in Messages.`,
+        });
+        return;
+      }
+      if (res.ok && json?.incomingId) {
+        setMsgRequest("incoming");
+        showToast({
+          tone: "info",
+          title: `${profile.name} already asked`,
+          body: "Their request is waiting in your Messages.",
+        });
+        return;
+      }
+      showToast({
+        tone: "error",
+        title: "Couldn't send the request",
+        body: json?.error ?? "Check your connection and try again.",
+      });
     } finally {
       setMsgBusy(false);
     }
@@ -940,14 +997,22 @@ export function ProfileView({
               ) : (
                 <button
                   type="button"
-                  onClick={() => void handleMessage()}
+                  onClick={() =>
+            msgRequest === "incoming" ? window.location.assign("/app/chat") : void handleMessage()
+          }
                   disabled={msgBusy}
                   className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
                   </svg>
-                  {msgBusy ? "Opening…" : `Message ${profile.name}`}
+                  {msgBusy
+            ? "Opening…"
+            : msgRequest === "outgoing"
+              ? `Request sent to ${profile.name}`
+              : msgRequest === "incoming"
+                ? `Respond to ${profile.name}'s request`
+                : `Message ${profile.name}`}
                 </button>
               )}
             </div>

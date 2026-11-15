@@ -1,6 +1,7 @@
 "use client";
 
 import { PhotoImage } from "@/components/ui/photo-image";
+import { Button } from "@/components/ui/button";
 import { AuthedVideo } from "@/components/ui/authed-media";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
@@ -535,6 +536,14 @@ function Thread({
   /* What the server says about THIS member's ability to write, not what the client guesses from
      `status`. A thread can be readable and unwritable at once — the member who was unmatched
      keeps the history to report from, and cannot type into it. */
+  /* B12 — the other member's keystrokes, live on the banner. A typing notice
+     extends the window by 4s; silence clears it. Ephemeral BY DESIGN: keystrokes
+     keep coming every second while someone types, so a lost notice costs a
+     moment of dots, never a message - unlike a message, which has the durable
+     signal row and the poll floor behind it (see src/lib/chat-sync.ts). */
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingUntilRef = useRef(0);
+  const lastTypingSentRef = useRef(0);
   const [threadAccess, setThreadAccess] = useState<{
     canSend: boolean;
     notice: string | null;
@@ -605,7 +614,14 @@ function Thread({
         phaseRef.current = ph;
         armPoll();
       },
-      onNotice: () => {
+      onNotice: (notice) => {
+        /* A typing notice moves the indicator and nothing else - it must not
+           cost a thread fetch per keystroke. */
+        if (notice?.kind === "typing") {
+          typingUntilRef.current = Date.now() + 4000;
+          setPeerTyping(true);
+          return;
+        }
         syncRef.current.notices += 1;
         // One fetch per wake-up, however many signals arrived: the thread is the unit of truth.
         void load().then(() => armPoll());
@@ -634,6 +650,17 @@ function Thread({
       busRef.current = null;
     };
   }, [match.id, load, armPoll]);
+
+  /* Clear the dots once the other side goes quiet. */
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (typingUntilRef.current && Date.now() > typingUntilRef.current) {
+        typingUntilRef.current = 0;
+        setPeerTyping(false);
+      }
+    }, 600);
+    return () => clearInterval(iv);
+  }, []);
 
   /* Instant snap to the latest message — the chat always opens AT the
      current conversation, never hanging at the top. */
@@ -1195,7 +1222,25 @@ function Thread({
           <div className="min-w-0">
             <p className="truncate font-display text-[16.5px] font-bold tracking-tight">{match.with.name}</p>
             <p className="flex items-center gap-1.5 truncate text-[12px] text-[var(--color-mist)]">
-              {match.with.active ? (
+              {peerTyping ? (
+                /* The live typing indicator: three staggered dots, driven by the
+                   other member's actual keystrokes over the thread channel. */
+                <span
+                  className="flex items-center gap-1.5 rounded-full border border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/10 px-2.5 py-0.5 font-bold text-[var(--color-gold-300)]"
+                  aria-label={`${match.with.name} is typing`}
+                >
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]" />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
+                    style={{ animationDelay: "0.12s" }}
+                  />
+                  <span
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
+                    style={{ animationDelay: "0.24s" }}
+                  />
+                  typing…
+                </span>
+              ) : match.with.active ? (
                 <span className="flex items-center gap-1.5 rounded-full border border-[#2fbf71]/30 bg-[#2fbf71]/10 px-2 py-0.5 font-bold text-[#5fd394]">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2fbf71]" />
                   Active now
@@ -1463,6 +1508,17 @@ function Thread({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
+            /* B12 - real keystrokes drive the other member's indicator. One
+               notice per 1.2s while keys keep coming; the bus no-ops when the
+               channel is not joined, and the dots are an accelerator, never a
+               guarantee. */
+            if (e.key.length === 1 || e.key === "Backspace") {
+              const now = Date.now();
+              if (now - lastTypingSentRef.current > 1200) {
+                lastTypingSentRef.current = now;
+                relayMessageNotice(match.id, "typing");
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (staged.length > 0) void sendPacket();
@@ -1666,12 +1722,23 @@ function Thread({
   );
 }
 
+/* Message requests in both directions (owner addendum 2026-11-15). Declared
+   above the component so the list loader's useCallback does not close over the
+   state itself (react-hooks/exhaustive-deps). */
+type RequestLists = {
+  incoming: Array<{ id: string; from: { id: string; name: string; photo: string }; createdAt: string }>;
+  outgoing: Array<{ id: string; to: { id: string; name: string; photo: string }; createdAt: string }>;
+};
+
 export function ChatView() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMatch, setOpenMatch] = useState<MatchRow | null>(null);
   const [openProfileId, setOpenProfileId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  /* Message requests (owner addendum 2026-11-15): pending asks in both
+     directions, so the Messages screen is where they are answered. */
+  const [requests, setRequests] = useState<RequestLists>({ incoming: [], outgoing: [] });
 
   const load = useCallback(async () => {
     const t = await getAccessToken();
@@ -1682,6 +1749,14 @@ export function ChatView() {
     if (res.ok) {
       const json = await res.json();
       setMatches(json.matches);
+    }
+    const rq = await fetch("/api/chat/requests", {
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      cache: "no-store",
+    }).catch(() => null);
+    if (rq?.ok) {
+      const rj = await readJsonSafe<Partial<RequestLists>>(rq);
+      if (rj) setRequests({ incoming: rj.incoming ?? [], outgoing: rj.outgoing ?? [] });
     }
     setLoading(false);
   }, []);
@@ -1696,6 +1771,35 @@ export function ChatView() {
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("freeborn:chat-thread", { detail: { open: Boolean(openMatch) } }));
   }, [openMatch]);
+
+  /* A request answered on another device - or sent at you while you sit on the
+     list - should appear without a manual refresh. Only while the LIST is open:
+     an open thread has its own sync. */
+  useEffect(() => {
+    if (openMatch || loading) return;
+    const iv = setInterval(() => queueMicrotask(() => void load()), 4000);
+    return () => clearInterval(iv);
+  }, [openMatch, loading, load]);
+
+  const respond = async (id: string, action: "accept" | "decline" | "cancel") => {
+    const t = await getAccessToken();
+    const res = await fetch(`/api/chat/requests/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+      body: JSON.stringify({ action }),
+    }).catch(() => null);
+    const json = res?.ok ? ((await res.json().catch(() => null)) as { matchId?: string } | null) : null;
+    if (json?.matchId) {
+      /* Open the brand-new thread with the same shape of data a tap on its row uses. */
+      const mr = await fetch("/api/chat/matches", { headers: t ? { Authorization: `Bearer ${t}` } : {} }).catch(() => null);
+      if (mr?.ok) {
+        const mj = (await mr.json().catch(() => null)) as { matches?: MatchRow[] } | null;
+        const found = mj?.matches?.find((m) => m.id === json.matchId);
+        if (found) setOpenMatch(found);
+      }
+    }
+    void load();
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -1742,6 +1846,64 @@ export function ChatView() {
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">
         Your matches and conversations, values already on the table.
       </p>
+
+      {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
+        <div className="mt-8">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
+            Message requests
+          </h2>
+          <div className="mt-3 space-y-2.5">
+            {requests.incoming.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center gap-3 rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] p-4"
+              >
+                <Avatar photo={r.from.photo} name={r.from.name} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-black">{r.from.name}</p>
+                  <p className="text-[12px] text-[var(--color-mist)]">wants to message you</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="brand"
+                  aria-label={`Accept message request from ${r.from.name}`}
+                  onClick={() => void respond(r.id, "accept")}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Decline message request from ${r.from.name}`}
+                  onClick={() => void respond(r.id, "decline")}
+                >
+                  Decline
+                </Button>
+              </div>
+            ))}
+            {requests.outgoing.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4"
+              >
+                <Avatar photo={r.to.photo} name={r.to.name} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-black">{r.to.name}</p>
+                  <p className="text-[12px] text-[var(--color-mist)]">Request sent · waiting for them</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Cancel message request to ${r.to.name}`}
+                  onClick={() => void respond(r.id, "cancel")}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {matches.length === 0 ? (
         <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
