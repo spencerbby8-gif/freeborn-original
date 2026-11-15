@@ -777,17 +777,14 @@ export function ProfileView({
               </div>
             </div>
 
-            {profile.verified ? (
-              <div className="rounded-[20px] border border-[var(--color-teal-300)]/25 bg-[var(--color-teal-300)]/[0.05] p-4">
-                <p className="text-[12.5px] leading-[1.75] text-[var(--color-mist)]">
-                  <strong className="font-black text-[var(--color-pearl)]">Identity checked.</strong>{" "}
-                  A pose-mimic selfie was compared with these photos by two
-                  independent engines, which confirmed a live person matching
-                  them. No ID, no documents, and no biometric template is built
-                  from the face.
-                </p>
-              </div>
-            ) : null}
+            {/* B9: the "Identity checked." paragraph was removed. It told other
+                members that a pose-mimic selfie had been compared by two
+                independent engines - implementation detail, not reassurance, and
+                it invited distrust on someone else's profile. Verification is
+                signalled by the badge at the top-right of the photo (see above);
+                how the check works is explained where the member runs it
+                (verify-modal) and on the safety page. Do not re-add engine copy
+                to other-viewed profiles. */}
 
             {/* Stances */}
             <div className="flex flex-wrap gap-2">
