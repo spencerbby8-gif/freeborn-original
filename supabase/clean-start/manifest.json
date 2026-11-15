@@ -13,10 +13,10 @@
   ],
   "expected": {
     "steps": 52,
-    "publicTables": 43,
-    "publicColumns": 442,
-    "publicIndexes": 126,
-    "publicChecks": 81
+    "publicTables": 44,
+    "publicColumns": 448,
+    "publicIndexes": 130,
+    "publicChecks": 82
   },
   "steps": [
     {
@@ -323,7 +323,7 @@
       "version": "20261116000000",
       "name": "message_requests",
       "path": "db/migrations/2026-11-16-message-requests.sql",
-      "sha256": "05888336ae42a2360dee4026a759457406da593cf636d8c9afdce51434f4491c"
+      "sha256": "3895c769e2e8a9b9713c74e561c0668e9f8380314e4639e9edad38ccf860aacc"
     },
     {
       "version": "20261105000800",

@@ -45,6 +45,19 @@ alter table public.message_requests force row level security;
 revoke all on public.message_requests from anon;
 grant select, insert, update on public.message_requests to authenticated;
 
+/* The application connects as the least-privilege runtime login created by
+   supabase/clean-start/compat/20261105000400_runtime_least_privilege.sql
+   (freeborn_runtime). That role is NOT the table owner and is NOBYPASSRLS, so
+   it needs an explicit DML grant AND a permissive policy of its own — every
+   other table in this schema carries both, enumerated in that file. Without
+   them the routes for this table fail closed with "permission denied for table
+   message_requests": the first live preview walk of this feature returned HTTP
+   500 on GET /api/chat/requests for exactly that reason, while the same query
+   run as the owner succeeded. The server does its own member-scoped access
+   control in the route handlers (bearer token -> member id), and the
+   authenticated policies below stay the boundary for direct PostgREST access. */
+grant select, insert, update, delete on public.message_requests to freeborn_runtime;
+
 drop policy if exists "Members read their own message requests" on public.message_requests;
 create policy "Members read their own message requests"
   on public.message_requests for select
@@ -70,3 +83,19 @@ create policy "Recipients respond to their message requests"
   to authenticated
   using (to_id = auth.uid() and status = 'pending')
   with check (to_id = auth.uid() and from_id = from_id and status in ('accepted','declined'));
+
+/* Runtime policy, idempotent and identical in shape to the one every other
+   public table carries (see 20261105000400_runtime_least_privilege.sql). RLS
+   is forced on this table, so the application's own login needs it to read and
+   write the rows its handlers have already authorised. */
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'message_requests'
+      and policyname = 'freeborn_runtime_all'
+  ) then
+    create policy freeborn_runtime_all on public.message_requests
+      for all to freeborn_runtime using (true) with check (true);
+  end if;
+end $$;
