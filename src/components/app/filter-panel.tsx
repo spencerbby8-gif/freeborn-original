@@ -312,6 +312,33 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
   const apply = () => {
     saveFilters(f);
     setSaved(true);
+    /* B6: the panel and Settings -> Discovery are one preference with two doors.
+       Push the shared subset to the account so the Settings screen shows exactly
+       what the panel just applied, on every device, and the standing preference
+       survives a new device or a cleared browser. Best-effort: the session filter
+       is already saved locally, so a failed sync never blocks the apply. */
+    void (async () => {
+      try {
+        const token = await getAccessToken().catch(() => null);
+        if (!token) return;
+        await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            discovery: {
+              ageMin: f.ageMin,
+              ageMax: f.ageMax,
+              distanceKm: f.distance,
+              showGenders: f.genders,
+              verifiedOnly: f.verifiedOnly,
+              vaccinationPreference: f.vax,
+            },
+          }),
+        });
+      } catch {
+        /* local apply already succeeded; the next apply re-syncs */
+      }
+    })();
     setTimeout(onClose, 600);
   };
 
