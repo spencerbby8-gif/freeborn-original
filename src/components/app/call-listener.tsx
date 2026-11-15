@@ -19,10 +19,29 @@ export function CallListener() {
   const [incoming, setIncoming] = useState<RingPayload | null>(null);
   const [active, setActive] = useState<{ role: "callee"; payload: RingPayload } | null>(null);
   const busyRef = useRef(false);
+  /* The callId this member is already ringing or already on, kept in refs so a
+     delivery arriving while the socket handler runs can compare against it. */
+  const handledIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     busyRef.current = incoming !== null || active !== null;
+    handledIdRef.current = active?.payload.callId ?? incoming?.callId ?? null;
   }, [incoming, active]);
+
+  /*
+   * A ring for the call this member is ALREADY handling is a duplicate
+   * delivery, not a second call. Owner report B11 ("the call never reaches the
+   * other user, never holds"): measured live, the callee's incoming screen came
+   * up from the poll floor at +2.3s and was answered at +2.9s; the caller's
+   * broadcast then delivered the SAME callId again at +4.8s. busyRef was
+   * already true for that very call, so respondBusy() told the caller "on
+   * another call" and declined the live session server-side - the callee's next
+   * GET /api/calls/ice came back 410 and the answered call died with "This call
+   * isn't available." The ring is delivered on two paths by design (broadcast
+   * for speed, poll as the floor), so duplicate delivery of one callId is
+   * expected and must be a no-op, never a busy reply.
+   */
+  const isAlreadyHandled = (callId: string) => handledIdRef.current === callId;
 
   /* The floor under the broadcast ring. The socket above is the fast path; this
      poll is what still delivers a ring when the socket is not joined yet, is
@@ -38,12 +57,17 @@ export function CallListener() {
       /* The route already scopes this to the signed-in member's own live rings;
          this is the cheap client-side sanity check on top. */
       if (session.status !== "ringing") return;
+      if (isAlreadyHandled(session.id)) {
+        traceCall(session.id, "callee", "rx-ring-poll-duplicate");
+        return;
+      }
       const payload: RingPayload = {
         callId: session.id,
         matchId: session.matchId,
         kind: session.kind,
         from: session.peer,
       };
+      handledIdRef.current = payload.callId;
       traceCall(payload.callId, "callee", "rx-ring-poll");
       setIncoming(payload);
       startRingtone();
@@ -94,8 +118,13 @@ export function CallListener() {
           const session = await getCallSession(hint.callId);
           if (cancelled || session.status !== "ringing" || session.calleeId !== user.id) return;
           const payload: RingPayload = { callId: session.id, matchId: session.matchId, kind: session.kind, from: session.peer };
+          if (isAlreadyHandled(payload.callId)) {
+            traceCall(payload.callId, "callee", "rx-ring-duplicate");
+            return;
+          }
           traceCall(payload.callId, "callee", "rx-ring");
           if (busyRef.current) { respondBusy(payload.callId); return; }
+          handledIdRef.current = payload.callId;
           setIncoming(payload);
           startRingtone();
         })().catch(() => undefined);
