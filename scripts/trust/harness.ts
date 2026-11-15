@@ -2911,6 +2911,31 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     robots.includes('"/app"') && robots.includes("Googlebot") && robots.includes("Twitterbot"));
 }
 
+/* [32] MULTI-ENGINE INDEXING — B15. The non-Google search surface (Bing, which
+   also powers Yahoo/DuckDuckGo/Ecosia, plus Yandex, Baidu, Naver, Seznam, Qwant,
+   Brave, Sogou) is reached two ways: their bots must be invited and served the
+   same rich SSR page every other bot gets, and URL changes must be pushed through
+   IndexNow, the account-less protocol those engines consume. These assertions pin
+   the key file (name == content, exactly one), the named invitation of every
+   major engine in robots.ts, and the submit script wired to INDEXABLE_PATHS. */
+{
+  const { readdirSync: rdPub, readFileSync: rfPub } = await import("node:fs");
+  const pub = rdPub(new URL("../../public", import.meta.url));
+  const keyFiles = pub.filter((f) => /^[0-9a-f]{32}\.txt$/.test(f));
+  const keyOk = keyFiles.length === 1 &&
+    rfPub(new URL(`../../public/${keyFiles[0]}`, import.meta.url), "utf8") === keyFiles[0].replace(/\.txt$/, "");
+  const robots = src("src/app/robots.ts");
+  const engines = ["Googlebot", "Bingbot", "DuckDuckBot", "Applebot", "Twitterbot",
+    "YandexBot", "Baiduspider", "Sogou web spider", "Yeti", "SeznamBot", "Qwantbot", "Bravebot"];
+  ok("[32] exactly one IndexNow key file, content equals its name", keyOk);
+  ok("[32] robots.txt invites every major search engine bot by name",
+    engines.every((e) => robots.includes(`"${e}"`)) && robots.includes('"*"'));
+  const submit = src("scripts/seo/indexnow-submit.mjs");
+  ok("[32] the IndexNow submit script posts to the protocol endpoint off INDEXABLE_PATHS",
+    submit.includes("https://api.indexnow.org/indexnow") &&
+    submit.includes("INDEXABLE_PATHS") && submit.includes("keyLocation"));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

@@ -35,6 +35,21 @@ export default function robots(): MetadataRoute.Robots {
           "Applebot",
           "facebookexternalhit",
           "Twitterbot",
+          /* B15: the rest of the search surface, invited by name. Per-engine
+             captures (evidence/taskboard-2026-11-14/b15/) showed the giants gate
+             — TikTok 403s bingbot and YandexBot and serves every other engine an
+             empty shell; Facebook reserves hreflang for Googlebot. Freeborn takes
+             the opposite stance: every engine that asks gets the same full SSR
+             page. `*` already allowed them; naming them makes the invitation
+             explicit in the file each bot reads first, and keeps a future edit
+             from silently dropping an engine. */
+          "YandexBot",
+          "Baiduspider",
+          "Sogou web spider",
+          "Yeti",
+          "SeznamBot",
+          "Qwantbot",
+          "Bravebot",
           "*",
         ],
         allow: ["/"],
