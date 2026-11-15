@@ -12,7 +12,7 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 50,
+    "steps": 51,
     "publicTables": 43,
     "publicColumns": 442,
     "publicIndexes": 126,
@@ -312,6 +312,12 @@
       "name": "incognito_profile_photo_rls",
       "path": "supabase/migrations/20261109202434_incognito_profile_photo_rls.sql",
       "sha256": "57d8e3544aea01c262d390d5adf464077d43f022f2630be72ea9af9c62ea1208"
+    },
+    {
+      "version": "20261115000000",
+      "name": "call_realtime_policies",
+      "path": "db/migrations/2026-11-15-call-realtime-policies.sql",
+      "sha256": "89c702c19a69b49d5b7dd487d96576759db5fd953106df21aa023f3c25429393"
     },
     {
       "version": "20261105000800",

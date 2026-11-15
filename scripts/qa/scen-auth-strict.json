@@ -1,0 +1,33 @@
+{
+  "name": "auth-reflow-and-modes-strict",
+  "context": { "viewport": { "width": 390, "height": 844 }, "isMobile": true, "hasTouch": true },
+  "steps": [
+    { "op": "goto", "url": "/auth?mode=sign-up", "waitAfter": 5000 },
+    { "op": "eval", "label": "wait-fonts", "expr": "(async () => { await document.fonts.ready; return { fonts: document.fonts.status, loaded: document.fonts.size }; })()" },
+    { "op": "wait", "ms": 2500 },
+    { "op": "eval", "label": "SETTLED-baseline", "expr": "(() => ({ h: document.documentElement.scrollHeight, turnstileH: (document.querySelector('.cf-turnstile')||{}).offsetHeight ?? null, submitTop: Math.round(document.querySelector('button[type=submit]').getBoundingClientRect().top), submitBottom: Math.round(document.querySelector('button[type=submit]').getBoundingClientRect().bottom), submitVisibleNoScroll: (()=>{const r=document.querySelector('button[type=submit]').getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "fill", "sel": "#password", "value": "T", "waitAfter": 500 },
+    { "op": "eval", "label": "after-1-char", "expr": "(() => ({ h: document.documentElement.scrollHeight, strengthRendered: !!document.querySelector('.animate-scale-in'), active: document.activeElement.id, activeInViewport: (()=>{const r=document.activeElement.getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "fill", "sel": "#password", "value": "TestPass123!", "waitAfter": 700 },
+    { "op": "eval", "label": "after-full-password", "expr": "(() => ({ h: document.documentElement.scrollHeight, strengthText: (document.querySelector('.animate-scale-in')||{}).innerText?.replace(/\\s+/g,' ').slice(0,40) ?? null, active: document.activeElement.id, activeInViewport: (()=>{const r=document.activeElement.getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "fill", "sel": "#email", "value": "qa-live@example.com", "waitAfter": 400 },
+    { "op": "eval", "label": "after-email", "expr": "(() => ({ h: document.documentElement.scrollHeight, active: document.activeElement.id, activeInViewport: (()=>{const r=document.activeElement.getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "shot", "name": "redesign-signup-fullpage", "full": true },
+    { "op": "shot", "name": "redesign-signup-viewport" },
+
+    { "op": "goto", "url": "/auth?mode=sign-in", "waitAfter": 4500 },
+    { "op": "eval", "label": "SIGNIN-height", "expr": "(() => ({ h: document.documentElement.scrollHeight, screens: +(document.documentElement.scrollHeight/window.innerHeight).toFixed(2), fields: Array.from(document.querySelectorAll('input:not([type=hidden])')).map(i=>i.id), submitVisibleNoScroll: (()=>{const r=document.querySelector('button[type=submit]').getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "shot", "name": "redesign-signin-fullpage", "full": true },
+
+    { "op": "goto", "url": "/auth?mode=reset-password", "waitAfter": 4500 },
+    { "op": "eval", "label": "RESET-height", "expr": "(() => ({ h: document.documentElement.scrollHeight, screens: +(document.documentElement.scrollHeight/window.innerHeight).toFixed(2), fields: Array.from(document.querySelectorAll('input:not([type=hidden])')).map(i=>i.id), hasTabs: !!document.querySelector('.grid.grid-cols-2'), backToSignIn: !!Array.from(document.querySelectorAll('button')).find(b=>/Back to sign in/.test(b.textContent)), submitVisibleNoScroll: (()=>{const r=document.querySelector('button[type=submit]').getBoundingClientRect(); return r.top>=0 && r.bottom<=window.innerHeight;})() }))()" },
+    { "op": "shot", "name": "redesign-reset-fullpage", "full": true },
+
+    { "op": "goto", "url": "/auth?mode=sign-in", "waitAfter": 3500 },
+    { "op": "clickText", "text": "Forgot password?", "waitAfter": 1200 },
+    { "op": "eval", "label": "TABSWITCH-forgot", "expr": "(() => ({ url: location.search, h: document.documentElement.scrollHeight, title: (document.querySelector('h1')||{}).innerText, desc: (document.querySelector('h1')?.parentElement?.querySelector('p:nth-of-type(2)')||{}).innerText?.slice(0,60) ?? null }))()" },
+    { "op": "clickText", "text": "Create account", "waitAfter": 1200 },
+    { "op": "eval", "label": "TABSWITCH-create", "expr": "(() => ({ url: location.search, h: document.documentElement.scrollHeight, title: (document.querySelector('h1')||{}).innerText, fields: Array.from(document.querySelectorAll('input:not([type=hidden])')).map(i=>i.id) }))()" },
+    { "op": "shot", "name": "redesign-tabswitch-signup" }
+  ]
+}

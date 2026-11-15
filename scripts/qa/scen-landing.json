@@ -1,0 +1,14 @@
+{
+  "name": "landing-bloat-analysis",
+  "context": { "viewport": { "width": 390, "height": 844 }, "isMobile": true, "hasTouch": true },
+  "steps": [
+    { "op": "goto", "url": "/", "waitAfter": 2500 },
+    { "op": "metrics", "label": "landing-top" },
+    { "op": "eval", "label": "sections", "expr": "(() => { const pick = (el) => ({ h: Math.round(el.getBoundingClientRect().height), label: ((el.querySelector('h1,h2,h3')||{}).textContent||'').trim().slice(0,44) }); const secs = Array.from(document.querySelectorAll('section')).map(pick).filter(x=>x.h>40); const main = document.querySelector('main'); const kids = main ? Array.from(main.children).map(pick).filter(x=>x.h>40) : []; return { sections: secs, mainChildren: kids, mainHeight: main ? Math.round(main.getBoundingClientRect().height) : null, docHeight: document.documentElement.scrollHeight }; })()" },
+    { "op": "scroll", "y": 3000 },
+    { "op": "shot", "name": "live-landing-mid" },
+    { "op": "scrollBottom" },
+    { "op": "shot", "name": "live-landing-bottom" },
+    { "op": "metrics", "label": "landing-bottom" }
+  ]
+}

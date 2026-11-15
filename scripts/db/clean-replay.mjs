@@ -97,7 +97,10 @@ try {
     (select count(*)::int from auth.users) as auth_users,
     (select count(*)::int from storage.objects) as storage_objects`);
   const actual = verification.rows[0];
-  const expected = { tables: 43, columns: 442, indexes: 126, checks: 81, rls_enabled_forced: 43, anon_grants: 0, migrations: 49, auth_users: 0, storage_objects: 0 };
+  // migrations counts recorded supabase_migrations rows: every replay step except
+// the final verify step records one. 50 as of the call_realtime_policies step
+// (db/migrations/2026-11-15-call-realtime-policies.sql). Move with the manifest.
+  const expected = { tables: 43, columns: 442, indexes: 126, checks: 81, rls_enabled_forced: 43, anon_grants: 0, migrations: 50, auth_users: 0, storage_objects: 0 };
   for (const [key, value] of Object.entries(expected)) {
     if (actual[key] !== value) fail(`post-replay verification ${key}=${actual[key]}, expected ${value}`);
   }

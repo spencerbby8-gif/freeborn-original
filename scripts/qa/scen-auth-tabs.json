@@ -1,0 +1,38 @@
+{
+  "name": "auth-tab-toggle-and-drift-forensics",
+  "context": { "viewport": { "width": 390, "height": 844 }, "isMobile": true, "hasTouch": true },
+  "steps": [
+    { "op": "goto", "url": "/auth?mode=sign-in", "waitAfter": 5000 },
+    { "op": "eval", "label": "fonts", "expr": "(async () => { await document.fonts.ready; return document.fonts.status; })()" },
+    { "op": "wait", "ms": 2500 },
+
+    { "op": "eval", "label": "PROBE-helper-def", "expr": "(() => { window.__probe = () => { const f = document.querySelector('form'); const card = f ? f.closest('.surface') : null; const cf = document.querySelector('.cf-turnstile'); const sub = document.querySelector('button[type=submit]'); const r = sub ? sub.getBoundingClientRect() : null; return { pageH: document.documentElement.scrollHeight, cardH: card ? card.offsetHeight : null, turnstileH: cf ? cf.offsetHeight : null, cardTitle: card ? (card.querySelector('h1')||{}).innerText : null, cardDesc: card ? (card.querySelector('h1')?.parentElement?.querySelector('p')?.innerText || null) : null, fields: Array.from(document.querySelectorAll('input:not([type=hidden])')).map(i=>i.id), tabsVisible: !!document.querySelector('.grid.grid-cols-2'), submitTop: r?Math.round(r.top):null, submitVisibleNoScroll: r ? (r.top>=0 && r.bottom<=window.innerHeight) : null, active: document.activeElement.id || document.activeElement.tagName }; }; return window.__probe(); })()" },
+
+    { "op": "click", "sel": "div.grid.grid-cols-2 button:nth-child(3)", "waitAfter": 1500 },
+    { "op": "eval", "label": "AFTER-toggle-to-CREATE", "expr": "window.__probe()" },
+    { "op": "eval", "label": "url-after-toggle", "expr": "location.search" },
+
+    { "op": "fill", "sel": "#email", "value": "qa-live@example.com", "waitAfter": 600 },
+    { "op": "eval", "label": "B-typed-email", "expr": "window.__probe()" },
+    { "op": "fill", "sel": "#password", "value": "T", "waitAfter": 600 },
+    { "op": "eval", "label": "C-typed-1char", "expr": "window.__probe()" },
+    { "op": "fill", "sel": "#password", "value": "TestPass123!", "waitAfter": 900 },
+    { "op": "eval", "label": "D-typed-full", "expr": "window.__probe()" },
+    { "op": "eval", "label": "E-focus-visible-check", "expr": "(() => { const a = document.activeElement; const r = a.getBoundingClientRect(); return { id: a.id, top: Math.round(r.top), bottom: Math.round(r.bottom), innerHeight: window.innerHeight, fullyInViewport: r.top>=0 && r.bottom<=window.innerHeight, scrollY: Math.round(window.scrollY) }; })()" },
+    { "op": "shot", "name": "tabs-signup-typed" },
+
+    { "op": "click", "sel": "div.grid.grid-cols-2 button:nth-child(2)", "waitAfter": 1500 },
+    { "op": "eval", "label": "F-toggle-back-to-SIGNIN", "expr": "window.__probe()" },
+    { "op": "eval", "label": "url-after-toggle-back", "expr": "location.search" },
+    { "op": "shot", "name": "tabs-signin" },
+
+    { "op": "eval", "label": "G-drift-forensics-10s", "expr": "(async () => { const samples = []; for (let i=0;i<10;i++){ const cf=document.querySelector('.cf-turnstile'); samples.push({ t:i*1000, pageH: document.documentElement.scrollHeight, turnstileH: cf?cf.offsetHeight:null, strengthH: (document.querySelector('.min-h-\\\\[30px\\\\]')||{}).offsetHeight ?? null }); await new Promise(r=>setTimeout(r,1000)); } return samples; })()" },
+
+    { "op": "goto", "url": "/auth?mode=sign-in", "waitAfter": 4000 },
+    { "op": "eval", "label": "H-forgot-link-present", "expr": "(() => { const b = Array.from(document.querySelectorAll('button')).find(x=>/Forgot password/i.test(x.textContent)); if(!b) return {found:false}; const r=b.getBoundingClientRect(); return { found:true, text:b.textContent.trim(), top:Math.round(r.top), visible: r.top>=0 && r.bottom<=window.innerHeight }; })()" },
+    { "op": "eval", "label": "I-click-forgot-via-js", "expr": "(() => { const b = Array.from(document.querySelectorAll('button')).find(x=>/Forgot password/i.test(x.textContent)); b.click(); return { clicked:true, url: location.search }; })()" },
+    { "op": "wait", "ms": 1200 },
+    { "op": "eval", "label": "J-reset-mode-probe", "expr": "window.__probe()" },
+    { "op": "shot", "name": "tabs-reset", "full": true }
+  ]
+}
