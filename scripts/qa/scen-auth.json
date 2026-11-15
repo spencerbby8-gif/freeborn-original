@@ -1,0 +1,22 @@
+{
+  "name": "auth-live-bug-repro",
+  "context": { "viewport": { "width": 390, "height": 844 }, "isMobile": true, "hasTouch": true },
+  "steps": [
+    { "op": "goto", "url": "/auth?mode=sign-up", "waitAfter": 2500 },
+    { "op": "shot", "name": "live-auth-signup-top" },
+    { "op": "metrics", "label": "signup-top" },
+    { "op": "scrollBottom" },
+    { "op": "shot", "name": "live-auth-signup-bottom" },
+    { "op": "metrics", "label": "signup-bottom" },
+    { "op": "scroll", "y": 0 },
+    { "op": "fill", "sel": "#email", "value": "qa-live@example.com" },
+    { "op": "fill", "sel": "#password", "value": "TestPass123!" },
+    { "op": "fill", "sel": "#confirmPassword", "value": "TestPass123!" },
+    { "op": "metrics", "label": "after-typing-focus" },
+    { "op": "scrollBottom" },
+    { "op": "click", "sel": "button[type=submit]", "waitAfter": 900 },
+    { "op": "metrics", "label": "toast-after-submit-scrolled-down" },
+    { "op": "shot", "name": "live-auth-after-submit-scrolleddown" },
+    { "op": "eval", "label": "submit-button-and-tab-text", "expr": "(() => { const sub = document.querySelector('button[type=submit]'); const tabs = Array.from(document.querySelectorAll('button')).map(b=>b.textContent.trim()).filter(t=>/Sign in|Create account/.test(t)); return { submitText: sub ? sub.textContent.trim() : null, tabs, submitRect: sub ? {top: Math.round(sub.getBoundingClientRect().top), bottom: Math.round(sub.getBoundingClientRect().bottom)} : null, innerHeight: window.innerHeight, scrollY: Math.round(window.scrollY) }; })()" }
+  ]
+}

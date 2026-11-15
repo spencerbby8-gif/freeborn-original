@@ -7,7 +7,7 @@
  * Realtime auth before every join. Media remains peer-to-peer WebRTC.
  */
 
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { readJsonSafe } from "@/lib/api-response";
 
@@ -39,11 +39,38 @@ export type CallSession = {
   self: CallPerson;
 };
 
+/**
+ * Every call API request carries the member's own Bearer token.
+ *
+ * WHY THIS IS EXPLICIT (owner report B11, "the call never reaches the other
+ * user"): these fetches used to send Content-Type and nothing else. This app
+ * keeps its Supabase session in localStorage rather than cookies - see
+ * src/lib/supabase/browser.ts, deliberate, so the app still authenticates
+ * inside a cross-site iframe where third-party cookies are blocked - so the
+ * server's cookie fallback in src/lib/supabase/api-auth.ts had nothing to read
+ * and getMember() returned null.
+ *
+ * Measured live on a preview with two real matched members:
+ *   POST /api/calls/session -> 401 {"error":"Not signed in."}
+ * The caller was told "Call again", while the callee's ring channel had joined
+ * perfectly (Realtime phx_reply status "ok" on realtime:fb-ring:<calleeId>) and
+ * simply never had anything to ring about. A call cannot reach anybody if it is
+ * never allowed to start. Every other API caller in this app sends the token;
+ * the call bus was the one that forgot.
+ */
+async function authHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  const token = await getAccessToken().catch(() => null);
+  return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(extra ?? {}) };
+}
+
 async function sessionRequest(path: string, init?: RequestInit): Promise<CallSession> {
   const res = await fetch(path, {
     ...init,
     cache: "no-store",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: await authHeaders({
+      "Content-Type": "application/json",
+      ...(init?.headers as Record<string, string> | undefined),
+    }),
   });
   const json = await readJsonSafe<CallSession & { error?: string }>(res);
   if (!res.ok || !json?.id) throw new Error(json?.error ?? "This call isn't available.");
@@ -68,7 +95,10 @@ export function updateCallSession(callId: string, action: "accept" | "decline" |
 /** No credential cache across calls; an ICE restart can fetch a fresh grant. */
 export async function getIceConfig(callId: string): Promise<CallIceConfig> {
   try {
-    const res = await fetch(`/api/calls/ice?callId=${encodeURIComponent(callId)}`, { cache: "no-store" });
+    const res = await fetch(`/api/calls/ice?callId=${encodeURIComponent(callId)}`, {
+      cache: "no-store",
+      headers: await authHeaders(),
+    });
     if (res.status === 401 || res.status === 403 || res.status === 404 || res.status === 410) {
       throw new Error("This call isn't available.");
     }
@@ -119,13 +149,41 @@ export function callChannel(callId: string): Promise<RealtimeChannel> {
 /** Fire-and-forget trace entry — never part of the authorization decision. */
 export function traceCall(callId: string, role: string, event: string, info?: string) {
   try {
-    void fetch("/api/calls/trace", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callId, role, event, info }),
-    }).catch(() => undefined);
+    void (async () => {
+      await fetch("/api/calls/trace", {
+        method: "POST",
+        headers: await authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ callId, role, event, info }),
+      });
+    })().catch(() => undefined);
   } catch {
     /* tracing must never break a call */
+  }
+}
+
+/**
+ * The member's live incoming ring, PULLED rather than pushed.
+ *
+ * The broadcast ring is the fast path, but a Realtime broadcast is
+ * fire-and-forget: the server accepts it whether or not anybody is subscribed,
+ * so a callee whose socket is mid-reconnect, whose tab was just restored, or
+ * whose app has only just opened never hears it - and nothing ever sends it
+ * again. The caller's trace still records a successful tx-ring, which is how a
+ * lost ring becomes "the call never came through" with no error anywhere.
+ *
+ * The chat path already learned this lesson and keeps a poll as the floor
+ * (db/migrations/2026-10-30-chat-signals.sql: "the HTTP fetch stays
+ * authoritative and the poll stays as the floor"). This is the same floor for
+ * calls, and it needs no Realtime at all.
+ */
+export async function getIncomingCall(): Promise<CallSession | null> {
+  try {
+    const res = await fetch("/api/calls/session", { cache: "no-store", headers: await authHeaders() });
+    if (!res.ok) return null;
+    const json = await readJsonSafe<{ incoming: CallSession | null }>(res);
+    return json?.incoming ?? null;
+  } catch {
+    return null;
   }
 }
 

@@ -16,6 +16,7 @@ import { PhotoImage } from "@/components/ui/photo-image";
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
+import { isCallUiActive, subscribeCallUiActive } from "@/lib/call-ui-state";
 
 const POLL_MS = 8_000;
 const SEEN_KEY = "fb-seen-alerts";
@@ -35,6 +36,11 @@ type Banner = Alert & { key: number };
 export function NotificationCenter({ pathname }: { pathname?: string }) {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [askOpen, setAskOpen] = useState(false);
+  /* A call screen beats a permission prompt: the ask card sits at z-[310] over
+     the call overlay's z-[200], i.e. straight on top of Answer/Decline on an
+     incoming ring and speaker/mute/end on a live call. */
+  const [callUiUp, setCallUiUp] = useState(isCallUiActive);
+  useEffect(() => subscribeCallUiActive(setCallUiUp), []);
   const seq = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
   const firstRun = useRef(true);
@@ -191,7 +197,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   return (
     <>
       {/* Permission ask — once, polite, dismissible */}
-      {askOpen ? (
+      {askOpen && !callUiUp ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[310] flex justify-center px-4">
           <div className="pointer-events-auto animate-scale-in flex w-full max-w-[440px] items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/40 bg-[#10141f]/97 p-4 shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">

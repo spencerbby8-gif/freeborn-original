@@ -1,4 +1,4 @@
-import { and, eq, gt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { callSessions, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -9,6 +9,48 @@ import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/calls/session — this member's live incoming ring, if there is one.
+ *
+ * The broadcast ring stays the fast path; this is the floor under it. A
+ * Realtime broadcast is fire-and-forget and is accepted whether or not anybody
+ * is subscribed, so a callee whose socket is reconnecting, whose tab was just
+ * restored, or whose app has only just opened never hears the ring and nothing
+ * re-sends it - the caller rings out alone and both members experience "the
+ * call never came through". The chat path keeps a poll as its floor for exactly
+ * this reason (db/migrations/2026-10-30-chat-signals.sql).
+ *
+ * `{ incoming: null }` is a 200 with an explicit null, not a 204, so a poll
+ * that finds nothing cannot be mistaken for a failure. Same blocked-pair rule
+ * the POST enforces: a ring must not surface a conversation that has since been
+ * blocked in either direction.
+ */
+export async function GET(request: Request) {
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+
+  const noStore = { headers: { "Cache-Control": "private, no-store" } };
+
+  const [row] = await db
+    .select()
+    .from(callSessions)
+    .where(
+      and(
+        eq(callSessions.calleeId, member.id),
+        eq(callSessions.status, "ringing"),
+        gt(callSessions.expiresAt, sql`now()`),
+      ),
+    )
+    .orderBy(desc(callSessions.createdAt))
+    .limit(1);
+
+  if (!row) return Response.json({ incoming: null }, noStore);
+  if (await isBlockedPair(member.id, row.callerId)) {
+    return Response.json({ incoming: null }, noStore);
+  }
+  return Response.json({ incoming: await callSessionView(row, member.id) }, noStore);
+}
 
 /** POST /api/calls/session — the only way to mint call-topic authority. */
 export async function POST(request: Request) {
