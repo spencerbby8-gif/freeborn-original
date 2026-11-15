@@ -2873,6 +2873,43 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     !/drop table|drop column|truncate|delete from public\.verification_requests|alter table public\.verification_requests\s+alter column/i.test(cascadeMig));
 }
 
+/* [31] INDEXING-DOMINATION — B13. The platforms that win search were reverse-
+   engineered from their own crawler-facing HTML (TikTok and Facebook as Googlebot
+   and Twitterbot, Google's own properties): every one of them ships a share-card
+   image with declared dimensions and alt text, per-content og:url, and page-level
+   structured data with breadcrumbs. These assertions pin the four things Freeborn
+   added so they can never silently regress: the card, the truthful lastmod, the
+   per-page entities, and the privacy line that keeps member surfaces out of
+   search engines entirely. */
+{
+  const layout = src("src/app/layout.tsx");
+  const site = src("src/lib/site.ts");
+  const sitemap = src("src/app/sitemap.ts");
+  const robots = src("src/app/robots.ts");
+  const ogPng = readFileSync(new URL("../../public/og/cover-1200x630.png", import.meta.url));
+  const ogW = ogPng.readUInt32BE(16);
+  const ogH = ogPng.readUInt32BE(20);
+  ok("[31] the share card is the real asset at the declared size, wired into og AND twitter",
+    ogW === 1200 && ogH === 630 &&
+    site.includes('path: "/og/cover-1200x630.png"') &&
+    layout.includes("OG_IMAGE.path") &&
+    (layout.match(/images: \[/g) || []).length >= 2 &&
+    layout.includes("OG_IMAGE.alt"));
+  ok("[31] every indexable path carries a truthful lastmod and the sitemap serves it, not build time",
+    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 5 &&
+    sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
+    !sitemap.includes("lastModified: now,"));
+  const subpages = ["safety", "privacy", "terms", "cookies"].map((slug) => src(`src/app/${slug}/page.tsx`));
+  ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
+    subpages.every((f) => f.includes("openGraph: {") && f.includes("<PageStructuredData path=")) &&
+    src("src/components/seo/page-structured-data.tsx").includes('"@type": "BreadcrumbList"') &&
+    src("src/components/seo/page-structured-data.tsx").includes('"@type": "WebPage"'));
+  ok("[31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages",
+    src("src/app/app/page.tsx").includes("robots: { index: false }") &&
+    src("src/app/auth/page.tsx").includes("robots: { index: false, follow: true }") &&
+    robots.includes('"/app"') && robots.includes("Googlebot") && robots.includes("Twitterbot"));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

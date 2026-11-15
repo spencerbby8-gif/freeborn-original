@@ -29,9 +29,15 @@ import { absolute, INDEXABLE_PATHS } from "@/lib/site";
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
-  return INDEXABLE_PATHS.map(({ path, priority, changeFrequency }) => ({
+  /* lastmod is the date the visible copy last changed, carried per path in
+     INDEXABLE_PATHS — not the build timestamp. A sitemap whose lastmod flips on
+     every deploy tells crawlers everything changed today, which Google's sitemap
+     guidance treats as noise and eventually ignores; a truthful lastmod is one of
+     the few crawl-budget signals a small site actually controls. */
+  void now;
+  return INDEXABLE_PATHS.map(({ path, priority, changeFrequency, lastModified }) => ({
     url: absolute(path),
-    lastModified: now,
+    lastModified: new Date(`${lastModified}T00:00:00.000Z`),
     changeFrequency,
     priority,
   }));

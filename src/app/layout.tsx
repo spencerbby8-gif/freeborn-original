@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import { Fraunces, Inter } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
-import { absolute, CONTACT_EMAIL, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
+import { absolute, CONTACT_EMAIL, OG_IMAGE, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -62,12 +62,21 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website",
     url: absolute("/"),
+    /* The share card image, with declared dimensions and alt text — the three
+       fields TikTok, Facebook and Google's own pages all emit and Freeborn had
+       none of. Pages may override openGraph.images; none currently needs to. */
+    images: [
+      { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: OG_IMAGE.alt },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Freeborn · Date Like You Mean It",
     description:
       "Values-aligned dating for health autonomy, natural living, and lasting love.",
+    images: [
+      { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: OG_IMAGE.alt },
+    ],
   },
   robots: {
     index: true,
@@ -143,6 +152,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         {/* Installable web app (PWA) — web-first, no app-store dependency. */}
         <link rel="manifest" href="/manifest.json" />
+        {/* Advertises the sitemap in-band, the way Google's own properties do, so
+            a crawler that lands on any page finds the full URL inventory without
+            having been told about robots.txt first. */}
+        <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
