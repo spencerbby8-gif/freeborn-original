@@ -233,12 +233,15 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       setFacets(json.facets ?? null);
       setIndex(0);
       setSignedOut(false);
+      setLoading(false);
+      return json.profiles as typeof profiles;
     } else if (res.status === 401) {
       setProfiles([]);
       setFacets(null);
       setSignedOut(true);
     }
     setLoading(false);
+    return [];
   }, [filters, origin]);
 
   useEffect(() => {
@@ -276,7 +279,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         setLastUndone(json.undone ?? "swipe");
         window.setTimeout(() => setLastUndone(null), 2600);
         if (json.unmatched) setMatchToast(null);
-        void loadProfiles();
+        /* The undone member re-enters the deck ON TOP: the room order is not
+           stable across fetches, so a bare refetch could bury them mid-deck and
+           the member would never see the choice they just took back. */
+        const list = await loadProfiles();
+        const undoneId = typeof json.undone === "string" ? json.undone : null;
+        const u = undoneId ? (list ?? []).find((x) => x.id === undoneId) : undefined;
+        if (u) {
+          setProfiles([u, ...(list ?? []).filter((x) => x.id !== undoneId)]);
+          setIndex(0);
+        }
       }
     } catch {
       /* deck stays as-is */
@@ -785,7 +797,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   </>
                 ) : null}
 
-                <div className="relative aspect-[3/3.2] w-full overflow-hidden">
+                <div className="relative aspect-[3/3.2] max-h-[54dvh] w-full overflow-hidden">
                   {profile.photos[0] ?? profile.photo ? (
                     <PhotoImage
                       src={profile.photos[0] ?? profile.photo}
@@ -930,7 +942,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     }
                     openProfileTap(profile.id, Date.now());
                   }}
-                  className="block w-full space-y-3 p-5 text-left"
+                  className="block max-h-[30dvh] w-full space-y-3 overflow-y-auto p-5 text-left"
                 >
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
@@ -978,7 +990,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           })}
 
           {/* Actions: Undo · Skip · Super Like · Like */}
-          <div className="mt-7 flex items-end justify-center gap-7">
+          <div className="sticky bottom-[72px] z-40 mt-7 flex items-end justify-center gap-7 rounded-3xl border border-white/[0.06] bg-[#070a12]/92 px-3 py-3 backdrop-blur-md">
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
