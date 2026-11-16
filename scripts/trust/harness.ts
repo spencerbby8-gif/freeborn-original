@@ -2949,6 +2949,40 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     submit.includes("INDEXABLE_PATHS") && submit.includes("keyLocation"));
 }
 
+/* [34] CITY-PAGE GATE — B18. Programmatic SEO that cannot lie: a city page
+   exists only at/above MIN_MEMBERS_PER_CITY completed, QA-excluded memberships
+   in an allowed region; below that the route 404s and the sitemap stays silent.
+   These assertions pin the threshold, the region gate (NG explicitly excluded),
+   the QA pattern that keeps fixtures out of public counts, the band boundaries,
+   and the wiring that makes the route and the sitemap share ONE gate. */
+{
+  const cities = await import("@/lib/city-pages");
+  ok("[34] the gate is threshold 5, region-allowlisted (NG excluded), and pure",
+    cities.MIN_MEMBERS_PER_CITY === 5 &&
+    !(cities.ALLOWED_COUNTRY_CODES as readonly string[]).includes("NG") &&
+    (cities.ALLOWED_COUNTRY_CODES as readonly string[]).includes("US") &&
+    cities.cityPageFor(4, "US", "Austin") === null &&
+    cities.cityPageFor(5, "US", "Austin") !== null &&
+    cities.cityPageFor(9, "NG", "Abraka") === null &&
+    cities.cityPageFor(5, null, "Nowhere") === null);
+  ok("[34] published counts are bands, never exact numbers",
+    cities.bandFor(5) === "5–9" && cities.bandFor(9) === "5–9" &&
+    cities.bandFor(10) === "10–24" && cities.bandFor(25) === "25–49" &&
+    cities.bandFor(50) === "50–99" && cities.bandFor(100) === "100+" &&
+    cities.bandFor(4) === null);
+  const qa = new RegExp(cities.QA_EMAIL_PATTERN, "i");
+  ok("[34] QA/test emails can never inflate a public city count",
+    qa.test("qa-pose-bypass1@example.com") && qa.test("arena-live-test@freeborn.app") &&
+    qa.test("qa.owner.418839@example.com") && !qa.test("spencer@coldtruths.com"));
+  const route = src("src/app/dating/[country]/[city]/page.tsx");
+  const sitemapSrc = src("src/app/sitemap.ts");
+  ok("[34] route and sitemap share the one gate; misses are notFound + noindex",
+    route.includes("findCityPage") && route.includes("notFound()") &&
+    route.includes("index: false, follow: true") &&
+    sitemapSrc.includes("fetchQualifyingCities") &&
+    sitemapSrc.includes('dynamic = "force-dynamic"'));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

@@ -1,5 +1,15 @@
 import type { MetadataRoute } from "next";
 import { absolute, INDEXABLE_PATHS } from "@/lib/site";
+import { fetchQualifyingCities } from "@/lib/city-pages";
+
+/* Request-time, cached one hour. The editorial entries are static truth, but
+   the gated city entries (B18) come from the live member count, and a sitemap
+   frozen at build time would either publish cities that no longer qualify or
+   hide ones that do. force-dynamic also keeps `next build` (CI, no database)
+   from ever needing a connection: the query runs on first request, not at
+   build. */
+export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 /**
  * Freeborn sitemap — every INDEXABLE public page.
@@ -26,7 +36,7 @@ import { absolute, INDEXABLE_PATHS } from "@/lib/site";
  * `index: false` in its own metadata. `INDEXABLE_PATHS` in `@/lib/site` is the
  * shared list that keeps the three in agreement.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   /* lastmod is the date the visible copy last changed, carried per path in
@@ -35,10 +45,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
      guidance treats as noise and eventually ignores; a truthful lastmod is one of
      the few crawl-budget signals a small site actually controls. */
   void now;
-  return INDEXABLE_PATHS.map(({ path, priority, changeFrequency, lastModified }) => ({
+  const editorial = INDEXABLE_PATHS.map(({ path, priority, changeFrequency, lastModified }) => ({
     url: absolute(path),
     lastModified: new Date(`${lastModified}T00:00:00.000Z`),
     changeFrequency,
     priority,
   }));
+  /* City pages carry NO lastmod on purpose: their content is a live count, and
+     stamping any fixed date on them would be the same false precision B13
+     removed from the editorial entries. A database failure degrades to the
+     editorial list rather than a broken sitemap. */
+  const cities = await fetchQualifyingCities().catch(() => []);
+  return [
+    ...editorial,
+    ...cities.map((c) => ({
+      url: absolute(c.path),
+      changeFrequency: "weekly" as const,
+      priority: 0.5,
+    })),
+  ];
 }
