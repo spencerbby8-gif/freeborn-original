@@ -148,6 +148,9 @@ export const INDEXABLE_PATHS = [
   { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
   { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
   { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-10-19" },
+  /* B16: the honest comparison page. Monthly because its competitor figures are
+     dated snapshots that must be re-verified whenever the page changes. */
+  { path: "/alternatives", priority: 0.7, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
 ];
 
 /**

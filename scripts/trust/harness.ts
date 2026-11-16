@@ -2896,15 +2896,19 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     (layout.match(/images: \[/g) || []).length >= 2 &&
     layout.includes("OG_IMAGE.alt"));
   ok("[31] every indexable path carries a truthful lastmod and the sitemap serves it, not build time",
-    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 5 &&
+    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 6 &&
     sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
     !sitemap.includes("lastModified: now,"));
-  const subpages = ["safety", "privacy", "terms", "cookies"].map((slug) => src(`src/app/${slug}/page.tsx`));
+  const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => src(`src/app/${slug}/page.tsx`));
   ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
     subpages.every((f) => f.includes("ogCard(") && f.includes("<PageStructuredData path=")) &&
     (layout.match(/"max-image-preview": "large"/g) || []).length >= 2 &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "BreadcrumbList"') &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "WebPage"'));
+  const alt = src("src/app/alternatives/page.tsx");
+  ok("[31] the comparison page carries dated competitor facts and zero fabricated trust markup",
+    alt.includes("2026-11-16") && !alt.includes("aggregateRating") &&
+    alt.includes("FAQPage") && !/numberOfUsers|award|sameAs/.test(alt));
   ok("[31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages",
     src("src/app/app/page.tsx").includes("robots: { index: false }") &&
     src("src/app/auth/page.tsx").includes("robots: { index: false, follow: true }") &&
