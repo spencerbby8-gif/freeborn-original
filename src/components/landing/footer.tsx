@@ -32,6 +32,7 @@ export function Footer() {
                 <li><a className="transition-colors hover:text-pearl" href="/privacy">Privacy Policy</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="/terms">Terms of Service</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="/cookies">Cookie Policy</a></li>
+                <li><a className="transition-colors hover:text-pearl" href="/guides">Guides</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="/appeal">Appeal a decision</a></li>
               </ul>
             </div>
