@@ -2896,7 +2896,7 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     (layout.match(/images: \[/g) || []).length >= 2 &&
     layout.includes("OG_IMAGE.alt"));
   ok("[31] every indexable path carries a truthful lastmod and the sitemap serves it, not build time",
-    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 6 &&
+    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 10 &&
     sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
     !sitemap.includes("lastModified: now,"));
   const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => src(`src/app/${slug}/page.tsx`));
@@ -2909,6 +2909,15 @@ console.log("\n[29] private chat broadcast and bounded fallback");
   ok("[31] the comparison page carries dated competitor facts and zero fabricated trust markup",
     alt.includes("2026-11-16") && !alt.includes("aggregateRating") &&
     alt.includes("FAQPage") && !/numberOfUsers|award|sameAs/.test(alt));
+  const guideFiles = ["guides/page.tsx", "guides/meet-without-apps/page.tsx", "guides/long-distance/page.tsx", "guides/scam-spotting/page.tsx"].map((g) => src(`src/app/${g}`));
+  const shell = src("src/components/guides/guide-page.tsx");
+  const banned = /\bvaccin|\bdetox|\b5g\b|shedding|\bmiracle|\bcure[sd]?\b/i;
+  ok("[33] every guide carries ogCard, the shared shell, a codebase-checked date and zero banned claim vocabulary",
+    guideFiles.slice(1).every((f) => f.includes("ogCard(") && f.includes("GuidePage") && f.includes("2026-11-16") && !banned.test(f) && !f.includes("aggregateRating")) &&
+    guideFiles[0].includes("ogCard(") && guideFiles[0].includes("2026-11-16") && !banned.test(guideFiles[0]) &&
+    shell.includes("PageStructuredData") && shell.includes("FAQPage") && !banned.test(shell) &&
+    src("src/app/guides/page.tsx").includes("/guides/scam-spotting") &&
+    src("src/components/landing/footer.tsx").includes('href="/guides"'));
   ok("[31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages",
     src("src/app/app/page.tsx").includes("robots: { index: false }") &&
     src("src/app/auth/page.tsx").includes("robots: { index: false, follow: true }") &&

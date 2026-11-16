@@ -151,6 +151,12 @@ export const INDEXABLE_PATHS = [
   /* B16: the honest comparison page. Monthly because its competitor figures are
      dated snapshots that must be re-verified whenever the page changes. */
   { path: "/alternatives", priority: 0.7, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
+  /* B17: the honest guides cluster. Monthly like /alternatives — the "checked
+     against the codebase on" stamps must be re-verified whenever copy changes. */
+  { path: "/guides", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
+  { path: "/guides/meet-without-apps", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
+  { path: "/guides/long-distance", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
+  { path: "/guides/scam-spotting", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
 ];
 
 /**
