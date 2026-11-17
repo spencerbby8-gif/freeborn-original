@@ -420,6 +420,26 @@ export function ProfileView({
     }
   };
 
+  const [choiceBusy, setChoiceBusy] = useState(false);
+  const submitProfileChoice = async (choice: "pass" | "superlike") => {
+    if (!profile || choiceBusy) return;
+    setChoiceBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      if (!token) { window.location.href = "/auth?mode=sign-in"; return; }
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ profileId: profile.id, choice }),
+      });
+      if (!res.ok) throw new Error("choice failed");
+      if (choice === "superlike") showToast({ tone: "success", title: "Super like sent", body: `${profile.name} will see that you stood out.` });
+      onClose();
+    } catch {
+      showToast({ tone: "error", title: "Couldn't save your choice", body: "Check your connection and try again." });
+    } finally { setChoiceBusy(false); }
+  };
+
   const [msgBusy, setMsgBusy] = useState(false);
   /* Is a request already flying between us? The button must say so instead of
      offering to send a second one. */
@@ -505,9 +525,9 @@ export function ProfileView({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#070a14]/97 backdrop-blur-md">
-      <div className="mx-auto max-w-[560px] px-4 pb-20 pt-4 sm:px-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#070a14]">
+      <div className="relative mx-auto max-w-[560px] px-3 pb-24 pt-3 sm:px-6">
+        <div className="absolute inset-x-5 top-5 z-30 flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
@@ -515,12 +535,10 @@ export function ProfileView({
             className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" />
+              <path d="M19 12H5m7 7-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
-            Full profile
-          </span>
+          <span className="sr-only">Full profile</span>
           <div className="relative">
             <button
               type="button"
@@ -645,7 +663,7 @@ export function ProfileView({
             </div>
           </div>
         ) : (
-          <div className="animate-scale-in space-y-6">
+          <div className="animate-scale-in space-y-5 pt-12">
             {profile.visibility ? (
               <div
                 className={`rounded-[20px] border p-5 ${
@@ -683,8 +701,14 @@ export function ProfileView({
             {/* Photos */}
             {photos.length > 0 ? (
               <div
-                className="relative overflow-hidden rounded-[28px] border border-white/[0.08]"
+                className="relative -mx-3 overflow-hidden rounded-[30px] border border-white/[0.08] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold-500)] sm:mx-0"
                 style={{ touchAction: "pan-y" }}
+                tabIndex={0}
+                aria-label="Profile photos. Swipe or use the left and right arrow keys to browse."
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowRight") setPhotoIdx((i) => clampIdx(i + 1));
+                  if (e.key === "ArrowLeft") setPhotoIdx((i) => clampIdx(i - 1));
+                }}
                 onPointerDown={(e) => {
                   dragRef.current = { startX: e.clientX, moved: false };
                 }}
@@ -716,14 +740,12 @@ export function ProfileView({
                       src={src}
                       alt={`${profile.name}, photo ${i + 1}`}
                       draggable={false}
-                      className="aspect-[3/3.6] w-full shrink-0 select-none object-cover"
+                      className="aspect-[1/1.1] w-full shrink-0 select-none object-cover"
                     />
                   ))}
                 </div>
                 {photos.length > 1 ? (
                   <>
-                    <button type="button" aria-label="Previous photo" onClick={() => setPhotoIdx((i) => clampIdx(i - 1))} className="absolute inset-y-0 left-0 w-1/3" />
-                    <button type="button" aria-label="Next photo" onClick={() => setPhotoIdx((i) => clampIdx(i + 1))} className="absolute inset-y-0 right-0 w-1/3" />
                     <div className="absolute inset-x-0 top-3 flex justify-center gap-1.5">
                       {photos.map((_, i) => (
                         <span key={i} className={`h-[4px] rounded-full transition-all duration-300 ${i === photoIdx ? "w-6 bg-white" : "w-3 bg-white/40"}`} />
@@ -750,12 +772,12 @@ export function ProfileView({
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070a14] via-transparent to-transparent" />
                 <div className="pointer-events-none absolute inset-x-5 bottom-4">
                   <div className="flex items-center gap-2.5">
-                    <h1 className="font-display text-[32px] font-semibold leading-none text-[var(--color-pearl)]">
+                    <h1 className="font-display text-[36px] font-medium leading-none text-[var(--color-pearl)]">
                       {profile.name}{profile.age ? `, ${profile.age}` : ""}
                     </h1>
                     {/* Badge lives ONLY at the top-right of the photo (see above) */}
                   </div>
-                  <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
+                  <p className="mt-2 text-[14px] tracking-wide text-[var(--color-sand)]">
                     {profile.gender
                       ? `${GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)} · `
                       : ""}
@@ -763,6 +785,11 @@ export function ProfileView({
                     {profile.city}
                     {profile.region ? `, ${profile.region}` : ""}
                   </p>
+                  {presence ? (
+                    <p className="mt-2 inline-flex items-center gap-2 text-[12px] text-white/80">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" /> Active {presence.short.toLowerCase()}
+                    </p>
+                  ) : null}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {profile.memberSince ? (
                       <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
@@ -787,14 +814,19 @@ export function ProfileView({
               </div>
             ) : null}
 
+            <div className="rounded-[24px] border border-white/[0.10] bg-[linear-gradient(130deg,rgba(217,167,82,.10),rgba(255,255,255,.025)_55%,rgba(138,110,242,.08))] p-5">
+              <p className="text-[12px] font-semibold text-[#e6b9a4]">Looking for</p>
+              <p className="mt-2 font-display text-[23px] leading-tight text-[var(--color-pearl)]">
+                {profile.relationshipGoals[0] ? (GOAL_LABELS[profile.relationshipGoals[0]] ?? prettyText(profile.relationshipGoals[0])) : "A meaningful connection"}
+              </p>
+              <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">The kind of connection they hope to build.</p>
+            </div>
+
             {profile.inCommon && sharedCount > 0 ? (
-              <div className="rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">
-                  Ground you already share
-                </p>
+              <div className="rounded-[24px] border border-white/[0.10] bg-[linear-gradient(130deg,rgba(217,167,82,.10),rgba(255,255,255,.025)_55%,rgba(138,110,242,.08))] p-5">
+                <p className="text-[12px] font-semibold text-[#e6b9a4]">Ground you already share</p>
                 <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
-                  Not a compatibility score. These are the things you both said,
-                  so a first message has somewhere honest to start.
+                  Not a compatibility score. These are things you both said, so there is somewhere honest to start.
                 </p>
                 <div className="mt-4 space-y-3">
                   {profile.inCommon.values.length ? (
@@ -857,7 +889,7 @@ export function ProfileView({
             </div>
 
             {profile.bio ? (
-              <Block title="Their story">
+              <Block title="About me">
                 <p className="text-[15px] leading-[1.85] text-[var(--color-ivory)]">{profile.bio}</p>
               </Block>
             ) : null}
@@ -904,7 +936,7 @@ export function ProfileView({
             ) : null}
 
             {profile.interests.length > 0 ? (
-              <Block title="Start a conversation with">
+              <Block title="My passions">
                 <Chips items={profile.interests} />
               </Block>
             ) : null}
@@ -969,14 +1001,14 @@ export function ProfileView({
               if (!details.length) return null;
               return (
                 <Block title="The details">
-                  <div className="overflow-hidden rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-5 py-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {details.map((d, i) => (
                       <div
                         key={d.label}
-                        className={`flex items-baseline justify-between gap-4 py-3 ${i < details.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                        className="flex min-h-[72px] flex-col justify-center gap-1.5 rounded-[18px] border border-white/[0.08] bg-[#111522] px-4 py-3"
                       >
-                        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">{d.label}</p>
-                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(d.value)}</p>
+                        <p className="shrink-0 text-[10px] font-medium text-[var(--color-mist)]">{d.label}</p>
+                        <p className="text-left text-[14px] font-medium text-[var(--color-ivory)]">{prettyText(d.value)}</p>
                       </div>
                     ))}
                   </div>
@@ -985,9 +1017,12 @@ export function ProfileView({
             })()}
 
             {/* Start a conversation — or the member's privacy boundary */}
-            <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <div className="sticky bottom-0 -mx-3 flex items-center gap-3 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+              <button type="button" onClick={() => void submitProfileChoice("pass")} disabled={choiceBusy} aria-label={`Pass on ${profile.name}`} className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] disabled:opacity-50">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
               {profile.messageRestricted ? (
-                <div className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-[13px] font-bold text-[var(--color-mist)]">
+                <div className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-3 text-center text-[12px] font-bold text-[var(--color-mist)]">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
                     <rect x="5" y="10" width="14" height="10" rx="2.5" />
                     <path d="M8 10V7a4 4 0 018 0v3" />
@@ -1001,7 +1036,7 @@ export function ProfileView({
             msgRequest === "incoming" ? window.location.assign("/app/chat") : void handleMessage()
           }
                   disabled={msgBusy}
-                  className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
+                  className="btn-ember btn-shine relative flex min-h-[62px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-full px-3 py-3 text-[14px] font-bold disabled:opacity-60"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
@@ -1012,9 +1047,12 @@ export function ProfileView({
               ? `Request sent to ${profile.name}`
               : msgRequest === "incoming"
                 ? `Respond to ${profile.name}'s request`
-                : `Message ${profile.name}`}
+                : "Say hello"}
                 </button>
               )}
+              <button type="button" onClick={() => void submitProfileChoice("superlike")} disabled={choiceBusy} aria-label={`Super like ${profile.name}`} title="Super like" className="superlike-btn flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full disabled:opacity-50">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3c1.3 3.1 3.8 4.5 2.2 7.2 2.4-.6 3.7-2.5 3.6-4.2 2.6 2.1 3.3 5.8 1.8 8.8-1.2 2.5-3.4 4.2-6.1 4.2s-5.1-1.8-6.2-4.2C5.6 11.4 8 7.1 12 3z"/><path d="M12 19v2"/></svg>
+              </button>
             </div>
           </div>
         )}
