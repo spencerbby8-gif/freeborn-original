@@ -2986,6 +2986,34 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     sitemapSrc.includes('dynamic = "force-dynamic"'));
 }
 
+/* [35] METERED TURN TIER — B11 tap closure. The owner's Metered pair is a
+   STATIC credential, so the pins are about containment and honesty: the builder
+   is pure and off without env; the route serves it only after authentication
+   AND a live-session check; relayStatus names the static path; and the real
+   credential string appears nowhere in the repo. */
+{
+  const tc = await import("@/lib/turn-credentials");
+  const fixture = tc.buildMeteredIceServers({
+    FREEBORN_METERED_TURN_USERNAME: "fixtureuser",
+    FREEBORN_METERED_TURN_CREDENTIAL: "fixturepass",
+  });
+  ok("[35] the metered builder yields the five standard endpoints and is off without env",
+    fixture !== null && fixture.urls.length === 5 &&
+    fixture.urls[0].startsWith("stun:") && fixture.urls[4].startsWith("turns:") &&
+    fixture.username === "fixtureuser" && fixture.credential === "fixturepass" &&
+    tc.buildMeteredIceServers({}) === null);
+  const iceRoute = src("src/app/api/calls/ice/route.ts");
+  ok("[35] the metered grant is served only after auth and a live-call check, named honestly",
+    iceRoute.includes('"metered-static"') &&
+    iceRoute.indexOf("getMember(request)") < iceRoute.indexOf("buildMeteredIceServers({") &&
+    iceRoute.indexOf("isCallSessionLive") < iceRoute.indexOf("buildMeteredIceServers({"));
+  ok("[35] the real Metered credential appears nowhere in repo source",
+    !iceRoute.includes("6KBeDyb76XFGq0X0") &&
+    !src("src/lib/turn-credentials.ts").includes("6KBeDyb76XFGq0X0") &&
+    !src("src/lib/call-bus.ts").includes("6KBeDyb76XFGq0X0") &&
+    !src("src/components/app/call-overlay.tsx").includes("6KBeDyb76XFGq0X0"));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {
