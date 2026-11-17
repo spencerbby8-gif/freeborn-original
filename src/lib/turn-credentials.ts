@@ -80,6 +80,47 @@ export const CLOUDFLARE_TURN_API_BASE = "https://rtc.live.cloudflare.com/v1/turn
 /** Cloudflare's own default TTL; we clamp caller input to its documented 60–86400. */
 export const CLOUDFLARE_TURN_TTL_SECONDS = 86_400;
 
+/**
+ * Metered.ca static-credential relay (B11 tap closure, 2026-11-17).
+ *
+ * The owner provisioned a Metered dashboard pair. Unlike Cloudflare's minted
+ * short-lived grants or coturn's HMAC usernames, Metered's pair is STATIC, so
+ * the honesty rules here are stricter: the pair is read from server env only,
+ * and the ICE route serves it exclusively to an authenticated participant of a
+ * LIVE call session, with no-store caching, and relayStatus names the path
+ * "metered-static" so nobody ever claims a short-lived grant they do not have.
+ * The real credential value must never appear in the repo; harness [35] pins
+ * that with the literal string.
+ */
+export type MeteredTurnEnv = {
+  FREEBORN_METERED_TURN_USERNAME?: string;
+  FREEBORN_METERED_TURN_CREDENTIAL?: string;
+  FREEBORN_METERED_TURN_URLS?: string;
+};
+
+/** Metered's standard anycast endpoints, exactly as their dashboard issues them. */
+export const METERED_DEFAULT_URLS = [
+  "stun:stun.relay.metered.ca:80",
+  "turn:standard.relay.metered.ca:80",
+  "turn:standard.relay.metered.ca:80?transport=tcp",
+  "turn:standard.relay.metered.ca:443",
+  "turns:standard.relay.metered.ca:443?transport=tcp",
+];
+
+export function buildMeteredIceServers(env: MeteredTurnEnv): TurnIceServer | null {
+  const username = env.FREEBORN_METERED_TURN_USERNAME?.trim();
+  const credential = env.FREEBORN_METERED_TURN_CREDENTIAL?.trim();
+  if (!username || !credential) return null;
+  const custom = (env.FREEBORN_METERED_TURN_URLS ?? "")
+    .split(/[\s,]+/)
+    .filter((u) => /^(stun|turn|turns):/.test(u));
+  return {
+    urls: custom.length > 0 ? custom : METERED_DEFAULT_URLS,
+    username,
+    credential,
+  };
+}
+
 export type CloudflareTurnEnv = {
   FREEBORN_CLOUDFLARE_TURN_KEY_ID?: string;
   FREEBORN_CLOUDFLARE_TURN_API_TOKEN?: string;

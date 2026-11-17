@@ -1,6 +1,10 @@
 import { getMember } from "@/lib/app-auth";
 import { findParticipantSession, isCallSessionLive } from "@/lib/call-session-server";
-import { buildTurnServer, fetchCloudflareIceServers } from "@/lib/turn-credentials";
+import {
+  buildMeteredIceServers,
+  buildTurnServer,
+  fetchCloudflareIceServers,
+} from "@/lib/turn-credentials";
 import { badIdResponse, isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +63,32 @@ export async function GET(request: Request) {
     );
   }
 
-  // 2) coturn `use-auth-secret` relay — local HMAC of a long-lived shared secret.
+  // 2) Metered.ca static-credential relay — owner-provisioned 2026-11-17. The
+  //    static pair reaches ONLY an authenticated participant of a LIVE call
+  //    session (both checks above), no-store, and relayStatus says "metered-static"
+  //    so the grant type is never overstated.
+  const metered = buildMeteredIceServers({
+    FREEBORN_METERED_TURN_USERNAME: process.env.FREEBORN_METERED_TURN_USERNAME,
+    FREEBORN_METERED_TURN_CREDENTIAL: process.env.FREEBORN_METERED_TURN_CREDENTIAL,
+    FREEBORN_METERED_TURN_URLS: process.env.FREEBORN_METERED_TURN_URLS,
+  });
+  if (metered) {
+    pushUnique(metered as RTCIceServer);
+    return Response.json(
+      {
+        iceServers,
+        iceTransportPolicy: "all",
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
+        relayConfigured: true,
+        relayStatus: "metered-static",
+        relayProvider: "metered",
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  // 3) coturn `use-auth-secret` relay — local HMAC of a long-lived shared secret.
   const turn = buildTurnServer(member.id, {
     FREEBORN_TURN_URL: process.env.FREEBORN_TURN_URL,
     FREEBORN_TURN_SHARED_SECRET: process.env.FREEBORN_TURN_SHARED_SECRET,
@@ -67,7 +96,7 @@ export async function GET(request: Request) {
   });
   if (turn) pushUnique(turn.server as RTCIceServer);
 
-  // 3) STUN-only (no relay). iceServers already holds STUN_ONLY.
+  // 4) STUN-only (no relay). iceServers already holds STUN_ONLY.
   return Response.json(
     {
       iceServers,
