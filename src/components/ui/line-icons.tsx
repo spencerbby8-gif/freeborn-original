@@ -183,3 +183,77 @@ export function GlowHeart({ size = 56 }: { size?: number }) {
     </svg>
   );
 }
+
+/** The reference's height marker (a small stick figure) and the two gender
+ *  glyphs it pairs with — Venus for a woman, Mars for a man, and the stick
+ *  figure alone when the member's gender is neither. */
+export function FemaleIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.6}>
+      <circle cx="12" cy="8" r="4.4" />
+      <path d="M12 12.4V21M8.6 17.4h6.8" />
+    </Svg>
+  );
+}
+
+export function MaleIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.6}>
+      <circle cx="10" cy="14" r="4.4" />
+      <path d="M13.2 10.8 19.5 4.5M15.4 4.5h4.1v4.1" />
+    </Svg>
+  );
+}
+
+/**
+ * The "Say hello" row's right-hand action, and the empty-state icon: a droplet
+ * with a natural-health leaf inside, drawn as one stroked path so it reads at
+ * 26px and at 14px. In Freeborn it is the vaccination-stance mark, so the
+ * control it sits in opens that member's stated stance rather than inventing a
+ * new one.
+ */
+export function DropletIcon({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      focusable="false"
+      {...rest}
+    >
+      <path d="M12 2.8c3.1 3.6 6.2 6.9 6.2 10.4a6.2 6.2 0 0 1-12.4 0c0-3.5 3.1-6.8 6.2-10.4Z" />
+      <path d="M12 17.4c-1.9-.6-2.9-2-2.9-3.8 1.9 0 3.1.8 3.8 2.1.7-1.3 1.9-2.1 3.8-2.1 0 1.8-1 3.2-2.9 3.8" />
+    </svg>
+  );
+}
+
+/**
+ * The Discover tab mark, as the reference draws it: a warm disc with a crescent
+ * bitten out of its trailing edge. The bite is a masked circle rather than a
+ * hand-traced path, so the shape stays true at 20px and at 40px.
+ */
+export function DiscoverMark({ size = 26, active = false }: { size?: number; active?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none" aria-hidden focusable="false">
+      <defs>
+        <mask id="fb-discover-bite">
+          <rect width="26" height="26" fill="#fff" />
+          <circle cx="25" cy="13" r="10.6" fill="#000" />
+        </mask>
+      </defs>
+      {active ? (
+        <circle cx="13" cy="13" r="10.2" fill="#f7e6c4" mask="url(#fb-discover-bite)" />
+      ) : (
+        <>
+          <circle cx="13" cy="13" r="10.2" stroke="currentColor" strokeWidth="1.7" mask="url(#fb-discover-bite)" />
+        </>
+      )}
+    </svg>
+  );
+}

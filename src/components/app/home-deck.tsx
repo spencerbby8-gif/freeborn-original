@@ -11,13 +11,7 @@ import { MixerCard } from "./settings-view";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import { DeckCard } from "./deck-card";
-import {
-  BellIcon,
-  HeartIcon,
-  LeafIcon,
-  SparkIcon,
-  FlameIcon,
-} from "@/components/ui/line-icons";
+import { DropletIcon, HeartIcon, SparkIcon } from "@/components/ui/line-icons";
 import {
   buildProfileParams,
   DEFAULT_FILTERS,
@@ -146,10 +140,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   /** Undo the last swipe — free everywhere else, free here too. */
   const [undoBusy, setUndoBusy] = useState(false);
   const [lastUndone, setLastUndone] = useState<string | null>(null);
-  /** Unread alert count for the bell in the header. */
-  const [alerts, setAlerts] = useState(0);
-  /** The member's own primary photo, for the header avatar. */
-  const [myPhoto, setMyPhoto] = useState<string | null>(null);
+  /** Likes the member has not opened yet — the count on the header heart. */
+  const [unreadLikes, setUnreadLikes] = useState(0);
 
   /* --- Gesture state lives in refs: zero React re-renders per frame ------- */
 
@@ -277,36 +269,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     return () => window.removeEventListener(FILTERS_EVENT, onFilters);
   }, [standalone]);
 
-  /* --- header identity: the member's own face, and their unread alerts ---- */
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const token = await getAccessToken().catch(() => null);
-      if (!token || cancelled) return;
-      const res = await fetch("/api/profile/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => null);
-      if (!res?.ok || cancelled) return;
-      const json = (await res.json().catch(() => null)) as
-        | { profile?: { photos?: string[] } }
-        | null;
-      const first = json?.profile?.photos?.[0];
-      if (first && !cancelled) setMyPhoto(first);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  /* --- the bell's unread count, published by NotificationCenter ---------- */
   useEffect(() => {
     const onUnread = (e: Event) => {
-      const d = (e as CustomEvent<{ alerts?: number }>).detail;
-      const n = d?.alerts;
+      const d = (e as CustomEvent<{ likes?: number }>).detail;
+      const n = d?.likes;
       if (typeof n === "number") {
         /* The shell publishes "you are looking at this tab, its dot is zero";
            every other publish carries a real count that must not be lowered by
            a stale read from a merge event. */
-        setAlerts((prev) => (n === 0 ? 0 : Math.max(prev, n)));
+        setUnreadLikes((prev) => (n === 0 ? 0 : Math.max(prev, n)));
       }
     };
     window.addEventListener("freeborn:unread", onUnread);
@@ -795,45 +767,35 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
   return (
     <div className="mx-auto w-full max-w-[480px] lg:max-w-[520px]">
-      {/* --- header ------------------------------------------------------- */}
-      <header className="fb-sr-header">
-        <div>
-          <p className="fb-sr-eyebrow">
-            {roomCity ? `Tonight in ${roomCity}` : "Tonight on Freeborn"}
-          </p>
+      {/* --- header -------------------------------------------------------
+          Reference grid: eyebrow at y 89 (11px, 0.26em), title two lines at
+          40px/1.06 with the first baseline at 150, bell 48px disc at x 452,
+          coral count disc 24px riding its top-right corner. */}
+      <header className="fb-sr-header pt-[4px]">
+        <div className="min-w-0">
+          <p className="fb-sr-eyebrow">{roomCity ? `Tonight in ${roomCity}` : "Tonight on Freeborn"}</p>
           <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
         </div>
-        <div className="flex shrink-0 items-center gap-2 pt-1">
-          <Link
-            href="/app/notifications"
-            aria-label={alerts > 0 ? `Alerts, ${alerts} unread` : "Alerts"}
-            className="fb-sr-disc fb-sr-round"
-            style={{ width: 42, height: 42 }}
-          >
-            <span className="relative flex">
-              <BellIcon size={17} />
-              {alerts > 0 ? <span className="fb-sr-dot">{alerts > 9 ? "9+" : alerts}</span> : null}
-            </span>
-          </Link>
-          <Link
-            href="/app/profile"
-            aria-label="Your profile"
-            className="fb-sr-avatar"
-            style={{ width: 42, height: 42 }}
-          >
-            {myPhoto ? (
-              <PhotoImage src={myPhoto} alt="Your profile photo" className="h-full w-full" compact />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-[var(--sr-mist)]">
-                <FlameIcon size={18} />
-              </span>
-            )}
-          </Link>
-        </div>
+        {/* The reference's header disc holds a heart, not a bell: it is the
+            "who liked you" count, and it opens Likes. Alerts keep their own
+            door — the banners this screen already shows, and the Alerts row in
+            the desktop sidebar. */}
+        <Link
+          href="/app/likes"
+          aria-label={unreadLikes > 0 ? `Likes, ${unreadLikes} new` : "Likes"}
+          className="fb-sr-disc fb-sr-bell mt-[10px]"
+        >
+          <span className="relative flex">
+            <HeartIcon size={21} />
+            {unreadLikes > 0 ? <span className="fb-sr-dot">{unreadLikes > 9 ? "9+" : unreadLikes}</span> : null}
+          </span>
+        </Link>
       </header>
 
-      {/* --- room filter chips -------------------------------------------- */}
-      <div className="fb-sr-chiprow mt-5">
+      {/* --- room filters: the three chips in the reference, and a fourth
+              scrollable slice of the same store so the panel is never the only
+              way in. Each chip writes the saved filters the panel reads. ---- */}
+      <div className="fb-sr-chiprow mt-[22px]">
         {ROOM_FILTERS.map((f) => {
           const on = f.active(filters);
           return (
@@ -842,16 +804,26 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               type="button"
               aria-pressed={on}
               onClick={() => toggleRoomFilter(f.key)}
-              className={`fb-sr-chip ${on ? "" : "fb-sr-chip--ghost"}`}
+              className="fb-sr-chip"
+              style={
+                on
+                  ? undefined
+                  : { borderColor: "rgba(238,168,152,0.26)", background: "linear-gradient(180deg,rgba(150,84,84,0.40),rgba(112,58,64,0.48))" }
+              }
             >
-              {on ? <LeafIcon size={13} /> : null}
               {f.label}
             </button>
           );
         })}
-        <span className="fb-sr-chip fb-sr-chip--gold" aria-hidden>
-          <LeafIcon size={14} />
-        </span>
+        <button
+          type="button"
+          aria-label="Natural health stance"
+          title="Natural health stance"
+          onClick={() => toggleRoomFilter("natural-health")}
+          className="fb-sr-chip fb-sr-chip--gold"
+        >
+          <DropletIcon size={19} />
+        </button>
       </div>
 
       {/* --- match / super-like notices ----------------------------------- */}
@@ -994,7 +966,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         </div>
       ) : (
         <>
-          <div className="fb-sr-stage mt-5">
+          <div className="fb-sr-stage mt-[36px]">
             {stack.map((profile, k) => {
               if (!profile) return null;
               const isTop = k === 0;

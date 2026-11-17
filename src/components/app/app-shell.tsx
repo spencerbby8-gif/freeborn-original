@@ -12,7 +12,7 @@ import { NotificationCenter } from "./notification-center";
 import {
   BellIcon,
   ChatIcon,
-  CompassIcon,
+  DiscoverMark,
   HeartIcon,
   ProfileIcon,
 } from "@/components/ui/line-icons";
@@ -24,10 +24,10 @@ import {
  * it anyway — and the Profile tab is restored to the end of the bar.
  */
 const tabs = [
-  { href: "/app", label: "Discover", Icon: CompassIcon },
-  { href: "/app/likes", label: "Likes", Icon: HeartIcon },
-  { href: "/app/chat", label: "Messages", Icon: ChatIcon },
-  { href: "/app/profile", label: "Profile", Icon: ProfileIcon },
+  { href: "/app", label: "Discover", Icon: DiscoverMark, size: 40 },
+  { href: "/app/likes", label: "Likes", Icon: HeartIcon, size: 30 },
+  { href: "/app/chat", label: "Messages", Icon: ChatIcon, size: 30 },
+  { href: "/app/profile", label: "Profile", Icon: ProfileIcon, size: 30 },
 ] as const;
 
 function FiltersIcon() {
@@ -189,7 +189,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <span className="relative flex">
-                    <tab.Icon size={18} />
+                    <span className="contents">
+                      <tab.Icon size={18} {...(tab.href === "/app" ? { active } : {})} />
+                    </span>
                     {count > 0 ? (
                       <span className="fb-sr-tab__dot">{count > 9 ? "9+" : count}</span>
                     ) : null}
@@ -239,8 +241,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Mobile top bar: wordmark + filters + alerts */}
-          <header className="flex items-center justify-between px-5 pb-1 pt-4 lg:hidden">
+          {/* Mobile top bar. The reference's Discover screen owns its own
+              header (eyebrow, title, bell), so the shell contributes only the
+              filter entry point — pinned, quiet, and out of the title's way. */}
+          <header className="flex items-center justify-between px-5 pb-0 pt-4 lg:hidden">
             <Link href="/" className="transition hover:opacity-80">
               <Wordmark size="sm" />
             </Link>
@@ -248,13 +252,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 href="/app/notifications"
                 aria-label="Alerts"
-                className="fb-sr-disc fb-sr-round"
+                className="fb-sr-disc fb-sr-bell"
                 style={{ width: 40, height: 40 }}
               >
                 <span className="relative flex">
                   <BellIcon size={17} />
                   {unread.alerts > 0 ? (
-                    <span className="fb-sr-dot">{unread.alerts > 9 ? "9+" : unread.alerts}</span>
+                    <span className="fb-sr-dot" style={{ minWidth: 20, height: 20, fontSize: 11 }}>
+                      {unread.alerts > 9 ? "9+" : unread.alerts}
+                    </span>
                   ) : null}
                 </span>
               </Link>
@@ -262,7 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => setFiltersOpen(true)}
                 aria-label="Open filters"
-                className="fb-sr-disc fb-sr-round"
+                className="fb-sr-disc fb-sr-bell"
                 style={{ width: 40, height: 40 }}
               >
                 <FiltersIcon />
@@ -292,7 +298,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   className="fb-sr-tab"
                 >
                   <span className="fb-sr-tab__icon">
-                    <tab.Icon size={21} />
+                    <tab.Icon size={tab.size} {...(tab.href === "/app" ? { active } : {})} />
                     {count > 0 ? (
                       <span className="fb-sr-tab__dot">{count > 9 ? "9+" : count}</span>
                     ) : null}

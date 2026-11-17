@@ -1560,9 +1560,9 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(120% 62% at 12% -8%, rgba(240, 144, 106, 0.16), transparent 60%),
-    radial-gradient(90% 55% at 92% 4%, rgba(168, 146, 255, 0.12), transparent 62%),
-    linear-gradient(180deg, #0b0e1d 0%, #0a0c1a 46%, #080a15 100%);
+    radial-gradient(120% 62% at 12% -8%, rgba(240, 144, 106, 0.10), transparent 60%),
+    radial-gradient(90% 55% at 92% 4%, rgba(168, 146, 255, 0.07), transparent 62%),
+    linear-gradient(180deg, #080c18 0%, #090d19 52%, #0a0d1a 100%);
 }
 
 /* --- primitives ---------------------------------------------------------- */
@@ -1570,92 +1570,24 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 .fb-sr-card {
   position: relative;
   isolation: isolate;
-  border-radius: 26px;
-  border: 1px solid var(--sr-hairline);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.012) 42%, rgba(255, 255, 255, 0) 100%),
-    var(--sr-panel);
-  box-shadow:
-    0 30px 70px -30px rgba(0, 0, 0, 0.85),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #141726;
 }
 
-.fb-sr-eyebrow {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: var(--sr-mist);
-}
 
-.fb-sr-title {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.06;
-}
 
-.fb-sr-chiprow {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding-bottom: 2px;
-}
+
+
+
 .fb-sr-chiprow::-webkit-scrollbar { display: none; }
 
-.fb-sr-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 190, 160, 0.22);
-  background: linear-gradient(180deg, rgba(240, 144, 106, 0.24) 0%, rgba(196, 106, 92, 0.30) 100%);
-  color: #ffe9dd;
-  font-size: 12px;
-  font-weight: 700;
-  /* Inter's word space is tight at 12px/700, close enough that "Natural health"
-     read as one word in the browser at 430px. Word-spacing, not letter-spacing:
-     the words need air between them, not inside them. */
-  word-spacing: 0.09em;
-  white-space: nowrap;
-}
-.fb-sr-chip--onphoto {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(18, 20, 34, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: var(--sr-ivory);
-  font-weight: 600;
-}
-.fb-sr-chip--ghost {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--sr-sand);
-}
-.fb-sr-chip--gold {
-  flex: 0 0 auto;
-  width: 32px;
-  padding: 0;
-  justify-content: center;
-  border-color: rgba(255, 214, 173, 0.28);
-  background: linear-gradient(180deg, rgba(255, 214, 173, 0.22) 0%, rgba(255, 184, 148, 0.16) 100%);
-  color: var(--sr-warm-100);
-}
 
-.fb-sr-disc {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  color: var(--sr-pearl);
-  flex: 0 0 auto;
-  transition: background 0.16s ease, transform 0.16s ease;
-}
+
+
+
+
+
 .fb-sr-disc:active { transform: scale(0.94); }
 
 /* The reference's unread count: a warm disc riding the top-right of the bell. */
@@ -1678,154 +1610,257 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   box-shadow: 0 0 0 2px #0b0e1d;
 }
 
-/* --- the deck ------------------------------------------------------------ */
+/* ============================================================================
+   THE DISCOVERY CARD — measured from the reference, not eyeballed
+   ----------------------------------------------------------------------------
+   Every value below is the reference's value at phone scale. The reference
+   image is 1058×1487 and the left phone's screen is 436px wide (x 67→503), so
+   ONE SCREEN PIXEL = 1 CSS PX at a 436px viewport. Numbers are therefore literal:
+
+     screen width            436
+     side padding            15      (67 → 82 for text, 503 − 488)
+     card                    x 67→503, y 294→1058
+     card radius             27
+     card border             1px  #8a4a4a → #2d1a22 top→bottom
+     card fill               #131019 top → #080a12 bottom
+     photo                   258 tall (y 295→553), dissolving into the body
+     name "Aria"             cap 27 (y 968→995), baseline ~995
+     meta / bio / chips      cap 13, 3 lines of bio at 25px leading
+     cream pill              216 × 78, radius full (y 940→1018)
+     action discs            78 × 78
+     tab bar                 94 tall, active icon 40 with a warm disc, label 15
+   ========================================================================== */
+
+.fb-sr-phone { --fb-sr-pad: 15px; }
 
 .fb-sr-stage { position: relative; }
 
 .fb-sr-card--deck {
+  position: relative;
   overflow: hidden;
-  border-radius: 28px;
-  touch-action: pan-y;
+  border-radius: 27px;
+  border: 1px solid transparent;
+  /* Two backgrounds: the padding box is the fill, the border box is the rim.
+     The rim is brighter at the top and decays to near-black at the bottom,
+     which is what makes the card look lit from above. */
+  background:
+    linear-gradient(180deg, #16131d 0%, #100e18 46%, #0a0b13 78%, #080a12 100%) padding-box,
+    linear-gradient(180deg,
+      rgba(150, 92, 96, 0.95) 0%,
+      rgba(122, 72, 78, 0.85) 12%,
+      rgba(96, 56, 62, 0.55) 34%,
+      rgba(70, 42, 48, 0.42) 62%,
+      rgba(46, 27, 33, 0.85) 100%) border-box;
+  box-shadow: 0 26px 60px -26px rgba(0, 0, 0, 0.9);
 }
 
+/* The photo band, 408px tall at a 436px screen — exactly the reference's
+   y 240→648. Its last ~200px fade into the card's own fill, so the portrait has
+   no visible edge: it dissolves into the body. */
 .fb-sr-photo {
   position: relative;
   width: 100%;
+  height: 408px;
   overflow: hidden;
-  background: var(--sr-panel-3);
+  background: #17131d;
 }
-
-/* two seamless bands: the photo dissolves into the card body, never a hard edge */
 .fb-sr-photo__shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(8, 10, 21, 0.55) 0%, rgba(8, 10, 21, 0) 26%),
-    linear-gradient(180deg, rgba(8, 10, 21, 0) calc(100% - 168px), rgba(20, 24, 48, 0.86) 78%, var(--sr-panel) 100%);
+    linear-gradient(180deg, rgba(10, 9, 16, 0.40) 0%, rgba(10, 9, 16, 0) 22%),
+    /* The portrait stays legible until two-thirds down and only then gives way
+       to the card body — in the reference the face is still lit at the bottom of
+       the photo band, and the hand-off is a 120px dissolve, not a hard mask. */
+    linear-gradient(180deg,
+      rgba(12, 10, 18, 0) 0%,
+      rgba(12, 10, 18, 0.04) 46%,
+      rgba(13, 11, 19, 0.16) 60%,
+      rgba(14, 12, 20, 0.44) 72%,
+      rgba(16, 14, 22, 0.80) 84%,
+      #131019 94%,
+      #131019 100%);
 }
 
 .fb-sr-onphoto { position: absolute; z-index: 6; }
 
-.fb-sr-heart {
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(18, 21, 38, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* upper-case eyebrow, 11px, 0.26em of tracking, warm grey */
+.fb-sr-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #b9b4b4;
+}
+.fb-sr-eyebrow--onphoto { color: #f0eeec; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55); }
+
+/* the circular heart in the photo: 63px disc, faint dark glass, no hard border */
+.fb-sr-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  transition: transform 0.16s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fb-sr-disc:active { transform: scale(0.94); }
+
+.fb-sr-photo-heart {
+  width: 63px;
+  height: 63px;
+  color: #f4f2f1;
+  background: rgba(14, 12, 20, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
+/* unread count: 24px coral disc riding the bell / heart / Messages icon */
+.fb-sr-dot {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2645f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px #0a0d1a;
+}
+
+/* --- the card's text block ------------------------------------------------ */
+
+.fb-sr-name {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 0.96;
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  color: #fdfaf7;
+}
+
+.fb-sr-meta {
+  font-size: 14.5px;
+  font-weight: 400;
+  color: #cfc9cb;
+  letter-spacing: 0.005em;
+}
+
+/* the height + Active today row: 13px, 23px apart, dot 11px */
 .fb-sr-fact {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  color: var(--sr-ivory);
-  font-size: 12.5px;
-  font-weight: 600;
+  gap: 11px;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: #e2dedf;
 }
-.fb-sr-fact svg { opacity: 0.75; flex: 0 0 auto; }
+.fb-sr-fact svg { opacity: 0.92; }
+.fb-sr-active__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #4fbf74;
+  flex: 0 0 auto;
+}
 
-.fb-sr-pill {
+/* chips ON the card: dark warm glass, 1px warm edge, 32px tall */
+.fb-sr-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 11px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid var(--sr-hairline);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--sr-sand);
-  font-size: 11.5px;
-  font-weight: 600;
+  border: 1px solid rgba(214, 150, 140, 0.32);
+  background: rgba(58, 40, 42, 0.5);
+  color: #f4f0ee;
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
+/* bio: 15.5px on 25px leading, warm light grey, exactly 3 lines max */
 .fb-sr-bio {
-  word-spacing: 0.02em;
-  font-size: 13px;
-  line-height: 1.62;
-  color: rgba(247, 242, 236, 0.74);
+  font-size: 14.5px;
+  line-height: 1.56;
+  color: #d3cdcc;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* cream primary — the reference's only call to action in the deck */
+/* --- the action row ------------------------------------------------------- */
+
+/* 25px inset on each side, 14px between the three controls: 65 + 216 + 65 + 28
+   = 374 of the 406px inner width, exactly the reference's action row. */
+.fb-sr-actions { display: flex; align-items: center; gap: 14px; padding-inline: 25px; }
+.fb-sr-actions > .fb-sr-hello { flex: 0 0 205px; }
+.fb-sr-actions > .fb-sr-round { flex: 0 0 65px; }
+
+/* 78 × 78 dark discs */
+.fb-sr-round {
+  width: 65px;
+  height: 65px;
+  background: radial-gradient(circle at 50% 42%, rgba(30, 26, 38, 0.92) 0%, rgba(16, 14, 22, 0.75) 62%, rgba(16, 14, 22, 0) 78%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #f2f0ee;
+}
+.fb-sr-round--natural { color: #ffd98a; }
+
+/* cream pill: 216 × 78, 17px ink, inner top highlight, warm ground-glow */
 .fb-sr-hello {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 52px;
-  padding: 0 22px;
+  gap: 10px;
+  height: 72px;
+  padding: 0 15px;
+  white-space: nowrap;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  background: var(--sr-cream);
-  color: var(--sr-cream-ink);
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: linear-gradient(180deg, #fdf8ee 0%, #fbf3e5 46%, #f6e7cb 100%);
+  color: #221a16;
+  font-size: 18.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   box-shadow:
-    0 18px 34px -18px rgba(255, 196, 150, 0.85),
-    0 1px 0 rgba(255, 255, 255, 0.9) inset;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 16px 34px -18px rgba(255, 205, 158, 0.75);
+  transition: transform 0.16s ease, filter 0.16s ease;
 }
-.fb-sr-hello:hover { filter: brightness(1.03); }
-.fb-sr-hello:active { transform: scale(0.975); }
+.fb-sr-hello:active { transform: scale(0.98); }
 .fb-sr-hello:disabled { opacity: 0.6; }
 
-.fb-sr-round {
-  width: 52px;
-  height: 52px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  background: rgba(255, 255, 255, 0.055);
-  color: var(--sr-ivory);
-}
-.fb-sr-round:hover { background: rgba(255, 255, 255, 0.1); }
-.fb-sr-round--dismiss { color: var(--sr-pearl); }
-.fb-sr-round--natural { color: var(--sr-warm-200); }
-
-/* --- discovery chrome ---------------------------------------------------- */
-
-.fb-sr-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-.fb-sr-header__title {
-  margin-top: 10px;
-  font-family: var(--font-display);
-  font-size: 33px;
-  line-height: 1.08;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--sr-pearl);
-  max-width: 12ch;
+/* the warm floor-glow behind the pill, as in the reference */
+.fb-sr-actions-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 320px;
+  height: 90px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: radial-gradient(60% 70% at 50% 60%, rgba(246, 160, 118, 0.28), rgba(246, 160, 118, 0) 70%);
+  filter: blur(6px);
 }
 
-.fb-sr-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid var(--sr-hairline-strong);
-  background: var(--sr-panel-2);
-}
-
-/* tab bar, built to the reference: icon + label, the active tab under a warm seam */
+/* --- the tab bar ---------------------------------------------------------- */
 .fb-sr-tabs {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
   z-index: 40;
-  border-top: 1px solid var(--sr-hairline-soft);
-  background: linear-gradient(180deg, rgba(11, 14, 29, 0.86) 0%, rgba(8, 10, 21, 0.98) 100%);
-  backdrop-filter: blur(22px) saturate(130%);
-  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  background: linear-gradient(180deg, #0b0e1b 0%, #0a0d19 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.035);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 .fb-sr-tabs__row {
@@ -1833,140 +1868,143 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   grid-template-columns: repeat(4, 1fr);
   max-width: 560px;
   margin: 0 auto;
+  padding: 9px 0 10px;
 }
 .fb-sr-tab {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 11px 0 12px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--sr-ash);
-  transition: color 0.16s ease;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #8f929c;
 }
-.fb-sr-tab[data-active="true"] { color: var(--sr-pearl); }
-.fb-sr-tab[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  height: 2px;
-  width: 46px;
-  border-radius: 0 0 999px 999px;
-  background: linear-gradient(90deg, #ffb894, #ffd3ad);
+.fb-sr-tab[data-active="true"] { color: #e3c99a; }
+.fb-sr-tab[data-active="true"] .fb-sr-tab__icon {
+  /* the reference's Discover mark: a warm amber disc with a dark bite out of
+     it, drawn by the icon component itself */
+  color: #241a12;
 }
 .fb-sr-tab__icon { position: relative; display: inline-flex; }
 .fb-sr-tab__dot {
   position: absolute;
-  top: -5px;
-  right: -9px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  top: -8px;
+  right: -12px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffb894 0%, #f0906a 100%);
-  color: #3a2418;
-  font-size: 9.5px;
-  font-weight: 900;
+  background: #e2645f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
   box-shadow: 0 0 0 2px #0a0d1a;
 }
 
-/* --- full profile -------------------------------------------------------- */
+/* --- header --------------------------------------------------------------- */
+.fb-sr-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.fb-sr-header__title {
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1.19;
+  font-weight: 400;
+  letter-spacing: -0.012em;
+  color: #fbf9f7;
+  max-width: 12ch;
+}
+.fb-sr-bell {
+  width: 48px;
+  height: 48px;
+  background: rgba(20, 19, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #f2f0ee;
+}
 
+/* --- the room chips above the card --------------------------------------- */
+.fb-sr-chiprow {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.fb-sr-chiprow::-webkit-scrollbar { display: none; }
+
+.fb-sr-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(238, 168, 152, 0.38);
+  background: linear-gradient(180deg, rgba(196, 106, 96, 0.52) 0%, rgba(150, 74, 78, 0.62) 100%);
+  color: #ffece4;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.fb-sr-chip--gold {
+  padding: 0;
+  width: 32px;
+  border-color: rgba(226, 190, 130, 0.34);
+  background: rgba(120, 104, 74, 0.42);
+  color: #ffe3a8;
+}
+
+/* --- full profile (right-hand phone in the reference) -------------------- */
 .fb-sr-hero {
   position: relative;
   width: 100%;
   overflow: hidden;
-  border-radius: 0 0 30px 30px;
-  background: var(--sr-panel-3);
+  background: #17131d;
 }
 .fb-sr-hero__shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(8, 10, 21, 0.5) 0%, rgba(8, 10, 21, 0.04) 30%, rgba(8, 10, 21, 0.10) 58%, rgba(8, 10, 21, 0.9) 100%);
+    linear-gradient(180deg, rgba(8, 9, 16, 0.45) 0%, rgba(8, 9, 16, 0.02) 26%, rgba(8, 9, 16, 0.12) 54%, rgba(8, 9, 16, 0.92) 100%);
 }
-
-.fb-sr-name {
-  font-family: var(--font-display);
-  font-size: 36px;
-  line-height: 1;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
-.fb-sr-active {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sr-green-400);
-}
-.fb-sr-active__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--sr-green-400);
-  box-shadow: 0 0 10px rgba(126, 226, 176, 0.7);
-}
-
-/* "Looking for" — a gradient-bordered panel with a glowing outline heart */
 .fb-sr-looking {
   position: relative;
-  border-radius: 20px;
-  padding: 16px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(168, 146, 255, 0.18);
   background:
-    linear-gradient(180deg, rgba(168, 146, 255, 0.10) 0%, rgba(255, 184, 148, 0.06) 100%),
-    var(--sr-panel-2);
-  border: 1px solid rgba(168, 146, 255, 0.20);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    linear-gradient(180deg, rgba(168, 146, 255, 0.09) 0%, rgba(255, 184, 148, 0.05) 100%),
+    #171a2e;
 }
-.fb-sr-looking__label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--sr-mist);
-}
+.fb-sr-looking__label { font-size: 12px; font-weight: 500; color: #a6a9ba; }
 .fb-sr-looking__value {
-  margin-top: 5px;
+  margin-top: 6px;
   font-family: var(--font-display);
-  font-size: 19px;
-  line-height: 1.2;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--sr-pearl);
-  max-width: 16ch;
+  font-size: 22px;
+  line-height: 1.24;
+  font-weight: 400;
+  color: #fbf9f7;
+  max-width: 15ch;
 }
-.fb-sr-outline-heart {
-  flex: 0 0 auto;
-  filter: drop-shadow(0 0 14px rgba(255, 168, 192, 0.55));
-}
-
-/* 2×2 fact grid */
-.fb-sr-facts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+.fb-sr-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .fb-sr-fact-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px;
+  padding: 12px;
   border-radius: 16px;
-  border: 1px solid var(--sr-hairline);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)), var(--sr-panel-2);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), #141726;
 }
 .fb-sr-fact-card__icon {
   display: inline-flex;
@@ -1976,91 +2014,78 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   height: 30px;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--sr-pearl);
+  background: rgba(255, 255, 255, 0.055);
+  color: #f5f2ef;
 }
-.fb-sr-fact-card__label { font-size: 10.5px; font-weight: 600; color: var(--sr-mist); line-height: 1.2; }
+.fb-sr-fact-card__label { font-size: 11px; font-weight: 500; color: #9ea1b2; line-height: 1.2; }
 .fb-sr-fact-card__value {
   margin-top: 3px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--sr-pearl);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fbf9f7;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .fb-sr-section {
-  padding: 16px 16px 18px;
+  padding: 16px;
   border-radius: 20px;
-  border: 1px solid var(--sr-hairline);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)), var(--sr-panel-2);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008)), #141726;
 }
-.fb-sr-section__title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--sr-pearl);
-  letter-spacing: -0.005em;
-}
+.fb-sr-section__title { font-size: 13px; font-weight: 600; color: #fbf9f7; }
 .fb-sr-section__body {
-  word-spacing: 0.02em;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.68;
-  color: rgba(247, 242, 236, 0.72);
-}
-.fb-sr-tag {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--sr-hairline);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--sr-sand);
-  font-size: 11.5px;
-  font-weight: 600;
+  color: rgba(247, 242, 236, 0.74);
 }
 
-/* profile action row: dismiss · say hello · natural-health stance */
-.fb-sr-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0));
-  background: linear-gradient(180deg, rgba(8, 10, 21, 0) 0%, rgba(8, 10, 21, 0.92) 42%, #080a15 100%);
+/* --- header/bg wash ------------------------------------------------------ */
+.fb-sr {
+  background:
+    radial-gradient(120% 46% at 8% -6%, rgba(240, 144, 106, 0.07), transparent 62%),
+    radial-gradient(90% 40% at 96% 0%, rgba(150, 120, 255, 0.06), transparent 64%),
+    #080c18;
+  color: #f7f2ec;
+  -webkit-tap-highlight-color: transparent;
 }
-.fb-sr-actions .fb-sr-hello { flex: 1 1 auto; }
 
 @media (min-width: 640px) {
-  .fb-sr-header__title { font-size: 38px; }
+  .fb-sr-header__title { font-size: 44px; }
   .fb-sr-name { font-size: 42px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fb-sr *,
-  .fb-sr *::before,
-  .fb-sr *::after {
+  .fb-sr *, .fb-sr *::before, .fb-sr *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
 }
 
-/* The reference's row of short warm bars at the top-left of the card: how many
-   people have liked this member. Capped at three — a count that keeps growing
-   is a scoreboard, and this app does not keep one. */
-.fb-sr-likebars {
-  display: flex;
-  gap: 4px;
+/* The stack peek. The reference shows the card behind the top one as a thin
+   band with a little handle, and no gap between the two — that band is what
+   says "there is another person under this one". */
+.fb-sr-peek {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: -13px;
+  height: 26px;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(150, 92, 96, 0.85);
+  border-bottom: none;
+  background: linear-gradient(180deg, #1c1622 0%, #171120 100%);
+  overflow: hidden;
 }
-.fb-sr-likebars span {
-  width: 14px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ffd3ad, #ffb894);
-  opacity: 0.9;
+.fb-sr-peek__handle {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 56px;
+  height: 8px;
+  transform: translateX(-50%);
+  border-radius: 0 0 8px 8px;
+  background: rgba(150, 92, 96, 0.6);
 }

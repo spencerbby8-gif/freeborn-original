@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HomeDeck } from "@/components/app/home-deck";
 import { ProfileView } from "@/components/app/profile-view";
 import { DeckCard } from "@/components/app/deck-card";
-import { BellIcon, ChatIcon, CompassIcon, HeartIcon, ProfileIcon } from "@/components/ui/line-icons";
+import { ChatIcon, DiscoverMark, DropletIcon, HeartIcon, ProfileIcon } from "@/components/ui/line-icons";
 
 /**
  * Fixture surface for visual review. Everything below is a literal copy of the
@@ -119,54 +119,55 @@ export function HarnessFixture() {
       }
       return realFetch(input as RequestInfo, init);
     };
+    /* Deferred by a microtask so this is not a synchronous setState inside an
+       effect body (react-hooks/set-state-in-effect), which cascades renders. */
     const q = new URLSearchParams(window.location.search).get("as");
-    if (q) setWhich(q);
+    if (q) queueMicrotask(() => setWhich(q));
   }, []);
 
   return (
     <div className="fb-sr min-h-[100dvh] pb-10">
       <div className="mx-auto w-full max-w-[520px] px-5 pt-5">
         {/* chrome the AppShell would provide, reproduced so the composition reads */}
-        <header className="fb-sr-header">
-          <div>
+        <header className="fb-sr-header pt-[4px]">
+          <div className="min-w-0">
             <p className="fb-sr-eyebrow">Tonight in Brooklyn</p>
             <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
-            <span className="fb-sr-disc fb-sr-round" style={{ width: 42, height: 42 }}>
-              <span className="relative flex">
-                <BellIcon size={17} />
-                <span className="fb-sr-dot">2</span>
-              </span>
+          <span className="fb-sr-disc fb-sr-bell mt-[10px]">
+            <span className="relative flex">
+              <HeartIcon size={21} />
+              <span className="fb-sr-dot">2</span>
             </span>
-            <span className="fb-sr-avatar" style={{ width: 42, height: 42 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/harness/portrait.jpg" alt="" className="h-full w-full object-cover" />
-            </span>
-          </div>
+          </span>
         </header>
 
-        <div className="fb-sr-chiprow mt-5">
+        <div className="fb-sr-chiprow mt-[22px]">
           <span className="fb-sr-chip">Long-term</span>
           <span className="fb-sr-chip">Natural health</span>
           <span className="fb-sr-chip">Health autonomy</span>
           <span className="fb-sr-chip fb-sr-chip--gold">
-            <CompassIcon size={14} />
+            <DropletIcon size={19} />
           </span>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-[26px]">
           {which === "deck" ? (
-            <DeckCard
-              profile={CARD}
-              isTop
-              depth={0}
-              units="mi"
-              onOpen={() => setWhich("profile")}
-              onLike={() => undefined}
-              onPass={() => undefined}
-              onSayHello={() => setWhich("profile")}
-            />
+            <div className="relative pt-[13px]">
+              <span aria-hidden className="fb-sr-peek">
+                <span className="fb-sr-peek__handle" />
+              </span>
+              <DeckCard
+                profile={CARD}
+                isTop
+                depth={0}
+                units="mi"
+                onOpen={() => setWhich("profile")}
+                onLike={() => undefined}
+                onPass={() => undefined}
+                onSayHello={() => setWhich("profile")}
+              />
+            </div>
           ) : (
             <ProfileView profileId="fixture-1" onClose={() => setWhich("deck")} />
           )}
@@ -177,25 +178,26 @@ export function HarnessFixture() {
         <div className="fb-sr-tabs__row">
           <span className="fb-sr-tab" data-active="true">
             <span className="fb-sr-tab__icon">
-              <CompassIcon size={21} />
+              <DiscoverMark size={40} active />
             </span>
             Discover
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <HeartIcon size={21} />
+              <HeartIcon size={30} />
             </span>
             Likes
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ChatIcon size={21} />
+              <ChatIcon size={30} />
+              <span className="fb-sr-tab__dot">2</span>
             </span>
             Messages
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ProfileIcon size={21} />
+              <ProfileIcon size={30} />
             </span>
             Profile
           </span>
