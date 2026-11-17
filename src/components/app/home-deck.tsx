@@ -6,13 +6,18 @@ import Link from "next/link";
 import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
-import { UnvaxBadge } from "@/components/unvax-badge";
-import { VerifyBadge } from "@/components/verify-badge";
-import { UnvaxTip } from "@/components/unvax-tip";
 import { Wordmark } from "@/components/wordmark";
 import { MixerCard } from "./settings-view";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
+import { DeckCard } from "./deck-card";
+import {
+  BellIcon,
+  HeartIcon,
+  LeafIcon,
+  SparkIcon,
+  FlameIcon,
+} from "@/components/ui/line-icons";
 import {
   buildProfileParams,
   DEFAULT_FILTERS,
@@ -50,17 +55,9 @@ type Profile = {
   distanceKm: number | null;
   joinedAt: string | null;
   isNew?: boolean;
+  interests?: string[];
+  likes?: number;
 };
-
-function joinedShort(iso: string | null) {
-  if (!iso) return "";
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-  if (days < 1) return "joined today";
-  if (days < 31) return `joined ${days}d ago`;
-  const months = Math.floor(days / 30.4);
-  if (months < 12) return `joined ${months}mo ago`;
-  return `joined ${Math.floor(months / 12)}y ago`;
-}
 
 type Choice = "like" | "pass" | "superlike";
 
@@ -69,12 +66,68 @@ const FLY_EASE = "cubic-bezier(0.18, 0.9, 0.24, 1)";
 /** Spring-back when a drag is released below the threshold. */
 const SPRING_EASE = "cubic-bezier(0.2, 1.4, 0.4, 1)";
 
+type Tone = "long-term" | "natural-health" | "health-autonomy";
+
+/**
+ * The three interest chips above the deck, drawn from the reference.
+ *
+ * They are not decoration: each one is a real, reversible filter that writes the
+ * same saved-filters store the filter panel writes, so the chip and the panel can
+ * never disagree — and the chips below the fold scroll, because the filter set is
+ * larger than three and hiding the rest would make the panel the only way in.
+ */
+const ROOM_FILTERS: Array<{
+  key: string;
+  label: string;
+  tone: Tone;
+  apply: (f: HomeFilters) => HomeFilters;
+  active: (f: HomeFilters) => boolean;
+}> = [
+  {
+    key: "long-term",
+    label: "Long-term",
+    tone: "long-term",
+    apply: (f) => ({
+      ...f,
+      intents: f.intents.includes("long_term") ? f.intents : [...f.intents, "long_term"],
+    }),
+    active: (f) => f.intents.includes("long_term"),
+  },
+  {
+    key: "natural-health",
+    label: "Natural health",
+    tone: "natural-health",
+    apply: (f) => ({
+      ...f,
+      lifestyle: f.lifestyle.includes("Natural wellness")
+        ? f.lifestyle
+        : [...f.lifestyle, "Natural wellness"],
+    }),
+    active: (f) => f.lifestyle.includes("Natural wellness"),
+  },
+  {
+    key: "health-autonomy",
+    label: "Health autonomy",
+    tone: "health-autonomy",
+    apply: (f) => ({
+      ...f,
+      lifestyle: f.lifestyle.includes("Health autonomy")
+        ? f.lifestyle
+        : [...f.lifestyle, "Health autonomy"],
+    }),
+    active: (f) => f.lifestyle.includes("Health autonomy"),
+  },
+];
+
 export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [index, setIndex] = useState(0);
   const [animating, setAnimating] = useState<Choice | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [matchToast, setMatchToast] = useState<string | null>(null);
+  /** Confirmation that a hello was queued as a message request. Its own state,
+   *  because reusing the match toast made it read "It's mutual… liked you back". */
+  const [helloToast, setHelloToast] = useState<string | null>(null);
   const [superToast, setSuperToast] = useState(false);
   const [bubble, setBubble] = useState<{ x: number; y: number; key: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,6 +146,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   /** Undo the last swipe — free everywhere else, free here too. */
   const [undoBusy, setUndoBusy] = useState(false);
   const [lastUndone, setLastUndone] = useState<string | null>(null);
+  /** Unread alert count for the bell in the header. */
+  const [alerts, setAlerts] = useState(0);
+  /** The member's own primary photo, for the header avatar. */
+  const [myPhoto, setMyPhoto] = useState<string | null>(null);
 
   /* --- Gesture state lives in refs: zero React re-renders per frame ------- */
 
@@ -219,6 +276,42 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     window.addEventListener(FILTERS_EVENT, onFilters);
     return () => window.removeEventListener(FILTERS_EVENT, onFilters);
   }, [standalone]);
+
+  /* --- header identity: the member's own face, and their unread alerts ---- */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const token = await getAccessToken().catch(() => null);
+      if (!token || cancelled) return;
+      const res = await fetch("/api/profile/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+      if (!res?.ok || cancelled) return;
+      const json = (await res.json().catch(() => null)) as
+        | { profile?: { photos?: string[] } }
+        | null;
+      const first = json?.profile?.photos?.[0];
+      if (first && !cancelled) setMyPhoto(first);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onUnread = (e: Event) => {
+      const d = (e as CustomEvent<{ alerts?: number }>).detail;
+      const n = d?.alerts;
+      if (typeof n === "number") {
+        /* The shell publishes "you are looking at this tab, its dot is zero";
+           every other publish carries a real count that must not be lowered by
+           a stale read from a merge event. */
+        setAlerts((prev) => (n === 0 ? 0 : Math.max(prev, n)));
+      }
+    };
+    window.addEventListener("freeborn:unread", onUnread);
+    return () => window.removeEventListener("freeborn:unread", onUnread);
+  }, []);
 
   const loadProfiles = useCallback(async () => {
     const params = buildProfileParams(filters, origin);
@@ -380,35 +473,75 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     if (choice === "pass") setStamp("pass", 1);
   }, []);
 
-  const recordChoice = useCallback(
-    async (profile: Profile, choice: Choice) => {
+  const recordChoice = useCallback(async (profile: Profile, choice: Choice) => {
+    const token = await getAccessToken().catch(() => null);
+    try {
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ profileId: profile.id, choice }),
+      });
+      if (res.status === 401) {
+        window.location.href = "/auth?mode=sign-in";
+        return;
+      }
+      if (res.ok) {
+        const json = await res.json();
+        if (json.matched) setMatchToast(profile.name);
+        if (choice === "superlike") {
+          setSuperToast(true);
+          setTimeout(() => setSuperToast(false), 2600);
+        }
+      }
+    } catch {
+      /* network hiccup — the deck already moved on */
+    }
+  }, []);
+
+  /**
+   * "Say hello" — the reference's primary action, wired to the message-request
+   * route rather than to a silent like.
+   *
+   * Until this existed the only way to reach a member from Discover was a
+   * double-tap Super Like or the like button, and /api/chat/requests requires a
+   * body with the recipient. The request lands in THEIR Messages, which is where
+   * the route already tells both parties to look, and if a conversation already
+   * exists it opens it. Nothing is sent without the member seeing the card that
+   * names who it goes to.
+   */
+  const sayHello = useCallback(
+    async (profile: Profile) => {
+      if (animating) return;
       const token = await getAccessToken().catch(() => null);
+      if (!token) {
+        window.location.href = "/auth?mode=sign-in";
+        return;
+      }
       try {
-        const res = await fetch("/api/likes", {
+        const res = await fetch("/api/chat/requests", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ profileId: profile.id, choice }),
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ to: profile.id }),
         });
-        if (res.status === 401) {
-          window.location.href = "/auth?mode=sign-in";
+        const json = (await res.json().catch(() => null)) as
+          | { matchId?: string; requestId?: string; incomingId?: string; error?: string }
+          | null;
+        if (res.ok && json?.matchId) {
+          window.location.assign(`/app/chat?match=${json.matchId}`);
           return;
         }
-        if (res.ok) {
-          const json = await res.json();
-          if (json.matched) setMatchToast(profile.name);
-          if (choice === "superlike") {
-            setSuperToast(true);
-            setTimeout(() => setSuperToast(false), 2600);
-          }
+        if (res.ok && json?.requestId) {
+          setHelloToast(`${profile.name} has your hello in Messages.`);
+          window.setTimeout(() => setHelloToast(null), 4000);
         }
       } catch {
-        /* network hiccup — the deck already moved on */
+        /* the card stays where it is; nothing was claimed */
       }
     },
-    []
+    [animating]
   );
 
   const act = useCallback(
@@ -562,11 +695,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
          (mouse/pen) taps behave exactly like touch taps. */
       const onProfileButton =
         Boolean((e.target as HTMLElement).closest?.("[data-profile-btn]")) ||
-        Boolean(
-          document
-            .elementFromPoint(e.clientX, e.clientY)
-            ?.closest("[data-profile-btn]")
-        );
+        Boolean(document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-profile-btn]"));
       if (onProfileButton) {
         const tapped = profiles[index];
         if (tapped) openProfileTap(tapped.id, now);
@@ -593,13 +722,34 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     setStamp("pass", 0);
   };
 
+  /* --- Room filters (the chips above the deck) ---------------------------- */
+
+  const toggleRoomFilter = (key: string) => {
+    const def = ROOM_FILTERS.find((f) => f.key === key);
+    if (!def) return;
+    const next = def.active(filters)
+      ? /* turning a chip off removes exactly the term it added */ {
+          ...filters,
+          intents: filters.intents.filter((i) => i !== "long_term"),
+          lifestyle: filters.lifestyle.filter(
+            (l) => l !== "Natural wellness" && l !== "Health autonomy"
+          ),
+        }
+      : def.apply(filters);
+    setFilters(next);
+    saveFilters(next);
+  };
+
   /* --- Render -------------------------------------------------------------- */
 
   const stack = [profiles[index], profiles[index + 1], profiles[index + 2]];
+  const roomCity = current?.city || profiles.find((p) => p.city)?.city || "";
 
-  return (
-    <div className="mx-auto max-w-md">
-      {standalone ? (
+  if (standalone) {
+    /* /discover: the signed-out front door. It keeps its own honest copy and is
+       not part of the member surface, so the shell around it stays minimal. */
+    return (
+      <div className="fb-sr mx-auto max-w-md px-5 py-6">
         <header className="mb-6 flex items-center justify-between">
           <Link href="/" className="transition hover:opacity-80">
             <Wordmark size="sm" />
@@ -607,68 +757,161 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           {signedIn === false ? (
             <Link
               href="/auth?mode=sign-in"
-              className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.08]"
+              className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-2.5 text-[13px] font-bold text-[var(--sr-pearl)] transition hover:bg-white/[0.08]"
             >
               Sign in
             </Link>
           ) : null}
         </header>
-      ) : (
-        <div className="mb-5">
-          <p className="eyebrow">Discover</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-            The room is open.
-          </h1>
-        </div>
-      )}
+        {loading ? (
+          <div className="fb-skeleton aspect-[3/4.2] rounded-[28px]" />
+        ) : signedOut || !current ? (
+          <div className="fb-sr-card p-9 text-center">
+            <p className="fb-sr-title text-[22px]">The room is for members.</p>
+            <p className="mx-auto mt-3 max-w-[36ch] text-[13px] leading-6 text-[var(--sr-mist)]">
+              Profiles are only shown to signed-in members, so no one&rsquo;s face, city or health
+              views sit on a page the whole internet can read. Sign in to walk the room, or create
+              an account first.
+            </p>
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <Link href="/auth?mode=sign-up" className="fb-sr-hello w-full">
+                Create your account
+              </Link>
+              <Link
+                href="/auth?mode=sign-in"
+                className="text-[13px] font-bold text-[var(--sr-sand)] underline-offset-4 hover:underline"
+              >
+                I already have one
+              </Link>
+            </div>
+          </div>
+        ) : null}
+        {openProfile ? (
+          <ProfileView profileId={openProfile} onClose={() => setOpenProfile(null)} />
+        ) : null}
+      </div>
+    );
+  }
 
-      {matchToast ? (
-        <div className="animate-scale-in mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/[0.08] px-4 py-3">
-          <p className="text-[13px] font-bold text-[var(--color-teal-300)]">
-            It&apos;s mutual. {matchToast} liked you back.
+  return (
+    <div className="mx-auto w-full max-w-[480px] lg:max-w-[520px]">
+      {/* --- header ------------------------------------------------------- */}
+      <header className="fb-sr-header">
+        <div>
+          <p className="fb-sr-eyebrow">
+            {roomCity ? `Tonight in ${roomCity}` : "Tonight on Freeborn"}
           </p>
-          <Link href="/app/chat" className="shrink-0 text-[12px] font-black text-[var(--color-pearl)] underline underline-offset-2">
+          <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 pt-1">
+          <Link
+            href="/app/notifications"
+            aria-label={alerts > 0 ? `Alerts, ${alerts} unread` : "Alerts"}
+            className="fb-sr-disc fb-sr-round"
+            style={{ width: 42, height: 42 }}
+          >
+            <span className="relative flex">
+              <BellIcon size={17} />
+              {alerts > 0 ? <span className="fb-sr-dot">{alerts > 9 ? "9+" : alerts}</span> : null}
+            </span>
+          </Link>
+          <Link
+            href="/app/profile"
+            aria-label="Your profile"
+            className="fb-sr-avatar"
+            style={{ width: 42, height: 42 }}
+          >
+            {myPhoto ? (
+              <PhotoImage src={myPhoto} alt="Your profile photo" className="h-full w-full" compact />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-[var(--sr-mist)]">
+                <FlameIcon size={18} />
+              </span>
+            )}
+          </Link>
+        </div>
+      </header>
+
+      {/* --- room filter chips -------------------------------------------- */}
+      <div className="fb-sr-chiprow mt-5">
+        {ROOM_FILTERS.map((f) => {
+          const on = f.active(filters);
+          return (
+            <button
+              key={f.key}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggleRoomFilter(f.key)}
+              className={`fb-sr-chip ${on ? "" : "fb-sr-chip--ghost"}`}
+            >
+              {on ? <LeafIcon size={13} /> : null}
+              {f.label}
+            </button>
+          );
+        })}
+        <span className="fb-sr-chip fb-sr-chip--gold" aria-hidden>
+          <LeafIcon size={14} />
+        </span>
+      </div>
+
+      {/* --- match / super-like notices ----------------------------------- */}
+      {matchToast ? (
+        <div className="animate-scale-in mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#7ee2b0]/30 bg-[#7ee2b0]/[0.08] px-4 py-3">
+          <p className="text-[12.5px] font-bold text-[#b9f2d2]">
+            It&rsquo;s mutual. {matchToast} liked you back.
+          </p>
+          <Link
+            href="/app/chat"
+            className="shrink-0 text-[12px] font-black text-[var(--sr-pearl)] underline underline-offset-2"
+          >
             Say hello
           </Link>
         </div>
       ) : null}
 
+      {helloToast ? (
+        <div className="animate-scale-in mt-4 rounded-2xl border border-[#ffd3ad]/30 bg-[#ffd3ad]/[0.08] px-4 py-3">
+          <p className="text-[12.5px] font-bold text-[#ffe0c6]">{helloToast}</p>
+        </div>
+      ) : null}
+
       {superToast ? (
-        <div className="animate-scale-in mb-4 rounded-2xl border border-[var(--color-violet-500)]/35 bg-[var(--color-violet-500)]/[0.09] px-4 py-3">
-          <p className="text-[13px] font-bold text-[var(--color-violet-300)]">
-            Super like sent. You&apos;ll stand out in their stack.
+        <div className="animate-scale-in mt-4 rounded-2xl border border-[#a892ff]/35 bg-[#a892ff]/[0.09] px-4 py-3">
+          <p className="text-[12.5px] font-bold text-[#cfc4ff]">
+            Super like sent. You&rsquo;ll stand out in their stack.
           </p>
         </div>
       ) : null}
 
+      {/* --- the deck ----------------------------------------------------- */}
       {loading ? (
-        <div className="skeleton aspect-[3/4.6] rounded-[28px] border border-white/[0.07]" />
+        <div className="fb-skeleton mt-5 aspect-[3/4.1] rounded-[28px]" />
       ) : signedOut ? (
-        <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-xl font-semibold">The room is for members.</p>
-          <p className="mx-auto mt-2 max-w-[36ch] text-sm leading-6 text-[var(--color-mist)]">
-            Profiles are only shown to signed-in members, so no one&rsquo;s face, city or
-            health views sit on a page the whole internet can read. Sign in to walk the
-            room, or create an account first.
+        <div className="fb-sr-card mt-5 p-8 text-center">
+          <p className="fb-sr-title text-[21px]">The room is for members.</p>
+          <p className="mx-auto mt-2.5 max-w-[36ch] text-[13px] leading-6 text-[var(--sr-mist)]">
+            Profiles are only shown to signed-in members, so no one&rsquo;s face, city or health
+            views sit on a page the whole internet can read. Sign in to walk the room, or create an
+            account first.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
-            <Link
-              href="/auth?mode=sign-up"
-              className="btn-ember rounded-full px-7 py-3 text-sm font-bold"
-            >
+            <Link href="/auth?mode=sign-up" className="fb-sr-hello w-full">
               Create your account
             </Link>
             <Link
               href="/auth?mode=sign-in"
-              className="btn-ghost rounded-full px-7 py-3 text-sm font-bold"
+              className="text-[13px] font-bold text-[var(--sr-sand)] underline-offset-4 hover:underline"
             >
               I already have one
             </Link>
           </div>
         </div>
       ) : !current ? (
-        <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-xl font-semibold">
+        <div className="fb-sr-card mt-5 p-8 text-center">
+          <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.05] text-[var(--sr-warm-200)]">
+            <SparkIcon size={22} />
+          </span>
+          <p className="fb-sr-title text-[21px]">
             {filteredOut
               ? `${roomTotal} ${roomTotal === 1 ? "member is" : "members are"} in the room, and your filters leave none of them.`
               : panelFiltersOn
@@ -677,7 +920,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   ? `No one within ${formatDistance(filters.distance, units)} right now.`
                   : "You've met everyone here today."}
           </p>
-          <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-6 text-[var(--color-mist)]">
+          <p className="mx-auto mt-2.5 max-w-[34ch] text-[13px] leading-6 text-[var(--sr-mist)]">
             {filteredOut
               ? panelFiltersOn
                 ? "Loosen a filter and they come back. The counts beside each option tell you how many members have actually answered it."
@@ -688,253 +931,94 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   ? "The room is small and honest, so a tight radius can come up empty. Search everywhere below, or check back as your area grows."
                   : "New members join daily. Come back tomorrow, or walk the room again."}
           </p>
-          {filteredOut && !panelFiltersOn ? (
-            <Link
-              href="/app/settings"
-              className="btn-ghost mt-6 inline-block rounded-full px-7 py-3 text-sm font-bold"
-            >
-              Open discovery settings
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (panelFiltersOn) {
-                  setFilters({ ...DEFAULT_FILTERS });
-                  saveFilters({ ...DEFAULT_FILTERS });
-                } else {
-                  setIndex(0);
-                }
-              }}
-              className="btn-ghost mt-6 rounded-full px-7 py-3 text-sm font-bold"
-            >
-              {panelFiltersOn ? "Clear filters" : "Meet them again"}
-            </button>
-          )}
-          {profiles.length === 0 && filters.distance < 500 ? (
-            <button
-              type="button"
-              onClick={() => {
-                const wider = { ...filters, distance: 500 };
-                setFilters(wider);
-                saveFilters(wider);
-              }}
-              className="btn-ember mt-3 rounded-full px-7 py-3 text-sm font-bold"
-            >
-              Search everywhere (remove distance cap)
-            </button>
-          ) : null}
-          {profiles.length === 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                void (async () => {
-                  const token = await getAccessToken().catch(() => null);
-                  await fetch("/api/likes", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
-                    body: JSON.stringify({ action: "reset-passes" }),
-                  }).catch(() => undefined);
-                  void loadProfiles();
-                })();
-              }}
-              className="btn-ghost mt-3 rounded-full px-7 py-3 text-sm font-bold"
-            >
-              See people you passed again
-            </button>
-          ) : null}
+          <div className="mt-6 flex flex-col items-stretch gap-2.5">
+            {filteredOut && !panelFiltersOn ? (
+              <Link href="/app/settings" className="fb-sr-hello">
+                Open discovery settings
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (panelFiltersOn) {
+                    setFilters({ ...DEFAULT_FILTERS });
+                    saveFilters({ ...DEFAULT_FILTERS });
+                  } else {
+                    setIndex(0);
+                  }
+                }}
+                className="fb-sr-hello"
+              >
+                {panelFiltersOn ? "Clear filters" : "Meet them again"}
+              </button>
+            )}
+            {profiles.length === 0 && filters.distance < 500 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const wider = { ...filters, distance: 500 };
+                  setFilters(wider);
+                  saveFilters(wider);
+                }}
+                className="rounded-full border border-white/10 px-6 py-3 text-[13px] font-bold text-[var(--sr-sand)] transition hover:text-[var(--sr-pearl)]"
+              >
+                Search everywhere
+              </button>
+            ) : null}
+            {profiles.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void (async () => {
+                    const token = await getAccessToken().catch(() => null);
+                    await fetch("/api/likes", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: JSON.stringify({ action: "reset-passes" }),
+                    }).catch(() => undefined);
+                    void loadProfiles();
+                  })();
+                }}
+                className="rounded-full border border-white/10 px-6 py-3 text-[13px] font-bold text-[var(--sr-sand)] transition hover:text-[var(--sr-pearl)]"
+              >
+                See people you passed again
+              </button>
+            ) : null}
+          </div>
           <div className="mt-8 text-left">
             <MixerCard defaultCity="" />
           </div>
         </div>
       ) : (
-        <div className="relative">
-          {/* Stacked deck: card 0 is interactive; cards 1–2 wait underneath. */}
-          {stack.map((profile, k) => {
-            if (!profile) return null;
-            const isTop = k === 0;
-            return (
-              <article
-                key={profile.id}
-                ref={isTop ? (el) => void (topRef.current = el) : undefined}
-                onPointerDown={isTop ? onCardPointerDown : undefined}
-                onPointerMove={isTop ? onCardPointerMove : undefined}
-                onPointerUp={isTop ? onCardPointerUp : undefined}
-                onPointerCancel={isTop ? onCardPointerCancel : undefined}
-                style={{
-                  position: isTop ? "relative" : "absolute",
-                  inset: isTop ? undefined : "0 0 auto 0",
-                  zIndex: 30 - k * 10,
-                  transform: isTop ? undefined : `translateY(${k * 13}px) scale(${1 - k * 0.048})`,
-                  opacity: isTop ? 1 : k === 1 ? 0.9 : 0.55,
-                  transition: `transform 440ms cubic-bezier(0.22,1,0.36,1), opacity 440ms ease`,
-                  pointerEvents: isTop ? "auto" : "none",
-                  touchAction: isTop ? "pan-y" : undefined,
-                  willChange: "transform",
-                }}
-                className="deck-card overflow-hidden rounded-[26px] border hairline bg-abyss shadow-[0_44px_100px_-26px_rgba(0,0,0,0.8),0_1px_0_rgba(255,255,255,0.08)_inset]"
-              >
-                {/* Drag / action stamps (top card only) */}
-                {isTop ? (
-                  <>
-                    <span
-                      ref={skipStampRef}
-                      className="pointer-events-none absolute left-5 top-6 z-20 rotate-[-8deg] rounded-xl border-2 border-red-400/80 px-3 py-1 text-sm font-black uppercase tracking-widest text-red-300"
-                      style={{ opacity: 0 }}
-                    >
-                      Skip
-                    </span>
-                    <span
-                      ref={likeStampRef}
-                      className="pointer-events-none absolute right-5 top-6 z-20 rotate-8 rounded-xl border-2 border-[var(--color-teal-300)] px-3 py-1 text-sm font-black uppercase tracking-widest text-[var(--color-teal-300)]"
-                      style={{ opacity: 0 }}
-                    >
-                      Like
-                    </span>
-                  </>
-                ) : null}
-
-                <div className="relative aspect-[3/3.2] max-h-[54dvh] w-full overflow-hidden">
-                  {profile.photos[0] ?? profile.photo ? (
-                    <PhotoImage
-                      src={profile.photos[0] ?? profile.photo}
-                      alt={`${profile.name}, ${profile.age}`}
-                      className="h-full w-full"
-                      priority
-                    />
-                  ) : (
-                    /* Placeholder card for a photoless profile (viewer allows them) */
-                    <div
-                      aria-hidden
-                      className="flex h-full w-full select-none items-center justify-center bg-[var(--gradient-ember-warm)]"
-                    >
-                      <span className="font-display text-7xl font-bold text-white/90">
-                        {(profile.name || "M").charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
-
-                  {/* Top-right badges: verification + unvaccinated stance.
-                      The verified badge disappears when the member uploads a new
-                      photo that a running identity check cannot confirm. */}
-                  <div className="absolute right-4 top-8 z-10 flex flex-col items-end gap-2">
-                    <div className="relative flex items-center gap-2">
-                      {profile.verified ? (
-                        <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
-                          <VerifyBadge size={20} />
-                        </span>
-                      ) : null}
-                      {profile.vaccinationStatus === "unvaccinated" ? (
-                        <UnvaxBadge size={17} withLabel />
-                      ) : null}
-                      {isTop && profile.vaccinationStatus === "unvaccinated" ? (
-                        <UnvaxTip key={profile.id} />
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Photo count + open-viewer hint */}
-                  {profile.photos.length > 1 ? (
-                    <span className="absolute right-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
-                      1/{profile.photos.length}
-                    </span>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    data-profile-btn
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (draggedRef.current) return;
-                      if (singleTapTimer.current) {
-                        clearTimeout(singleTapTimer.current);
-                        singleTapTimer.current = null;
-                      }
-                      openProfileTap(profile.id, Date.now());
-                    }}
-                    className="absolute inset-x-0 bottom-0 z-10 px-5 pb-3.5 pt-10 text-left"
-                    aria-label={`View ${profile.name}'s full profile`}
-                  >
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                        <h2 className="truncate font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
-                        <span className="shrink-0 font-display text-[22px] text-gold-300">{profile.age}</span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                      {(() => {
-                        /* The badge now says what the window behind it actually
-                           was. "Online" over 24 hours was a claim this data could
-                           not support; the route returns tiers and the label
-                           follows the tier. A member who hides their presence gets
-                           no badge, which is unchanged. */
-                        const label =
-                          profile.presence === "now"
-                            ? "Online now"
-                            : profile.presence === "today"
-                              ? "Active today"
-                              : profile.presence === "week"
-                                ? "Active this week"
-                                : null;
-                        if (!label) return null;
-                        const live = profile.presence === "now";
-                        return (
-                          <span
-                            title={
-                              live
-                                ? "Active within the last 15 minutes"
-                                : profile.presence === "today"
-                                  ? "Active within the last 24 hours"
-                                  : "Active within the last 7 days"
-                            }
-                            className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                              live
-                                ? "border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]"
-                                : "border-white/[0.12] bg-white/[0.05] text-[var(--color-sand)]"
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                live ? "bg-[var(--color-teal-300)]" : "bg-[var(--color-sand)]"
-                              }`}
-                            />
-                            {label}
-                          </span>
-                        );
-                      })()}
-                      {profile.isNew ? (
-                        <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
-                          New here
-                        </span>
-                      ) : null}
-                        <svg className="h-4 w-4 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 8v4M12 16h.01" />
-                        </svg>
-                      </div>
-                    </div>
-                    <p className="text-[12px] tracking-wide text-sand">
-                      {profile.occupation} · {profile.city}
-                      {profile.distanceKm != null && !profile.hideDistance
-                        ? ` · ${formatDistance(profile.distanceKm, units)}`
-                        : ""}
-                    </p>
-                    {profile.joinedAt ? (
-                      <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white/45">
-                        {joinedShort(profile.joinedAt)}
-                      </p>
-                    ) : null}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  data-profile-btn
-                  onClick={(e) => {
-                    e.stopPropagation();
+        <>
+          <div className="fb-sr-stage mt-5">
+            {stack.map((profile, k) => {
+              if (!profile) return null;
+              const isTop = k === 0;
+              return (
+                <DeckCard
+                  key={profile.id}
+                  profile={profile}
+                  isTop={isTop}
+                  depth={k}
+                  units={units}
+                  cardRef={isTop ? (el) => void (topRef.current = el) : undefined}
+                  likeStampRef={isTop ? (el) => void (likeStampRef.current = el) : undefined}
+                  passStampRef={isTop ? (el) => void (skipStampRef.current = el) : undefined}
+                  handlers={
+                    isTop
+                      ? {
+                          onPointerDown: onCardPointerDown,
+                          onPointerMove: onCardPointerMove,
+                          onPointerUp: onCardPointerUp,
+                          onPointerCancel: onCardPointerCancel,
+                        }
+                      : undefined
+                  }
+                  onOpen={() => {
                     if (draggedRef.current) return;
                     if (singleTapTimer.current) {
                       clearTimeout(singleTapTimer.current);
@@ -942,150 +1026,72 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     }
                     openProfileTap(profile.id, Date.now());
                   }}
-                  className="block max-h-[30dvh] w-full space-y-3 overflow-y-auto p-5 text-left"
-                >
-                  <div>
-                    {profile.headline ? (
-                      <p className="line-clamp-2 mb-1.5 text-[13.5px] leading-relaxed text-white/80">
-                        {profile.headline}
-                      </p>
-                    ) : null}
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
-                    <p className="mt-1.5 text-[14px] leading-relaxed text-ivory/90">{profile.promptAnswer}</p>
-                    {profile.inCommon &&
-                    (profile.inCommon.values.length > 0 ||
-                      profile.inCommon.interests.length > 0 ||
-                      profile.inCommon.goals.length > 0) ? (
-                      <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="What you have in common">
-                        {profile.inCommon.values.slice(0, 2).map((v) => (
-                          <span key={`v-${v}`} className="fb-chip fb-chip-gold !text-[11px] !py-1">
-                            {v}
-                          </span>
-                        ))}
-                        {profile.inCommon.interests.slice(0, 2).map((i) => (
-                          <span key={`i-${i}`} className="fb-chip fb-chip-teal !text-[11px] !py-1">
-                            {i}
-                          </span>
-                        ))}
-                        {profile.inCommon.goals.length > 0 ? (
-                          <span className="fb-chip !text-[11px] !py-1">Same intentions</span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div>
-                    <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-[var(--color-ash)]">Their traits</p>
-                    <div className="flex flex-wrap gap-1.5">
-                    {profile.traits.map((trait) => (
-                      <span
-                        key={trait}
-                        className="rounded-full border border-white/[0.07] bg-pearl/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-sand"
-                      >
-                        {trait}
-                      </span>
-                    ))}
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                    Swipe to skip · tap for photos · double-tap to Super Like
-                  </p>
-                </button>
-              </article>
-            );
-          })}
-
-          {/* Actions: Undo · Skip · Super Like · Like */}
-          <div className="sticky bottom-[72px] z-40 mt-7 flex items-end justify-center gap-7 rounded-3xl border border-white/[0.06] bg-[#070a12]/92 px-3 py-3 backdrop-blur-md">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void undoLastSwipe()}
-                disabled={undoBusy}
-                aria-label="Undo last swipe"
-                title="Undo your last swipe"
-                className="btn-ghost flex h-[46px] w-[46px] items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 7v6h6" />
-                  <path d="M21 17a9 9 0 00-15-6.7L3 13" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                {lastUndone ? "Undone ✓" : "Undo"}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => act("pass")}
-                aria-label="Skip (pass)"
-                title="Skip"
-                className="btn-ghost flex h-[62px] w-[62px] items-center justify-center rounded-full transition active:scale-90"
-              >
-                <svg width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden>
-                  <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Skip</span>
-            </div>
-
-            <div className="flex -translate-y-2 flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
-                aria-label="Super like"
-                title="Super Like: stand out"
-                className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-white transition hover:scale-[1.04] active:scale-95"
-              >
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-violet-300)]">Super Like</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => act("like")}
-                aria-label="Like"
-                title="Like"
-                className="btn-ember btn-shine relative flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-full transition active:scale-90"
-              >
-                <svg width="26" height="26" viewBox="0 0 30 30" fill="none" aria-hidden>
-                  <path
-                    d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
-                    fill="#fff7f2"
-                  />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Like</span>
-            </div>
+                  onLike={() => act("like")}
+                  onPass={() => act("pass")}
+                  onSayHello={() => void sayHello(profile)}
+                />
+              );
+            })}
           </div>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <p className="text-center text-[12px] tracking-wide text-[var(--color-ash)]">
+
+          {/* Position, undo, and the honest hint — quiet, below the card. */}
+          <div className="mt-4 flex items-center justify-between gap-3 px-1">
+            <button
+              type="button"
+              onClick={() => void undoLastSwipe()}
+              disabled={undoBusy}
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--sr-ash)] transition hover:text-[var(--sr-sand)] disabled:opacity-40"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 0 0-15-6.7L3 13" />
+              </svg>
+              {lastUndone ? "Undone" : "Undo"}
+            </button>
+            <p className="text-[11.5px] font-medium text-[var(--sr-ash)]">
               {index + 1} of {profiles.length} in the room
             </p>
-            {!origin && navigator.geolocation ? (
+            {!origin && typeof navigator !== "undefined" && navigator.geolocation ? (
               <button
                 type="button"
                 onClick={enableLocation}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10.5px] font-bold text-[var(--color-sand)] transition hover:text-[var(--color-pearl)]"
+                className="text-[11.5px] font-bold text-[var(--sr-ash)] transition hover:text-[var(--sr-sand)]"
               >
                 Show distances
               </button>
-            ) : null}
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-[var(--sr-ash)] opacity-0" aria-hidden>
+                Show distances
+              </span>
+            )}
           </div>
-        </div>
+
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-[10.5px] font-medium text-[var(--sr-ash)]/80">
+            <HeartIcon size={11} />
+            Swipe to choose · tap the photo to enlarge · double-tap to Super Like
+          </p>
+        </>
       )}
 
       {/* Super-like bubble */}
       {bubble ? (
-        <div key={bubble.key} className="pointer-events-none fixed z-[90]" style={{ left: bubble.x - 30, top: bubble.y - 30 }}>
-          <div className="superlike-bubble flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] shadow-[0_18px_50px_-10px_rgba(239,94,94,0.7)]">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff7f2" aria-hidden>
-              <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
-            </svg>
+        <div
+          key={bubble.key}
+          className="pointer-events-none fixed z-[90]"
+          style={{ left: bubble.x - 30, top: bubble.y - 30 }}
+        >
+          <div className="superlike-bubble flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffd3ad,#f0906a)] shadow-[0_18px_50px_-10px_rgba(240,144,106,0.7)]">
+            <HeartIcon size={26} filled className="text-[#3a2418]" />
           </div>
         </div>
       ) : null}

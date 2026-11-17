@@ -162,7 +162,17 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html lang="en" className="bg-[var(--color-night)]">
+    /* The two next/font variables have to reach the document root: globals.css
+       declares `--font-display: var(--font-fraunces), …` and `--font-body:
+       var(--font-inter), …`, and an undefined custom property invalidates the
+       WHOLE font-family declaration at computed-value time — it does not fall
+       through to the serif/system stacks that follow it. Without these classes
+       every "display" heading on the site computed to the inherited sans stack,
+       so Fraunces was downloaded and never used. */
+    <html
+      lang="en"
+      className={`${fraunces.variable} ${inter.variable} bg-[var(--color-night)]`}
+    >
       <head>
         {/* Installable web app (PWA) — web-first, no app-store dependency. */}
         <link rel="manifest" href="/manifest.json" />

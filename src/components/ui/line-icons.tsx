@@ -1,0 +1,185 @@
+/**
+ * Line icon set for the "Someone you'll remember" surface.
+ *
+ * One family, one stroke weight (1.7), one geometry (24×24, round caps), so the
+ * discovery card, the profile screen and the tab bar cannot drift into three
+ * different drawing styles. Every icon is decorative by default — the control
+ * that wraps it carries the label — except where a name is supplied.
+ */
+import type { SVGProps } from "react";
+
+type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+
+function Svg({ size = 18, children, ...rest }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      focusable="false"
+      {...rest}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function BellIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M18 8.6a6 6 0 1 0-12 0c0 5.3-2.2 6.8-2.2 6.8h16.4S18 13.9 18 8.6Z" />
+      <path d="M13.7 19.2a2 2 0 0 1-3.4 0" />
+    </Svg>
+  );
+}
+
+export function HeartIcon({ filled = false, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <Svg {...props} fill={filled ? "currentColor" : "none"}>
+      <path d="M12 20.2c-.4 0-8-4.7-8-10.2a4.4 4.4 0 0 1 8-2.5 4.4 4.4 0 0 1 8 2.5c0 5.5-7.6 10.2-8 10.2Z" />
+    </Svg>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6" />
+    </Svg>
+  );
+}
+
+export function BackArrowIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </Svg>
+  );
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={0}>
+      <circle cx="5.5" cy="12" r="1.9" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.9" fill="currentColor" />
+      <circle cx="18.5" cy="12" r="1.9" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function HeightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.5v17M8.6 6.9 12 3.5l3.4 3.4M8.6 17.1 12 20.5l3.4-3.4" />
+    </Svg>
+  );
+}
+
+export function FlameIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 2.8c2.6 3 5.6 5.9 5.6 9.6a5.6 5.6 0 1 1-11.2 0c0-2.2 1-3.9 2.4-5.4.3 1.5 1 2.4 1.9 2.9-.4-2.6.3-5 1.3-7.1Z" />
+    </Svg>
+  );
+}
+
+export function LeafIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 4c0 8.5-4.3 12.6-9.4 12.6A5.6 5.6 0 0 1 5 11c0-4.4 4.6-7 15-7Z" />
+      <path d="M4 20c1.6-5.2 4.6-8.4 9.2-10.4" />
+    </Svg>
+  );
+}
+
+export function ChatIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20.5 11.6c0 4.2-3.8 7.6-8.5 7.6a9.6 9.6 0 0 1-3.3-.6L4 20.4l1.4-4.5a7 7 0 0 1-1.4-4.3C4 7.4 7.8 4 12.5 4s8 3.4 8 7.6Z" />
+    </Svg>
+  );
+}
+
+export function CoupleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 20.4S4.4 15.7 4.4 10.2a4.2 4.2 0 0 1 7.6-2.4 4.2 4.2 0 0 1 7.6 2.4c0 5.5-7.6 10.2-7.6 10.2Z" />
+    </Svg>
+  );
+}
+
+export function ProfileIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="8.2" r="3.7" />
+      <path d="M4.6 20.4c0-3.9 3.3-6.1 7.4-6.1s7.4 2.2 7.4 6.1" />
+    </Svg>
+  );
+}
+
+export function SparkIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.2l1.9 4.6 4.6 1.9-4.6 1.9-1.9 4.6-1.9-4.6L5.5 9.7l4.6-1.9L12 3.2Z" />
+    </Svg>
+  );
+}
+
+export function CompassIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.6 8.4l-2 5.2-5.2 2 2-5.2 5.2-2Z" />
+    </Svg>
+  );
+}
+
+export function BriefcaseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.2" y="7.4" width="17.6" height="12.4" rx="2.6" />
+      <path d="M9 7.4V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8v1.6M3.2 12.6h17.6" />
+    </Svg>
+  );
+}
+
+export function PinIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 21s-6.6-5.6-6.6-10.4A6.6 6.6 0 0 1 18.6 10.6C18.6 15.4 12 21 12 21Z" />
+      <circle cx="12" cy="10.2" r="2.4" />
+    </Svg>
+  );
+}
+
+/**
+ * The "Looking for" heart: an unfilled outline drawn as a single stroked path
+ * with a warm→violet gradient, so it glows rather than sits flat. Rendered at a
+ * fixed 56px in the reference.
+ */
+export function GlowHeart({ size = 56 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden focusable="false">
+      <defs>
+        <linearGradient id="fb-sr-glow-heart" x1="8" y1="8" x2="48" y2="50" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ffd3ad" />
+          <stop offset="0.48" stopColor="#ffa8c0" />
+          <stop offset="1" stopColor="#a892ff" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M28 47.5S8.6 35.6 8.6 21.9A10.6 10.6 0 0 1 28 15.6a10.6 10.6 0 0 1 19.4 6.3C47.4 35.6 28 47.5 28 47.5Z"
+        stroke="url(#fb-sr-glow-heart)"
+        strokeWidth={2.1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

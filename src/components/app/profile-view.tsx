@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { UnvaxBadge } from "@/components/unvax-badge";
 import { VerifyBadge } from "@/components/verify-badge";
 import { AuthedImg } from "@/components/ui/authed-media";
 import { PhotoLightbox } from "./photo-lightbox";
@@ -14,6 +13,27 @@ import { prettyText } from "@/lib/pretty-text";
 import { genderOptions } from "@/lib/onboarding-data";
 import { formatDistance, useDistanceUnits } from "@/lib/device-prefs";
 import { showToast } from "@/components/toast-host";
+import {
+  heightImperial,
+  lifestyleHeadline,
+  placeLabel,
+  presenceLabel,
+  titleCase,
+  zodiacFromBirthMonth,
+} from "@/lib/profile-presentation";
+import {
+  BackArrowIcon,
+  BriefcaseIcon,
+  CloseIcon,
+  CoupleIcon,
+  FlameIcon,
+  GlowHeart,
+  HeartIcon,
+  LeafIcon,
+  MoreIcon,
+  PinIcon,
+  ProfileIcon,
+} from "@/components/ui/line-icons";
 
 const REPORT_REASONS: Array<{ value: string; label: string }> = [
   { value: "fake_profile", label: "Fake profile" },
@@ -89,16 +109,16 @@ function joinedLabel(iso: string | null) {
 }
 
 const GOAL_LABELS: Record<string, string> = {
-  long_term: "Long-term relationship",
-  life_partner: "Life partner",
-  meaningful_connection: "Meaningful connection",
-  still_exploring: "Still exploring",
+  long_term: "Something real and meaningful",
+  life_partner: "A life partner",
+  meaningful_connection: "A meaningful connection",
+  still_exploring: "Still exploring, honestly",
 };
 
-const VAX_LABELS: Record<string, { label: string; cls: string }> = {
-  unvaccinated: { label: "Unvaccinated", cls: "border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]" },
-  vaccinated: { label: "Vaccinated", cls: "border-white/15 bg-white/[0.05] text-[var(--color-sand)]" },
-  prefer_not_to_say: { label: "Private on vaccines", cls: "border-white/10 bg-white/[0.03] text-[var(--color-mist)]" },
+const VAX_LABELS: Record<string, string> = {
+  unvaccinated: "Natural health",
+  vaccinated: "Vaccinated",
+  prefer_not_to_say: "Private on vaccines",
 };
 
 /* One source of truth: the same options onboarding offers, not a second copy
@@ -107,56 +127,45 @@ const GENDER_LABELS: Record<string, string> = Object.fromEntries(
   genderOptions.map((g) => [g.value, g.label])
 );
 
-/* The wording has to match the window that produced it, which is the mistake the
-   deck makes when it calls a 24-hour window "Online". /api/heartbeat is throttled
-   to one real write per member per 2 minutes, so a 15-minute "now" is honest.
-   "hidden" is its own value rather than a null, because a member who chose to
-   hide their presence should read as having chosen, not as having been away. */
-const PRESENCE_LABELS: Record<string, { short: string; long: string }> = {
-  now: { short: "Now", long: "Active within the last 15 minutes" },
-  today: { short: "Today", long: "Active within the last 24 hours" },
-  week: { short: "This week", long: "Active within the last 7 days" },
-  hidden: { short: "Private", long: "They hide their active status" },
-};
-
-function Chips({ items }: { items: string[] }) {
+function FactCard({
+  icon,
+  label,
+  value,
+  title,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  title?: string;
+}) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <span key={item} className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-semibold text-[var(--color-sand)]">
-          {item}
-        </span>
-      ))}
+    <div className="fb-sr-fact-card" title={title ?? `${label}: ${value}`}>
+      <span className="fb-sr-fact-card__icon">{icon}</span>
+      <span className="min-w-0">
+        <span className="fb-sr-fact-card__label block">{label}</span>
+        <span className="fb-sr-fact-card__value block">{value}</span>
+      </span>
     </div>
   );
 }
 
-/* One line of shared ground: a label, then the actual words you both said. Words
-   rather than a count, because "3 in common" is a score and this is not one. */
-function SharedRow({ label, items }: { label: string; items: string[] }) {
+function Section({
+  title,
+  children,
+  aside,
+}: {
+  title: string;
+  children: React.ReactNode;
+  aside?: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
-      <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
-        {label}
-      </p>
-      {items.map((item) => (
-        <span
-          key={item}
-          className="rounded-full border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.08] px-3 py-1 text-[12px] font-bold text-[var(--color-gold-300)]"
-        >
-          {item}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">{title}</p>
-      <div className="mt-3">{children}</div>
-    </div>
+    <section className="fb-sr-section">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="fb-sr-section__title">{title}</h2>
+        {aside}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -255,8 +264,7 @@ export function ProfileView({
 
   const photos = profile?.photos ?? [];
   const clampIdx = (i: number) => Math.max(0, Math.min(photos.length - 1, i));
-  const vax = profile ? VAX_LABELS[profile.vaccinationStatus] ?? VAX_LABELS.prefer_not_to_say : null;
-  const presence = profile?.presence ? PRESENCE_LABELS[profile.presence] ?? null : null;
+  const presence = presenceLabel(profile?.presence);
   const units = useDistanceUnits();
   const sharedCount = profile?.inCommon
     ? profile.inCommon.values.length +
@@ -341,7 +349,7 @@ export function ProfileView({
         // 409 needsConfirmation until a client says it showed the member what that means.
         body: JSON.stringify({ destructive: true }),
       });
-      const delJson = await readJsonSafe<{ error?: string; deleted?: number }>(res);
+      await readJsonSafe<{ error?: string; deleted?: number }>(res);
       if (res.ok) {
         setEndKind(null);
         showToast({ tone: "success", title: "Conversation deleted", body: "Every message in this chat was removed." });
@@ -504,133 +512,102 @@ export function ProfileView({
     }
   };
 
+  /* --- presentation ------------------------------------------------------- */
+  const lookingFor = profile?.relationshipGoals?.length
+    ? GOAL_LABELS[profile.relationshipGoals[0]] ?? titleCase(prettyText(profile.relationshipGoals[0]))
+    : null;
+  const heroPhoto = photos[photoIdx] ?? photos[0] ?? "";
+
+  const facts = [
+    profile?.occupation
+      ? { key: "work", icon: <BriefcaseIcon size={15} />, label: "Work", value: profile.occupation }
+      : null,
+    placeLabel(profile?.city, profile?.region)
+      ? {
+          key: "city",
+          icon: <PinIcon size={15} />,
+          label: "City",
+          value: placeLabel(profile?.city, profile?.region),
+        }
+      : null,
+    profile?.heightCm
+      ? {
+          key: "height",
+          icon: <FlameIcon size={15} />,
+          label: "Height",
+          value: heightImperial(profile.heightCm) ?? "",
+        }
+      : null,
+    lifestyleHeadline(profile?.lifestyle)
+      ? {
+          key: "lifestyle",
+          icon: <LeafIcon size={15} />,
+          label: "Lifestyle",
+          value: lifestyleHeadline(profile?.lifestyle) ?? "",
+        }
+      : null,
+    zodiacFromBirthMonth(profile?.birthMonthYear)
+      ? {
+          key: "zodiac",
+          icon: <FlameIcon size={15} />,
+          label: "Zodiac",
+          value: zodiacFromBirthMonth(profile?.birthMonthYear) ?? "",
+        }
+      : null,
+    profile?.language
+      ? { key: "language", icon: <ProfileIcon size={15} />, label: "Languages", value: profile.language }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; icon: React.ReactNode; label: string; value: string }>;
+
+  const passions = [
+    ...(profile?.interests ?? []),
+    ...(profile?.lifestyle ?? []),
+  ]
+    .filter((v, i, arr) => v && arr.indexOf(v) === i)
+    .slice(0, 6);
+
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#070a14]/97 backdrop-blur-md">
-      <div className="mx-auto max-w-[560px] px-4 pb-20 pt-4 sm:px-6">
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close profile"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-          <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
-            Full profile
-          </span>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
-              aria-label="Profile actions"
-              title="Report, unmatch, block…"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-mist)] transition hover:bg-white/[0.1] hover:text-[var(--color-pearl)]"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="12" cy="12" r="2" />
-                <circle cx="12" cy="19" r="2" />
-              </svg>
-            </button>
-
-            {menuOpen ? (
-              <>
-                <div className="fixed inset-0 z-[155]" onClick={() => setMenuOpen(false)} />
-                <div className="animate-scale-in absolute right-0 top-12 z-[160] w-[240px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setReportOpen(true);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M5 21V4a1 1 0 011-1h11l-2.5 4L17 11H6" />
-                    </svg>
-                    Report {profile?.name ?? "member"}
-                  </button>
-                  {theirMatchId ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={actionBusy !== null}
-                        onClick={() => { setMenuOpen(false); setEndKind("delete"); }}
-                        className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a2 2 0 002 1.8h6A2 2 0 0017 20l1-13M9 7V5a1.5 1.5 0 011.5-1.5h3A1.5 1.5 0 0115 5v2" />
-                        </svg>
-                        {actionBusy === "delete" ? "Deleting…" : "Delete conversation"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={actionBusy !== null}
-                        onClick={() => { setMenuOpen(false); setEndKind("unmatch"); }}
-                        className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M18.6 6.6a5 5 0 010 7.1L12 20.3l-6.6-6.6a5 5 0 117.1-7.1l-.7.7" />
-                          <path d="M4 4l16 16" />
-                        </svg>
-                        {"Unmatch"}
-                      </button>
-                    </>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={actionBusy !== null}
-                    onClick={() => void runBlock()}
-                    className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M5.7 5.7l12.6 12.6" />
-                    </svg>
-                    {actionBusy === "block" ? "Blocking…" : "Block"}
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-
+    <div className="fb-sr fixed inset-0 z-[80] overflow-y-auto bg-[#080a15]">
+      <div className="mx-auto w-full max-w-[560px] pb-2">
+        {/* --- top bar over the photo ------------------------------------- */}
         {!profile && !failed ? (
           <div className="flex justify-center py-28">
-            <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+            <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[#ffb894] border-t-transparent" />
           </div>
         ) : failed || !profile ? (
-          <div className="py-24 text-center">
-            <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
+          <div className="px-5 py-24 text-center">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Back"
+              className="fb-sr-disc fb-sr-round mb-8 inline-flex"
+            >
+              <BackArrowIcon size={19} />
+            </button>
+            <p className="fb-sr-title text-[23px]">
               {failed === "auth"
                 ? "Your session needs a refresh."
                 : failed === "hidden"
                   ? "This profile isn&rsquo;t available to you."
                   : "Couldn&rsquo;t load this profile."}
             </p>
-            <p className="mx-auto mt-3 max-w-[34ch] text-sm leading-6 text-[var(--color-mist)]">
+            <p className="mx-auto mt-3 max-w-[34ch] text-[13px] leading-6 text-[var(--sr-mist)]">
               {failed === "auth"
                 ? "Profiles are only shown to signed-in members. Sign in again and this card will open."
                 : failed === "hidden"
                   ? "They may have paused discovery, gone incognito, hidden their profile, or blocked you. Freeborn does not say which, because naming the reason would confirm who is here."
                   : "The request did not complete. Either your connection dropped it or our server did."}
             </p>
-            <div className="mt-7 flex flex-col items-center gap-4">
+            <div className="mt-7 flex flex-col items-center gap-3">
               {failed === "auth" ? (
-                <Link
-                  href="/auth?mode=sign-in"
-                  className="btn-ember rounded-full px-7 py-3 text-sm font-bold"
-                >
+                <Link href="/auth?mode=sign-in" className="fb-sr-hello px-8">
                   Sign in again
                 </Link>
               ) : (
                 <button
                   type="button"
                   onClick={() => setAttempt((n) => n + 1)}
-                  className="btn-ghost rounded-full px-7 py-3 text-sm font-bold"
+                  className="fb-sr-hello px-8"
                 >
                   Try again
                 </button>
@@ -638,383 +615,507 @@ export function ProfileView({
               <button
                 type="button"
                 onClick={onClose}
-                className="text-[13px] font-bold text-[var(--color-mist)] underline-offset-4 transition hover:text-[var(--color-pearl)] hover:underline"
+                className="text-[13px] font-bold text-[var(--sr-mist)] underline-offset-4 transition hover:text-[var(--sr-pearl)] hover:underline"
               >
                 Close
               </button>
             </div>
           </div>
         ) : (
-          <div className="animate-scale-in space-y-6">
-            {profile.visibility ? (
-              <div
-                className={`rounded-[20px] border p-5 ${
-                  profile.visibility.visible
-                    ? "border-[var(--color-teal-300)]/30 bg-[var(--color-teal-300)]/[0.06]"
-                    : "border-white/[0.08] bg-white/[0.02]"
-                }`}
-              >
-                <p className="font-display text-[17px] font-semibold text-[var(--color-pearl)]">
-                  {profile.visibility.visible ? "Visible to the room." : "Not visible to the room."}
-                </p>
-                <p className="mt-2 text-[13px] leading-6 text-[var(--color-mist)]">
-                  {profile.visibility.visible
-                    ? "A member who isn&rsquo;t a match of yours, with no filters set, can open this card and read all of it. This is not a complete impersonation: blocks and another member&rsquo;s own filters aren&rsquo;t simulated."
-                    : "You can always read your own profile, so this card is not what a stranger sees. Right now:"}
-                </p>
-                {profile.visibility.visible || profile.visibility.reasons.length === 0 ? null : (
-                  <ul className="mt-3 space-y-1.5">
-                    {profile.visibility.reasons.map((r) => (
-                      <li
-                        key={r}
-                        className="flex gap-2 text-[13px] leading-5 text-[var(--color-pearl)]"
-                      >
-                        <span
-                          aria-hidden
-                          className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--color-gold-500)]"
-                        />
-                        {r}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-            {/* Photos */}
-            {photos.length > 0 ? (
-              <div
-                className="relative overflow-hidden rounded-[28px] border border-white/[0.08]"
-                style={{ touchAction: "pan-y" }}
-                onPointerDown={(e) => {
-                  dragRef.current = { startX: e.clientX, moved: false };
-                }}
-                onPointerMove={(e) => {
-                  if (dragRef.current && Math.abs(e.clientX - dragRef.current.startX) > 8) dragRef.current.moved = true;
-                }}
-                onPointerUp={(e) => {
-                  const d = dragRef.current;
-                  dragRef.current = null;
-                  if (!d) return;
-                  const dx = e.clientX - d.startX;
-                  if (d.moved && Math.abs(dx) > 50) {
-                    setPhotoIdx((i) => clampIdx(dx < 0 ? i + 1 : i - 1));
-                  } else if (!d.moved) {
-                    setLightboxIdx(photoIdx);
-                  }
-                }}
-              >
+          <div className="animate-scale-in">
+            {/* Photos, edge to edge, no card — the reference bleeds the portrait
+                to the screen edges and rounds only the bottom. */}
+            <div
+              className="fb-sr-hero"
+              style={{
+                aspectRatio: "1 / 1.16",
+                touchAction: "pan-y",
+              }}
+              onPointerDown={(e) => {
+                dragRef.current = { startX: e.clientX, moved: false };
+              }}
+              onPointerMove={(e) => {
+                if (dragRef.current && Math.abs(e.clientX - dragRef.current.startX) > 8)
+                  dragRef.current.moved = true;
+              }}
+              onPointerUp={(e) => {
+                const d = dragRef.current;
+                dragRef.current = null;
+                if (!d) return;
+                const dx = e.clientX - d.startX;
+                if (d.moved && Math.abs(dx) > 50) {
+                  setPhotoIdx((i) => clampIdx(dx < 0 ? i + 1 : i - 1));
+                } else if (!d.moved) {
+                  setLightboxIdx(photoIdx);
+                }
+              }}
+            >
+              {heroPhoto ? (
+                <AuthedImg
+                  src={heroPhoto}
+                  alt={`${profile.name}, photo ${photoIdx + 1}`}
+                  draggable={false}
+                  className="h-full w-full select-none object-cover object-center"
+                />
+              ) : (
                 <div
-                  className="flex"
-                  style={{
-                    transform: `translateX(${-photoIdx * 100}%)`,
-                    transition: "transform 0.4s cubic-bezier(0.22,1,0.36,1)",
-                  }}
+                  aria-hidden
+                  className="flex h-full w-full items-center justify-center"
+                  style={{ background: "linear-gradient(160deg,#2a2140 0%,#3a2430 55%,#241d33 100%)" }}
                 >
-                  {photos.map((src, i) => (
-                    <AuthedImg
+                  <span className="font-display text-[92px] font-medium text-white/85">
+                    {(profile.name || "M").charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <div className="fb-sr-hero__shade" aria-hidden />
+
+              {/* soft progress segments, as in the reference's single-photo case
+                  they collapse to nothing; here each photo gets a segment */}
+              {photos.length > 1 ? (
+                <div className="absolute inset-x-4 top-3 z-10 flex gap-1.5">
+                  {photos.map((_, i) => (
+                    <span
                       key={i}
-                      src={src}
-                      alt={`${profile.name}, photo ${i + 1}`}
-                      draggable={false}
-                      className="aspect-[3/3.6] w-full shrink-0 select-none object-cover"
+                      className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${
+                        i === photoIdx ? "bg-white/95" : "bg-white/30"
+                      }`}
                     />
                   ))}
                 </div>
-                {photos.length > 1 ? (
-                  <>
-                    <button type="button" aria-label="Previous photo" onClick={() => setPhotoIdx((i) => clampIdx(i - 1))} className="absolute inset-y-0 left-0 w-1/3" />
-                    <button type="button" aria-label="Next photo" onClick={() => setPhotoIdx((i) => clampIdx(i + 1))} className="absolute inset-y-0 right-0 w-1/3" />
-                    <div className="absolute inset-x-0 top-3 flex justify-center gap-1.5">
-                      {photos.map((_, i) => (
-                        <span key={i} className={`h-[4px] rounded-full transition-all duration-300 ${i === photoIdx ? "w-6 bg-white" : "w-3 bg-white/40"}`} />
-                      ))}
-                    </div>
-                  </>
-                ) : null}
+              ) : null}
 
-                {/* Top-right badges: verification + unvaccinated stance */}
-                <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
-                  {profile.verified ? (
-                    <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
-                      <VerifyBadge size={20} />
+              <div className="absolute inset-x-4 top-4 z-20 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Back"
+                  className="fb-sr-disc fb-sr-heart"
+                >
+                  <BackArrowIcon size={18} />
+                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => (menuOpen ? setMenuOpen(false) : openMenu())}
+                    aria-label="Profile actions"
+                    title="Report, unmatch, block…"
+                    className="fb-sr-disc fb-sr-heart"
+                  >
+                    <MoreIcon size={18} />
+                  </button>
+
+                  {menuOpen ? (
+                    <>
+                      <div className="fixed inset-0 z-[155]" onClick={() => setMenuOpen(false)} />
+                      <div className="animate-scale-in absolute right-0 top-12 z-[160] w-[248px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setReportOpen(true);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-semibold text-[var(--sr-pearl)] transition hover:bg-white/[0.05]"
+                        >
+                          Report {profile.name}
+                        </button>
+                        {theirMatchId ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={actionBusy !== null}
+                              onClick={() => {
+                                setMenuOpen(false);
+                                setEndKind("delete");
+                              }}
+                              className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-semibold text-[var(--sr-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
+                            >
+                              {actionBusy === "delete" ? "Deleting…" : "Delete conversation"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionBusy !== null}
+                              onClick={() => {
+                                setMenuOpen(false);
+                                setEndKind("unmatch");
+                              }}
+                              className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-semibold text-[var(--sr-pearl)] transition hover:bg-white/[0.05] disabled:opacity-50"
+                            >
+                              Unmatch
+                            </button>
+                          </>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={actionBusy !== null}
+                          onClick={() => void runBlock()}
+                          className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-semibold text-[#ff9a8a] transition hover:bg-red-500/10 disabled:opacity-50"
+                        >
+                          {actionBusy === "block" ? "Blocking…" : "Block"}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* name block, bottom-left of the hero — with the heart on the right */}
+              <div className="absolute inset-x-5 bottom-5 z-10 flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h1 className="fb-sr-name text-[var(--sr-pearl)]">{profile.name}</h1>
+                    {profile.verified ? <VerifyBadge size={21} /> : null}
+                  </div>
+                  <p className="mt-2 truncate text-[13px] font-medium text-[var(--sr-sand)]">
+                    {[
+                      profile.age ? String(profile.age) : null,
+                      profile.occupation,
+                      placeLabel(profile.city, profile.region),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {presence ? (
+                    <p
+                      className="fb-sr-active"
+                      style={presence.live ? undefined : { color: "var(--sr-mist)" }}
+                        title={presence.label}
+                    >
+                      <span
+                        className="fb-sr-active__dot"
+                        style={
+                          presence.live
+                            ? undefined
+                            : { background: "var(--sr-mist)", boxShadow: "none" }
+                        }
+                      />
+                      {presence.label}
+                    </p>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleMessage()}
+                  disabled={msgBusy || Boolean(profile.messageRestricted)}
+                  aria-label={`Say hello to ${profile.name}`}
+                  className="fb-sr-disc relative mb-1 flex h-[62px] w-[62px] shrink-0 items-center justify-center"
+                  style={{
+                    background: "linear-gradient(180deg,#fff3e4 0%,#ffe7cf 100%)",
+                    border: "1px solid rgba(255,255,255,0.5)",
+                    boxShadow: "0 18px 40px -16px rgba(255,196,150,0.9)",
+                  }}
+                >
+                  <HeartIcon size={24} className="text-[#3a2418]" />
+                  {msgRequest === "outgoing" ? (
+                    <span
+                      aria-hidden
+                      className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#7ee2b0] text-[11px] font-black text-[#0a2a1d] ring-2 ring-[#080a15]"
+                    >
+                      ✓
                     </span>
                   ) : null}
-                  {profile.vaccinationStatus === "unvaccinated" ? <UnvaxBadge size={20} /> : null}
-                </div>
-
-                {/* Tap-to-enlarge hint */}
-                <span className="absolute bottom-16 right-3 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold text-white/70 backdrop-blur-sm">
-                  Tap to enlarge
-                </span>
-
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070a14] via-transparent to-transparent" />
-                <div className="pointer-events-none absolute inset-x-5 bottom-4">
-                  <div className="flex items-center gap-2.5">
-                    <h1 className="font-display text-[32px] font-semibold leading-none text-[var(--color-pearl)]">
-                      {profile.name}{profile.age ? `, ${profile.age}` : ""}
-                    </h1>
-                    {/* Badge lives ONLY at the top-right of the photo (see above) */}
-                  </div>
-                  <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
-                    {profile.gender
-                      ? `${GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)} · `
-                      : ""}
-                    {profile.occupation ? `${profile.occupation} · ` : ""}
-                    {profile.city}
-                    {profile.region ? `, ${profile.region}` : ""}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {profile.memberSince ? (
-                      <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 7v5l3 2" />
-                        </svg>
-                        {joinedLabel(profile.memberSince)}
-                      </p>
-                    ) : null}
-                    {profile.distanceKm != null ? (
-                      <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M12 21s-7-5.6-7-11a7 7 0 0114 0c0 5.4-7 11-7 11z" />
-                          <circle cx="12" cy="10" r="2.5" />
-                        </svg>
-                        {formatDistance(profile.distanceKm, units)} away
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {profile.inCommon && sharedCount > 0 ? (
-              <div className="rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">
-                  Ground you already share
-                </p>
-                <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
-                  Not a compatibility score. These are the things you both said,
-                  so a first message has somewhere honest to start.
-                </p>
-                <div className="mt-4 space-y-3">
-                  {profile.inCommon.values.length ? (
-                    <SharedRow label="Values" items={profile.inCommon.values} />
-                  ) : null}
-                  {profile.inCommon.lifestyle.length ? (
-                    <SharedRow label="How they live" items={profile.inCommon.lifestyle} />
-                  ) : null}
-                  {profile.inCommon.interests.length ? (
-                    <SharedRow label="Interests" items={profile.inCommon.interests} />
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Trust row */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                  {profile.replyRate === null ? "New" : `${profile.replyRate}%`}
-                </p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Reply rate</p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                  {profile.matchRate === null ? "New" : `${profile.matchRate}%`}
-                </p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Match rate</p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p
-                  className="font-display text-[22px] font-semibold text-[var(--color-pearl)]"
-                  title={presence ? presence.long : "Last active more than 7 days ago"}
-                >
-                  {presence ? presence.short : "7+ days"}
-                </p>
-                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Last active</p>
+                </button>
               </div>
             </div>
 
-            {/* B9: the "Identity checked." paragraph was removed. It told other
-                members that a pose-mimic selfie had been compared by two
-                independent engines - implementation detail, not reassurance, and
-                it invited distrust on someone else's profile. Verification is
-                signalled by the badge at the top-right of the photo (see above);
-                how the check works is explained where the member runs it
-                (verify-modal) and on the safety page. Do not re-add engine copy
-                to other-viewed profiles. */}
-
-            {/* Stances */}
-            <div className="flex flex-wrap gap-2">
-              {vax ? (
-                <span className={`rounded-full border px-3.5 py-1.5 text-[12px] font-bold ${vax.cls}`}>{vax.label}</span>
+            {/* --- body ---------------------------------------------------- */}
+            <div className="space-y-2.5 px-5 pt-4">
+              {profile.visibility ? (
+                <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.02] p-4">
+                  <p className="fb-sr-section__title">
+                    {profile.visibility.visible ? "Visible to the room." : "Not visible to the room."}
+                  </p>
+                  <p className="mt-2 text-[12.5px] leading-6 text-[var(--sr-mist)]">
+                    {profile.visibility.visible
+                      ? "A member who isn&rsquo;t a match of yours, with no filters set, can open this card and read all of it. This is not a complete impersonation: blocks and another member&rsquo;s own filters aren&rsquo;t simulated."
+                      : "You can always read your own profile, so this card is not what a stranger sees. Right now:"}
+                  </p>
+                  {profile.visibility.visible || profile.visibility.reasons.length === 0 ? null : (
+                    <ul className="mt-3 space-y-1.5">
+                      {profile.visibility.reasons.map((r) => (
+                        <li key={r} className="flex gap-2 text-[12.5px] leading-5 text-[var(--sr-pearl)]">
+                          <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#ffd3ad]" />
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ) : null}
-              {profile.relationshipGoals.map((g) => (
-                <span key={g} className="rounded-full border border-[var(--color-ember-500)]/30 bg-[var(--color-ember-500)]/[0.07] px-3.5 py-1.5 text-[12px] font-bold text-[#ffb4a6]">
-                  {GOAL_LABELS[g] ?? prettyText(g)}
-                </span>
+
+              {lookingFor ? (
+                <div className="fb-sr-looking">
+                  <div>
+                    <p className="fb-sr-looking__label">Looking for</p>
+                    <p className="fb-sr-looking__value">{lookingFor}</p>
+                  </div>
+                  <GlowHeart size={54} />
+                </div>
+              ) : null}
+
+              {facts.length ? (
+                <div className="fb-sr-facts">
+                  {facts.slice(0, 4).map((f) => (
+                    <FactCard key={f.key} icon={f.icon} label={f.label} value={f.value} />
+                  ))}
+                </div>
+              ) : null}
+
+              {profile.bio ? (
+                <Section title="About me">
+                  <p className="fb-sr-section__body">{profile.bio}</p>
+                </Section>
+              ) : null}
+
+              {profile.prompts.filter((p) => p.answer).map((p, i) => (
+                <Section key={i} title={p.prompt ?? "In their words"}>
+                  <p className="fb-sr-section__body">“{p.answer}”</p>
+                </Section>
               ))}
-            </div>
 
-            {profile.bio ? (
-              <Block title="Their story">
-                <p className="text-[15px] leading-[1.85] text-[var(--color-ivory)]">{profile.bio}</p>
-              </Block>
-            ) : null}
-
-            {profile.prompts.filter((p) => p.answer).map((p, i) => (
-              <Block key={i} title={p.prompt ?? "A prompt"}>
-                <p className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 text-[14px] leading-[1.8] text-[var(--color-ivory)]">
-                  “{p.answer}”
-                </p>
-              </Block>
-            ))}
-
-            {profile.dealBreakers.length > 0 ? (
-              <Block title="What they will not compromise on">
-                <div className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
-                  <p className="text-[12.5px] leading-6 text-[var(--color-mist)]">
-                    Boundaries stated up front, so nobody has to learn them the
-                    hard way three weeks in.
-                  </p>
+              {passions.length ? (
+                <Section title="My passions">
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {passions.map((p) => (
+                      <span key={p} className="fb-sr-tag">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </Section>
+              ) : null}
+
+              {profile.vaccinationStatus === "unvaccinated" || profile.relationshipGoals.length ? (
+                <div className="flex flex-wrap gap-2 px-0.5">
+                  {profile.vaccinationStatus === "unvaccinated" ? (
+                    <span
+                      className="fb-sr-tag"
+                      style={{
+                        borderColor: "rgba(255,211,173,0.32)",
+                        background: "rgba(255,211,173,0.10)",
+                        color: "#ffe0c6",
+                      }}
+                    >
+                      <LeafIcon size={12} className="mr-1.5" />
+                      {VAX_LABELS.unvaccinated}
+                    </span>
+                  ) : null}
+                  {profile.relationshipGoals.map((g) => (
+                    <span
+                      key={g}
+                      className="fb-sr-tag"
+                      style={{
+                        borderColor: "rgba(168,146,255,0.28)",
+                        background: "rgba(168,146,255,0.10)",
+                        color: "#d8cdff",
+                      }}
+                    >
+                      <CoupleIcon size={12} className="mr-1.5" />
+                      {GOAL_LABELS[g] ?? titleCase(prettyText(g))}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {profile.inCommon && sharedCount > 0 ? (
+                <Section title="Ground you already share">
+                  <p className="fb-sr-section__body">
+                    Not a compatibility score. These are the things you both said, so a first
+                    message has somewhere honest to start.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {[
+                      ["Values", profile.inCommon.values],
+                      ["How they live", profile.inCommon.lifestyle],
+                      ["Interests", profile.inCommon.interests],
+                    ]
+                      .filter(([, items]) => (items as string[]).length > 0)
+                      .map(([label, items]) => (
+                        <div key={label as string} className="flex flex-wrap items-baseline gap-1.5">
+                          <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sr-ash)]">
+                            {label as string}
+                          </p>
+                          {(items as string[]).map((item) => (
+                            <span
+                              key={item}
+                              className="rounded-full border border-[#ffd3ad]/25 bg-[#ffd3ad]/[0.08] px-2.5 py-1 text-[11.5px] font-semibold text-[#ffe0c6]"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                  </div>
+                </Section>
+              ) : null}
+
+              {profile.values.length || profile.lifestyle.length || profile.interests.length ? (
+                <Section title="The shape of their days">
+                  <div className="mt-3 space-y-3">
+                    {[
+                      ["Values", profile.values],
+                      ["Lifestyle", profile.lifestyle],
+                      ["Interests", profile.interests],
+                    ]
+                      .filter(([, items]) => (items as string[]).length > 0)
+                      .map(([label, items]) => (
+                        <div key={label as string}>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sr-ash)]">
+                            {label as string}
+                          </p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {(items as string[]).map((item) => (
+                              <span key={item} className="fb-sr-tag">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Section>
+              ) : null}
+
+              {profile.dealBreakers.length > 0 ? (
+                <Section title="What they will not compromise on">
+                  <p className="fb-sr-section__body">
+                    Boundaries stated up front, so nobody has to learn them the hard way three
+                    weeks in.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
                     {profile.dealBreakers.map((d) => (
                       <span
                         key={d}
-                        className="rounded-full border border-red-300/20 bg-red-400/[0.06] px-3.5 py-1.5 text-[12px] font-semibold text-[#f2c8c2]"
+                        className="rounded-full border border-[#ff9a8a]/25 bg-[#ff9a8a]/[0.07] px-3 py-1.5 text-[11.5px] font-semibold text-[#f6c9c2]"
                       >
                         {d}
                       </span>
                     ))}
                   </div>
-                </div>
-              </Block>
-            ) : null}
+                </Section>
+              ) : null}
 
-            {profile.values.length > 0 ? (
-              <Block title="Values they stand on">
-                <Chips items={profile.values} />
-              </Block>
-            ) : null}
-
-            {profile.lifestyle.length > 0 ? (
-              <Block title="How they live">
-                <Chips items={profile.lifestyle} />
-              </Block>
-            ) : null}
-
-            {profile.interests.length > 0 ? (
-              <Block title="Start a conversation with">
-                <Chips items={profile.interests} />
-              </Block>
-            ) : null}
-
-            {profile.mixerCity ? (
-              <div className="flex items-start gap-3 rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
-                <svg
-                  className="mt-0.5 shrink-0 text-[var(--color-gold-300)]"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.9"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" />
-                  <circle cx="9.5" cy="7" r="3.2" />
-                  <path d="M22 21v-2a4 4 0 00-3-3.87M16.5 3.6a4 4 0 010 7.75" />
-                </svg>
-                <div>
-                  <p className="text-[13px] font-bold text-[var(--color-pearl)]">
-                    Open to meeting in person in {profile.mixerCity}
+              {profile.mixerCity ? (
+                <Section title={`Open to meeting in ${profile.mixerCity}`}>
+                  <p className="fb-sr-section__body">
+                    They asked for a Freeborn mixer there. A venue is only ever named once it has
+                    agreed in writing, and the agreement is recorded before anything is announced.
                   </p>
-                  <p className="mt-1 text-[12px] leading-5 text-[var(--color-mist)]">
-                    They asked for a Freeborn mixer there. A venue is only ever
-                    named once it has agreed in writing, and the agreement is
-                    recorded before anything is announced.
-                  </p>
-                </div>
-              </div>
-            ) : null}
+                </Section>
+              ) : null}
 
-            {/* The details — a clean, editorial register */}
-            {(() => {
-              const details = [
-                {
-                  label: "Gender",
-                  value: profile.gender
-                    ? GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)
-                    : "",
-                },
-                { label: "Born", value: profile.birthMonthYear },
-                { label: "Height", value: profile.heightCm ? `${profile.heightCm} cm` : "" },
-                { label: "Language", value: profile.language },
-                { label: "Religion", value: profile.religion },
-                { label: "Marital status", value: profile.maritalStatus },
-                { label: "Kids", value: profile.hasKids },
-                { label: "Wants kids", value: profile.wantsKids },
-                { label: "Drinking", value: profile.drinking },
-                { label: "Smoking", value: profile.smoking },
-                /* Level and institution are different facts and the old
-                   `educationLevel || education` threw one of them away. */
-                {
-                  label: "Education",
-                  value: profile.educationLevel ? prettyText(profile.educationLevel) : "",
-                },
-                { label: "Studied at", value: profile.education },
-              ].filter((d) => d.value);
-              if (!details.length) return null;
-              return (
-                <Block title="The details">
-                  <div className="overflow-hidden rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-5 py-1.5">
-                    {details.map((d, i) => (
-                      <div
-                        key={d.label}
-                        className={`flex items-baseline justify-between gap-4 py-3 ${i < details.length - 1 ? "border-b border-white/[0.05]" : ""}`}
-                      >
-                        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">{d.label}</p>
-                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(d.value)}</p>
-                      </div>
-                    ))}
+              {/* The details — a quiet register, two columns like the reference */}
+              {(() => {
+                const details = [
+                  {
+                    label: "Gender",
+                    value: profile.gender
+                      ? GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)
+                      : "",
+                  },
+                  { label: "Born", value: profile.birthMonthYear },
+                  { label: "Height", value: profile.heightCm ? `${profile.heightCm} cm` : "" },
+                  { label: "Language", value: profile.language },
+                  { label: "Religion", value: profile.religion },
+                  { label: "Marital", value: profile.maritalStatus },
+                  { label: "Kids", value: profile.hasKids },
+                  { label: "Wants kids", value: profile.wantsKids },
+                  { label: "Drinking", value: profile.drinking },
+                  { label: "Smoking", value: profile.smoking },
+                  {
+                    label: "Education",
+                    value: profile.educationLevel ? prettyText(profile.educationLevel) : "",
+                  },
+                  { label: "Studied at", value: profile.education },
+                  { label: "Member", value: joinedLabel(profile.memberSince) },
+                ].filter((d) => d.value);
+                if (!details.length) return null;
+                return (
+                  <Section title="The details">
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-0">
+                      {details.map((d, i) => (
+                        <div
+                          key={d.label}
+                          className={`py-2.5 ${i < details.length - 2 ? "border-b border-white/[0.05]" : ""}`}
+                        >
+                          <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--sr-ash)]">
+                            {d.label}
+                          </dt>
+                          <dd className="mt-1 text-[13px] font-semibold text-[var(--sr-ivory)]">
+                            {prettyText(d.value)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </Section>
+                );
+              })()}
+
+              {/* Trust numbers — the same three facts the route computes, worded plainly */}
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  { k: "Reply rate", v: profile.replyRate === null ? "New" : `${profile.replyRate}%` },
+                  { k: "Match rate", v: profile.matchRate === null ? "New" : `${profile.matchRate}%` },
+                  { k: "Distance", v: profile.distanceKm == null ? "—" : formatDistance(profile.distanceKm, units) },
+                ].map((s) => (
+                  <div
+                    key={s.k}
+                    className="rounded-2xl border border-white/[0.07] bg-white/[0.025] px-2 py-3 text-center"
+                  >
+                    <p className="font-display text-[19px] font-medium text-[var(--sr-pearl)]">{s.v}</p>
+                    <p className="mt-0.5 text-[9.5px] font-bold uppercase tracking-[0.12em] text-[var(--sr-mist)]">
+                      {s.k}
+                    </p>
                   </div>
-                </Block>
-              );
-            })()}
+                ))}
+              </div>
+            </div>
 
-            {/* Start a conversation — or the member's privacy boundary */}
-            <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+            {/* --- sticky action row -------------------------------------- */}
+            <div className="fb-sr-actions px-5">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Not for me"
+                className="fb-sr-disc fb-sr-round"
+              >
+                <CloseIcon size={19} />
+              </button>
               {profile.messageRestricted ? (
-                <div className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-[13px] font-bold text-[var(--color-mist)]">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
-                    <rect x="5" y="10" width="14" height="10" rx="2.5" />
-                    <path d="M8 10V7a4 4 0 018 0v3" />
-                  </svg>
+                <div className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-5 text-[12.5px] font-semibold text-[var(--sr-mist)]">
                   {profile.messageRestricted}
                 </div>
               ) : (
                 <button
                   type="button"
                   onClick={() =>
-            msgRequest === "incoming" ? window.location.assign("/app/chat") : void handleMessage()
-          }
+                    msgRequest === "incoming" ? window.location.assign("/app/chat") : void handleMessage()
+                  }
                   disabled={msgBusy}
-                  className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
+                  className="fb-sr-hello flex-1"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
-                  </svg>
+                  <HeartIcon size={16} />
                   {msgBusy
-            ? "Opening…"
-            : msgRequest === "outgoing"
-              ? `Request sent to ${profile.name}`
-              : msgRequest === "incoming"
-                ? `Respond to ${profile.name}'s request`
-                : `Message ${profile.name}`}
+                    ? "Opening…"
+                    : msgRequest === "outgoing"
+                      ? `Request sent to ${profile.name}`
+                      : msgRequest === "incoming"
+                        ? `Respond to ${profile.name}`
+                        : "Say hello"}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => void handleMessage()}
+                disabled={msgBusy || Boolean(profile.messageRestricted)}
+                aria-label="Share your natural-health stance with them"
+                title={VAX_LABELS[profile.vaccinationStatus] ?? "Health stance"}
+                className="fb-sr-disc fb-sr-round"
+                style={{ color: "var(--sr-warm-200)" }}
+              >
+                <LeafIcon size={18} />
+              </button>
             </div>
           </div>
         )}
@@ -1048,10 +1149,10 @@ export function ProfileView({
             className="animate-scale-in w-full max-w-[400px] rounded-[24px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-display text-[18px] font-semibold text-[var(--color-pearl)]">
+            <p className="font-display text-[18px] font-medium text-[var(--sr-pearl)]">
               Report {profile.name}
             </p>
-            <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">
+            <p className="mt-1 text-[12px] leading-4 text-[var(--sr-mist)]">
               Reports are confidential. They never see this. What&apos;s wrong?
             </p>
             <div className="mt-4 space-y-1.5">
@@ -1060,14 +1161,14 @@ export function ProfileView({
                   key={r.value}
                   type="button"
                   onClick={() => setReportReason(r.value)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left text-[13px] font-bold transition ${
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-left text-[13px] font-semibold transition ${
                     reportReason === r.value
-                      ? "border-[var(--color-ember-500)]/60 bg-[var(--color-ember-500)]/10 text-[var(--color-pearl)]"
-                      : "border-white/[0.08] bg-white/[0.03] text-[var(--color-mist)] hover:text-[var(--color-pearl)]"
+                      ? "border-[#f0906a]/60 bg-[#f0906a]/10 text-[var(--sr-pearl)]"
+                      : "border-white/[0.08] bg-white/[0.03] text-[var(--sr-mist)] hover:text-[var(--sr-pearl)]"
                   }`}
                 >
                   {r.label}
-                  {reportReason === r.value ? <span className="text-[var(--color-ember-300)]">●</span> : null}
+                  {reportReason === r.value ? <span className="text-[#ffb894]">●</span> : null}
                 </button>
               ))}
             </div>
@@ -1076,14 +1177,14 @@ export function ProfileView({
                 type="button"
                 disabled={!reportReason || reportBusy}
                 onClick={() => void submitReport()}
-                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98] disabled:opacity-50"
+                className="fb-sr-hello flex-1"
               >
                 {reportBusy ? "Sending…" : "Submit report"}
               </button>
               <button
                 type="button"
                 onClick={() => setReportOpen(false)}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-[13px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+                className="rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-[13px] font-semibold text-[var(--sr-mist)] transition hover:text-[var(--sr-pearl)]"
               >
                 Cancel
               </button>

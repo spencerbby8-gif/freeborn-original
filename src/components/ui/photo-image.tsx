@@ -138,6 +138,20 @@ export function PhotoImage({ src, alt, className = "", imgClassName = "object-co
         draggable={false}
         loading={priority ? "eager" : "lazy"}
         decoding="async"
+        /* A CACHED PHOTO NEVER FIRES onLoad.
+           This was measured on the discovery deck: a returned-to page (or any
+           image already in the HTTP cache) completed before React attached its
+           handler, so `state` stayed "loading" forever and the element sat at
+           `opacity: 0`. The card rendered, the name and every control worked, and
+           the member's face was a dark rectangle — the exact "silent broken
+           image" this component exists to prevent, arriving from the opposite
+           direction. The ref callback runs on mount whether or not a load event
+           ever will, so it is the place to notice "this is already decoded". */
+        ref={(el) => {
+          if (!el) return;
+          if (el.complete && el.naturalWidth > 0) setState("loaded");
+          else if (el.complete) fail();
+        }}
         onLoad={() => setState("loaded")}
         onError={fail}
         className={`h-full w-full select-none transition-opacity duration-300 motion-reduce:transition-none ${imgClassName} ${
