@@ -3007,11 +3007,51 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     iceRoute.includes('"metered-static"') &&
     iceRoute.indexOf("getMember(request)") < iceRoute.indexOf("buildMeteredIceServers({") &&
     iceRoute.indexOf("isCallSessionLive") < iceRoute.indexOf("buildMeteredIceServers({"));
-  ok("[35] the real Metered credential appears nowhere in repo source",
-    !iceRoute.includes("6KBeDyb76XFGq0X0") &&
-    !src("src/lib/turn-credentials.ts").includes("6KBeDyb76XFGq0X0") &&
-    !src("src/lib/call-bus.ts").includes("6KBeDyb76XFGq0X0") &&
-    !src("src/components/app/call-overlay.tsx").includes("6KBeDyb76XFGq0X0"));
+  /* The credential must appear NOWHERE. This assertion deliberately does not
+     contain the value: an earlier version of this pin embedded the literal to
+     check for its absence, which put the secret in the repo — the exact thing it
+     was guarding. Instead it scans every source file for credential-shaped
+     tokens (mixed-case alnum >=16 chars, or hex >=24 chars) and fails on any hit,
+     reporting only a prefix so the finding is actionable without re-leaking.
+     The scanner covers this harness too, so the mistake cannot be repeated here. */
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join, relative } = await import("node:path");
+  const root = new URL("../..", import.meta.url).pathname;
+  const SECRET_SHAPED = /(?<![A-Za-z0-9])([A-Za-z0-9]{16,}|[0-9a-fA-F]{24,})(?![A-Za-z0-9])/g;
+  const mixed = (t: string) => /[a-z]/.test(t) && /[A-Z]/.test(t) && /[0-9]/.test(t);
+  const longHex = (t: string) => /^[0-9a-fA-F]{24,}$/.test(t);
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const name of readdirSync(dir)) {
+      if (name === "node_modules" || name.startsWith(".")) continue;
+      const full = join(dir, name);
+      const st = statSync(full);
+      if (st.isDirectory()) walk(full, out);
+      else if (/\.(ts|tsx|mjs|cjs|js|jsx)$/.test(name)) out.push(full);
+    }
+    return out;
+  };
+  /* Deliberately PUBLIC constants, each verified elsewhere in this harness or by
+     a live walk. Nothing else credential-shaped may appear. Adding to this list
+     is a decision that must be justified in the PR, not a way to silence a hit. */
+  const PUBLIC_ALLOWLIST = new Set([
+    "21AFBB7C27303E2A2F4F26CC3D69B50F", // Bing Webmaster ownership meta, served on every page
+  ]);
+  const hits: string[] = [];
+  for (const f of [...walk(join(root, "src")), join(root, "scripts/trust/harness.ts")]) {
+    /* Strip base64 data URIs first: an embedded PNG is public asset data, and its
+       body is full of token-shaped runs that mean nothing. */
+    const text = readFileSync(f, "utf8").replace(/data:[a-z+/]+;base64,[A-Za-z0-9+/=]+/gi, " ");
+    for (const m of text.matchAll(SECRET_SHAPED)) {
+      const t = m[1];
+      if (PUBLIC_ALLOWLIST.has(t)) continue;
+      /* Identifier-shaped: 4+ consecutive lowercase letters is camelCase/snake
+         source, not a generated secret (generated pairs interleave cases). */
+      if (/[a-z]{4,}/.test(t)) continue;
+      if (t.length >= 16 && (mixed(t) || longHex(t))) hits.push(`${relative(root, f)}:${t.slice(0, 6)}…(${t.length})`);
+    }
+  }
+  ok("[35] no credential-shaped secret exists in src/ or the harness (relay creds are env-only)",
+    hits.length === 0, hits.slice(0, 6).join(" "));
 }
 
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
