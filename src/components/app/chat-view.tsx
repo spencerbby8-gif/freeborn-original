@@ -544,6 +544,20 @@ function Thread({
   const [peerTyping, setPeerTyping] = useState(false);
   const typingUntilRef = useRef(0);
   const lastTypingSentRef = useRef(0);
+  /* B19 — "they stopped typing" is a real signal now, not just a timeout: the
+     sender debounces 900 ms of silence into one typing-stop notice so the dots
+     fall the moment the other member's hands leave the keyboard. */
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* setText("") is programmatic, so the composer's onChange never fires on a
+     send: saying "stopped" here is what makes the dots fall WITH the message
+     landing, not 900 ms later. */
+  const stopTypingNotice = () => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    relayMessageNotice(match.id, "typing-stop");
+  };
   const [threadAccess, setThreadAccess] = useState<{
     canSend: boolean;
     notice: string | null;
@@ -622,7 +636,20 @@ function Thread({
           setPeerTyping(true);
           return;
         }
+        /* B19 — the sender says their hands stopped. Clear at once; the 4 s
+           expiry stays only as the safety net for a lost stop notice. */
+        if (notice?.kind === "typing-stop") {
+          typingUntilRef.current = 0;
+          setPeerTyping(false);
+          return;
+        }
         syncRef.current.notices += 1;
+        /* B19 — a message means they are no longer typing: drop the dots with
+           the same wake-up instead of letting them sit out their expiry. */
+        if (notice?.kind === "message") {
+          typingUntilRef.current = 0;
+          setPeerTyping(false);
+        }
         // One fetch per wake-up, however many signals arrived: the thread is the unit of truth.
         void load().then(() => armPoll());
       },
@@ -646,19 +673,23 @@ function Thread({
       }
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = null;
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
       bus.dispose();
       busRef.current = null;
     };
   }, [match.id, load, armPoll]);
 
-  /* Clear the dots once the other side goes quiet. */
+  /* Clear the dots once the other side goes quiet. The sweep is the safety net
+     for a lost typing-stop notice; 250 ms keeps even that fallback under a
+     third of a second past the expiry instead of adding up to 600 ms of lag. */
   useEffect(() => {
     const iv = setInterval(() => {
       if (typingUntilRef.current && Date.now() > typingUntilRef.current) {
         typingUntilRef.current = 0;
         setPeerTyping(false);
       }
-    }, 600);
+    }, 250);
     return () => clearInterval(iv);
   }, []);
 
@@ -866,6 +897,7 @@ function Thread({
     setSending(true);
     setText("");
     setReplyTo(null);
+    stopTypingNotice();
     const body = buildBody(clean);
     /* One path owns the echo: postMessage queues it, renders it, retires it by server id and
        marks it retryable if the send is refused. Pushing a second copy here is how the same
@@ -1506,19 +1538,28 @@ function Thread({
         <textarea
           ref={composerRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            /* B12 - real keystrokes drive the other member's indicator. One
-               notice per 1.2s while keys keep coming; the bus no-ops when the
-               channel is not joined, and the dots are an accelerator, never a
-               guarantee. */
-            if (e.key.length === 1 || e.key === "Backspace") {
-              const now = Date.now();
-              if (now - lastTypingSentRef.current > 1200) {
-                lastTypingSentRef.current = now;
-                relayMessageNotice(match.id, "typing");
-              }
+          onChange={(e) => {
+            setText(e.target.value);
+            /* B19 - the indicator starts with the FIRST change, whatever its
+               source: keys, paste, IME commit, autocomplete, a phone keyboard.
+               Change-driven also means the very first keystroke is never held
+               back by a throttle window; later changes re-affirm at most every
+               700 ms so the receiver's safety net never lapses mid-sentence. */
+            const now = Date.now();
+            if (now - lastTypingSentRef.current > 700) {
+              lastTypingSentRef.current = now;
+              relayMessageNotice(match.id, "typing");
             }
+            /* ...and it ends when they stop: 900 ms of silence sends one
+               typing-stop notice. Re-armed on every change, so it only ever
+               fires after the last keystroke. */
+            if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+            typingStopTimerRef.current = setTimeout(() => {
+              typingStopTimerRef.current = null;
+              relayMessageNotice(match.id, "typing-stop");
+            }, 900);
+          }}
+          onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (staged.length > 0) void sendPacket();

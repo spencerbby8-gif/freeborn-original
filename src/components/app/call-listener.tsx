@@ -18,6 +18,12 @@ const RING_AUTO_MISS_MS = 45_000;
 
 export function CallListener() {
   const [incoming, setIncoming] = useState<RingPayload | null>(null);
+  /* B20 — handlers outside React's render path need the current ring without a
+     stale closure, so the payload mirrors into a ref on every change. */
+  const incomingRef = useRef<RingPayload | null>(null);
+  useEffect(() => {
+    incomingRef.current = incoming;
+  }, [incoming]);
   const [active, setActive] = useState<{ role: "callee"; payload: RingPayload } | null>(null);
   const busyRef = useRef(false);
   /* The callId this member is already ringing or already on, kept in refs so a
@@ -140,6 +146,19 @@ export function CallListener() {
         })().catch(() => undefined);
       });
 
+      /* B20 — the caller cancelled (or gave up). Their ring screen must fall
+         the moment this lands; the liveness poll below is the floor if it is
+         lost to a reconnect. */
+      ring.on("broadcast", { event: "ring-cancel" }, (msg) => {
+        const hint = msg.payload as { callId?: string } | null;
+        if (!hint?.callId || cancelled) return;
+        traceCall(hint.callId, "callee", "rx-ring-cancel");
+        if (incomingRef.current?.callId === hint.callId) {
+          stopRingtone();
+          setIncoming(null);
+        }
+      });
+
       ring.subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") traceCall("ring", "callee", "ring-channel-error", String(status));
       });
@@ -160,6 +179,38 @@ export function CallListener() {
       setIncoming(null);
     }, RING_AUTO_MISS_MS);
     return () => clearTimeout(t);
+  }, [incoming]);
+
+  /* B20 — the ring screen must never outlive the call session. A cancel that
+     missed the broadcast (socket mid-reconnect, app in background) is caught
+     here: while a ring is showing, re-ask the server whether it still rings,
+     and drop the screen the instant it does not. getCallSession throws on the
+     410 an ended session returns, which is exactly the "gone" case. */
+  useEffect(() => {
+    if (!incoming) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const session = await getCallSession(incoming.callId);
+        if (!cancelled && session.status !== "ringing") {
+          traceCall(incoming.callId, "callee", "ring-session-not-ringing");
+          stopRingtone();
+          setIncoming(null);
+        }
+      } catch {
+        if (!cancelled) {
+          traceCall(incoming.callId, "callee", "ring-session-gone");
+          stopRingtone();
+          setIncoming(null);
+        }
+      }
+    };
+    void check();
+    const iv = setInterval(() => void check(), 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
   }, [incoming]);
 
   const accept = useCallback(() => {
