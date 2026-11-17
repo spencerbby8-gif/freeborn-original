@@ -420,6 +420,26 @@ export function ProfileView({
     }
   };
 
+  const [choiceBusy, setChoiceBusy] = useState(false);
+  const submitProfileChoice = async (choice: "pass" | "superlike") => {
+    if (!profile || choiceBusy) return;
+    setChoiceBusy(true);
+    try {
+      const token = await getAccessToken().catch(() => null);
+      if (!token) { window.location.href = "/auth?mode=sign-in"; return; }
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ profileId: profile.id, choice }),
+      });
+      if (!res.ok) throw new Error("choice failed");
+      if (choice === "superlike") showToast({ tone: "success", title: "Super like sent", body: `${profile.name} will see that you stood out.` });
+      onClose();
+    } catch {
+      showToast({ tone: "error", title: "Couldn't save your choice", body: "Check your connection and try again." });
+    } finally { setChoiceBusy(false); }
+  };
+
   const [msgBusy, setMsgBusy] = useState(false);
   /* Is a request already flying between us? The button must say so instead of
      offering to send a second one. */
@@ -681,8 +701,14 @@ export function ProfileView({
             {/* Photos */}
             {photos.length > 0 ? (
               <div
-                className="relative -mx-3 overflow-hidden rounded-[30px] border border-white/[0.08] sm:mx-0"
+                className="relative -mx-3 overflow-hidden rounded-[30px] border border-white/[0.08] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold-500)] sm:mx-0"
                 style={{ touchAction: "pan-y" }}
+                tabIndex={0}
+                aria-label="Profile photos. Swipe or use the left and right arrow keys to browse."
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowRight") setPhotoIdx((i) => clampIdx(i + 1));
+                  if (e.key === "ArrowLeft") setPhotoIdx((i) => clampIdx(i - 1));
+                }}
                 onPointerDown={(e) => {
                   dragRef.current = { startX: e.clientX, moved: false };
                 }}
@@ -720,8 +746,6 @@ export function ProfileView({
                 </div>
                 {photos.length > 1 ? (
                   <>
-                    <button type="button" aria-label="Previous photo" onClick={() => setPhotoIdx((i) => clampIdx(i - 1))} className="absolute inset-y-0 left-0 w-1/3" />
-                    <button type="button" aria-label="Next photo" onClick={() => setPhotoIdx((i) => clampIdx(i + 1))} className="absolute inset-y-0 right-0 w-1/3" />
                     <div className="absolute inset-x-0 top-3 flex justify-center gap-1.5">
                       {photos.map((_, i) => (
                         <span key={i} className={`h-[4px] rounded-full transition-all duration-300 ${i === photoIdx ? "w-6 bg-white" : "w-3 bg-white/40"}`} />
@@ -993,9 +1017,12 @@ export function ProfileView({
             })()}
 
             {/* Start a conversation — or the member's privacy boundary */}
-            <div className="sticky bottom-0 -mx-3 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+            <div className="sticky bottom-0 -mx-3 flex items-center gap-3 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+              <button type="button" onClick={() => void submitProfileChoice("pass")} disabled={choiceBusy} aria-label={`Pass on ${profile.name}`} className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] disabled:opacity-50">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
               {profile.messageRestricted ? (
-                <div className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-[13px] font-bold text-[var(--color-mist)]">
+                <div className="flex min-h-[58px] flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-3 text-center text-[12px] font-bold text-[var(--color-mist)]">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
                     <rect x="5" y="10" width="14" height="10" rx="2.5" />
                     <path d="M8 10V7a4 4 0 018 0v3" />
@@ -1009,7 +1036,7 @@ export function ProfileView({
             msgRequest === "incoming" ? window.location.assign("/app/chat") : void handleMessage()
           }
                   disabled={msgBusy}
-                  className="btn-ember btn-shine relative flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-full px-6 py-3.5 text-[15px] font-bold disabled:opacity-60"
+                  className="btn-ember btn-shine relative flex min-h-[62px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-full px-3 py-3 text-[14px] font-bold disabled:opacity-60"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
@@ -1023,6 +1050,9 @@ export function ProfileView({
                 : "Say hello"}
                 </button>
               )}
+              <button type="button" onClick={() => void submitProfileChoice("superlike")} disabled={choiceBusy} aria-label={`Super like ${profile.name}`} title="Super like" className="superlike-btn flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full disabled:opacity-50">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3c1.3 3.1 3.8 4.5 2.2 7.2 2.4-.6 3.7-2.5 3.6-4.2 2.6 2.1 3.3 5.8 1.8 8.8-1.2 2.5-3.4 4.2-6.1 4.2s-5.1-1.8-6.2-4.2C5.6 11.4 8 7.1 12 3z"/><path d="M12 19v2"/></svg>
+              </button>
             </div>
           </div>
         )}
