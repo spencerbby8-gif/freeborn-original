@@ -11,7 +11,7 @@ import { MixerCard } from "./settings-view";
 import { ProfileView } from "./profile-view";
 import { PhotoLightbox } from "./photo-lightbox";
 import { DeckCard } from "./deck-card";
-import { DropletIcon, HeartIcon, SparkIcon } from "@/components/ui/line-icons";
+import { DropletIcon, HeartIcon, HeartMarkIcon, SparkIcon } from "@/components/ui/line-icons";
 import {
   buildProfileParams,
   DEFAULT_FILTERS,
@@ -139,6 +139,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   /** Undo the last swipe — free everywhere else, free here too. */
   const [undoBusy, setUndoBusy] = useState(false);
+  /** Name of the member just skipped, while the Undo toast is on screen. */
+  const [passNotice, setPassNotice] = useState<string | null>(null);
   const [lastUndone, setLastUndone] = useState<string | null>(null);
   /** Likes the member has not opened yet — the count on the header heart. */
   const [unreadLikes, setUnreadLikes] = useState(0);
@@ -326,6 +328,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
   /** Undo the last swipe: deletes it (and any match it created), then the
      profile re-enters the deck — explicit recourse, never silent. */
+  /* Undo stays wired: /api/likes takes the last swipe back and re-enters that
+     member on top of the deck. The discovery screen no longer draws the control
+     (the reference has no strip under the card), so it is offered in the profile
+     sheet instead. */
   const undoLastSwipe = async () => {
     if (undoBusy) return;
     setUndoBusy(true);
@@ -342,6 +348,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setLastUndone(json.undone ?? "swipe");
+        setPassNotice(null);
         window.setTimeout(() => setLastUndone(null), 2600);
         if (json.unmatched) setMatchToast(null);
         /* The undone member re-enters the deck ON TOP: the room order is not
@@ -403,6 +410,35 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
     );
   };
 
+  /**
+   * Double-tap means Super Like. The card at rest has no status strip beneath it
+   * any more — the reference goes straight from card to tab bar — so the hint
+   * that used to sit there is announced once per session instead, the first time
+   * the deck is interactive.
+   */
+  useEffect(() => {
+    if (loading || signedOut || !current) return;
+    let done = false;
+    try {
+      done = window.sessionStorage.getItem("freeborn.deck-hint") === "1";
+    } catch {
+      /* private mode: announce every time, never crash */
+    }
+    if (done) return;
+    const timer = window.setTimeout(() => {
+      setHelloToast(
+        "Swipe or use the buttons — double-tap the photo for a Super Like, tap it to open the profile."
+      );
+      try {
+        window.sessionStorage.setItem("freeborn.deck-hint", "1");
+      } catch {
+        /* ignore */
+      }
+      window.setTimeout(() => setHelloToast(null), 7000);
+    }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [loading, signedOut, current]);
+
   /* Preload + decode the photos of the next three cards so promotion is
      instant — no blank frame, no decode jank. */
   useEffect(() => {
@@ -463,6 +499,14 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       if (res.ok) {
         const json = await res.json();
         if (json.matched) setMatchToast(profile.name);
+        /* The strip that used to sit under the card carried Undo. The reference
+           has nothing between the card and the tab bar, so the pass outcome is
+           reported here instead — and for six seconds the toast itself takes
+           the swipe back. */
+        if (choice === "pass") {
+          setPassNotice(profile.name);
+          window.setTimeout(() => setPassNotice(null), 6000);
+        }
         if (choice === "superlike") {
           setSuperToast(true);
           setTimeout(() => setSuperToast(false), 2600);
@@ -766,12 +810,14 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[480px] lg:max-w-[520px]">
+    <div className="fb-sr-phone mx-auto flex w-full max-w-[480px] flex-1 flex-col pb-0 pt-[calc(env(safe-area-inset-top,0px)+18px)] lg:max-w-[520px] lg:flex-none">
       {/* --- header -------------------------------------------------------
-          Reference grid: eyebrow at y 89 (11px, 0.26em), title two lines at
-          40px/1.06 with the first baseline at 150, bell 48px disc at x 452,
-          coral count disc 24px riding its top-right corner. */}
-      <header className="fb-sr-header pt-[4px]">
+          Measured from the reference at 393 CSS px wide: eyebrow cap top at 62,
+          headline 32px/0.95 with cap tops at 72 and 102, the count disc 46px on
+          the same baseline as the headline's first line, and the room chips
+          28px tall at y 149. The page column is inset 32; the card below is
+          inset 20, so the card deliberately overhangs this text by 12. */}
+      <header className="fb-sr-header">
         <div className="min-w-0">
           <p className="fb-sr-eyebrow">{roomCity ? `Tonight in ${roomCity}` : "Tonight on Freeborn"}</p>
           <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
@@ -783,18 +829,18 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         <Link
           href="/app/likes"
           aria-label={unreadLikes > 0 ? `Likes, ${unreadLikes} new` : "Likes"}
-          className="fb-sr-disc fb-sr-bell mt-[10px]"
+          className="fb-sr-disc fb-sr-bell"
         >
           <span className="relative flex">
-            <HeartIcon size={21} />
+            <HeartMarkIcon size={18} />
             {unreadLikes > 0 ? <span className="fb-sr-dot">{unreadLikes > 9 ? "9+" : unreadLikes}</span> : null}
           </span>
         </Link>
       </header>
 
-      {/* --- room filters: the three chips in the reference, and a fourth
-              scrollable slice of the same store so the panel is never the only
-              way in. Each chip writes the saved filters the panel reads. ---- */}
+      {/* --- room filters: the three chips in the reference, plus one extra
+              slice of the same saved-filter store so the panel is never the only
+              way in. Each chip writes what the panel reads. -------------------- */}
       <div className="fb-sr-chiprow mt-[22px]">
         {ROOM_FILTERS.map((f) => {
           const on = f.active(filters);
@@ -808,7 +854,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               style={
                 on
                   ? undefined
-                  : { borderColor: "rgba(238,168,152,0.26)", background: "linear-gradient(180deg,rgba(150,84,84,0.40),rgba(112,58,64,0.48))" }
+                  : { borderColor: "rgba(238,168,152,0.20)", background: "linear-gradient(180deg,rgba(140,72,76,0.42),rgba(104,52,60,0.50))" }
               }
             >
               {f.label}
@@ -822,7 +868,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           onClick={() => toggleRoomFilter("natural-health")}
           className="fb-sr-chip fb-sr-chip--gold"
         >
-          <DropletIcon size={19} />
+          <DropletIcon size={14} />
         </button>
       </div>
 
@@ -844,6 +890,22 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {helloToast ? (
         <div className="animate-scale-in mt-4 rounded-2xl border border-[#ffd3ad]/30 bg-[#ffd3ad]/[0.08] px-4 py-3">
           <p className="text-[12.5px] font-bold text-[#ffe0c6]">{helloToast}</p>
+        </div>
+      ) : null}
+
+      {passNotice ? (
+        <div className="animate-scale-in mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+          <p className="text-[12.5px] font-medium text-[var(--sr-sand)]">
+            Skipped {passNotice}.
+          </p>
+          <button
+            type="button"
+            onClick={() => void undoLastSwipe()}
+            disabled={undoBusy}
+            className="shrink-0 text-[12px] font-bold text-[var(--sr-pearl)] underline underline-offset-2 disabled:opacity-40"
+          >
+            {lastUndone ? "Undone" : "Undo"}
+          </button>
         </div>
       ) : null}
 
@@ -966,7 +1028,17 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         </div>
       ) : (
         <>
-          <div className="fb-sr-stage mt-[36px]">
+          {/* The card is the height the screen has left after the header, the
+              room chips, the tab bar and the notices — not a fixed aspect. That
+              is how the reference fills the device edge to edge. */}
+          <div className="fb-sr-deck">
+            <div className="fb-sr-deck__card">
+              {/* the card resting behind the top one, drawn as a rim band */}
+              {!loading && current ? (
+                <span aria-hidden className="fb-sr-peek">
+                  <span className="fb-sr-peek__handle" />
+                </span>
+              ) : null}
             {stack.map((profile, k) => {
               if (!profile) return null;
               const isTop = k === 0;
@@ -1000,58 +1072,18 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   }}
                   onLike={() => act("like")}
                   onPass={() => act("pass")}
-                  onSayHello={() => void sayHello(profile)}
-                />
-              );
-            })}
+                    onSayHello={() => void sayHello(profile)}
+                  />
+                );
+              })}
+            </div>
           </div>
 
-          {/* Position, undo, and the honest hint — quiet, below the card. */}
-          <div className="mt-4 flex items-center justify-between gap-3 px-1">
-            <button
-              type="button"
-              onClick={() => void undoLastSwipe()}
-              disabled={undoBusy}
-              className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--sr-ash)] transition hover:text-[var(--sr-sand)] disabled:opacity-40"
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M3 7v6h6" />
-                <path d="M21 17a9 9 0 0 0-15-6.7L3 13" />
-              </svg>
-              {lastUndone ? "Undone" : "Undo"}
-            </button>
-            <p className="text-[11.5px] font-medium text-[var(--sr-ash)]">
-              {index + 1} of {profiles.length} in the room
-            </p>
-            {!origin && typeof navigator !== "undefined" && navigator.geolocation ? (
-              <button
-                type="button"
-                onClick={enableLocation}
-                className="text-[11.5px] font-bold text-[var(--sr-ash)] transition hover:text-[var(--sr-sand)]"
-              >
-                Show distances
-              </button>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[11.5px] font-medium text-[var(--sr-ash)] opacity-0" aria-hidden>
-                Show distances
-              </span>
-            )}
-          </div>
-
-          <p className="mt-2 flex items-center justify-center gap-1.5 text-[10.5px] font-medium text-[var(--sr-ash)]/80">
-            <HeartIcon size={11} />
-            Swipe to choose · tap the photo to enlarge · double-tap to Super Like
-          </p>
+          {/* The reference has no status strip and no hint line under the card:
+              the tab bar begins immediately below it. Both live on in the
+              small print at the foot of the profile sheet, and Undo is offered
+              there too, so nothing is lost — it is simply not drawn on the
+              discovery screen. */}
         </>
       )}
 

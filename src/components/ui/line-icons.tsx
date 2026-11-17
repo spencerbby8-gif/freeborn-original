@@ -47,6 +47,20 @@ export function HeartIcon({ filled = false, ...props }: IconProps & { filled?: b
   );
 }
 
+/**
+ * The reference's heart: a rounded two-lobe heart with a small dot in its right
+ * lobe — the "liked you" mark in the header disc and on the portrait. Drawn
+ * separately from HeartIcon so the plain heart elsewhere keeps its old shape.
+ */
+export function HeartMarkIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.7}>
+      <path d="M12 19.6c-.5 0-7.1-4.3-7.1-9.1a3.9 3.9 0 0 1 7.1-2.3 3.9 3.9 0 0 1 7.1 2.3c0 4.8-6.6 9.1-7.1 9.1Z" />
+      <circle cx="13.6" cy="10.6" r="0.85" fill="currentColor" stroke="none" />
+    </Svg>
+  );
+}
+
 export function CloseIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -196,6 +210,38 @@ export function FemaleIcon(props: IconProps) {
   );
 }
 
+/** A plain person mark for the height fact — the reference's silhouette, not a gender sign. */
+/** A tumbler with a sprig — the "Drinks" tile. */
+export function GlassIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.6}>
+      <path d="M6.4 5.2h9.2l-1 13.2a1.6 1.6 0 0 1-1.6 1.5H9a1.6 1.6 0 0 1-1.6-1.5L6.4 5.2Z" />
+      <path d="M6.9 10.6h8.2" />
+      <path d="M14.6 3.2c1.7.4 2.6 1.5 2.6 3.2-1.7 0-2.6-.9-2.6-3.2Z" />
+    </Svg>
+  );
+}
+
+/** A globe — the "Languages" tile. */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.6}>
+      <circle cx="12" cy="12" r="8.4" />
+      <path d="M3.8 12h16.4M12 3.6c2.4 2.4 3.6 5.2 3.6 8.4s-1.2 6-3.6 8.4c-2.4-2.4-3.6-5.2-3.6-8.4S9.6 6 12 3.6Z" />
+    </Svg>
+  );
+}
+
+export function PersonMarkIcon(props: IconProps) {
+  return (
+    <Svg {...props} strokeWidth={1.7}>
+      <circle cx="12" cy="5.4" r="2.5" />
+      <path d="M8.4 21v-4.6a3.6 3.6 0 0 1 3.6-3.6 3.6 3.6 0 0 1 3.6 3.6V21" />
+      <path d="M12 12.8V21" />
+    </Svg>
+  );
+}
+
 export function MaleIcon(props: IconProps) {
   return (
     <Svg {...props} strokeWidth={1.6}>
@@ -238,20 +284,41 @@ export function DropletIcon({ size = 18, ...rest }: IconProps) {
  * bitten out of its trailing edge. The bite is a masked circle rather than a
  * hand-traced path, so the shape stays true at 20px and at 40px.
  */
+/**
+ * The Discover tab's mark: a cream disc with a warm floor, cut by a single dark
+ * stroke that runs in from the left rim and forks — the "someone to aim at"
+ * mark the reference uses. The active state is the disc itself; the inactive one
+ * is the same shape as a hairline.
+ */
 export function DiscoverMark({ size = 26, active = false }: { size?: number; active?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 26 26" fill="none" aria-hidden focusable="false">
-      <defs>
-        <mask id="fb-discover-bite">
-          <rect width="26" height="26" fill="#fff" />
-          <circle cx="25" cy="13" r="10.6" fill="#000" />
-        </mask>
-      </defs>
       {active ? (
-        <circle cx="13" cy="13" r="10.2" fill="#f7e6c4" mask="url(#fb-discover-bite)" />
+        <>
+          <defs>
+            <linearGradient id="fb-discover-disc" x1="6" y1="3" x2="19" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#fdf7ea" />
+              <stop offset="0.55" stopColor="#f7e5c0" />
+              <stop offset="1" stopColor="#eccf9c" />
+            </linearGradient>
+          </defs>
+          <circle cx="13" cy="13" r="10.4" fill="url(#fb-discover-disc)" />
+          <path
+            d="M2.4 12.6h13.1M15.5 12.6l3.4 3.5M15.5 12.6l5.5-.6"
+            stroke="#2a1c12"
+            strokeWidth="2.3"
+            strokeLinecap="round"
+          />
+        </>
       ) : (
         <>
-          <circle cx="13" cy="13" r="10.2" stroke="currentColor" strokeWidth="1.7" mask="url(#fb-discover-bite)" />
+          <circle cx="13" cy="13" r="10.4" stroke="currentColor" strokeWidth="1.6" />
+          <path
+            d="M3.6 12.6h12.9M15.2 12.6l3.2 3.3M15.2 12.6l5.1-.6"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+          />
         </>
       )}
     </svg>

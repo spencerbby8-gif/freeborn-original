@@ -24,6 +24,9 @@ import {
 import {
   BackArrowIcon,
   BriefcaseIcon,
+  GlassIcon,
+  GlobeIcon,
+  SparkIcon,
   CloseIcon,
   CoupleIcon,
   FlameIcon,
@@ -32,7 +35,6 @@ import {
   LeafIcon,
   MoreIcon,
   PinIcon,
-  ProfileIcon,
 } from "@/components/ui/line-icons";
 
 const REPORT_REASONS: Array<{ value: string; label: string }> = [
@@ -518,7 +520,33 @@ export function ProfileView({
     : null;
   const heroPhoto = photos[photoIdx] ?? photos[0] ?? "";
 
+  /* The reference's 2x2 grid is Lifestyle / Drinks / Zodiac / Languages, so the
+     tiles are ordered that way and the extra facts (work, city, height) follow
+     once the first four are in place. A tile is only ever drawn from a value the
+     member actually supplied — see the note on Drinks below. */
   const facts = [
+    lifestyleHeadline(profile?.lifestyle)
+      ? {
+          key: "lifestyle",
+          icon: <LeafIcon size={15} />,
+          label: "Lifestyle",
+          value: lifestyleHeadline(profile?.lifestyle) ?? "",
+        }
+      : null,
+    profile?.drinking
+      ? { key: "drinks", icon: <GlassIcon size={15} />, label: "Drinks", value: titleCase(profile.drinking) }
+      : null,
+    zodiacFromBirthMonth(profile?.birthMonthYear)
+      ? {
+          key: "zodiac",
+          icon: <SparkIcon size={15} />,
+          label: "Zodiac",
+          value: zodiacFromBirthMonth(profile?.birthMonthYear) ?? "",
+        }
+      : null,
+    profile?.language
+      ? { key: "language", icon: <GlobeIcon size={15} />, label: "Languages", value: profile.language }
+      : null,
     profile?.occupation
       ? { key: "work", icon: <BriefcaseIcon size={15} />, label: "Work", value: profile.occupation }
       : null,
@@ -537,25 +565,6 @@ export function ProfileView({
           label: "Height",
           value: heightImperial(profile.heightCm) ?? "",
         }
-      : null,
-    lifestyleHeadline(profile?.lifestyle)
-      ? {
-          key: "lifestyle",
-          icon: <LeafIcon size={15} />,
-          label: "Lifestyle",
-          value: lifestyleHeadline(profile?.lifestyle) ?? "",
-        }
-      : null,
-    zodiacFromBirthMonth(profile?.birthMonthYear)
-      ? {
-          key: "zodiac",
-          icon: <FlameIcon size={15} />,
-          label: "Zodiac",
-          value: zodiacFromBirthMonth(profile?.birthMonthYear) ?? "",
-        }
-      : null,
-    profile?.language
-      ? { key: "language", icon: <ProfileIcon size={15} />, label: "Languages", value: profile.language }
       : null,
   ].filter(Boolean) as Array<{ key: string; icon: React.ReactNode; label: string; value: string }>;
 
@@ -628,7 +637,7 @@ export function ProfileView({
             <div
               className="fb-sr-hero"
               style={{
-                aspectRatio: "1 / 1.16",
+                aspectRatio: "1 / 1.02",
                 touchAction: "pan-y",
               }}
               onPointerDown={(e) => {
@@ -655,7 +664,8 @@ export function ProfileView({
                   src={heroPhoto}
                   alt={`${profile.name}, photo ${photoIdx + 1}`}
                   draggable={false}
-                  className="h-full w-full select-none object-cover object-center"
+                  className="h-full w-full select-none object-cover"
+                  style={{ objectPosition: "50% 32%" }}
                 />
               ) : (
                 <div
@@ -760,13 +770,13 @@ export function ProfileView({
               </div>
 
               {/* name block, bottom-left of the hero — with the heart on the right */}
-              <div className="absolute inset-x-5 bottom-5 z-10 flex items-end justify-between gap-4">
+              <div className="absolute inset-x-5 bottom-2 z-10 flex items-end justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h1 className="fb-sr-name text-[var(--sr-pearl)]">{profile.name}</h1>
+                    <h1 className="fb-sr-profile-name">{profile.name}</h1>
                     {profile.verified ? <VerifyBadge size={21} /> : null}
                   </div>
-                  <p className="mt-2 truncate text-[13px] font-medium text-[var(--sr-sand)]">
+                  <p className="mt-0.5 truncate text-[13px] font-medium text-[var(--sr-sand)]">
                     {[
                       profile.age ? String(profile.age) : null,
                       profile.occupation,
@@ -799,14 +809,14 @@ export function ProfileView({
                   onClick={() => void handleMessage()}
                   disabled={msgBusy || Boolean(profile.messageRestricted)}
                   aria-label={`Say hello to ${profile.name}`}
-                  className="fb-sr-disc relative mb-1 flex h-[62px] w-[62px] shrink-0 items-center justify-center"
+                  className="fb-sr-disc relative flex h-[52px] w-[52px] shrink-0 items-center justify-center"
                   style={{
                     background: "linear-gradient(180deg,#fff3e4 0%,#ffe7cf 100%)",
-                    border: "1px solid rgba(255,255,255,0.5)",
-                    boxShadow: "0 18px 40px -16px rgba(255,196,150,0.9)",
+                    border: "1px solid rgba(255,255,255,0.55)",
+                    boxShadow: "0 16px 34px -14px rgba(255,196,150,0.85)",
                   }}
                 >
-                  <HeartIcon size={24} className="text-[#3a2418]" />
+                  <HeartIcon size={21} className="text-[#3a2418]" />
                   {msgRequest === "outgoing" ? (
                     <span
                       aria-hidden
@@ -819,8 +829,9 @@ export function ProfileView({
               </div>
             </div>
 
-            {/* --- body ---------------------------------------------------- */}
-            <div className="space-y-2.5 px-5 pt-4">
+            {/* --- the sheet: details and the action row share one card ----- */}
+            <div className="fb-sr-sheet">
+              <div className="space-y-2 px-1">
               {profile.visibility ? (
                 <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.02] p-4">
                   <p className="fb-sr-section__title">
@@ -865,6 +876,18 @@ export function ProfileView({
               {profile.bio ? (
                 <Section title="About me">
                   <p className="fb-sr-section__body">{profile.bio}</p>
+                  {passions.length ? (
+                    <>
+                      <p className="fb-sr-section__kicker">My passions</p>
+                      <div className="fb-sr-section__chips">
+                        {passions.map((p) => (
+                          <span key={p} className="fb-sr-tag">
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
                 </Section>
               ) : null}
 
@@ -873,18 +896,6 @@ export function ProfileView({
                   <p className="fb-sr-section__body">“{p.answer}”</p>
                 </Section>
               ))}
-
-              {passions.length ? (
-                <Section title="My passions">
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {passions.map((p) => (
-                      <span key={p} className="fb-sr-tag">
-                        {p}
-                      </span>
-                    ))}
-                  </div>
-                </Section>
-              ) : null}
 
               {profile.vaccinationStatus === "unvaccinated" || profile.relationshipGoals.length ? (
                 <div className="flex flex-wrap gap-2 px-0.5">
@@ -1070,10 +1081,10 @@ export function ProfileView({
                   </div>
                 ))}
               </div>
-            </div>
+              </div>
 
-            {/* --- sticky action row -------------------------------------- */}
-            <div className="fb-sr-actions px-5">
+              {/* --- action row, on the sheet's floor ---------------------- */}
+              <div className="fb-sr-profile-actions">
               <button
                 type="button"
                 onClick={onClose}
@@ -1116,6 +1127,7 @@ export function ProfileView({
               >
                 <LeafIcon size={18} />
               </button>
+              </div>
             </div>
           </div>
         )}

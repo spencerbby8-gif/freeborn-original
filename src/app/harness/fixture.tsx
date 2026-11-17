@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { HomeDeck } from "@/components/app/home-deck";
 import { ProfileView } from "@/components/app/profile-view";
 import { DeckCard } from "@/components/app/deck-card";
-import { ChatIcon, DiscoverMark, DropletIcon, HeartIcon, ProfileIcon } from "@/components/ui/line-icons";
+import { ChatIcon, DiscoverMark, DropletIcon, HeartIcon, HeartMarkIcon, ProfileIcon } from "@/components/ui/line-icons";
 
 /**
  * Fixture surface for visual review. Everything below is a literal copy of the
@@ -126,78 +126,84 @@ export function HarnessFixture() {
   }, []);
 
   return (
-    <div className="fb-sr min-h-[100dvh] pb-10">
-      <div className="mx-auto w-full max-w-[520px] px-5 pt-5">
-        {/* chrome the AppShell would provide, reproduced so the composition reads */}
-        <header className="fb-sr-header pt-[4px]">
-          <div className="min-w-0">
-            <p className="fb-sr-eyebrow">Tonight in Brooklyn</p>
-            <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
-          </div>
-          <span className="fb-sr-disc fb-sr-bell mt-[10px]">
-            <span className="relative flex">
-              <HeartIcon size={21} />
-              <span className="fb-sr-dot">2</span>
-            </span>
-          </span>
-        </header>
-
-        <div className="fb-sr-chiprow mt-[22px]">
-          <span className="fb-sr-chip">Long-term</span>
-          <span className="fb-sr-chip">Natural health</span>
-          <span className="fb-sr-chip">Health autonomy</span>
-          <span className="fb-sr-chip fb-sr-chip--gold">
-            <DropletIcon size={19} />
-          </span>
-        </div>
-
-        <div className="mt-[26px]">
-          {which === "deck" ? (
-            <div className="relative pt-[13px]">
-              <span aria-hidden className="fb-sr-peek">
-                <span className="fb-sr-peek__handle" />
+    <div className="fb-sr fb-sr-phone flex h-[100dvh] flex-col">
+      {/* The shell's own chrome, reproduced exactly: no wordmark bar on
+          Discover, a main that ends above the tab bar, and the screen's column. */}
+      <main className="flex min-h-0 flex-1 flex-col pb-[117px]">
+        <div className="fb-sr-phone mx-auto flex w-full max-w-[480px] flex-1 flex-col pb-0 pt-[42px]">
+          <header className="fb-sr-header">
+            <div className="min-w-0">
+              <p className="fb-sr-eyebrow">Tonight in Brooklyn</p>
+              <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
+            </div>
+            <span className="fb-sr-disc fb-sr-bell">
+              <span className="relative flex">
+                <HeartMarkIcon size={18} />
+                <span className="fb-sr-dot">2</span>
               </span>
-              <DeckCard
-                profile={CARD}
-                isTop
-                depth={0}
-                units="mi"
-                onOpen={() => setWhich("profile")}
-                onLike={() => undefined}
-                onPass={() => undefined}
-                onSayHello={() => setWhich("profile")}
-              />
+            </span>
+          </header>
+
+          <div className="fb-sr-chiprow mt-[22px]">
+            <span className="fb-sr-chip">Long-term</span>
+            <span className="fb-sr-chip">Natural health</span>
+            <span className="fb-sr-chip">Health autonomy</span>
+            <span className="fb-sr-chip fb-sr-chip--gold">
+              <DropletIcon size={14} />
+            </span>
+          </div>
+
+          {which === "deck" ? (
+            <div className="fb-sr-deck">
+              <div className="fb-sr-deck__card">
+                {/* the card resting behind the top one, drawn as a rim band */}
+                <span aria-hidden className="fb-sr-peek">
+                  <span className="fb-sr-peek__handle" />
+                </span>
+                <DeckCard
+                  profile={CARD}
+                  isTop
+                  depth={0}
+                  units="mi"
+                  onOpen={() => setWhich("profile")}
+                  onLike={() => undefined}
+                  onPass={() => undefined}
+                  onSayHello={() => setWhich("profile")}
+                />
+              </div>
             </div>
           ) : (
-            <ProfileView profileId="fixture-1" onClose={() => setWhich("deck")} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ProfileView profileId="fixture-1" onClose={() => setWhich("deck")} />
+            </div>
           )}
         </div>
-      </div>
+      </main>
 
       <nav className="fb-sr-tabs">
         <div className="fb-sr-tabs__row">
           <span className="fb-sr-tab" data-active="true">
             <span className="fb-sr-tab__icon">
-              <DiscoverMark size={40} active />
+              <DiscoverMark size={24} active />
             </span>
             Discover
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <HeartIcon size={30} />
+              <HeartIcon size={22} />
             </span>
             Likes
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ChatIcon size={30} />
+              <ChatIcon size={22} />
               <span className="fb-sr-tab__dot">2</span>
             </span>
             Messages
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ProfileIcon size={30} />
+              <ProfileIcon size={22} />
             </span>
             Profile
           </span>

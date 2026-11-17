@@ -4,27 +4,34 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { VerifyBadge } from "@/components/verify-badge";
-import { formatDistance, type DistanceUnits } from "@/lib/device-prefs";
 import { deckBio, placeLabel } from "@/lib/profile-presentation";
-import { CloseIcon, DropletIcon, FemaleIcon, HeartIcon, MaleIcon } from "@/components/ui/line-icons";
+import { CloseIcon, DropletIcon, HeartIcon, HeartMarkIcon, PersonMarkIcon } from "@/components/ui/line-icons";
 
 /**
- * The discover card, built to the reference's measurements.
+ * The discovery card.
  *
- * The reference is a 1058×1487 image whose left phone has a 436px-wide screen
- * (x 67→503), so one reference pixel is one CSS pixel at a 436px viewport.
- * Everything below is that pixel grid, top to bottom:
+ * Two structural facts about it were wrong in earlier builds and are worth
+ * stating, because they are what makes the composition read like the reference:
  *
- *   y  333  "NEW HERE"        11px, 0.26em tracking, white
- *   y  347  heart disc        63px, at the top right
- *   y  553  photo ends        (258px tall, last 150px dissolving into the card)
- *   y  968  "Aria"            38px display serif + the blue seal
- *   y  723  "27 · Graphic Designer · Brooklyn"   15px
- *   y  754  ↕ 5'6"   ● Active today              14px, 23px apart
- *   y  790  chips             32px tall, 13px label
- *   y  843  bio               15.5px / 25px leading, 3 lines
- *   y  940  actions           78px discs, 78px cream pill, 216px wide
- *   y 1058  card ends         27px radius, 1px warm rim
+ *  1. The portrait is the card's own backdrop. It fills the card, and the name,
+ *     meta line, height, chips and bio are printed ON it — dissolved into dark
+ *     only where the action row needs a floor. A photo that stops above the
+ *     details leaves a hard edge the reference does not have.
+ *  2. The block is bottom-anchored, not top-anchored: the action row sits a
+ *     fixed 30px above the card's floor and everything else stacks upward from
+ *     it, so a short bio does not pull the name into the middle of the photo.
+ *
+ * Card-relative measurements come from the close-up reference (the conversion
+ * lives in the block comment above .fb-sr-card--deck in globals.css):
+ *
+ *   NEW HERE            y 31     9px, 0.2em
+ *   photo heart         46px disc, 14 in from the photo's top-right
+ *   name                35px display serif, top edge 296
+ *   meta                top edge 338
+ *   height / active     top edge 361, 9px green dot
+ *   chips               28px tall, top edge 387
+ *   bio                 13.5px/20, three lines, top edge 435
+ *   actions             52px discs and a 58px cream pill, 27 above the details
  */
 
 export type DeckProfile = {
@@ -52,7 +59,7 @@ type Props = {
   profile: DeckProfile;
   isTop: boolean;
   depth: number;
-  units: DistanceUnits;
+  units: string;
   onOpen: () => void;
   onLike: () => void;
   onPass: () => void;
@@ -69,11 +76,17 @@ type Props = {
   };
 };
 
+function heightLabel(cm: number | null | undefined) {
+  if (!cm || !Number.isFinite(cm)) return null;
+  const inches = Math.round(cm / 2.54);
+  return `${Math.floor(inches / 12)}'${inches % 12}"`;
+}
+
 export function DeckCard({
   profile,
   isTop,
   depth,
-  units,
+  units: _units,
   onOpen,
   onLike,
   onPass,
@@ -85,42 +98,41 @@ export function DeckCard({
   handlers,
 }: Props) {
   const photo = profile.photos[0] ?? profile.photo ?? "";
+
+  /* Three chips, de-duplicated, interests first. The reference shows three and
+     the row is clipped rather than scrolled, so the cap is part of the design. */
   const chips = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
     for (const raw of [...(profile.interests ?? []), ...(profile.traits ?? [])]) {
-      const v = (raw ?? "").trim();
-      if (!v) continue;
-      const key = v.toLocaleLowerCase();
+      const value = (raw ?? "").trim();
+      if (!value) continue;
+      const key = value.toLocaleLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push(v);
+      out.push(value);
       if (out.length === 3) break;
     }
     return out;
   }, [profile.interests, profile.traits]);
 
   const bio = deckBio(profile.headline);
-  const height =
-    profile.heightCm && Number.isFinite(profile.heightCm)
-      ? `${Math.floor(Math.round(profile.heightCm / 2.54) / 12)}'${Math.round(profile.heightCm / 2.54) % 12}"`
-      : null;
-  const meta = [profile.age ? String(profile.age) : null, profile.occupation, placeLabel(profile.city)].filter(Boolean);
-  const activeToday = profile.presence === "now" || profile.presence === "today";
-  /* The reference draws a feminine glyph because its member is a woman. The
-     glyph follows the member's own gender field rather than the reference. */
-  const marker = profile.gender === "woman" || profile.gender === "man" ? profile.gender : null;
+  const height = heightLabel(profile.heightCm);
+  const meta = [profile.age ? String(profile.age) : null, profile.occupation, placeLabel(profile.city)]
+    .filter(Boolean)
+    .join(" · ");
+  const activeLabel =
+    profile.presence === "now" ? "Active now" : profile.presence === "today" ? "Active today" : null;
 
   return (
     <article
       ref={cardRef}
       {...(handlers ?? {})}
       style={{
-        position: isTop ? "relative" : "absolute",
-        inset: isTop ? undefined : "0 0 auto 0",
         zIndex: 30 - depth * 10,
-        transform: isTop ? undefined : `translateY(${-depth * 14}px) scale(${1 + depth * 0.028})`,
-        opacity: isTop ? 1 : depth === 1 ? 1 : 0,
+        transform: isTop ? undefined : `translateY(${-depth * 11}px) scale(${1 + depth * 0.03})`,
+        opacity: depth > 1 ? 0 : 1,
+        visibility: depth > 1 ? "hidden" : "visible",
         transition: "transform 440ms cubic-bezier(0.22,1,0.36,1), opacity 440ms ease",
         pointerEvents: isTop ? "auto" : "none",
         willChange: "transform",
@@ -133,7 +145,7 @@ export function DeckCard({
           <span
             ref={passStampRef}
             aria-hidden
-            className="pointer-events-none absolute left-5 top-24 z-20 -rotate-[9deg] rounded-xl border-2 border-[#ff9a8a]/80 px-3 py-1 text-[12px] font-black uppercase tracking-[0.18em] text-[#ffb3a4]"
+            className="pointer-events-none absolute left-5 top-24 z-20 -rotate-[9deg] rounded-xl border-2 border-[#ff9a8a]/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#ffb3a4]"
             style={{ opacity: 0 }}
           >
             Skip
@@ -141,7 +153,7 @@ export function DeckCard({
           <span
             ref={likeStampRef}
             aria-hidden
-            className="pointer-events-none absolute right-5 top-24 z-20 rotate-[9deg] rounded-xl border-2 border-[#ffc9a8] px-3 py-1 text-[12px] font-black uppercase tracking-[0.18em] text-[#ffd3ad]"
+            className="pointer-events-none absolute right-5 top-24 z-20 rotate-[9deg] rounded-xl border-2 border-[#ffc9a8] px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#ffd3ad]"
             style={{ opacity: 0 }}
           >
             Like
@@ -149,20 +161,14 @@ export function DeckCard({
         </>
       ) : null}
 
-      {isTop ? (
-        <span aria-hidden className="fb-sr-peek">
-          <span className="fb-sr-peek__handle" />
-        </span>
-      ) : null}
-
-      {/* --- photo band: 372px, edge to edge, dissolving into the card ------ */}
+      {/* the portrait, as the card's own surface */}
       <div className="fb-sr-photo">
         {photo ? (
           <PhotoImage
             src={photo}
             alt={`${profile.name}, ${profile.age}`}
             className="h-full w-full"
-            imgClassName="object-cover object-top"
+            imgClassName="object-cover object-center"
             priority={isTop}
           />
         ) : (
@@ -171,34 +177,32 @@ export function DeckCard({
             className="flex h-full w-full items-center justify-center"
             style={{ background: "linear-gradient(160deg,#2a2140 0%,#3a2430 55%,#241d33 100%)" }}
           >
-            <span className="font-display text-[76px] font-medium text-white/85">
+            <span className="font-display text-[72px] font-medium text-white/85">
               {(profile.name || "M").charAt(0).toUpperCase()}
             </span>
           </div>
         )}
         <div className="fb-sr-photo__shade" aria-hidden />
-
-        {profile.isNew ? (
-          <p className="fb-sr-onphoto fb-sr-eyebrow fb-sr-eyebrow--onphoto left-[15px] top-[38px]">
-            New here
-          </p>
-        ) : null}
-
-        <Link
-          href="/app/likes"
-          aria-label="See who likes you"
-          onClick={(e) => e.stopPropagation()}
-          className="fb-sr-onphoto fb-sr-disc fb-sr-photo-heart right-[13px] top-[14px]"
-        >
-          <HeartIcon size={26} />
-          {profile.likes && profile.likes > 0 ? (
-            <span className="fb-sr-dot">{profile.likes > 9 ? "9+" : profile.likes}</span>
-          ) : null}
-        </Link>
       </div>
 
-      {/* --- body ---------------------------------------------------------- */}
-      <div className="px-[15px] pb-[19px] pt-[24px]">
+      {profile.isNew ? (
+        <p className="fb-sr-onphoto fb-sr-eyebrow fb-sr-eyebrow--onphoto" style={{ left: 16, top: 31 }}>
+          New here
+        </p>
+      ) : null}
+
+      <Link
+        href="/app/likes"
+        aria-label="See who likes you"
+        onClick={(event) => event.stopPropagation()}
+        className="fb-sr-onphoto fb-sr-disc fb-sr-photo-heart"
+        style={{ right: 14, top: 14 }}
+      >
+        <HeartMarkIcon size={21} />
+      </Link>
+
+      {/* the details, bottom-anchored over the portrait */}
+      <div className="fb-sr-deck-body">
         <button
           type="button"
           onClick={onOpen}
@@ -206,87 +210,84 @@ export function DeckCard({
           className="block w-full text-left"
           aria-label={`Open ${profile.name}'s full profile`}
         >
-          <span className="flex items-center gap-[10px]">
+          <span className="flex items-center gap-[9px]">
             <span className="fb-sr-name">{profile.name}</span>
-            {profile.verified ? <VerifyBadge size={22} /> : null}
+            {profile.verified ? <VerifyBadge size={15} /> : null}
           </span>
         </button>
 
-        <p className="fb-sr-meta mt-[10px]">{meta.join(" · ")}</p>
+        {meta ? <p className="fb-sr-meta">{meta}</p> : null}
 
-        <div className="mt-[11px] flex items-center gap-[23px]">
-          {height ? (
-            <span className="fb-sr-fact">
-              {marker === "man" ? <MaleIcon size={15} /> : <FemaleIcon size={15} />}
-              {height}
-            </span>
-          ) : null}
-          {activeToday ? (
-            <span className="fb-sr-fact">
-              <span className="fb-sr-active__dot" />
-              {profile.presence === "now" ? "Active now" : "Active today"}
-            </span>
-          ) : null}
-        </div>
+        {height || activeLabel ? (
+          <div className="fb-sr-factrow">
+            {height ? (
+              <span className="fb-sr-fact">
+                <PersonMarkIcon size={12} />
+                {height}
+              </span>
+            ) : null}
+            {activeLabel ? (
+              <span className="fb-sr-fact">
+                <span className="fb-sr-fact__dot" aria-hidden />
+                {activeLabel}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         {chips.length ? (
-          <div className="fb-sr-chiprow mt-[12px] gap-[9px]">
+          <div className="fb-sr-tagrow">
             {chips.map((chip) => (
-              <span key={chip} className="fb-sr-tag">
+              <span key={chip} className="fb-sr-tagline">
                 {chip}
               </span>
             ))}
           </div>
         ) : null}
 
-        {bio ? <p className="fb-sr-bio mt-[15px]">{bio}</p> : null}
+        {bio ? <p className="fb-sr-bio">{bio}</p> : null}
 
-        {/* --- actions: 78px discs, 78px cream pill ---------------------- */}
         {isTop ? (
-          <div className="relative mt-[22px]">
+          <div className="fb-sr-actions">
             <span className="fb-sr-actions-glow" aria-hidden />
-            <div className="fb-sr-actions relative">
-              <button
-                type="button"
-                onClick={onPass}
-                aria-label="Skip this profile"
-                title="Skip"
-                className="fb-sr-disc fb-sr-round"
-              >
-                <CloseIcon size={24} />
-              </button>
-              <button
-                type="button"
-                onClick={onSayHello}
-                className="fb-sr-hello"
-                aria-label={
-                  messageRestricted
-                    ? `You cannot message ${profile.name} under their privacy settings`
-                    : `Say hello to ${profile.name}`
-                }
-                title={messageRestricted ? "Their privacy settings stop a message from you" : `Say hello to ${profile.name}`}
-              >
-                <HeartIcon size={24} />
-                Say hello
-              </button>
-              <button
-                type="button"
-                onClick={onLike}
-                aria-label="Like this profile"
-                title="Like"
-                className="fb-sr-disc fb-sr-round fb-sr-round--natural"
-              >
-                <DropletIcon size={24} />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onPass}
+              aria-label="Skip this profile"
+              title="Skip"
+              className="fb-sr-disc fb-sr-round"
+            >
+              <CloseIcon size={19} />
+            </button>
+            <button
+              type="button"
+              onClick={onSayHello}
+              className="fb-sr-hello fb-sr-hello--deck"
+              aria-label={
+                messageRestricted
+                  ? `You cannot message ${profile.name} under their privacy settings`
+                  : `Say hello to ${profile.name}`
+              }
+              title={
+                messageRestricted
+                  ? "Their privacy settings stop a message from you"
+                  : `Say hello to ${profile.name}`
+              }
+            >
+              <HeartMarkIcon size={17} />
+              Say hello
+            </button>
+            <button
+              type="button"
+              onClick={onLike}
+              aria-label="Like this profile"
+              title="Like"
+              className="fb-sr-disc fb-sr-round fb-sr-round--natural"
+            >
+              <DropletIcon size={19} />
+            </button>
           </div>
-        ) : (
-          <div className="mt-[24px] flex items-center gap-3 opacity-0" aria-hidden>
-            <span className="fb-sr-round" style={{ display: "block" }} />
-            <span className="fb-sr-hello" />
-            <span className="fb-sr-round" style={{ display: "block" }} />
-          </div>
-        )}
+        ) : null}
       </div>
     </article>
   );

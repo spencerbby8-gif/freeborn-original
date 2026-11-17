@@ -24,10 +24,10 @@ import {
  * it anyway — and the Profile tab is restored to the end of the bar.
  */
 const tabs = [
-  { href: "/app", label: "Discover", Icon: DiscoverMark, size: 40 },
-  { href: "/app/likes", label: "Likes", Icon: HeartIcon, size: 30 },
-  { href: "/app/chat", label: "Messages", Icon: ChatIcon, size: 30 },
-  { href: "/app/profile", label: "Profile", Icon: ProfileIcon, size: 30 },
+  { href: "/app", label: "Discover", Icon: DiscoverMark, size: 24 },
+  { href: "/app/likes", label: "Likes", Icon: HeartIcon, size: 22 },
+  { href: "/app/chat", label: "Messages", Icon: ChatIcon, size: 22 },
+  { href: "/app/profile", label: "Profile", Icon: ProfileIcon, size: 22 },
 ] as const;
 
 function FiltersIcon() {
@@ -165,9 +165,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const isActive = (href: string) => (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
+  /**
+   * Discover supplies its own header (eyebrow, serif headline, count disc), so
+   * the shell's mobile bar — wordmark, bell, filters — is not drawn there. The
+   * filter drawer still opens from the room chips above the card.
+   */
+  const isDiscover = pathname === "/app";
 
   return (
-    <div className="fb-sr min-h-[100dvh]">
+    <div className={`fb-sr ${isDiscover ? "fb-sr-phone" : ""} min-h-[100dvh]`}>
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-[1240px]">
         {/* Desktop sidebar — same four destinations, the reference's order. */}
         <aside className="sticky top-0 hidden h-[100dvh] w-[248px] shrink-0 flex-col border-r border-white/[0.05] px-4 py-7 lg:flex">
@@ -244,7 +250,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Mobile top bar. The reference's Discover screen owns its own
               header (eyebrow, title, bell), so the shell contributes only the
               filter entry point — pinned, quiet, and out of the title's way. */}
-          <header className="flex items-center justify-between px-5 pb-0 pt-4 lg:hidden">
+          <header
+            className={`items-center justify-between px-5 pb-0 pt-4 lg:hidden ${
+              isDiscover ? "hidden" : "flex"
+            }`}
+          >
             <Link href="/" className="transition hover:opacity-80">
               <Wordmark size="sm" />
             </Link>
@@ -276,7 +286,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className={`flex-1 px-5 pt-3 sm:px-7 lg:pt-8 ${threadOpen ? "pb-6" : "pb-24"}`}>
+          <main
+            className={
+              isDiscover
+                ? "flex min-h-0 flex-1 flex-col pb-[117px] pt-0 lg:pb-8"
+                : `flex-1 px-5 pt-3 sm:px-7 lg:pt-8 ${threadOpen ? "pb-6" : "pb-24"}`
+            }
+          >
             {children}
           </main>
         </div>

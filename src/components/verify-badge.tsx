@@ -1,6 +1,7 @@
 /**
- * Freeborn trust badge — a scalloped seal with a check, in the teal trust
- * color. Icon-only (no "Verified" text claim), matches the Freeborn UI.
+ * Freeborn trust badge — a scalloped seal with a white check, in the blue the
+ * reference uses on a verified name. Icon-only: it makes no "Verified" text
+ * claim, and the title attribute says what the seal actually means.
  */
 export function VerifyBadge({ size = 20, className = "" }: { size?: number; className?: string }) {
   return (
@@ -16,15 +17,15 @@ export function VerifyBadge({ size = 20, className = "" }: { size?: number; clas
         />
         <path
           d="M8.2 12.3l2.5 2.5 5.1-5.6"
-          stroke="#041411"
+          stroke="#ffffff"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <defs>
           <linearGradient id="vb-grad" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#a6e6dc" />
-            <stop offset="1" stopColor="#4fb8a7" />
+            <stop stopColor="#59a9f5" />
+            <stop offset="1" stopColor="#2f7ce0" />
           </linearGradient>
         </defs>
       </svg>
