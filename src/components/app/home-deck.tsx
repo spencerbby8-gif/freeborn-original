@@ -598,7 +598,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const stack = [profiles[index], profiles[index + 1], profiles[index + 2]];
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="discovery-page mx-auto max-w-md">
       {standalone ? (
         <header className="mb-6 flex items-center justify-between">
           <Link href="/" className="transition hover:opacity-80">
@@ -615,10 +615,17 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         </header>
       ) : (
         <div className="mb-5">
-          <p className="eyebrow">Discover</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-            The room is open.
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[var(--color-mist)]">A better kind of first impression</p>
+          <h1 className="mt-3 max-w-[13ch] font-display text-[clamp(2.2rem,9vw,3.2rem)] font-medium leading-[0.98] tracking-[-0.025em] text-[var(--color-pearl)]">
+            Someone you’ll remember.
           </h1>
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="Freeborn values">
+            {[
+              { label: "Long-term", tone: "border-[#ef8c91]/30 bg-[#ef8c91]/15" },
+              { label: "Natural health", tone: "border-[#d59b89]/30 bg-[#d59b89]/15" },
+              { label: "Health autonomy", tone: "border-[#c9a38f]/30 bg-[#c9a38f]/15" },
+            ].map((item) => <span key={item.label} className={`rounded-full border px-3.5 py-2 text-[11px] font-medium text-[var(--color-pearl)]/90 ${item.tone}`}>{item.label}</span>)}
+          </div>
         </div>
       )}
 
@@ -775,7 +782,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   touchAction: isTop ? "pan-y" : undefined,
                   willChange: "transform",
                 }}
-                className="deck-card overflow-hidden rounded-[26px] border hairline bg-abyss shadow-[0_44px_100px_-26px_rgba(0,0,0,0.8),0_1px_0_rgba(255,255,255,0.08)_inset]"
+                className="deck-card overflow-hidden rounded-[28px] border border-[#df858c]/35 bg-abyss shadow-[0_32px_90px_-28px_rgba(0,0,0,0.9),0_1px_0_rgba(255,255,255,0.08)_inset]"
               >
                 {/* Drag / action stamps (top card only) */}
                 {isTop ? (
@@ -797,7 +804,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   </>
                 ) : null}
 
-                <div className="relative aspect-[3/3.2] max-h-[54dvh] w-full overflow-hidden">
+                <div className="relative aspect-[3/3.25] max-h-[58dvh] w-full overflow-hidden">
                   {profile.photos[0] ?? profile.photo ? (
                     <PhotoImage
                       src={profile.photos[0] ?? profile.photo}
@@ -995,7 +1002,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           })}
 
           {/* Actions: Undo · Skip · Super Like · Like */}
-          <div className="sticky bottom-[72px] z-40 mt-7 flex items-end justify-center gap-7 rounded-3xl border border-white/[0.06] bg-[#070a12]/92 px-3 py-3 backdrop-blur-md">
+          <div className="sticky bottom-[72px] z-40 mt-5 flex items-center justify-center gap-5 rounded-[30px] border border-white/[0.07] bg-[#090b15]/95 px-3 py-3 backdrop-blur-xl">
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
@@ -1020,7 +1027,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => act("pass")}
                 aria-label="Skip (pass)"
                 title="Skip"
-                className="btn-ghost flex h-[62px] w-[62px] items-center justify-center rounded-full transition active:scale-90"
+                className="btn-ghost flex h-[58px] w-[58px] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] transition active:scale-90"
               >
                 <svg width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden>
                   <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -1035,7 +1042,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
                 aria-label="Super like"
                 title="Super Like: stand out"
-                className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-white transition hover:scale-[1.04] active:scale-95"
+                className="superlike-btn relative flex h-[58px] w-[58px] items-center justify-center rounded-full text-white transition hover:scale-[1.04] active:scale-95"
               >
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
@@ -1050,9 +1057,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => act("like")}
                 aria-label="Like"
                 title="Like"
-                className="btn-ember btn-shine relative flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-full transition active:scale-90"
+                className="btn-ember btn-shine relative flex h-[68px] min-w-[150px] items-center justify-center gap-2 overflow-hidden rounded-full px-5 transition active:scale-90"
               >
-                <svg width="26" height="26" viewBox="0 0 30 30" fill="none" aria-hidden>
+                <span className="text-[14px] font-bold">Say hello</span>
+                <svg width="19" height="19" viewBox="0 0 30 30" fill="none" aria-hidden>
                   <path
                     d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
                     fill="#fff7f2"

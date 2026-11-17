@@ -505,9 +505,9 @@ export function ProfileView({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#070a14]/97 backdrop-blur-md">
-      <div className="mx-auto max-w-[560px] px-4 pb-20 pt-4 sm:px-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#070a14]">
+      <div className="relative mx-auto max-w-[560px] px-3 pb-24 pt-3 sm:px-6">
+        <div className="absolute inset-x-5 top-5 z-30 flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
@@ -515,12 +515,10 @@ export function ProfileView({
             className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--color-pearl)] transition hover:bg-white/[0.1]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" />
+              <path d="M19 12H5m7 7-7-7 7-7" />
             </svg>
           </button>
-          <span className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
-            Full profile
-          </span>
+          <span className="sr-only">Full profile</span>
           <div className="relative">
             <button
               type="button"
@@ -645,7 +643,7 @@ export function ProfileView({
             </div>
           </div>
         ) : (
-          <div className="animate-scale-in space-y-6">
+          <div className="animate-scale-in space-y-5 pt-12">
             {profile.visibility ? (
               <div
                 className={`rounded-[20px] border p-5 ${
@@ -683,7 +681,7 @@ export function ProfileView({
             {/* Photos */}
             {photos.length > 0 ? (
               <div
-                className="relative overflow-hidden rounded-[28px] border border-white/[0.08]"
+                className="relative -mx-3 overflow-hidden rounded-[30px] border border-white/[0.08] sm:mx-0"
                 style={{ touchAction: "pan-y" }}
                 onPointerDown={(e) => {
                   dragRef.current = { startX: e.clientX, moved: false };
@@ -716,7 +714,7 @@ export function ProfileView({
                       src={src}
                       alt={`${profile.name}, photo ${i + 1}`}
                       draggable={false}
-                      className="aspect-[3/3.6] w-full shrink-0 select-none object-cover"
+                      className="aspect-[3/4.35] w-full shrink-0 select-none object-cover"
                     />
                   ))}
                 </div>
@@ -750,12 +748,12 @@ export function ProfileView({
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070a14] via-transparent to-transparent" />
                 <div className="pointer-events-none absolute inset-x-5 bottom-4">
                   <div className="flex items-center gap-2.5">
-                    <h1 className="font-display text-[32px] font-semibold leading-none text-[var(--color-pearl)]">
+                    <h1 className="font-display text-[36px] font-medium leading-none text-[var(--color-pearl)]">
                       {profile.name}{profile.age ? `, ${profile.age}` : ""}
                     </h1>
                     {/* Badge lives ONLY at the top-right of the photo (see above) */}
                   </div>
-                  <p className="mt-1.5 text-[13px] tracking-wide text-[var(--color-sand)]">
+                  <p className="mt-2 text-[14px] tracking-wide text-[var(--color-sand)]">
                     {profile.gender
                       ? `${GENDER_LABELS[profile.gender] ?? prettyText(profile.gender)} · `
                       : ""}
@@ -788,13 +786,13 @@ export function ProfileView({
             ) : null}
 
             {profile.inCommon && sharedCount > 0 ? (
-              <div className="rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">
-                  Ground you already share
+              <div className="rounded-[24px] border border-white/[0.10] bg-[linear-gradient(130deg,rgba(217,167,82,.10),rgba(255,255,255,.025)_55%,rgba(138,110,242,.08))] p-5">
+                <p className="text-[12px] font-semibold text-[#e6b9a4]">Looking for</p>
+                <p className="mt-2 font-display text-[23px] leading-tight text-[var(--color-pearl)]">
+                  {profile.relationshipGoals[0] ? (GOAL_LABELS[profile.relationshipGoals[0]] ?? prettyText(profile.relationshipGoals[0])) : "A meaningful connection"}
                 </p>
                 <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
-                  Not a compatibility score. These are the things you both said,
-                  so a first message has somewhere honest to start.
+                  The kind of connection they hope to build.
                 </p>
                 <div className="mt-4 space-y-3">
                   {profile.inCommon.values.length ? (
@@ -969,14 +967,14 @@ export function ProfileView({
               if (!details.length) return null;
               return (
                 <Block title="The details">
-                  <div className="overflow-hidden rounded-[20px] border border-white/[0.07] bg-white/[0.025] px-5 py-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {details.map((d, i) => (
                       <div
                         key={d.label}
-                        className={`flex items-baseline justify-between gap-4 py-3 ${i < details.length - 1 ? "border-b border-white/[0.05]" : ""}`}
+                        className="flex min-h-[72px] flex-col justify-center gap-1.5 rounded-[18px] border border-white/[0.08] bg-[#111522] px-4 py-3"
                       >
-                        <p className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">{d.label}</p>
-                        <p className="text-right text-[13.5px] font-semibold text-[var(--color-ivory)]">{prettyText(d.value)}</p>
+                        <p className="shrink-0 text-[10px] font-medium text-[var(--color-mist)]">{d.label}</p>
+                        <p className="text-left text-[14px] font-medium text-[var(--color-ivory)]">{prettyText(d.value)}</p>
                       </div>
                     ))}
                   </div>
@@ -985,7 +983,7 @@ export function ProfileView({
             })()}
 
             {/* Start a conversation — or the member's privacy boundary */}
-            <div className="sticky bottom-0 -mx-4 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <div className="sticky bottom-0 -mx-3 border-t border-white/[0.06] bg-[#070a14]/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
               {profile.messageRestricted ? (
                 <div className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-6 py-3.5 text-[13px] font-bold text-[var(--color-mist)]">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
@@ -1012,7 +1010,7 @@ export function ProfileView({
               ? `Request sent to ${profile.name}`
               : msgRequest === "incoming"
                 ? `Respond to ${profile.name}'s request`
-                : `Message ${profile.name}`}
+                : "Say hello"}
                 </button>
               )}
             </div>
