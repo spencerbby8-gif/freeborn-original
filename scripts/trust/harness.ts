@@ -3054,6 +3054,41 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     hits.length === 0, hits.slice(0, 6).join(" "));
 }
 
+/* [36] TYPING IMMEDIACY + CALL-CANCEL CORRECTNESS (owner taps 2026-11-17).
+   These pins freeze the contracts the live walks prove: the indicator is
+   change-driven and has an explicit stop; a cancelled ring falls on the
+   callee's screen by broadcast AND by a server-liveness floor; and end-of-call
+   copy always says WHO ended it, on both sides. */
+{
+  const chatView = src("src/components/app/chat-view.tsx");
+  ok("[36] the typing indicator is driven by composer changes, not keydown",
+    chatView.includes("onChange={(e) => {") && chatView.includes('relayMessageNotice(match.id, "typing")') &&
+    !/onKeyDown=\{\(e\) => \{[\s\S]{0,220}relayMessageNotice\(match\.id, "typing"\)/.test(chatView));
+  ok("[36] silence becomes an explicit typing-stop within 900 ms",
+    chatView.includes('relayMessageNotice(match.id, "typing-stop")') &&
+    chatView.includes("}, 900);") && chatView.includes("const stopTypingNotice = () => {"));
+  ok("[36] the receiver clears on typing-stop at once, and on a message landing",
+    chatView.includes('if (notice?.kind === "typing-stop") {') &&
+    /kind === "message"\) \{[\s\S]{0,120}setPeerTyping\(false\);/.test(chatView));
+  ok("[36] the fallback sweep is 250 ms, not the old 600",
+    chatView.includes("}, 250);") && !chatView.includes("}, 600);\n    return () => clearInterval(iv);"));
+
+  const overlay = src("src/components/app/call-overlay.tsx");
+  const listener = src("src/components/app/call-listener.tsx");
+  ok("[36] a caller cancelling a ring tells the callee's ring channel at once",
+    overlay.includes('ring.httpSend("ring-cancel"') && overlay.includes("const cancelRingNotice ="));
+  ok("[36] giving up at the ring timeout cancels the callee's ring too",
+    /stateRef\.current === "ringing" \|\| stateRef\.current === "preparing"\) \{[\s\S]{0,160}void cancelRingNotice\(\);/.test(overlay));
+  ok("[36] end-of-call copy names the actor on both sides",
+    overlay.includes('"You cancelled the call"') && overlay.includes('"You ended the call"') &&
+    overlay.includes("${peer.name} ended the call") && !overlay.includes('setStateBoth("ended", "Call ended")'));
+  ok("[36] the callee's ring screen handles ring-cancel and re-checks session liveness",
+    listener.includes('{ event: "ring-cancel" }') && listener.includes("ring-session-not-ringing") &&
+    listener.includes("setInterval(() => void check(), 1500)"));
+  ok("[36] the 45 s auto-miss stays as the last fallback, not the first response",
+    listener.includes("const RING_AUTO_MISS_MS = 45_000;"));
+}
+
 /* Cross-check: the summary's denominator must equal the ok()/FAIL() lines actually emitted.
    If someone adds a second reporter or an early return, this trips. */
 if (printedOk + fails.length !== total) {

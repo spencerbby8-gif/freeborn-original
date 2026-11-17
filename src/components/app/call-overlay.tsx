@@ -216,11 +216,37 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kind/onCallEnd are read at call time; a stable cleanup avoids rebuilding the WebRTC channel.
   }, []);
 
+  /* B20 — a cancel while still ringing must reach the callee's ring screen
+     immediately, not wait out their 45 s auto-miss. The ring itself travels as a
+     REST broadcast on their personal ring topic (the caller has INSERT-only
+     access there), so the cancel rides the exact same path. */
+  const cancelRingNotice = useCallback(async () => {
+    if (!callIdRef.current) return;
+    let ring: Awaited<ReturnType<typeof ringChannel>> | null = null;
+    try {
+      ring = await ringChannel(peer.id);
+      await ring.httpSend("ring-cancel", { callId: callIdRef.current });
+      traceCall(callIdRef.current, role, "tx-ring-cancel");
+    } catch {
+      /* Lost cancels are caught by the callee's ring-liveness poll. */
+      traceCall(callIdRef.current, role, "tx-ring-cancel-fail");
+    } finally {
+      if (ring) destroyChannel(ring);
+    }
+  }, [peer.id, role]);
+
   const endCall = useCallback(() => {
+    /* B20 — say WHO ended it, on both sides, without ambiguity. The member who
+       pressed the button reads "You …"; the other member reads "<name> ended
+       the call" from the hangup signal. A bare "Call ended" next to the peer's
+       big name read as blaming whoever did NOT cancel. */
+    const wasRinging = stateRef.current === "ringing" || stateRef.current === "preparing";
+    const cancellingRing = wasRinging && role === "caller";
+    if (cancellingRing) void cancelRingNotice();
     cleanup(true);
-    setStateBoth("ended", "Call ended");
+    setStateBoth("ended", cancellingRing ? "You cancelled the call" : "You ended the call");
     setTimeout(onClose, 900);
-  }, [cleanup, onClose]);
+  }, [cleanup, onClose, role, cancelRingNotice]);
 
   /* --- Media plumbing ---------------------------------------------------------- */
 
@@ -597,6 +623,9 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     if (role !== "caller") return;
     const t = setTimeout(() => {
       if (stateRef.current === "ringing" || stateRef.current === "preparing") {
+        /* Giving up is also a cancel from their side's point of view: drop
+           their ring screen now instead of at their auto-miss. */
+        void cancelRingNotice();
         cleanup(true);
         setStateBoth("no-answer", `${peer.name} didn't answer`);
       }
