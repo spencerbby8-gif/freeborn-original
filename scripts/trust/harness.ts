@@ -2943,6 +2943,9 @@ console.log("\n[29] private chat broadcast and bounded fallback");
   ok("[32] exactly one IndexNow key file, content equals its name", keyOk);
   ok("[32] robots.txt invites every major search engine bot by name",
     engines.every((e) => robots.includes(`"${e}"`)) && robots.includes('"*"'));
+  const layoutNow = src("src/app/layout.tsx");
+  ok("[32] Bing Webmaster ownership meta ships verbatim on every page",
+    layoutNow.includes('"msvalidate.01"') && layoutNow.includes("21AFBB7C27303E2A2F4F26CC3D69B50F"));
   const submit = src("scripts/seo/indexnow-submit.mjs");
   ok("[32] the IndexNow submit script posts to the protocol endpoint off INDEXABLE_PATHS",
     submit.includes("https://api.indexnow.org/indexnow") &&

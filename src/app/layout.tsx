@@ -93,6 +93,16 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  /* Bing Webmaster Tools ownership proof. The owner supplied this code on
+     2026-11-16, closing the B15 tap; Next renders it as
+     <meta name="msvalidate.01" content="..."> in every served head. It is a
+     public ownership token, not a secret — harness [32] pins it verbatim and
+     seo-walk S11 proves it ships in the served bytes. */
+  verification: {
+    other: {
+      "msvalidate.01": "21AFBB7C27303E2A2F4F26CC3D69B50F",
+    },
+  },
 };
 
 /**
