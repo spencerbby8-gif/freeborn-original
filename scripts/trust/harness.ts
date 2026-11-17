@@ -3069,3 +3069,7 @@ if (pass + fails.length !== total) {
 }
 if (fails.length) { console.log("  failed: " + fails.join(" | ")); process.exitCode = 1; }
 if (fails.length) { for (const f of fails) console.log("  - " + f); process.exit(1); }
+
+// Redeploy marker 2026-11-17: forces a fresh preview build so the Vercel
+// environment saved after PR #83 merged is picked up by this deployment, letting
+// the Metered relay tier be verified end-to-end against a live call session.
