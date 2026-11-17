@@ -1002,25 +1002,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           })}
 
           {/* Actions: Undo · Skip · Super Like · Like */}
-          <div className="sticky bottom-[72px] z-40 mt-5 flex items-center justify-center gap-5 rounded-[30px] border border-white/[0.07] bg-[#090b15]/95 px-3 py-3 backdrop-blur-xl">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void undoLastSwipe()}
-                disabled={undoBusy}
-                aria-label="Undo last swipe"
-                title="Undo your last swipe"
-                className="btn-ghost flex h-[46px] w-[46px] items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 7v6h6" />
-                  <path d="M21 17a9 9 0 00-15-6.7L3 13" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                {lastUndone ? "Undone ✓" : "Undo"}
-              </span>
-            </div>
+          <div className="fixed bottom-[calc(78px+env(safe-area-inset-bottom))] left-1/2 z-40 flex w-[min(92vw,420px)] -translate-x-1/2 items-center justify-center gap-4 rounded-[30px] border border-white/[0.08] bg-[#090b15]/95 px-3 py-2.5 shadow-[0_16px_50px_rgba(0,0,0,.5)] backdrop-blur-xl">
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
@@ -1033,7 +1015,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Skip</span>
             </div>
 
             <div className="flex -translate-y-2 flex-col items-center gap-2">
@@ -1048,7 +1029,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
                 </svg>
               </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-violet-300)]">Super Like</span>
             </div>
 
             <div className="flex flex-col items-center gap-2">
@@ -1067,13 +1047,15 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   />
                 </svg>
               </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Like</span>
             </div>
           </div>
           <div className="mt-4 flex items-center justify-center gap-2">
             <p className="text-center text-[12px] tracking-wide text-[var(--color-ash)]">
               {index + 1} of {profiles.length} in the room
             </p>
+            <button type="button" onClick={() => void undoLastSwipe()} disabled={undoBusy} aria-label="Undo last swipe" title="Undo last swipe" className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-[var(--color-mist)] disabled:opacity-40">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-15-6.7L3 13"/></svg>
+            </button>
             {!origin && navigator.geolocation ? (
               <button
                 type="button"
