@@ -196,9 +196,10 @@ export function Hero() {
             <div className="mask-line mt-7 max-w-xl">
               <span style={{ transitionDelay: "420ms" }}>
                 <p className="text-[17px] leading-[1.75] text-mist">
-                  Freeborn is a calm space for health autonomy, natural living, and
-                  lasting love, with full profiles, clear intentions, and privacy by
-                  default. Meet people who value informed choice as much as you do.
+                  Freeborn is a dating app for unvaccinated and vaccinated people alike. Date
+                  naturally, meet people who share your values, and show your health
+                  choices with an optional badge—while enjoying the familiar freedom
+                  to browse, match, and connect.
                 </p>
               </span>
             </div>

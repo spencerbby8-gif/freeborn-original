@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: `%s · Freeborn`,
   },
   description:
-    "Freeborn is the relationship platform for people who value health autonomy, natural wellness, and intentional long-term commitment. Meet values-aligned singles who respect informed choice.",
+    "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
   applicationName: SITE_NAME,
   keywords: [
     "medical freedom dating",
