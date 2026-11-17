@@ -71,8 +71,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
               </h1>
 
               <p className="relative mt-8 max-w-lg text-[18px] leading-relaxed text-[var(--color-mist)]">
-                Freeborn is a calm space for health autonomy, natural living, and
-                lasting love. Meet people who value informed choice as much as you do.
+                Freeborn is a dating app for unvaccinated and vaccinated people alike. Find your people, with an optional badge that helps unvaccinated members connect.
               </p>
 
               <div className="relative mt-12 space-y-5">

@@ -1,7 +1,7 @@
 {
   "name": "Freeborn — Date Like You Mean It",
   "short_name": "Freeborn",
-  "description": "The relationship platform for health autonomy, natural living, and intentional long-term commitment.",
+  "description": "A dating app for unvaccinated and vaccinated people, with an optional badge to help members find their people.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",

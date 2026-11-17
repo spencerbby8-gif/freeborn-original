@@ -1,4 +1,4 @@
-import { useId } from "react";
+import Image from "next/image";
 
 export type WordmarkSize = "sm" | "md" | "lg";
 
@@ -10,10 +10,6 @@ export type WordmarkSize = "sm" | "md" | "lg";
  * Ancient like a seal, modern like a spark. Pure SVG, crisp at any size.
  */
 export function Monogram({ size = 42 }: { size?: number }) {
-  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const ember = `fb-ember-${uid}`;
-  const plate = `fb-plate-${uid}`;
-  const sheen = `fb-sheen-${uid}`;
 
   return (
     <div
@@ -30,47 +26,14 @@ export function Monogram({ size = 42 }: { size?: number }) {
           filter: "blur(8px)",
         }}
       />
-      <svg
-        viewBox="0 0 40 40"
+      <Image
+        src="/images/brand/monogram-512.png"
+        alt=""
         width={size}
         height={size}
+        priority
         className="relative drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-      >
-        <defs>
-          <linearGradient id={ember} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ef5e5e" />
-            <stop offset="55%" stopColor="#d9a752" />
-            <stop offset="100%" stopColor="#8a6ef2" />
-          </linearGradient>
-          <linearGradient id={plate} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1f2744" />
-            <stop offset="100%" stopColor="#0a0d18" />
-          </linearGradient>
-          <radialGradient id={sheen} cx="0.3" cy="0.22" r="0.9">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.20)" />
-            <stop offset="45%" stopColor="rgba(255,255,255,0.04)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
-        </defs>
-
-        {/* Rounded square plate */}
-        <rect x="1" y="1" width="38" height="38" rx="12" ry="12" fill={`url(#${plate})`} stroke={`url(#${ember})`} strokeWidth="1.5" />
-        {/* Inner sheen + hairline ring for depth */}
-        <rect x="1" y="1" width="38" height="38" rx="12" ry="12" fill={`url(#${sheen})`} />
-        <rect x="4" y="4" width="32" height="32" rx="9.5" ry="9.5" fill="none" stroke="rgba(246,215,154,0.16)" strokeWidth="0.75" />
-
-        {/* The flame / F glyph */}
-        <g stroke={`url(#${ember})`} strokeWidth="2.5" strokeLinecap="round" fill="none">
-          {/* Left ember arc */}
-          <path d="M14 28 C 14 18, 18 12, 24 10" />
-          {/* Right ember arc */}
-          <path d="M26 28 C 26 20, 23 16, 20 13" />
-          {/* Ember spark */}
-          <circle cx="20" cy="11" r="1.8" fill="#f6d79a" stroke="none" />
-        </g>
-        {/* Hearth line grounding the flame */}
-        <path d="M13 31.5h14" stroke={`url(#${ember})`} strokeWidth="1.4" strokeLinecap="round" opacity="0.75" />
-      </svg>
+      />
     </div>
   );
 }

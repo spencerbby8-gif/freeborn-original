@@ -100,9 +100,9 @@ export function WhyFreeborn() {
             <em className="font-medium italic text-gold-soft">got wrong.</em>
           </h2>
           <p className="mt-6 text-[16px] leading-[1.8] text-mist">
-            We read the reviews of the other unvaccinated-focused apps. The scams, the broken
-            filters, the paywalls, the dead profiles. Freeborn is built to fix every one of them,
-            and we only promise what we actually ship.
+            Freeborn is for vaccinated and unvaccinated people alike—with the familiar tools to browse,
+            match, and connect. An optional unvaccinated badge helps people who share that choice
+            find one another. Here are the product features we actually ship.
           </p>
         </Reveal>
 
