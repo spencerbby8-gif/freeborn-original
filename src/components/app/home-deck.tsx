@@ -841,7 +841,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {/* --- room filters: the three chips in the reference, plus one extra
               slice of the same saved-filter store so the panel is never the only
               way in. Each chip writes what the panel reads. -------------------- */}
-      <div className="fb-sr-chiprow mt-[22px]">
+      <div className="fb-sr-chiprow mt-[18px]">
         {ROOM_FILTERS.map((f) => {
           const on = f.active(filters);
           return (

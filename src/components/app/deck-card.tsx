@@ -168,7 +168,7 @@ export function DeckCard({
             src={photo}
             alt={`${profile.name}, ${profile.age}`}
             className="h-full w-full"
-            imgClassName="object-cover object-center"
+            imgClassName="h-full w-full object-cover"
             priority={isTop}
           />
         ) : (

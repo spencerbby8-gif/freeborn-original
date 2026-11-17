@@ -24,10 +24,10 @@ import {
  * it anyway — and the Profile tab is restored to the end of the bar.
  */
 const tabs = [
-  { href: "/app", label: "Discover", Icon: DiscoverMark, size: 24 },
-  { href: "/app/likes", label: "Likes", Icon: HeartIcon, size: 22 },
-  { href: "/app/chat", label: "Messages", Icon: ChatIcon, size: 22 },
-  { href: "/app/profile", label: "Profile", Icon: ProfileIcon, size: 22 },
+  { href: "/app", label: "Discover", Icon: DiscoverMark, size: 26 },
+  { href: "/app/likes", label: "Likes", Icon: HeartIcon, size: 25 },
+  { href: "/app/chat", label: "Messages", Icon: ChatIcon, size: 25 },
+  { href: "/app/profile", label: "Profile", Icon: ProfileIcon, size: 25 },
 ] as const;
 
 function FiltersIcon() {

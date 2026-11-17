@@ -144,7 +144,7 @@ export function HarnessFixture() {
             </span>
           </header>
 
-          <div className="fb-sr-chiprow mt-[22px]">
+          <div className="fb-sr-chiprow mt-[18px]">
             <span className="fb-sr-chip">Long-term</span>
             <span className="fb-sr-chip">Natural health</span>
             <span className="fb-sr-chip">Health autonomy</span>
@@ -184,26 +184,26 @@ export function HarnessFixture() {
         <div className="fb-sr-tabs__row">
           <span className="fb-sr-tab" data-active="true">
             <span className="fb-sr-tab__icon">
-              <DiscoverMark size={24} active />
+              <DiscoverMark size={26} active />
             </span>
             Discover
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <HeartIcon size={22} />
+              <HeartIcon size={25} />
             </span>
             Likes
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ChatIcon size={22} />
+              <ChatIcon size={25} />
               <span className="fb-sr-tab__dot">2</span>
             </span>
             Messages
           </span>
           <span className="fb-sr-tab">
             <span className="fb-sr-tab__icon">
-              <ProfileIcon size={22} />
+              <ProfileIcon size={25} />
             </span>
             Profile
           </span>
