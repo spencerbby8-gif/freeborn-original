@@ -714,7 +714,7 @@ export function ProfileView({
                       src={src}
                       alt={`${profile.name}, photo ${i + 1}`}
                       draggable={false}
-                      className="aspect-[3/4.35] w-full shrink-0 select-none object-cover"
+                      className="aspect-[1/1.1] w-full shrink-0 select-none object-cover"
                     />
                   ))}
                 </div>
@@ -761,6 +761,11 @@ export function ProfileView({
                     {profile.city}
                     {profile.region ? `, ${profile.region}` : ""}
                   </p>
+                  {presence ? (
+                    <p className="mt-2 inline-flex items-center gap-2 text-[12px] text-white/80">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" /> Active {presence.short.toLowerCase()}
+                    </p>
+                  ) : null}
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {profile.memberSince ? (
                       <p className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-white/70 backdrop-blur-sm">
@@ -785,14 +790,19 @@ export function ProfileView({
               </div>
             ) : null}
 
+            <div className="rounded-[24px] border border-white/[0.10] bg-[linear-gradient(130deg,rgba(217,167,82,.10),rgba(255,255,255,.025)_55%,rgba(138,110,242,.08))] p-5">
+              <p className="text-[12px] font-semibold text-[#e6b9a4]">Looking for</p>
+              <p className="mt-2 font-display text-[23px] leading-tight text-[var(--color-pearl)]">
+                {profile.relationshipGoals[0] ? (GOAL_LABELS[profile.relationshipGoals[0]] ?? prettyText(profile.relationshipGoals[0])) : "A meaningful connection"}
+              </p>
+              <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">The kind of connection they hope to build.</p>
+            </div>
+
             {profile.inCommon && sharedCount > 0 ? (
               <div className="rounded-[24px] border border-white/[0.10] bg-[linear-gradient(130deg,rgba(217,167,82,.10),rgba(255,255,255,.025)_55%,rgba(138,110,242,.08))] p-5">
-                <p className="text-[12px] font-semibold text-[#e6b9a4]">Looking for</p>
-                <p className="mt-2 font-display text-[23px] leading-tight text-[var(--color-pearl)]">
-                  {profile.relationshipGoals[0] ? (GOAL_LABELS[profile.relationshipGoals[0]] ?? prettyText(profile.relationshipGoals[0])) : "A meaningful connection"}
-                </p>
+                <p className="text-[12px] font-semibold text-[#e6b9a4]">Ground you already share</p>
                 <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
-                  The kind of connection they hope to build.
+                  Not a compatibility score. These are things you both said, so there is somewhere honest to start.
                 </p>
                 <div className="mt-4 space-y-3">
                   {profile.inCommon.values.length ? (
@@ -855,7 +865,7 @@ export function ProfileView({
             </div>
 
             {profile.bio ? (
-              <Block title="Their story">
+              <Block title="About me">
                 <p className="text-[15px] leading-[1.85] text-[var(--color-ivory)]">{profile.bio}</p>
               </Block>
             ) : null}
@@ -902,7 +912,7 @@ export function ProfileView({
             ) : null}
 
             {profile.interests.length > 0 ? (
-              <Block title="Start a conversation with">
+              <Block title="My passions">
                 <Chips items={profile.interests} />
               </Block>
             ) : null}
