@@ -102,13 +102,18 @@ const PERMISSIONS_POLICY = [
  * every unnonced script. So the two are mutually exclusive here and only one is ever
  * emitted.
  */
-export function buildContentSecurityPolicy(nonce: string | null): string {
+export function buildContentSecurityPolicy(
+  nonce: string | null,
+  options: { unsafeEval?: boolean } = {},
+): string {
   /* MediaPipe compiles and instantiates WebAssembly for on-device face detection
      (src/lib/face-gate.ts). Without wasm-unsafe-eval the face gate never loads. */
   const scriptSrc = [
     "'self'",
     ...(nonce ? [`'nonce-${nonce}'`] : ["'unsafe-inline'"]),
     "'wasm-unsafe-eval'",
+    /* Development only: React's dev runtime uses eval(). Never set in production. */
+    ...(options.unsafeEval ? ["'unsafe-eval'"] : []),
     /* Cloudflare Turnstile, src/components/auth/turnstile.tsx */
     "https://challenges.cloudflare.com",
   ];

@@ -1,0 +1,133 @@
+/*
+ * /preview — the review surface's own chrome.
+ *
+ * Kept out of globals.css: the build truncates a single stylesheet at roughly
+ * 100 KB and globals.css sits at that ceiling, so anything appended to its end
+ * silently disappears. Everything the eight screens need stays in globals.css so
+ * the signed-in app and the preview render from one source; only the frame,
+ * status bar, caption and review toolbar live here.
+ */
+
+.fb-sr-statusbar {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 26px;
+  pointer-events: none;
+}
+.fb-sr-statusbar__time {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f7f2ec;
+  letter-spacing: 0.01em;
+}
+.fb-sr-statusbar__icons { display: inline-flex; align-items: center; gap: 5px; }
+
+.fb-sr-preview-caption {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--fb-sr-gold);
+}
+.fb-sr-preview-sub { font-size: 11px; color: var(--fb-sr-ash); }
+
+.fb-sr-jump {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 70;
+  max-width: 240px;
+  padding: 10px 11px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(12, 14, 26, 0.94);
+  backdrop-filter: blur(10px);
+}
+.fb-sr-jump__title {
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #6a718a;
+}
+.fb-sr-jump__btn {
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #b8bccb;
+}
+.fb-sr-jump__btn:hover { background: rgba(255, 255, 255, 0.07); color: #f7f2ec; }
+.fb-sr-jump__btn[data-active="true"] {
+  background: var(--fb-sr-cream);
+  border-color: transparent;
+  color: #241c17;
+}
+
+@media (max-width: 900px) {
+  .fb-sr-jump { display: none; }
+}
+
+/* --- preview frame -------------------------------------------------------- */
+
+/* The column holds the frame, its caption and the tab bar; only the scroll area
+   inside the frame moves, so the tab bar is always where the reference draws it. */
+.fb-sr-pv__column { height: 100dvh; }
+.fb-sr-pv__phone {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 42px;
+}
+.fb-sr-pv__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.fb-sr-pv__scroll::-webkit-scrollbar { display: none; }
+/* Nothing inside the frame may be squeezed: the area scrolls, it never compresses
+   rows into each other. */
+.fb-sr-pv__scroll > * { flex: 0 0 auto; }
+.fb-sr-sheet-screen > * { flex: 0 0 auto; }
+.fb-sr-pv__caption { flex: 0 0 auto; padding-bottom: 10px; padding-top: 2px; }
+
+.fb-sr-tabs--in-column {
+  position: static;
+  flex: 0 0 auto;
+  inset-inline: auto;
+  min-height: 0;
+  height: 74px;
+  padding-bottom: 0;
+  background: linear-gradient(180deg, #0b0e1b 0%, #0a0d19 100%);
+}
+.fb-sr-tabs--in-column .fb-sr-tabs__row { padding: 8px 0 0; }
+
+.fb-sr-statusbar--in-phone { top: 20px; }
+
+/* The caption is a review label, not part of the product, so it sits outside the
+   frame's own background rather than on the screen. */
+.fb-sr-pv__caption {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: #07090f;
+}
+
+.fb-sr-toast--in-phone {
+  left: auto;
+  right: 12px;
+  bottom: 96px;
+  transform: none;
+  max-width: calc(100% - 24px);
+}
+
+/* Discover is the one screen that fills the frame exactly — as the reference draws
+   it, the card takes all the height between the room chips and the tab bar. Every
+   other screen scrolls. */
+.fb-sr-pv__scroll--fill { overflow: hidden; }
+.fb-sr-pv__scroll--fill > * { flex: 1 1 auto; min-height: 0; }

@@ -36,6 +36,18 @@ const CSP_MODE: "enforce" | "report-only" = "enforce";
  */
 const CSP_INLINE_SCRIPTS = false;
 
+/**
+ * Development relaxes the policy to what React needs to boot.
+ *
+ * The nonce above is correct for production, where Next.js stamps it onto every
+ * inline script at build-render time. Under `next dev` with webpack, React's
+ * development runtime evaluates code with eval() (callstack reconstruction, HMR),
+ * so the page throws a page error before hydration and not one control responds.
+ * That is a development-only property of the framework, not a weakness in the
+ * deployed policy, so it is relaxed for `next dev` alone.
+ */
+const IS_DEV = process.env.NODE_ENV !== "production";
+
 export async function middleware(request: NextRequest) {
   /* CSRF layer for the whole surface (audit finding F-C / F-D follow-up, 2026-10-28).
    *
@@ -80,8 +92,8 @@ export async function middleware(request: NextRequest) {
      the inline scripts it emits. Setting them on the response alone leaves those
      scripts unstamped, and an enforced script-src then blocks the flight payload
      that boots the app. */
-  const nonce = CSP_INLINE_SCRIPTS ? null : generateNonce();
-  const csp = buildContentSecurityPolicy(nonce);
+  const nonce = CSP_INLINE_SCRIPTS || IS_DEV ? null : generateNonce();
+  const csp = buildContentSecurityPolicy(nonce, { unsafeEval: IS_DEV });
   const headerName =
     CSP_MODE === "enforce" ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only";
 
