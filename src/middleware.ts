@@ -48,6 +48,19 @@ const CSP_INLINE_SCRIPTS = false;
  */
 const IS_DEV = process.env.NODE_ENV !== "production";
 
+/**
+ * The design-review surface is the only route allowed to be framed.
+ *
+ * /preview renders the eight screens against fixture data. It has no session, no
+ * credentials, no forms that write and no API it can mutate, so clickjacking it
+ * gains an attacker nothing — while refusing to frame it makes the screen
+ * unreviewable in an embedded preview panel. The exemption is one exact path, not
+ * a prefix, so /preview/anything does not inherit it.
+ */
+function isDesignReview(pathname: string): boolean {
+  return pathname === "/preview";
+}
+
 export async function middleware(request: NextRequest) {
   /* CSRF layer for the whole surface (audit finding F-C / F-D follow-up, 2026-10-28).
    *
@@ -93,7 +106,8 @@ export async function middleware(request: NextRequest) {
      scripts unstamped, and an enforced script-src then blocks the flight payload
      that boots the app. */
   const nonce = CSP_INLINE_SCRIPTS || IS_DEV ? null : generateNonce();
-  const csp = buildContentSecurityPolicy(nonce, { unsafeEval: IS_DEV });
+  const framable = isDesignReview(request.nextUrl.pathname);
+  const csp = buildContentSecurityPolicy(nonce, { unsafeEval: IS_DEV, framable });
   const headerName =
     CSP_MODE === "enforce" ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only";
 
@@ -145,6 +159,15 @@ export async function middleware(request: NextRequest) {
     response.headers.set(name, value);
   }
   response.headers.set(headerName, csp);
+
+  /* X-Frame-Options is honoured by browsers ahead of frame-ancestors, so a DENY
+     here would silently override the framable CSP above and the page would still
+     refuse to load in a preview panel while the policy looked correct. The header
+     is therefore dropped on this one route and frame-ancestors is left to govern —
+     it is the modern control and it is already scoped to this exact path. */
+  if (framable) {
+    response.headers.delete("X-Frame-Options");
+  }
 
   return response;
 }

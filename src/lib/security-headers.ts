@@ -104,7 +104,7 @@ const PERMISSIONS_POLICY = [
  */
 export function buildContentSecurityPolicy(
   nonce: string | null,
-  options: { unsafeEval?: boolean } = {},
+  options: { unsafeEval?: boolean; framable?: boolean } = {},
 ): string {
   /* MediaPipe compiles and instantiates WebAssembly for on-device face detection
      (src/lib/face-gate.ts). Without wasm-unsafe-eval the face gate never loads. */
@@ -164,8 +164,14 @@ export function buildContentSecurityPolicy(
     /* Stops an injected form from posting credentials to an attacker origin. */
     "form-action": ["'self'"],
     /* Nothing may frame Freeborn. Blocks clickjacking of the sign-in,
-       change-password and delete-account flows. */
-    "frame-ancestors": ["'none'"],
+       change-password and delete-account flows.
+
+       The design-review surface /preview is the one exception (see
+       isDesignReview in src/middleware.ts): it renders fixture data only, has no
+       session, no forms and no API writes, and it exists to be embedded in the
+       preview panel. Framing it is what makes it reviewable. Every other route
+       keeps 'none'. */
+    "frame-ancestors": [options.framable ? "https: http:" : "'none'"],
     "manifest-src": ["'self'"],
   };
 
