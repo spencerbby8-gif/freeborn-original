@@ -75,8 +75,22 @@ const FULL = {
   messageRestricted: null,
 };
 
+const ROOM_FILTERS = ["Long-term", "Natural health", "Health autonomy"] as const;
+
 export function HarnessFixture() {
   const [which, setWhich] = useState("deck");
+  /* Every control in the reference is live in this fixture: the room filters
+     toggle, the deck's pass / like advance nothing but DO respond, "Say hello"
+     posts to the chat-requests endpoint and reports the answer, and the tab bar
+     navigates. Previously onLike/onPass were `() => undefined` and the tabs were
+     <span>s, which is why tapping anything on the card did nothing. */
+  const [room, setRoom] = useState<string | null>("Natural health");
+  const [verdict, setVerdict] = useState<null | "pass" | "like">(null);
+  const [toast, setToast] = useState<{ text: string; tone: "good" | "warn" } | null>(null);
+  const [helloBusy, setHelloBusy] = useState(false);
+  const [helloDone, setHelloDone] = useState(false);
+  const [tab, setTab] = useState("Discover");
+  const [bellOpen, setBellOpen] = useState(false);
 
   /* Both member screens call these two on mount; they are answered here so the
      fixture renders without a session. Nothing else is stubbed. */
@@ -125,6 +139,34 @@ export function HarnessFixture() {
     if (q) queueMicrotask(() => setWhich(q));
   }, []);
 
+  const sayHello = async () => {
+    if (helloBusy) return;
+    setHelloBusy(true);
+    try {
+      const res = await fetch("/api/chat/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: CARD.id, message: "Hi Aria — your sunset photos got me." }),
+      });
+      setHelloDone(true);
+      setToast({
+        tone: res.ok ? "good" : "warn",
+        text: res.ok ? `Request sent to ${CARD.name}` : "Their privacy settings stop a message from you",
+      });
+    } catch {
+      setToast({ tone: "warn", text: "Could not reach messages" });
+    } finally {
+      setHelloBusy(false);
+    }
+  };
+
+  const tapTab = (label: string) => {
+    setTab(label);
+    if (label === "Profile") setWhich("profile");
+    else if (label === "Discover") setWhich("deck");
+    setToast({ tone: "good", text: label === "Discover" ? "You're on Discover" : `${label} — nothing new yet` });
+  };
+
   return (
     <div className="fb-sr fb-sr-phone flex h-[100dvh] flex-col">
       {/* The shell's own chrome, reproduced exactly: no wordmark bar on
@@ -136,21 +178,41 @@ export function HarnessFixture() {
               <p className="fb-sr-eyebrow">Tonight in Brooklyn</p>
               <h1 className="fb-sr-header__title">Someone you&rsquo;ll remember.</h1>
             </div>
-            <span className="fb-sr-disc fb-sr-bell">
+            <button
+              type="button"
+              onClick={() => setBellOpen((v) => !v)}
+              aria-label="See who likes you"
+              aria-expanded={bellOpen}
+              className="fb-sr-disc fb-sr-bell"
+            >
               <span className="relative flex">
                 <HeartMarkIcon size={18} />
                 <span className="fb-sr-dot">2</span>
               </span>
-            </span>
+            </button>
           </header>
 
           <div className="fb-sr-chiprow mt-[18px]">
-            <span className="fb-sr-chip">Long-term</span>
-            <span className="fb-sr-chip">Natural health</span>
-            <span className="fb-sr-chip">Health autonomy</span>
-            <span className="fb-sr-chip fb-sr-chip--gold">
+            {ROOM_FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setRoom((cur) => (cur === f ? null : f))}
+                aria-pressed={room === f}
+                className="fb-sr-chip"
+              >
+                {f}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setRoom((cur) => (cur === "Natural health" ? null : "Natural health"))}
+              aria-label="Natural health stance"
+              aria-pressed={room === "Natural health"}
+              className="fb-sr-chip fb-sr-chip--gold"
+            >
               <DropletIcon size={14} />
-            </span>
+            </button>
           </div>
 
           {which === "deck" ? (
@@ -160,15 +222,24 @@ export function HarnessFixture() {
                 <span aria-hidden className="fb-sr-peek">
                   <span className="fb-sr-peek__handle" />
                 </span>
+                {verdict ? (
+                  <span
+                    className="fb-sr-harness-stamp"
+                    data-tone={verdict}
+                    aria-live="polite"
+                  >
+                    {verdict === "like" ? "Liked" : "Skipped"}
+                  </span>
+                ) : null}
                 <DeckCard
                   profile={CARD}
                   isTop
                   depth={0}
                   units="mi"
                   onOpen={() => setWhich("profile")}
-                  onLike={() => undefined}
-                  onPass={() => undefined}
-                  onSayHello={() => setWhich("profile")}
+                  onLike={() => { setVerdict("like"); setToast({ tone: "good", text: `Liked ${CARD.name}` }); }}
+                  onPass={() => { setVerdict("pass"); setToast({ tone: "warn", text: `Skipped ${CARD.name}` }); }}
+                  onSayHello={sayHello}
                 />
               </div>
             </div>
@@ -180,33 +251,46 @@ export function HarnessFixture() {
         </div>
       </main>
 
+      {bellOpen ? (
+        <div className="fb-sr-harness-panel" role="dialog" aria-label="Who likes you">
+          <p className="font-semibold">2 people like you</p>
+          <p className="mt-1 text-[12px] opacity-70">Aria and one other member nearby.</p>
+          <button type="button" onClick={() => setBellOpen(false)} className="fb-sr-harness-panel__close">
+            Close
+          </button>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className="fb-sr-harness-toast" data-tone={toast.tone} role="status">
+          {toast.text}
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss">×</button>
+        </div>
+      ) : null}
+
       <nav className="fb-sr-tabs">
         <div className="fb-sr-tabs__row">
-          <span className="fb-sr-tab" data-active="true">
-            <span className="fb-sr-tab__icon">
-              <DiscoverMark size={26} active />
-            </span>
-            Discover
-          </span>
-          <span className="fb-sr-tab">
-            <span className="fb-sr-tab__icon">
-              <HeartIcon size={25} />
-            </span>
-            Likes
-          </span>
-          <span className="fb-sr-tab">
-            <span className="fb-sr-tab__icon">
-              <ChatIcon size={25} />
-              <span className="fb-sr-tab__dot">2</span>
-            </span>
-            Messages
-          </span>
-          <span className="fb-sr-tab">
-            <span className="fb-sr-tab__icon">
-              <ProfileIcon size={25} />
-            </span>
-            Profile
-          </span>
+          {[
+            { label: "Discover", icon: <DiscoverMark size={26} active={tab === "Discover"} /> },
+            { label: "Likes", icon: <HeartIcon size={25} /> },
+            { label: "Messages", icon: <ChatIcon size={25} />, badge: "2" },
+            { label: "Profile", icon: <ProfileIcon size={25} /> },
+          ].map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              onClick={() => tapTab(t.label)}
+              data-active={tab === t.label}
+              aria-current={tab === t.label ? "page" : undefined}
+              className="fb-sr-tab"
+            >
+              <span className="fb-sr-tab__icon">
+                {t.icon}
+                {t.badge ? <span className="fb-sr-tab__dot">{t.badge}</span> : null}
+              </span>
+              {t.label}
+            </button>
+          ))}
         </div>
       </nav>
 

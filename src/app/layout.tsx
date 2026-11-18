@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { headers } from "next/headers";
-import { Fraunces, Inter } from "next/font/google";
+import { Fraunces, Inter, Poppins } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
 import { absolute, CONTACT_EMAIL, OG_IMAGE, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -15,6 +15,18 @@ const fraunces = Fraunces({
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+/* The reference does NOT set its pill labels in Inter. The room-filter chips
+   ("Long-term", "Natural health", "Health autonomy") and the cream "Say hello"
+   control are set in a geometric face with a single-storey a and g, round
+   terminals and a near-circular o — Inter's double-storey a is the single most
+   visible mismatch in the whole card. Poppins is the closest webfont match on
+   the two discriminating letters. */
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-round",
 });
 
 export const metadata: Metadata = {
@@ -171,7 +183,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
        so Fraunces was downloaded and never used. */
     <html
       lang="en"
-      className={`${fraunces.variable} ${inter.variable} bg-[var(--color-night)]`}
+      className={`${fraunces.variable} ${inter.variable} ${poppins.variable} bg-[var(--color-night)]`}
     >
       <head>
         {/* Installable web app (PWA) — web-first, no app-store dependency. */}
