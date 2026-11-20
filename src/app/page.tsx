@@ -1,22 +1,8 @@
-import { Nav } from "@/components/landing/nav";
-import { DeletionNotice } from "@/components/landing/deletion-notice";
-import { Hero } from "@/components/landing/hero";
-import { Room } from "@/components/landing/room";
-/* The manifesto and the "built on what other apps got wrong" comparison were
-   removed in the 2026-11-10 landing cut: ~3,700px of prose that restated what
-   the hero and the member cards already show, on a page that measured 23 phone
-   screens. The member-card room, marquee, FAQ and CTA stay. */
-import { Marquee } from "@/components/landing/story";
-import { HowItWorks } from "@/components/landing/how";
-import { Standard } from "@/components/landing/standard";
-import { Safety } from "@/components/landing/safety";
-import { Faq } from "@/components/landing/faq";
-import { FinalCta } from "@/components/landing/final-cta";
-import { Footer } from "@/components/landing/footer";
-
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { faqs } from "@/components/landing/faq";
+import { DeletionNotice } from "@/components/landing/deletion-notice";
+import { PremiumLanding } from "@/components/landing/premium/premium-landing";
+import { landingFaqs } from "@/components/landing/premium/landing-faqs";
 
 /**
  * Landing page metadata.
@@ -33,48 +19,31 @@ export const metadata: Metadata = {
 /**
  * Structured data for the landing page.
  *
- * `WebSite` and `Organization` are emitted sitewide from `src/app/layout.tsx`
- * against the canonical constant, so they are NOT repeated here. Emitting the same
- * two entities twice, with two different `url` values, is how the earlier version
- * ended up attributing the site to https://freeborn.app, a domain Freeborn does not
- * own.
- *
- * The FAQ markup is derived from the exported `faqs` array that renders the visible
- * FAQ section, because Google requires FAQ structured data to match content on the
- * page. The previous hand-written copy had drifted entirely out of sync with it.
+ * `WebSite` and `Organization` are emitted sitewide from `src/app/layout.tsx`.
+ * The FAQ markup is derived from the same `landingFaqs` array that renders the
+ * visible FAQ section, so the JSON-LD and the page cannot drift apart.
  */
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: faqs.map((f) => ({
+  mainEntity: landingFaqs.map((faq) => ({
     "@type": "Question",
-    name: f.q,
-    acceptedAnswer: { "@type": "Answer", text: f.a },
+    name: faq.q,
+    acceptedAnswer: { "@type": "Answer", text: faq.a },
   })),
 };
 
 export default async function LandingPage() {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <>
+    <div className="lp-page">
+      <DeletionNotice />
       <script
         type="application/ld+json"
         nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
-      <Nav />
-      <DeletionNotice />
-      <main>
-        <Hero />
-        <Room />
-        <Marquee />
-        <HowItWorks />
-        <Standard />
-        <Safety />
-        <Faq />
-        <FinalCta />
-      </main>
-      <Footer />
-    </>
+      <PremiumLanding />
+    </div>
   );
 }

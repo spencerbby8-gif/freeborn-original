@@ -275,7 +275,7 @@ ok("re-filing within 3 days needs a challenge", appealNeedsChallenge({ priorAppe
 
 /* ---------- 5. proof of work ---------- */
 console.log("\n[5] human challenge: real PoW verification, replay, expiry");
-/* The route owns meetsDifficulty; re-derive it here against the same spec so the test
+/* The shared module owns meetsDifficulty; re-derive it here against the same spec so the test
    proves the ALGORITHM is solvable and non-trivial, independent of the route file. */
 function powOK(nonce: string, sol: string, bits: number) {
   const hex = createHash("sha256").update(`${nonce}:${sol}`).digest("hex");
@@ -405,17 +405,19 @@ await rm("/tmp/ph", { recursive: true, force: true });
 /* ------------------------------------------------------------------ [8] challenge reliability -- */
 /* A captcha substitute that locks out the human is worse than no captcha. The numbers below are
    what the shipped default must keep true; if the cost model changes, this changes with it. */
-/* The constants are read from the ROUTE SOURCE TEXT, not imported: importing the route pulls in
-   @/db, which throws at module load without a live connection string. Reading the source is also
-   the stronger assertion for a contract like this -- it pins what ships, not a copy. */
+/* The constants are read from the SHARED MODULE SOURCE TEXT, not imported: importing the
+   route pulls in @/db, which throws at module load without a live connection string.
+   Reading the source is also the stronger assertion for a contract like this -- it pins
+   what ships, not a copy. */
 const { readFileSync } = await import("node:fs");
+const challengeSrc = readFileSync(new URL("../../src/lib/human-challenge.ts", import.meta.url), "utf8");
 const issueSrc = readFileSync(new URL("../../src/app/api/human/issue/route.ts", import.meta.url), "utf8");
-const num = (name: string) => Number((new RegExp(`export const ${name} = ([0-9_]+)`).exec(issueSrc)?.[1] ?? "").replace(/_/g, ""));
+const num = (name: string) => Number((new RegExp(`export const ${name} = ([0-9_]+)`).exec(challengeSrc)?.[1] ?? "").replace(/_/g, ""));
 const DEFAULT_BITS = num("CHALLENGE_DIFFICULTY_BITS");
 const MAX_BITS = num("MAX_CHALLENGE_DIFFICULTY_BITS");
 const BROWSER_BITS = num("BROWSER_CHALLENGE_DIFFICULTY_BITS");
 const BUDGET = num("SOLVER_BUDGET_CANDIDATES");
-ok("issue route exposes the difficulty constants the suite pins",
+ok("shared challenge module exposes the difficulty constants the suite pins",
   Number.isFinite(DEFAULT_BITS) && Number.isFinite(MAX_BITS) && Number.isFinite(BUDGET),
   `default=${DEFAULT_BITS} max=${MAX_BITS} budget=${BUDGET}`);
 ok("default difficulty is at or below the measured reliability ceiling",
@@ -445,6 +447,8 @@ ok("difficulty above the ceiling is rejected by the ceiling rule, not silently u
    summary must remain last (see the note at the bottom of this file). */
 const RQ = "../../src/app/api/reports/route.ts";
 const reportSrc = readFileSync(new URL(RQ, import.meta.url), "utf8");
+const RRQ = "../../src/lib/report-reasons.ts";
+const reportReasonsSrc = readFileSync(new URL(RRQ, import.meta.url), "utf8");
 const migOps = readFileSync(new URL("../../db/migrations/2026-10-29-engine-operability.sql", import.meta.url), "utf8");
 const verifSrc = readFileSync(new URL("../../src/app/api/verification/check/route.ts", import.meta.url), "utf8");
 const liveSrc = readFileSync(new URL("../../src/lib/liveness-challenge.ts", import.meta.url), "utf8");
@@ -458,7 +462,7 @@ const publicHealthSrc = readFileSync(new URL("../../src/app/api/health/route.ts"
 /* -- the reason/CHECK drift that 500'd live reports ------------------------------ */
 const migReasonBlock = /reports_reason_check check \(\s*reason in \(([\s\S]*?)\)\s*\);/.exec(migOps)?.[1] ?? "";
 const migReasons = new Set([...migReasonBlock.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
-const appReasons = new Set([...reportSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
+const appReasons = new Set([...reportReasonsSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
 ok("migration 2026-10-29 exists and rebuilds both live CHECKs",
   migOps.includes("alter table public.reports drop constraint if exists reports_reason_check") &&
   migOps.includes("human_challenges_purpose_check"),
@@ -466,11 +470,17 @@ ok("migration 2026-10-29 exists and rebuilds both live CHECKs",
 ok("every app report reason is accepted by the live CHECK (the 'safety' 23514 class)",
   appReasons.size >= 8 && [...appReasons].every((r) => migReasons.has(r)),
   `app=${appReasons.size} migration=${migReasons.size} missing=${[...appReasons].filter((r) => !migReasons.has(r)).join(",") || "none"}`);
-ok("schema.ts, the migration and the route agree on the same reason set",
+ok("schema.ts, the migration and the shared reason module agree on the same reason set",
   [...appReasons].every((r) => schemaSrc.includes(`'${r}'`)) === true &&
   /reports_reason_check/.test(schemaSrc));
 ok("the REASONS set is exported for consumers rather than duplicated",
-  reportSrc.includes("export const REASONS = new Set(["));
+  reportReasonsSrc.includes("export const REASONS = new Set(["));
+ok("reports route exports only its HTTP handler and segment config",
+  !reportSrc.includes("export const REASONS") &&
+  !/^export (?!const dynamic\b|const maxDuration\b|async function POST\b)/m.test(reportSrc));
+ok("human issue route exports only its HTTP handler and segment config",
+  !/export const (?:CHALLENGE|MAX_CHALLENGE|SOLVER_BUDGET|BROWSER_CHALLENGE)/.test(issueSrc) &&
+  !/^export (?!const dynamic\b|const maxDuration\b|async function POST\b)/m.test(issueSrc));
 ok("the report insert is guarded so a CHECK can never destroy a report again",
   /let filed: \{ id: string \} \| null = null;/.test(reportSrc) &&
   reportSrc.includes('reason: "other"') && reportSrc.includes('status: 503'));

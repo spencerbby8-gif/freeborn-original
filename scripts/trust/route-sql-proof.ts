@@ -5,7 +5,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { humanChallenges, profilePhotos, securityEvents, userProfiles, userTrustHistory, enforcementCases } from "@/db/schema";
-import { meetsDifficulty, CHALLENGE_DIFFICULTY_BITS } from "@/app/api/human/issue/route";
+import { meetsDifficulty, CHALLENGE_DIFFICULTY_BITS } from "@/lib/human-challenge";
 import { suppressedUserIds } from "@/lib/identity-resolve";
 import { nextStepFor, appealNeedsChallenge } from "@/lib/moderation-policy";
 import { acknowledgeCase, openCase } from "@/lib/identity-resolve";

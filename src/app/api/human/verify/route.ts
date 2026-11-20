@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { humanChallenges, securityEvents } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
-import { meetsDifficulty } from "@/app/api/human/issue/route";
+import { meetsDifficulty } from "@/lib/human-challenge";
 
 export const dynamic = "force-dynamic";
 
