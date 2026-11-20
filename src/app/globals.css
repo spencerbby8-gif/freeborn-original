@@ -2147,3 +2147,31 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
     linear-gradient(145deg, #111a33, #070c1b 70%);
 }
 .lp-anatomy-placeholder .lp-icon { width: 34px; height: 34px; }
+
+/* Editorial cover: the imagery is illustrative, never a member profile. */
+.lp-hero-grid { display: block; }
+.lp-hero-copy { max-width: 620px; }
+.lp-hero-media img { object-position: 68% center; }
+.lp-hero-media::after {
+  background: linear-gradient(90deg, rgba(5,8,19,.94) 0%, rgba(5,8,19,.78) 36%, rgba(5,8,19,.18) 72%),
+              linear-gradient(180deg, rgba(5,8,19,.15) 0%, rgba(5,8,19,.12) 60%, rgba(5,8,19,.78) 100%);
+}
+@media (max-width: 700px) {
+  .lp-hero { min-height: 730px; align-items: flex-end; padding-block: 220px 64px; }
+  .lp-hero-media img { object-position: 73% center; }
+  .lp-hero-media::after {
+    background: linear-gradient(180deg, rgba(5,8,19,.08) 0%, rgba(5,8,19,.34) 36%, rgba(5,8,19,.94) 74%, rgba(5,8,19,.98) 100%);
+  }
+}
+@media (max-width: 700px) {
+  .lp-hero { min-height: 860px; padding-top: 360px; }
+  .lp-hero-media { background: #050813; }
+  .lp-hero-media img { height: 53% !important; object-position: 80% 52%; }
+  .lp-hero-media::after { background: linear-gradient(180deg, rgba(5,8,19,.03) 0%, rgba(5,8,19,.08) 23%, #050813 53%); }
+}
+
+/* Reference-inspired editorial typography, scoped to the landing only. */
+.lp-page .lp-display, .lp-page .lp-h2, .lp-page .lp-trust-item h3,
+.lp-page .lp-card h3, .lp-page .lp-step h3 { font-family: Georgia, "Times New Roman", serif; }
+.lp-hero-media img { object-position: 72% center; }
+@media (max-width: 700px) { .lp-hero-media img { object-position: 76% 48%; } }

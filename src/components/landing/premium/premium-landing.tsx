@@ -154,8 +154,8 @@ function Hero() {
     <section className="lp-hero" aria-labelledby="lp-hero-title">
       <div className="lp-hero-media">
         <Image
-          src="/images/landing/hero-rooftop.jpg"
-          alt="Two adults looking across a city skyline at dusk"
+          src="/images/landing/sunset-portrait.jpg"
+          alt=""
           fill
           priority
           sizes="100vw"
@@ -163,22 +163,22 @@ function Hero() {
       </div>
       <div className="lp-wrap lp-hero-grid">
         <div className="lp-hero-copy">
-          <p className="lp-kicker">A general dating platform for everyone 18+</p>
+          <p className="lp-kicker">Dating with intention</p>
           <h1 className="lp-display" id="lp-hero-title">
-            <span className="lp-coral">Meet someone</span>
+            Someone you’ll
             <br />
-            <em>worth staying for.</em>
+            <em>remember.</em>
           </h1>
           <p className="lp-lede">
-            Real profiles, clear intentions and conversations with somewhere to go. Freeborn is a calmer,
-            more considered way to date — with optional compatibility preferences, never a single identity.
+            Meet people who see the real you. Share what matters, start a conversation,
+            and discover what happens next.
           </p>
           <div className="lp-actions">
             <a className="lp-button lp-button--primary lp-button--wide" href="/auth?mode=sign-up">
               Create account <Icon name="arrow" />
             </a>
             <a className="lp-button lp-button--ghost lp-button--wide" href="#story">
-              See the idea
+              Discover Freeborn
             </a>
           </div>
           <p className="lp-hero-note">
@@ -187,25 +187,7 @@ function Hero() {
           </p>
         </div>
 
-        <aside className="lp-hero-card" aria-label="Illustrative product layout">
-          <span className="lp-hero-card-label">A profile with room to be a person</span>
-          <div className="lp-anatomy">
-            <div className="lp-anatomy-photo" aria-hidden="true">
-              <div className="lp-anatomy-placeholder">
-                <Icon name="camera" />
-              </div>
-            </div>
-            <div className="lp-anatomy-fields" aria-hidden="true">
-              <div className="lp-anatomy-field"><span>Intentions</span><span /></div>
-              <div className="lp-anatomy-field"><span>Interests</span><span /></div>
-              <div className="lp-anatomy-field"><span>Boundaries</span><span /></div>
-              <div className="lp-anatomy-field"><span>Photos</span><span /></div>
-            </div>
-          </div>
-          <p>
-            <strong>Your story, your way.</strong> Share the details that help someone get to know you.
-          </p>
-        </aside>
+
       </div>
     </section>
   );
@@ -217,22 +199,22 @@ function TrustStrip() {
       <div className="lp-trust-item">
         <span className="lp-icon-badge"><Icon name="spark" /></span>
         <div>
-          <h3>Intent before volume</h3>
-          <p>Profiles and preferences give context before the first hello.</p>
+          <h3>More than a photo</h3>
+          <p>Share the interests and intentions that make you, you.</p>
         </div>
       </div>
       <div className="lp-trust-item">
         <span className="lp-icon-badge"><Icon name="lock" /></span>
         <div>
-          <h3>Privacy you can see</h3>
-          <p>Editable discovery, visibility and account controls stay in reach.</p>
+          <h3>Choose what matters</h3>
+          <p>Set preferences for how you discover people.</p>
         </div>
       </div>
       <div className="lp-trust-item">
         <span className="lp-icon-badge"><Icon name="chat" /></span>
         <div>
-          <h3>Better conversations</h3>
-          <p>Start with what someone actually wrote, not a swipe reflex.</p>
+          <h3>Start a conversation</h3>
+          <p>Connect with someone who catches your interest.</p>
         </div>
       </div>
     </div>
@@ -245,26 +227,26 @@ function Story() {
       <div className="lp-story-grid">
         <div className="lp-story-media">
           <Image
-            src="/images/landing/conversation.jpg"
-            alt="Two hands near coffee cups on a dark café table"
+            src="/images/landing/sunset-connection.jpg"
+            alt=""
             fill
             sizes="(max-width: 1000px) 100vw, 50vw"
           />
-          <p className="lp-story-quote">A better first hello starts with context.</p>
+          <p className="lp-story-quote">It starts with a conversation.</p>
         </div>
         <div className="lp-story-copy">
           <p className="lp-eyebrow-sm">The idea</p>
           <h2 className="lp-h2">
-            Dating that feels <em>considered,</em> not endless.
+            More than a profile. <em>A person.</em>
           </h2>
           <p className="lp-section-sub">
-            Freeborn gives people more than a face and a one-line prompt. It brings intentions, interests,
-            words and boundaries into one calm view, so a first message can begin from something real.
+            There’s more to attraction than a photo. Share your interests, your intentions, and the little
+            things that make you you. Get to know someone beyond the first impression.
           </p>
           <ul className="lp-story-list">
-            <li><span className="lp-check"><Icon name="check" /></span><span>Full profiles with the detail people choose to share.</span></li>
-            <li><span className="lp-check"><Icon name="check" /></span><span>Discovery settings that respect age, distance and preferences.</span></li>
-            <li><span className="lp-check"><Icon name="check" /></span><span>Matches and messages that continue in the real app.</span></li>
+            <li><span className="lp-check"><Icon name="check" /></span><span>Share the interests and intentions that matter to you.</span></li>
+            <li><span className="lp-check"><Icon name="check" /></span><span>Choose your age, distance and discovery preferences.</span></li>
+            <li><span className="lp-check"><Icon name="check" /></span><span>Like, match and start a conversation.</span></li>
           </ul>
         </div>
       </div>
@@ -278,8 +260,8 @@ function Features() {
       <SectionHead
         id="lp-features-title"
         kicker="Built for the whole person"
-        title={<>One cohesive <em>premium product.</em></>}
-        sub="Thoughtful profiles, clear preferences and useful safety controls help you connect with intention."
+        title={<>A little more room <em>to connect.</em></>}
+        sub="From the first look to the first hello, Freeborn gives you space to find your own way."
         center
       />
       <div className="lp-feature-grid">
@@ -299,12 +281,12 @@ function Compatibility() {
         <div>
           <p className="lp-kicker">Optional compatibility</p>
           <h2 className="lp-h2">
-            What matters to you, <em>without making it the whole identity.</em>
+            Your kind of connection. <em>Your choice.</em>
           </h2>
           <p className="lp-section-sub">
-            Freeborn is a general dating platform for everyone. Lifestyle, wellness, medical freedom and
-            vaccination-related views can be shared in profiles, and vaccination preference can be used as a filter — never a requirement,
-            purity test or exclusive label.
+            Everyone brings something different to dating. Share the interests and values that matter to you,
+            and choose the preferences that feel right for you. Health and vaccination views are optional —
+            not a condition of joining.
           </p>
           <div className="lp-actions">
             <a className="lp-button lp-button--ghost" href="/guides">
@@ -354,8 +336,8 @@ function Safety() {
             Your pace. <em>Your boundaries.</em>
           </h2>
           <p className="lp-section-sub">
-            Trust is built through clear controls, not decorative badges. The real account flows keep
-            reporting, blocking, privacy settings, verification status and appeals available.
+            Feel more in control of your experience with privacy settings, reporting and blocking.
+            Our safety resources are there whenever you need them.
           </p>
           <div className="lp-safety-links">
             <a href="/safety">Safety center <Icon name="arrow" /></a>
@@ -366,8 +348,8 @@ function Safety() {
         <ul className="lp-safety-list">
           <li><Icon name="eye" /><span>Approximate location and visibility controls rather than exact-location exposure.</span></li>
           <li><Icon name="shield" /><span>Age-gated onboarding, member standards and profile completeness cues.</span></li>
-          <li><Icon name="flag" /><span>Report and block controls preserved inside the signed-in experience.</span></li>
-          <li><Icon name="lock" /><span>Account privacy, discoverability and deletion routes remain functional.</span></li>
+          <li><Icon name="flag" /><span>Report or block someone when you need to.</span></li>
+          <li><Icon name="lock" /><span>Manage your privacy, discoverability and account.</span></li>
         </ul>
       </div>
     </section>
@@ -399,7 +381,7 @@ function Faq() {
         <div className="lp-faq-aside">
           <p className="lp-kicker">Questions, answered</p>
           <h2 className="lp-h2">
-            Honest answers, <em>no fine print.</em>
+            A few things <em>worth knowing.</em>
           </h2>
           <p>
             Learn more about how Freeborn helps you meet people on your own terms.
@@ -494,7 +476,7 @@ function LandingFooter() {
             © {year} {OPERATOR_NAME}. {SITE_NAME} is operated by {OPERATOR_NAME}. All rights reserved.
           </p>
           <p>
-            General dating · Private by default · {MIN_AGE}+
+            Dating on your terms · {MIN_AGE}+
           </p>
         </div>
       </div>

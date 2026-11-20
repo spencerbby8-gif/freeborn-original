@@ -22,8 +22,8 @@ export const landingFaqs: LandingFaq[] = [
     a: "Profiles give more context than a photo alone: intentions, interests, words, photos and the boundaries members choose to make visible. Discovery settings let people shape who they see without turning dating into an endless feed.",
   },
   {
-    q: "Is Freeborn free?",
-    a: "The current product lets members create a profile, discover people, like, match and message. You can explore Freeborn and connect with others through the app.",
+    q: "How does Freeborn work?",
+    a: "Create a profile, set your discovery preferences, and explore profiles. When you match with someone, you can start a conversation.",
   },
   {
     q: "What information stays private?",
@@ -31,6 +31,6 @@ export const landingFaqs: LandingFaq[] = [
   },
   {
     q: "How does Freeborn approach trust and safety?",
-    a: "The product uses age-gated onboarding, editable privacy controls, discoverability settings, verification status where available, profile completeness cues and clear member standards. Safety, reporting, blocking and appeal routes remain part of the functional application rather than marketing claims.",
+    a: "The product uses age-gated onboarding, editable privacy controls, discoverability settings, verification status where available, profile completeness cues and clear member standards. Members can report or block others, and find help in the safety and appeal pages.",
   },
 ];
