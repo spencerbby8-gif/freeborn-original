@@ -970,74 +970,76 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
             );
           })}
 
-          {/* Actions: Undo · Skip · Super Like · Like */}
-          <div className="sticky bottom-[72px] z-40 mt-7 flex items-end justify-center gap-7 rounded-3xl border border-white/[0.06] bg-[#070a12]/92 px-3 py-3 backdrop-blur-md">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void undoLastSwipe()}
-                disabled={undoBusy}
-                aria-label="Undo last swipe"
-                title="Undo your last swipe"
-                className="btn-ghost flex h-[46px] w-[46px] items-center justify-center rounded-full transition active:scale-90 disabled:opacity-40"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 7v6h6" />
-                  <path d="M21 17a9 9 0 00-15-6.7L3 13" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                {lastUndone ? "Undone ✓" : "Undo"}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => act("pass")}
-                aria-label="Skip (pass)"
-                title="Skip"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-pearl)] transition hover:bg-[var(--color-slate)] active:scale-90"
-              >
-                <svg width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden>
-                  <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Skip</span>
-            </div>
+          {/* Actions — rebuilt to the approved mock (.action-row: 52px / pill / 52px, 24px gap).
+              The previous row measured 463px of content inside a 393px viewport
+              (undo 46 + pass 64 + super 64 + a 181px "Say hello" pill + 84px of gap-7
+              + 24px padding), so both circles and the pill were visually clipped — the
+              single worst defect on the Discover surface. Three causes, all removed:
+                · the caption row under each control ("SUPER LIKE" at 10px/.16em is wider
+                  than the 64px circle it sits under) — the mock has no captions;
+                · Undo was a fourth control the mock does not have, competing for width —
+                  it moves below the row, keeping the capability without the geometry;
+                · the pill now sizes to its content instead of carrying px-8 on a fixed
+                  h-16, and is clamped with max-w so a long label can never push it out.
+              Labels stay in aria-label/title, so nothing is lost to a screen reader. */}
+          <div className="action-row mt-6 flex items-center justify-center gap-6">
+            <button
+              type="button"
+              onClick={() => act("pass")}
+              aria-label="Skip (pass)"
+              title="Skip"
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-pearl)] transition hover:bg-[var(--color-slate)] active:scale-90"
+            >
+              <svg width="21" height="21" viewBox="0 0 22 22" fill="none" aria-hidden>
+                <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
 
-            <div className="flex -translate-y-2 flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
-                aria-label="Super like"
-                title="Super Like: stand out"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-gold-500)] transition hover:bg-[var(--color-slate)] active:scale-90"
-              >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-gold-300)]">Super Like</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => act("like")}
+              aria-label="Like — say hello"
+              title="Say hello"
+              className="btn-ember btn-shine relative flex h-[52px] shrink-0 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full px-7 transition active:scale-95"
+            >
+              <svg width="19" height="19" viewBox="0 0 30 30" fill="none" aria-hidden>
+                <path
+                  d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
+                  fill="#2a1a10"
+                />
+              </svg>
+              <span className="text-[15px] font-bold tracking-tight text-[#2a1a10]">Say hello</span>
+            </button>
 
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => act("like")}
-                aria-label="Like"
-                title="Say hello"
-                className="btn-ember btn-shine relative flex h-16 shrink-0 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-full px-8 transition active:scale-95"
-              >
-                <svg width="22" height="22" viewBox="0 0 30 30" fill="none" aria-hidden>
-                  <path
-                    d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
-                    fill="#2a1a10"
-                  />
-                </svg>
-                <span className="text-[16px] font-bold tracking-tight text-[#2a1a10]">Say hello</span>
-              </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Like</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
+              aria-label="Super like"
+              title="Super Like: stand out"
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-gold-500)] transition hover:bg-[var(--color-slate)] active:scale-90"
+            >
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Undo keeps its capability but leaves the three-control row the mock draws. */}
+          <div className="mt-3 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => void undoLastSwipe()}
+              disabled={undoBusy}
+              aria-label="Undo last swipe"
+              title="Undo your last swipe"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)] active:scale-95 disabled:opacity-40"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 00-15-6.7L3 13" />
+              </svg>
+              {lastUndone ? "Undone" : "Undo"}
+            </button>
           </div>
           <div className="mt-4 flex items-center justify-center gap-2">
             <p className="text-center text-[12px] tracking-wide text-[var(--color-ash)]">
