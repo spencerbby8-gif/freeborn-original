@@ -73,9 +73,11 @@ export function NotificationsView() {
 
   return (
     <div className="mx-auto max-w-[680px]">
-      <div className="flex items-center justify-between">
-        <p className="eyebrow">ALERTS</p>
-        <h1 className="font-display text-[30px] font-normal tracking-tight sm:text-[34px]">Alerts</h1>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow">ALERTS</p>
+          <h1 className="font-display text-[30px] font-normal tracking-tight sm:text-[34px]">Alerts</h1>
+        </div>
         {unreadCount > 0 ? (
           <span className="rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1 text-[11px] font-black text-[#2a1a10]">
             {unreadCount} new

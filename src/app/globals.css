@@ -1719,3 +1719,10 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 .app-reborn .grad-ink {
   color: #2a1a10;
 }
+
+/* Compatibility: Tailwind emits `background-color: var(--gradient-ember-warm)`
+   for the arbitrary class, which is invalid for a linear-gradient() value and
+   gets dropped — leaving the intended gradient invisible. Render it as an
+   image instead. */
+.bg-\[var\(--gradient-ember-warm\)\] { background-image: var(--gradient-ember-warm); }
+.bg-\[var\(--gradient-ember\)\] { background-image: var(--gradient-ember); }
