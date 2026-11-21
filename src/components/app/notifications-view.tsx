@@ -1,6 +1,7 @@
 "use client";
 
 import { PhotoImage } from "@/components/ui/photo-image";
+import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -165,34 +166,31 @@ export function NotificationsView() {
 
       {/* Type filter chips — client-side over the live feed */}
       <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Filter alerts">
-        <button
-          type="button"
+        {/* On the shared Button contract rather than a raw element: these two controls
+            were hand-written DOM, which is exactly what pushed the repository's raw
+            element count over its one-way ceiling in the blocking [24] harness gate.
+            `role` and `aria-selected` are passed through ButtonProps, so the tablist
+            model survives the migration. */}
+        <Button
+          variant="brand"
+          size="sm"
           role="tab"
           aria-selected={filter === "all"}
           onClick={() => setFilter("all")}
-          className={`rounded-full border px-4 py-2 text-[12px] font-bold transition ${
-            filter === "all"
-              ? "border-transparent bg-[var(--gradient-ember-warm)] text-[#2a1a10]"
-              : "border-[var(--color-line)] bg-[var(--color-midnight)] text-[var(--color-sand)] hover:text-[var(--color-pearl)]"
-          }`}
         >
           All · {items.length}
-        </button>
+        </Button>
         {chipTypes.map((t) => (
-          <button
+          <Button
             key={t}
-            type="button"
+            variant="brand"
+            size="sm"
             role="tab"
             aria-selected={filter === t}
             onClick={() => setFilter(t)}
-            className={`rounded-full border px-4 py-2 text-[12px] font-bold transition ${
-              filter === t
-                ? "border-transparent bg-[var(--gradient-ember-warm)] text-[#2a1a10]"
-                : "border-[var(--color-line)] bg-[var(--color-midnight)] text-[var(--color-sand)] hover:text-[var(--color-pearl)]"
-            }`}
           >
             {TYPE_META[t].label} · {counts[t] ?? 0}
-          </button>
+          </Button>
         ))}
       </div>
 

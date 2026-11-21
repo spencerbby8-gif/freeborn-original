@@ -1731,3 +1731,262 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
    image instead. */
 .bg-\[var\(--gradient-ember-warm\)\] { background-image: var(--gradient-ember-warm); }
 .bg-\[var\(--gradient-ember\)\] { background-image: var(--gradient-ember); }
+
+/* ==========================================================================
+   FREEBORN REBORN — PRIMITIVE LAYER (2026-11-21, audit follow-up)
+   --------------------------------------------------------------------------
+   The block above re-mapped the TOKENS under `.app-reborn`, which recoloured
+   everything that reads a variable — 986 `var(--color-*)` call sites across
+   `src/`. What it did NOT do was restyle the four shared primitives, so the
+   member app still painted cream-gradient buttons at 16px radius, 28px chips
+   and square icon buttons inside a 26px-card world.
+
+   This layer closes that gap by porting the measured rules from the approved
+   mock (`prototype/styles.css`, screenshots `prototype/screenshots/*.png`)
+   onto the existing primitive class names. Nothing here is a new invention:
+   every value is either read off the mock or taken from a token.
+
+   SCOPING IS LOAD-BEARING. Every selector is prefixed `.app-reborn`, so:
+     · the marketing landing keeps the ember palette and the old radii;
+     · the harness pins that read BARE selectors (`.fb-cta--brand` label
+       #2b0710, `.fb-chip` min-height, `.fb-chip[aria-pressed="true"]`
+       background) still resolve to their original rules — `hasRule()` does an
+       exact `sels.includes()`, so a prefixed rule can never satisfy or mask
+       them;
+     · no `.fb-cta--*` custom property is ever attached to a legacy selector,
+       which is what the "[24] CTA visual rules never reach a legacy selector"
+       pin exists to catch.
+
+   Values taken from the mock, with the source rule named:
+     pill CTA radius 999px          ← .btn-grad / .say-hello
+     CTA label #2a1a10              ← .btn-grad color (dark ink on cream)
+     CTA shadow 0 10px 30px rgba(240,190,140,.28)  ← .btn-grad
+     icon button 52px, --card2 fill ← .circle-btn
+     chip 9x14 padding, 11px/600    ← .chip   (paint only; the 44px touch
+                                      floor stays on the base rule and is
+                                      re-asserted here so a later tidy-up that
+                                      drops it from the base still fails CI)
+     chip rose fill #5c4150 / fg #f6ddd4 ← .chip-rose
+     card radius 26px               ← .profile-card
+     card shade gradient            ← .card-shade
+     action row gap 24px            ← .action-row
+   ========================================================================== */
+
+/* ── Primary CTA: the cream→rose gradient pill ───────────────────────────── */
+.app-reborn .fb-cta {
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+/* The mock's `.btn-grad.big` is 16px/700; `--text-ui-sm` is 15px, so only the
+   weight and the ink move. */
+.app-reborn .fb-cta--brand,
+.app-reborn .fb-cta--primary {
+  font-weight: 700;
+}
+.app-reborn .fb-cta--brand {
+  --button-background-color: var(--gradient-ember-warm);
+  --button-color: #2a1a10;
+  --button-border-color: transparent;
+  --button-overlay-background-hover: rgba(255, 255, 255, 0.10);
+  --button-overlay-background-pressed: rgba(42, 26, 16, 0.16);
+  box-shadow: 0 10px 30px rgba(240, 190, 140, 0.28);
+}
+.app-reborn .fb-cta--primary {
+  --button-background-color: var(--gradient-ember-warm);
+  --button-color: #2a1a10;
+  --button-border-color: transparent;
+  --button-overlay-background-hover: rgba(255, 255, 255, 0.10);
+  --button-overlay-background-pressed: rgba(42, 26, 16, 0.16);
+  box-shadow: 0 10px 30px rgba(240, 190, 140, 0.28);
+}
+.app-reborn .fb-cta--brand:not(:disabled):hover,
+.app-reborn .fb-cta--primary:not(:disabled):hover {
+  box-shadow: 0 14px 36px rgba(240, 190, 140, 0.34);
+}
+/* Secondary and ghost sit on `--card2` like `.circle-btn` does. */
+.app-reborn .fb-cta--secondary {
+  --button-background-color: var(--color-abyss);
+  --button-color: var(--color-pearl);
+  --button-border-color: var(--color-line);
+  --button-border-width: 1px;
+}
+.app-reborn .fb-cta--ghost {
+  --button-background-color: transparent;
+  --button-color: var(--color-sand);
+  --button-border-color: var(--color-line);
+  --button-border-width: 1px;
+}
+/* `danger` keeps its semantic red but takes the pill radius and the ink weight,
+   so "Delete account" cannot look like the old square system. */
+.app-reborn .fb-cta--danger {
+  border-radius: 999px;
+  font-weight: 700;
+}
+.app-reborn .fb-cta--quiet {
+  border-radius: 999px;
+}
+
+/* ── Icon button: the 52px `.circle-btn` ─────────────────────────────────── */
+.app-reborn .fb-icon-btn {
+  border-radius: 999px;
+  background: var(--color-abyss);
+  border-color: transparent;
+  color: var(--color-ivory);
+}
+.app-reborn .fb-icon-btn:not(:disabled):hover {
+  background: var(--color-slate);
+  color: var(--color-pearl);
+}
+
+/* ── Chip: the 9/14, 11px, 600 pill, with a rose filled state ───────────── */
+.app-reborn .fb-chip {
+  min-height: var(--control-h-md); /* re-assert the touch floor */
+  padding: 0 0.875rem;
+  font-size: 0.6875rem;            /* 11px — .chip */
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  background: var(--color-abyss);  /* #262743 — .chip-row span / .card2 */
+  border-color: var(--color-line);
+  color: #dcd8cc;
+}
+.app-reborn .fb-chip[aria-pressed="true"] {
+  background: #5c4150;             /* .chip-rose */
+  border-color: rgba(233, 195, 124, 0.45);
+  color: #f6ddd4;
+}
+.app-reborn .fb-chip--sm {
+  min-height: 2rem;
+  padding: 0 0.8125rem;
+}
+
+/* ── Card: 26px radius, --card fill, hairline ───────────────────────────── */
+.app-reborn .fb-card,
+.app-reborn .fb-card-lg {
+  border-radius: 1.625rem;
+  background: var(--color-midnight); /* #1e1f33 — --card */
+  border-color: rgba(244, 239, 231, 0.10);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* ── Type: the mock's display voice ─────────────────────────────────────── */
+.app-reborn .fb-h-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
+}
+.app-reborn .fb-h-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.app-reborn .fb-eyebrow {
+  color: var(--color-ember-500); /* coral label */
+  letter-spacing: 0.3em;
+  font-weight: 650;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* ── Inputs: `--card2` wells with a coral focus ring ────────────────────── */
+.app-reborn .fb-input,
+.app-reborn .fb-input-like {
+  background: var(--color-abyss); /* #262743 */
+  border-color: var(--color-line);
+  border-radius: 0.875rem;
+  color: var(--color-pearl);
+}
+.app-reborn .fb-input::placeholder,
+.app-reborn .fb-input-like::placeholder {
+  color: var(--color-ash);
+}
+.app-reborn .fb-input:focus,
+.app-reborn .fb-input-like:focus {
+  border-color: rgba(233, 195, 124, 0.45);
+}
+
+/* ── Toggle: the coral-on gradient from the privacy screen ──────────────── */
+.app-reborn .fb-toggle[data-on="true"] {
+  background: linear-gradient(150deg, #f0a185, #d9705c);
+  border-color: transparent;
+  box-shadow: 0 0 16px -6px rgba(217, 112, 92, 0.55);
+}
+
+/* ── List rows: hairline on the reborn surface ──────────────────────────── */
+.app-reborn .fb-row {
+  background: var(--color-midnight);
+  border-color: var(--color-line);
+}
+
+/* ── Empty state: the mock's moon-and-copy card ─────────────────────────── */
+.app-reborn .fb-empty {
+  border-radius: 1.625rem;
+  border-color: rgba(244, 239, 231, 0.12);
+  background: var(--color-midnight);
+}
+
+/* ── Coarse pointers must not keep a hover transform (mirrors the [24] pin
+      for the legacy families, extended to the reborn layer) ─────────────── */
+@media not all and (hover: hover) and (pointer: fine) {
+  .app-reborn .fb-cta,
+  .app-reborn .fb-icon-btn {
+    transform: none;
+  }
+}
+
+/* ── Reduced motion: the reborn gradient buttons carry no lift of their own,
+      but the base `.fb-cta:active` translate is neutralised here too ────── */
+@media (prefers-reduced-motion: reduce) {
+  .app-reborn .fb-cta,
+  .app-reborn .fb-icon-btn,
+  .app-reborn .fb-chip {
+    transition: none;
+  }
+  .app-reborn .fb-cta:not(:disabled):active {
+    transform: none;
+  }
+}
+
+/* ── Segmented tab (notifications filter strip) ─────────────────────────────
+   Reproduces the mock's selected/unselected pill pair. Lives outside
+   `.app-reborn` on purpose: the alert strip is rendered inside the member
+   chrome today, but the primitive carries the 44px floor itself so it stays
+   safe wherever it is mounted. */
+.fb-seg-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--control-h-md);
+  padding: 0 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-midnight);
+  color: var(--color-sand);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.fb-seg-tab:not(:disabled):hover {
+  color: var(--color-pearl);
+}
+.fb-seg-tab--on {
+  border-color: transparent;
+  background-image: var(--gradient-ember-warm);
+  background-color: transparent;
+  color: #2a1a10;
+}
+.fb-seg-tab:focus-visible {
+  outline: 2px solid var(--color-ember-300);
+  outline-offset: 3px;
+}
+.fb-seg-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-seg-tab { transition: none; }
+}

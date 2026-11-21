@@ -2,6 +2,7 @@
 
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { AuthedVideo } from "@/components/ui/authed-media";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
@@ -1982,8 +1983,9 @@ export function ChatView() {
               className="w-full bg-transparent text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)]"
             />
             {query ? (
-              <button
-                type="button"
+              <IconButton
+                bare
+                size="xs"
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
                 className="text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
@@ -1991,7 +1993,7 @@ export function ChatView() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
-              </button>
+              </IconButton>
             ) : null}
           </label>
           {filteredMatches.length === 0 ? (
