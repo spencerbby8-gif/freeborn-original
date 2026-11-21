@@ -616,8 +616,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       ) : (
         <div className="mb-5">
           <p className="eyebrow">Discover</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-            The room is open.
+          <h1 className="mt-2 font-display text-3xl font-normal tracking-tight sm:text-4xl">
+            Someone you&rsquo;ll<br />remember.
           </h1>
         </div>
       )}

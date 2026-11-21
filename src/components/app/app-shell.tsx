@@ -187,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) => (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]">
+    <div className="app-reborn min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-[1200px]">
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/[0.06] px-4 py-6 lg:flex">
@@ -204,14 +204,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={tab.href}
                   className={`relative flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
                     active
-                      ? "bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
-                      : "text-[var(--color-mist)] hover:bg-white/[0.05] hover:text-[var(--color-pearl)]"
+                      ? "rb-nav-active"
+                      : "text-[var(--color-mist)] hover:bg-[rgba(233,195,124,0.06)] hover:text-[var(--color-pearl)]"
                   }`}
                 >
                   <span className="relative">
                     {tab.icon}
                     {count > 0 ? (
-                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-white ring-2 ring-[#0a0d18]">
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-[#2a1a10] ring-2 ring-[#151724]">
                         {count > 9 ? "9+" : count}
                       </span>
                     ) : null}
@@ -266,7 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Bottom tab bar — hidden while a chat conversation is open */}
       {!threadOpen ? (
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0d18]/95 backdrop-blur-lg">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(244,239,231,0.07)] bg-[#101018]/95 backdrop-blur-lg">
         <div className="mx-auto flex max-w-[560px] items-stretch justify-around">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
@@ -275,14 +275,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                  active ? "text-[var(--color-gold-300)]" : "text-[var(--color-ash)]"
+                className={`rb-tab flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                  active ? "rb-tab-active text-[var(--color-gold-500)]" : "text-[var(--color-ash)]"
                 }`}
               >
                 <span className="relative">
                   {tab.icon}
                   {count > 0 ? (
-                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-white ring-2 ring-[#0a0d18]">
+                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-[#2a1a10] ring-2 ring-[#151724]">
                       {count > 9 ? "9+" : count}
                     </span>
                   ) : null}

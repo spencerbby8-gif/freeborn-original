@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function DiscoverPage() {
   return (
-    <div className="min-h-[100dvh] bg-[var(--color-night)] px-5 pb-24 pt-6 text-[var(--color-pearl)]">
+    <div className="app-reborn min-h-[100dvh] bg-[var(--color-night)] px-5 pb-24 pt-6 text-[var(--color-pearl)]">
       <HomeDeck standalone />
     </div>
   );

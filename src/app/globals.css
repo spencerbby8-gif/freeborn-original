@@ -1504,3 +1504,145 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
   --button-border-color: transparent;
 }
 
+
+/* ==========================================================================
+   FREEBORN REBORN — member app rebuild (2026-11-21)
+   Scoped skin that re-maps the existing design tokens to the rebuilt
+   system (warm near-black, coral inks, gold #e9c37c, cream→rose gradient).
+   Applied ONLY inside the member app chrome via `.app-reborn` (AppShell root,
+   /discover, and any member-only wrapper). The marketing landing keeps the
+   ember palette untouched.
+   ========================================================================== */
+
+.app-reborn {
+  --color-void: #050813;
+  --color-night: #151724;
+  --color-midnight: #1e1f33;
+  --color-abyss: #262743;
+  --color-slate: #2b2c46;
+  --color-slateblue: #2b2c46;
+  --color-ink: #050813;
+
+  --color-pearl: #f4efe7;
+  --color-ivory: #f7e6cb;
+  --color-sand: #d5d1c4;
+  --color-mist: #8f8ca3;
+  --color-ash: #615e74;
+
+  --color-ember-300: #d9a08b;
+  --color-ember-500: #d0805f;
+  --color-ember-600: #b4634a;
+  --color-ember-700: #8f4a36;
+
+  --color-gold-300: #f4cf9d;
+  --color-gold-500: #e9c37c;
+  --color-gold-600: #c9a25f;
+
+  --color-violet-300: #f4cf9d;
+  --color-violet-500: #e9c37c;
+  --color-teal-300: #a6e6dc;
+  --color-success: #57d38a;
+
+  --color-line: rgba(244, 239, 231, 0.07);
+  --color-line-soft: rgba(244, 239, 231, 0.04);
+  --color-line-strong: rgba(244, 239, 231, 0.14);
+  --color-hairline: rgba(244, 239, 231, 0.06);
+
+  --color-glass: rgba(21, 23, 36, 0.55);
+  --color-glass-strong: rgba(16, 16, 24, 0.85);
+  --color-glass-light: rgba(244, 239, 231, 0.04);
+
+  --gradient-ember-warm: linear-gradient(102deg, #f8e7c6 0%, #f4cf9d 42%, #e9a98b 78%, #df93a0 100%);
+  --gradient-ember: linear-gradient(102deg, #f8e7c6 0%, #f4cf9d 42%, #e9a98b 78%, #df93a0 100%);
+  --gradient-ember-soft: linear-gradient(102deg, rgba(248,231,198,0.85) 0%, rgba(244,207,157,0.85) 42%, rgba(233,169,139,0.85) 78%, rgba(223,147,160,0.85) 100%);
+  --gradient-aurora: linear-gradient(145deg, rgba(233,195,124,0.14) 0%, rgba(208,128,95,0.10) 50%, rgba(223,147,160,0.12) 100%);
+  --gradient-night: linear-gradient(180deg, #050813 0%, #151724 100%);
+  --gradient-gold-glow: radial-gradient(circle at center, rgba(233,195,124,0.30) 0%, rgba(233,195,124,0) 70%);
+  --gradient-ember-glow: radial-gradient(circle at center, rgba(233,169,139,0.30) 0%, rgba(233,169,139,0) 70%);
+
+  --radius-card: 1.625rem; /* reborn cards: 26px */
+  --shadow-primary-btn: 0 10px 30px rgba(240, 190, 140, 0.28), 0 1px 0 rgba(255,255,255,0.25) inset;
+  --shadow-card: 0 18px 44px -12px rgba(0,0,0,0.55), 0 1px 0 rgba(244,239,231,0.05) inset;
+  --shadow-raised: 0 12px 30px -8px rgba(0,0,0,0.50), 0 1px 0 rgba(244,239,231,0.05) inset;
+
+  background: var(--color-night);
+  color: var(--color-pearl);
+}
+
+/* Warm radial page wash (reborn stage) — subtle, behind content */
+.app-reborn::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 640px at 12% 4%, rgba(217, 111, 92, 0.10), transparent 55%),
+    radial-gradient(900px 700px at 88% 96%, rgba(233, 195, 124, 0.07), transparent 55%);
+}
+
+/* Eyebrow — gold coral, wide tracking (reborn "coral-label") */
+.app-reborn .eyebrow {
+  color: var(--color-ember-500);
+  letter-spacing: 0.3em;
+  font-weight: 650;
+}
+
+/* Primary rounded-cream button (reborn "btn-grad" / "say-hello") */
+.app-reborn .btn-ember {
+  background: linear-gradient(102deg, #f8e7c6 0%, #f4cf9d 42%, #e9a98b 78%, #df93a0 100%);
+  color: #2a1a10;
+  box-shadow: 0 10px 30px rgba(240, 190, 140, 0.28);
+}
+.app-reborn .btn-ember:hover { filter: brightness(1.03); }
+
+/* Ghost button — hairline on reborn card2 */
+.app-reborn .btn-ghost {
+  border-color: var(--color-line);
+  color: var(--color-mist);
+  background: var(--color-abyss);
+}
+.app-reborn .btn-ghost:hover { color: var(--color-pearl); border-color: var(--color-line-strong); }
+
+/* Super like — gold, not violet */
+.app-reborn .superlike-btn {
+  background: linear-gradient(160deg, #fbe8cf 0%, #f3cba0 45%, #df93a0 100%);
+  color: #2a1a10;
+  box-shadow: 0 12px 34px rgba(240, 190, 140, 0.30);
+}
+.app-reborn .superlike-btn svg { fill: #2a1a10; }
+
+/* Skeleton shimmer — reborn card tones */
+.app-reborn .skeleton {
+  background: linear-gradient(100deg, #1e1f33 20%, #262743 40%, #1e1f33 60%);
+  background-size: 200% 100%;
+}
+
+/* Toast / notification panels inherit reborn glass */
+.app-reborn .fb-toast, .app-reborn [data-reborn-panel] {
+  background: rgba(30, 31, 51, 0.97);
+  border-color: rgba(233, 195, 124, 0.35);
+}
+
+/* Gold underline tab treatment for the bottom bar (applied via .rb-tab) */
+.rb-tab { position: relative; }
+.rb-tab::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%) scaleX(0);
+  width: 22px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--color-gold-500);
+  transition: transform 0.2s ease;
+}
+.rb-tab.rb-tab-active::after { transform: translateX(-50%) scaleX(1); }
+
+/* Reborn sidebar active state (gold ink on a warm wash) */
+.rb-nav-active {
+  color: var(--color-gold-500) !important;
+  background: rgba(233, 195, 124, 0.09) !important;
+  box-shadow: inset 0 0 0 1px rgba(233, 195, 124, 0.22) !important;
+}
