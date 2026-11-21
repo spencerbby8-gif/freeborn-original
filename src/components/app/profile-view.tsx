@@ -604,7 +604,7 @@ export function ProfileView({
           </div>
         ) : failed || !profile ? (
           <div className="py-24 text-center">
-            <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
+            <p className="font-display text-[22px] font-medium text-[var(--color-pearl)]">
               {failed === "auth"
                 ? "Your session needs a refresh."
                 : failed === "hidden"
@@ -654,7 +654,7 @@ export function ProfileView({
                     : "border-white/[0.08] bg-white/[0.02]"
                 }`}
               >
-                <p className="font-display text-[17px] font-semibold text-[var(--color-pearl)]">
+                <p className="font-display text-[17px] font-medium text-[var(--color-pearl)]">
                   {profile.visibility.visible ? "Visible to the room." : "Not visible to the room."}
                 </p>
                 <p className="mt-2 text-[13px] leading-6 text-[var(--color-mist)]">
@@ -750,7 +750,7 @@ export function ProfileView({
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070a14] via-transparent to-transparent" />
                 <div className="pointer-events-none absolute inset-x-5 bottom-4">
                   <div className="flex items-center gap-2.5">
-                    <h1 className="font-display text-[32px] font-semibold leading-none text-[var(--color-pearl)]">
+                    <h1 className="font-display text-[32px] font-normal leading-none tracking-tight text-[var(--color-pearl)]">
                       {profile.name}{profile.age ? `, ${profile.age}` : ""}
                     </h1>
                     {/* Badge lives ONLY at the top-right of the photo (see above) */}
@@ -812,21 +812,21 @@ export function ProfileView({
 
             {/* Trust row */}
             <div className="grid grid-cols-3 gap-2.5">
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-midnight)] p-3.5 text-center">
+                <p className="font-display text-[22px] font-medium text-[var(--color-pearl)]">
                   {profile.replyRate === null ? "New" : `${profile.replyRate}%`}
                 </p>
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Reply rate</p>
               </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
-                <p className="font-display text-[22px] font-semibold text-[var(--color-pearl)]">
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-midnight)] p-3.5 text-center">
+                <p className="font-display text-[22px] font-medium text-[var(--color-pearl)]">
                   {profile.matchRate === null ? "New" : `${profile.matchRate}%`}
                 </p>
                 <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-mist)]">Match rate</p>
               </div>
-              <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3.5 text-center">
+              <div className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-midnight)] p-3.5 text-center">
                 <p
-                  className="font-display text-[22px] font-semibold text-[var(--color-pearl)]"
+                  className="font-display text-[22px] font-medium text-[var(--color-pearl)]"
                   title={presence ? presence.long : "Last active more than 7 days ago"}
                 >
                   {presence ? presence.short : "7+ days"}
@@ -864,7 +864,7 @@ export function ProfileView({
 
             {profile.prompts.filter((p) => p.answer).map((p, i) => (
               <Block key={i} title={p.prompt ?? "A prompt"}>
-                <p className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 text-[14px] leading-[1.8] text-[var(--color-ivory)]">
+                <p className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-midnight)] p-4 text-[14px] leading-[1.8] text-[var(--color-ivory)]">
                   “{p.answer}”
                 </p>
               </Block>
@@ -872,7 +872,7 @@ export function ProfileView({
 
             {profile.dealBreakers.length > 0 ? (
               <Block title="What they will not compromise on">
-                <div className="rounded-[20px] border border-white/[0.07] bg-white/[0.025] p-4">
+                <div className="rounded-[20px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-4">
                   <p className="text-[12.5px] leading-6 text-[var(--color-mist)]">
                     Boundaries stated up front, so nobody has to learn them the
                     hard way three weeks in.
@@ -1048,7 +1048,7 @@ export function ProfileView({
             className="animate-scale-in w-full max-w-[400px] rounded-[24px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="font-display text-[18px] font-semibold text-[var(--color-pearl)]">
+            <p className="font-display text-[18px] font-medium text-[var(--color-pearl)]">
               Report {profile.name}
             </p>
             <p className="mt-1 text-[12px] leading-4 text-[var(--color-mist)]">

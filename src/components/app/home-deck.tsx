@@ -837,6 +837,13 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                     </div>
                   </div>
 
+                  {/* Comp: NEW HERE sits in the photo's top-left corner */}
+                  {profile.isNew ? (
+                    <span className="absolute left-4 top-4 z-10 text-[10px] font-black uppercase tracking-[0.3em] text-white/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+                      New here
+                    </span>
+                  ) : null}
+
                   {/* Photo count + open-viewer hint */}
                   {profile.photos.length > 1 ? (
                     <span className="absolute right-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
@@ -856,76 +863,55 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       }
                       openProfileTap(profile.id, Date.now());
                     }}
-                    className="absolute inset-x-0 bottom-0 z-10 px-5 pb-3.5 pt-10 text-left"
+                    className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-5 pb-4 pt-14 text-left"
                     aria-label={`View ${profile.name}'s full profile`}
                   >
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                      <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                        <h2 className="truncate font-display text-[28px] font-semibold text-pearl">{profile.name}</h2>
-                        <span className="shrink-0 font-display text-[22px] text-gold-300">{profile.age}</span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                      {(() => {
-                        /* The badge now says what the window behind it actually
-                           was. "Online" over 24 hours was a claim this data could
-                           not support; the route returns tiers and the label
-                           follows the tier. A member who hides their presence gets
-                           no badge, which is unchanged. */
-                        const label =
-                          profile.presence === "now"
-                            ? "Online now"
-                            : profile.presence === "today"
-                              ? "Active today"
-                              : profile.presence === "week"
-                                ? "Active this week"
-                                : null;
-                        if (!label) return null;
-                        const live = profile.presence === "now";
-                        return (
-                          <span
-                            title={
-                              live
-                                ? "Active within the last 15 minutes"
-                                : profile.presence === "today"
-                                  ? "Active within the last 24 hours"
-                                  : "Active within the last 7 days"
-                            }
-                            className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                              live
-                                ? "border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]"
-                                : "border-white/[0.12] bg-white/[0.05] text-[var(--color-sand)]"
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                live ? "bg-[var(--color-teal-300)]" : "bg-[var(--color-sand)]"
-                              }`}
-                            />
-                            {label}
-                          </span>
-                        );
-                      })()}
-                      {profile.isNew ? (
-                        <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
-                          New here
-                        </span>
-                      ) : null}
-                        <svg className="h-4 w-4 text-white/70" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M12 8v4M12 16h.01" />
-                        </svg>
-                      </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h2 className="truncate font-display text-[30px] font-normal leading-none tracking-tight text-pearl">{profile.name}</h2>
+                      {profile.verified ? <VerifyBadge size={22} /> : null}
+                      <span className="shrink-0 font-display text-[20px] font-normal text-gold-300">{profile.age}</span>
                     </div>
-                    <p className="text-[12px] tracking-wide text-sand">
+                    <p className="mt-1.5 text-[13px] font-medium tracking-wide text-[#ece8dd]">
                       {profile.occupation} · {profile.city}
                       {profile.distanceKm != null && !profile.hideDistance
                         ? ` · ${formatDistance(profile.distanceKm, units)}`
                         : ""}
                     </p>
-                    {profile.joinedAt ? (
-                      <p className="mt-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white/45">
-                        {joinedShort(profile.joinedAt)}
-                      </p>
+                    {/* Presence: plain dot + tier label, no pill chrome (honest tiers only) */}
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                      {(() => {
+                        const tier = profile.presence;
+                        const dot =
+                          tier === "now" ? "#57d38a" : tier === "today" ? "#57d38a" : "#a5a1b4";
+                        const label =
+                          tier === "now" ? "Online now" : tier === "today" ? "Active today" : tier === "week" ? "Active this week" : null;
+                        if (!label) return null;
+                        return (
+                          <>
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 6px ${dot}` }} />
+                            {label}
+                            {profile.joinedAt ? <span className="font-normal normal-case tracking-normal text-white/45"> · {joinedShort(profile.joinedAt)}</span> : null}
+                          </>
+                        );
+                      })()}
+                    </p>
+                    {/* Comp chips: their interests when shared, else their traits — real fields only */}
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(profile.inCommon?.interests ?? []).slice(0, 3).map((i) => (
+                        <span key={`i-${i}`} className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
+                          {i}
+                        </span>
+                      ))}
+                      {(profile.inCommon?.interests?.length ?? 0) === 0
+                        ? profile.traits.slice(0, 3).map((t) => (
+                            <span key={`t-${t}`} className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
+                              {t}
+                            </span>
+                          ))
+                        : null}
+                    </div>
+                    {profile.headline ? (
+                      <p className="mt-2 line-clamp-2 text-[13px] leading-snug text-white/85">{profile.headline}</p>
                     ) : null}
                   </button>
                 </div>
@@ -945,11 +931,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   className="block max-h-[30dvh] w-full space-y-3 overflow-y-auto p-5 text-left"
                 >
                   <div>
-                    {profile.headline ? (
-                      <p className="line-clamp-2 mb-1.5 text-[13.5px] leading-relaxed text-white/80">
-                        {profile.headline}
-                      </p>
-                    ) : null}
                     <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
                     <p className="mt-1.5 text-[14px] leading-relaxed text-ivory/90">{profile.promptAnswer}</p>
                     {profile.inCommon &&
@@ -960,11 +941,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                         {profile.inCommon.values.slice(0, 2).map((v) => (
                           <span key={`v-${v}`} className="fb-chip fb-chip-gold !text-[11px] !py-1">
                             {v}
-                          </span>
-                        ))}
-                        {profile.inCommon.interests.slice(0, 2).map((i) => (
-                          <span key={`i-${i}`} className="fb-chip fb-chip-teal !text-[11px] !py-1">
-                            {i}
                           </span>
                         ))}
                         {profile.inCommon.goals.length > 0 ? (
@@ -1020,7 +996,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => act("pass")}
                 aria-label="Skip (pass)"
                 title="Skip"
-                className="btn-ghost flex h-[62px] w-[62px] items-center justify-center rounded-full transition active:scale-90"
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-pearl)] transition hover:bg-[var(--color-slate)] active:scale-90"
               >
                 <svg width="24" height="24" viewBox="0 0 22 22" fill="none" aria-hidden>
                   <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -1035,13 +1011,13 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
                 aria-label="Super like"
                 title="Super Like: stand out"
-                className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-[#2a1a10] transition hover:scale-[1.04] active:scale-95"
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-gold-500)] transition hover:bg-[var(--color-slate)] active:scale-90"
               >
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-violet-300)]">Super Like</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-gold-300)]">Super Like</span>
             </div>
 
             <div className="flex flex-col items-center gap-2">
@@ -1049,15 +1025,16 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 type="button"
                 onClick={() => act("like")}
                 aria-label="Like"
-                title="Like"
-                className="btn-ember btn-shine relative flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-full transition active:scale-90"
+                title="Say hello"
+                className="btn-ember btn-shine relative flex h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full px-8 transition active:scale-95"
               >
-                <svg width="26" height="26" viewBox="0 0 30 30" fill="none" aria-hidden>
+                <svg width="22" height="22" viewBox="0 0 30 30" fill="none" aria-hidden>
                   <path
                     d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
                     fill="#2a1a10"
                   />
                 </svg>
+                <span className="text-[16px] font-bold tracking-tight text-[#2a1a10]">Say hello</span>
               </button>
               <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--color-ash)]">Like</span>
             </div>

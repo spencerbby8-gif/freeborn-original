@@ -1710,13 +1710,13 @@ export function SettingsView() {
             <form method="POST" action="/auth/signout">
               <button
                 type="submit"
-                className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-7 py-3.5 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
+                className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-[#e0685f]/30 bg-[#43303c]/55 px-7 py-3.5 text-[13px] font-bold text-[#f0998a] transition hover:bg-[#4e3745] hover:text-[#f7b1a6]"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                   <path d="M16 17l5-5-5-5M21 12H9" />
                 </svg>
-                Sign out
+                Log out
               </button>
             </form>
           </div>

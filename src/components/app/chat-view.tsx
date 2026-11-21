@@ -1780,6 +1780,8 @@ export function ChatView() {
   /* Message requests (owner addendum 2026-11-15): pending asks in both
      directions, so the Messages screen is where they are answered. */
   const [requests, setRequests] = useState<RequestLists>({ incoming: [], outgoing: [] });
+  /* Reborn screen 06: a real search over the live conversation list. */
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const t = await getAccessToken();
@@ -1862,6 +1864,11 @@ export function ChatView() {
     );
   }
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const filteredMatches = trimmedQuery
+    ? matches.filter((m) => m.with.name.toLowerCase().includes(trimmedQuery))
+    : matches;
+
   const profileOverlay = openProfileId ? (
     <ProfileView profileId={openProfileId} onClose={() => setOpenProfileId(null)} />
   ) : null;
@@ -1898,7 +1905,7 @@ export function ChatView() {
             {requests.incoming.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.06] p-4"
+                className="flex items-center gap-3 rounded-[20px] border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] p-4"
               >
                 <Avatar photo={r.from.photo} name={r.from.name} />
                 <div className="min-w-0 flex-1">
@@ -1926,7 +1933,7 @@ export function ChatView() {
             {requests.outgoing.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center gap-3 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4"
+                className="flex items-center gap-3 rounded-[20px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-4"
               >
                 <Avatar photo={r.to.photo} name={r.to.name} />
                 <div className="min-w-0 flex-1">
@@ -1961,8 +1968,39 @@ export function ChatView() {
           </a>
         </div>
       ) : (
-        <div className="mt-6 space-y-2.5">
-          {matches.map((m) => (
+        <>
+          <label className="mt-6 flex items-center gap-3 rounded-full border border-[var(--color-line)] bg-[#23243a] px-4 py-3 transition focus-within:border-[rgba(233,195,124,0.4)]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-mist)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            <span className="sr-only">Search conversations</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search conversations"
+              className="w-full bg-transparent text-[13.5px] text-[var(--color-pearl)] outline-none placeholder:text-[var(--color-ash)]"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            ) : null}
+          </label>
+          {filteredMatches.length === 0 ? (
+            <p className="mt-6 rounded-[20px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-6 text-center text-[13px] text-[var(--color-mist)]">
+              No conversations match “{query.trim()}”.
+            </p>
+          ) : null}
+          <div className="mt-3 space-y-2.5">
+          {filteredMatches.map((m) => (
             <div
               key={m.id}
               role="button"
@@ -1971,7 +2009,7 @@ export function ChatView() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") setOpenMatch(m);
               }}
-              className="flex w-full cursor-pointer items-center gap-4 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 text-left transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              className="flex w-full cursor-pointer items-center gap-4 rounded-[20px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-4 text-left transition hover:border-[var(--color-line-strong)] hover:bg-[var(--color-abyss)]"
             >
               <button
                 type="button"
@@ -2011,7 +2049,8 @@ export function ChatView() {
               ) : null}
             </div>
           ))}
-        </div>
+          </div>
+        </>
       )}
       {profileOverlay}
     </div>
