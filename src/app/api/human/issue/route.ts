@@ -3,63 +3,25 @@ import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { humanChallenges } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
+import {
+  BROWSER_CHALLENGE_DIFFICULTY_BITS,
+  CHALLENGE_DIFFICULTY_BITS,
+  MAX_CHALLENGE_DIFFICULTY_BITS,
+  SOLVER_BUDGET_CANDIDATES,
+} from "@/lib/human-challenge";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
-/** Difficulty, in leading zero BITS of the sha256 of `nonce:solution`.
- *
- *  MEASURED, NOT GUESSED (sandbox node, 120 fresh random nonces each, solution encoded as a
- *  decimal STRING exactly as a client sends it and exactly as verify re-checks it):
- *     18-bit: 0/120 unsolved within a 4,000,000-candidate budget; 175 ms mean, 1,182 ms worst
- *     20-bit: 5/106 unsolved — 4.7% — same budget;                      832 ms mean, 2,575 ms worst
- *     22-bit: 17/50 unsolved — 34%                                        1,396 ms mean
- *  So 20 bits, the previous default, silently locked about one member in twenty out of their own
- *  appeal, which is the worst possible failure for a control meant to stop automation: the honest
- *  user pays and cannot pay. 18 bits still costs a script per filing and measures as never
- *  exceeding the budget here, so it is the floor.
- *
- *  A client that DOES exhaust its budget must re-POST /api/human/issue (which expires the old
- *  row and hands out a fresh nonce) rather than retry the same challenge: whether a nonce is
- *  solvable inside the budget is decided by the nonce, so re-trying a bad one fails forever while
- *  re-requesting fails again with probability 0.047^k. One retry takes the effective lock-out
- *  from 4.7% to 0.22%. That instruction is returned in the payload for exactly this reason. */
-export const CHALLENGE_DIFFICULTY_BITS = 18;
-/** The hardest challenge the issuer will hand out. 20 is the ceiling because above it the
-    measured unsolved rate (34% at 22) makes the control unreliable rather than merely costly. */
-export const MAX_CHALLENGE_DIFFICULTY_BITS = 20;
-/** Candidates a client is told to attempt before giving up and re-requesting. */
-export const SOLVER_BUDGET_CANDIDATES = 4_000_000;
-
-/** Risk-scaled difficulty: the ladder, not a flat toll. A member with an identity-verified
-    account and nothing open is not the same threat as an unverified account with duplicate
-    photos, so the cost should differ — but never past the reliability ceiling. */
-/**
- * BROWSER tier added 2026-10-29 after measuring, not guessing: WebCrypto in a browser costs
- * ~8,500 sha256/s measured here, so the 18-bit default needs ~31 s on average and a full
- * 4,000,000-candidate run did NOT solve in 242 s. A control no honest member can complete is
- * not a control, it is an outage. 12 bits is ~4,096 candidates (0.5-2 s), which is the right
- * size for the actual threat on this path — a browser script flooding the appeal queue — and
- * it is explicitly NOT claimed to resist a GPU. Signup/reset keep the higher tiers because
- * nothing in this product makes a browser solve those.
- */
-export const BROWSER_CHALLENGE_DIFFICULTY_BITS = 12;
-
-export function difficultyForRisk(risk: "standard" | "elevated" | "high" | "browser"): number {
+/* The measured constants and the one verification predicate now live in
+   `@/lib/human-challenge` so this route module exports only its HTTP handler.
+   Next 16's generated route-type validator rejects extra named exports. */
+function difficultyForRisk(risk: "standard" | "elevated" | "high" | "browser"): number {
   const want =
     risk === "high" ? 20 : risk === "elevated" ? 19 : risk === "browser" ? BROWSER_CHALLENGE_DIFFICULTY_BITS : CHALLENGE_DIFFICULTY_BITS;
   return Math.min(Math.max(want, 12), MAX_CHALLENGE_DIFFICULTY_BITS);
 }
 const MASK = "0".repeat(Math.floor(CHALLENGE_DIFFICULTY_BITS / 4));
-
-export function meetsDifficulty(nonce: string, solution: string, bits = CHALLENGE_DIFFICULTY_BITS): boolean {
-  const hex = createHash("sha256").update(`${nonce}:${solution}`).digest("hex");
-  const full = Math.floor(bits / 4);
-  if (hex.slice(0, full) !== "0".repeat(full)) return false;
-  if (bits % 4 === 0) return true;
-  const nibble = parseInt(hex[full], 16);
-  return nibble < 1 << (4 - (bits % 4));
-}
 
 /**
  * POST /api/human/issue  { purpose: "appeal" | "signup" | "reset" }

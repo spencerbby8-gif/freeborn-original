@@ -18,14 +18,14 @@
  * actual threat (Tinder's `appealChallengeToken` guards the queue, not the account), and it
  * is why the higher tiers are kept for signup/reset, which no browser code has to solve here.
  *
- * The difficulty predicate below is a byte-for-byte copy of the server's `meetsDifficulty`
+ * The difficulty predicate below is a byte-for-byte copy of the shared `meetsDifficulty`
  * semantics, re-derived against the same string form (`sha256(nonce + ":" + solution)`) so
  * the two cannot drift. The harness asserts agreement on random inputs.
  */
 
 const enc = new TextEncoder();
 
-/** Hex-digit-prefix difficulty test, matching src/app/api/human/issue/route.ts exactly. */
+/** Hex-digit-prefix difficulty test, matching src/lib/human-challenge.ts exactly. */
 export function meetsDifficultyHex(nonce: string, solution: string, bits: number, hex: string): boolean {
   const full = Math.floor(bits / 4);
   if (hex.slice(0, full) !== "0".repeat(full)) return false;

@@ -26,22 +26,22 @@ export const metadata: Metadata = {
      It now derives from the single canonical constant in @/lib/site. */
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Freeborn · Dating for Medical Freedom & Natural Health",
+    default: "Freeborn · A premium dating platform for real connections",
     template: `%s · Freeborn`,
   },
   description:
-    "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+    "Freeborn is a general dating platform for adults seeking meaningful connections. Build a real profile, set preferences, discover people, match and message with clear intentions and privacy controls.",
   applicationName: SITE_NAME,
   keywords: [
-    "medical freedom dating",
-    "natural health dating app",
-    "values aligned relationships",
-    "intentional dating platform",
-    "health autonomy matches",
-    "holistic singles community",
-    "natural wellness dating",
-    "informed choice relationships",
-    "serious relationship app",
+    "intentional dating",
+    "meaningful relationships",
+    "premium dating platform",
+    "general dating app",
+    "compatibility preferences",
+    "private dating app",
+    "values aligned dating",
+    "real profiles",
+    "adult dating platform",
     "Freeborn app",
   ],
   category: "Relationship Platform",
@@ -55,9 +55,9 @@ export const metadata: Metadata = {
      pages declare none, which is the correct instruction for them. The indexable
      set is INDEXABLE_PATHS in @/lib/site, and it matches sitemap.ts exactly. */
   openGraph: {
-    title: "Freeborn · Dating for Medical Freedom & Natural Health",
+    title: "Freeborn · A premium dating platform for real connections",
     description:
-      "Values-aligned dating for health autonomy, natural living, and lasting love. Full profiles, clear intentions, privacy by default.",
+      "A general dating platform for adults who want real profiles, clear intentions, optional compatibility preferences and privacy by default.",
     siteName: SITE_NAME,
     locale: "en_US",
     type: "website",
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Freeborn · Date Like You Mean It",
     description:
-      "Values-aligned dating for health autonomy, natural living, and lasting love.",
+      "Real profiles, clear intentions, optional compatibility preferences and privacy by default.",
     images: [
       { url: OG_IMAGE.path, width: OG_IMAGE.width, height: OG_IMAGE.height, alt: OG_IMAGE.alt },
     ],
@@ -127,7 +127,7 @@ const organizationLd = {
   url: SITE_URL,
   email: CONTACT_EMAIL,
   description:
-    "Operator of Freeborn, a values-aligned dating platform for people who prioritise health autonomy, natural living and long-term commitment.",
+    "Operator of Freeborn, a general dating platform for adults seeking meaningful connections, with clear intentions, optional compatibility preferences and privacy controls.",
 };
 
 const websiteLd = {

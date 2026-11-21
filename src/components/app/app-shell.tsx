@@ -187,10 +187,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) => (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]">
+    <div className="premium-app min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-[1200px]">
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/[0.06] px-4 py-6 lg:flex">
+        <aside className="premium-app-sidebar sticky top-0 hidden h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/[0.06] px-4 py-6 lg:flex">
           <Link href="/" className="transition hover:opacity-80">
             <Wordmark size="sm" />
           </Link>
@@ -202,7 +202,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`relative flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
+                  aria-current={active ? "page" : undefined}
+                  className={`premium-app-nav-link relative flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
                     active
                       ? "bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
                       : "text-[var(--color-mist)] hover:bg-white/[0.05] hover:text-[var(--color-pearl)]"
@@ -266,7 +267,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Bottom tab bar — hidden while a chat conversation is open */}
       {!threadOpen ? (
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0d18]/95 backdrop-blur-lg">
+      <nav aria-label="Main navigation" className="premium-app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0a0d18]/95 backdrop-blur-lg">
         <div className="mx-auto flex max-w-[560px] items-stretch justify-around">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
@@ -275,7 +276,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                aria-current={active ? "page" : undefined}
+                className={`premium-app-tab flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
                   active ? "text-[var(--color-gold-300)]" : "text-[var(--color-ash)]"
                 }`}
               >

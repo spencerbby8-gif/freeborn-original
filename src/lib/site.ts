@@ -143,7 +143,7 @@ export function absolute(path: string = "/"): string {
  * sitemap-vs-noindex contradiction happened. Keep the two in step.
  */
 export const INDEXABLE_PATHS = [
-  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-15" },
+  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-18" },
   { path: "/safety", priority: 0.8, changeFrequency: "monthly" as const, lastModified: "2026-11-14" },
   { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
   { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
@@ -201,5 +201,5 @@ export const OG_IMAGE = {
   path: "/og/cover-1200x630.png",
   width: 1200,
   height: 630,
-  alt: "Freeborn — Date like you mean it. A values-aligned dating platform for health autonomy, natural living and lasting commitment.",
+  alt: "Freeborn — Date like you mean it. A premium general dating platform for real connections, clear intentions and privacy by default.",
 } as const;
