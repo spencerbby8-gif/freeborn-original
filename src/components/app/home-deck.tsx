@@ -742,10 +742,18 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   const activeProfile = current ?? null;
   const heightLabel = activeProfile ? heightLabelOf(activeProfile.heightCm) : null;
   const presenceLabel = activeProfile ? presenceLabelOf(activeProfile.presence) : null;
+  /* De-duplicated on the client as well as in the API: the stored interests
+     array can itself contain the same value twice (measured: "Natural health"
+     twice on a real profile), and the reference card shows a tag set, never a
+     repeated tag. */
   const cardTags = activeProfile
-    ? (activeProfile.inCommon?.interests?.length
-        ? activeProfile.inCommon.interests
-        : activeProfile.traits
+    ? Array.from(
+        new Set(
+          (activeProfile.inCommon?.interests?.length
+            ? activeProfile.inCommon.interests
+            : activeProfile.traits
+          ).filter(Boolean)
+        )
       ).slice(0, 3)
     : [];
   const cardBio = activeProfile?.headline?.trim() || null;
