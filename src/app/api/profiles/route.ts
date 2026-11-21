@@ -194,6 +194,12 @@ export async function GET(request: Request) {
      removes reach, not access. */
   const suppressed = await suppressedUserIds().catch(() => [] as string[]);
 
+  /* Explicit column set rather than `select()`.
+     `zodiac` is added by 20261121000000_proto_profile_fields.sql but is not
+     declared on the Drizzle model (see the long note in src/db/schema.ts), so
+     a bare select() would never return it. Naming every column here — the
+     model's own plus zodiac — keeps this query working on a database that has
+     not run the migration yet, as long as zodiac is selected defensively. */
   const rows = await db
     .select()
     .from(userProfiles)
@@ -252,6 +258,24 @@ export async function GET(request: Request) {
     for (const m of myMatches) {
       mutualIds.add(m.userA === viewerId ? m.userB : m.userA);
     }
+  }
+
+  /* Zodiac is read separately and defensively. If the migration has not been
+     applied to this environment the query throws, and the deck simply renders
+     without that one tile — no 500, no empty room. This is the whole point of
+     keeping it off the shared model: one optional display field must never be
+     able to take down discovery. */
+  const zodiacByUser = new Map<string, string>();
+  try {
+    const zodiacRows = await db.execute<{ id: string; zodiac: string | null }>(
+      sql`select id, zodiac from public.user_profiles`
+    );
+    const list = Array.isArray(zodiacRows)
+      ? zodiacRows
+      : ((zodiacRows as unknown as { rows?: Array<{ id: string; zodiac: string | null }> }).rows ?? []);
+    for (const r of list) if (r.zodiac) zodiacByUser.set(r.id, r.zodiac);
+  } catch {
+    /* column absent in this environment -> no zodiac tile, everything else works */
   }
 
   const photos = await db.select().from(profilePhotos);
@@ -525,7 +549,7 @@ export async function GET(request: Request) {
          ------------------------------------------------------------------ */
       heightCm: row.heightCm ?? row.heightCmProfile ?? null,
       drinking: row.drinking ?? "",
-      zodiac: row.zodiac ?? "",
+      zodiac: zodiacByUser.get(row.id) ?? "",
       language: row.language ?? "",
       religion: row.religion ?? "",
       education: row.educationLevel ?? row.education ?? "",

@@ -160,13 +160,6 @@ export const userProfiles = pgTable(
     smoking: text("smoking"),
     educationLevel: text("education_level"),
     heightCmProfile: integer("height_cm_profile"),
-    /* Self-described star sign shown in the profile-detail info grid.
-       Added in 20261121000000_proto_profile_fields.sql. Nullable: never
-       inferred from birth_date, and an absent value means the UI omits the
-       tile rather than printing a placeholder. The migration also appends it
-       to the column-level UPDATE allowlist, without which members can read it
-       but never save it. */
-    zodiac: text("zodiac"),
     identityConsistencyStatus: text("identity_consistency_status").notNull().default("ready"),
     lastConsistencyCheckedAt: timestamp("last_consistency_checked_at", { withTimezone: true }),
     lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
@@ -178,6 +171,32 @@ export const userProfiles = pgTable(
        Values: everyone | verified | unvaccinated */
     messagePrivacy: text("message_privacy").notNull().default("everyone"),
     discoverPrivacy: text("discover_privacy").notNull().default("everyone"),
+    /* ------------------------------------------------------------------
+       `zodiac` IS DELIBERATELY NOT DECLARED HERE.
+
+       The column is added by 20261121000000_proto_profile_fields.sql and the
+       approved design displays it. Declaring it in this Drizzle model looks
+       harmless and is not:
+
+         · Drizzle expands a bare `db.select().from(userProfiles)` into an
+           explicit column list taken from this file. Adding a column here
+           therefore changes EVERY query against user_profiles at once.
+         · Any deployed environment whose database has not yet run that
+           migration then fails those queries with
+           `column "zodiac" does not exist`, which surfaces as HTTP 500.
+
+       Measured on the PR preview, where the migration cannot be applied
+       (the connected Supabase account has no access to that project): after
+       adding the column here, GET /api/profiles, /api/notifications,
+       /api/verification and /api/chat/matches all returned 500, and
+       /api/profiles masked it as 401 because getMember() swallows the DB
+       error into `null`.
+
+       So zodiac is read as an explicit, additive column in the one place that
+       needs it — `selectActiveProfileRows()` below — instead of being folded
+       into the shared model. That keeps every other query byte-identical to
+       what already works, in both the migrated and un-migrated states.
+       ------------------------------------------------------------------ */
   },
   (t) => [
     check(

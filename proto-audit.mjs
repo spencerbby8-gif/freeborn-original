@@ -14,6 +14,12 @@ const page = await ctx.newPage();
 await page.route("**/api/security/check", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ suspended: false }) }));
 
 const api = [];
+page.on("request", (req) => {
+  if (req.url().includes("/api/profiles")) {
+    const h = req.headers();
+    api.push({ url: "REQ " + req.url().replace(BASE, ""), status: 0, body: h.authorization ? "Bearer present" : "NO AUTH HEADER" });
+  }
+});
 page.on("response", async (res) => {
   const u = res.url();
   if (u.includes("/api/profiles") || u.includes("/api/profile/me") || u.includes("/api/notifications")) {
@@ -30,7 +36,7 @@ await page.fill('input[type="email"]', EMAIL);
 await page.fill('input[type="password"]', PASS);
 await page.click("form button[type=submit]");
 await page.waitForURL(/\/app/, { timeout: 45000 }).catch(() => {});
-await page.waitForTimeout(6000);
+await page.waitForTimeout(9000);
 
 await page.screenshot({ path: `${OUT}/discover-viewport.png` });
 
