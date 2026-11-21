@@ -522,7 +522,12 @@ export async function GET(request: Request) {
       ? (row.promptAnswers as Array<{ prompt?: string; answer?: string }>)
       : [];
     const firstPrompt = prompts[0];
-    const traits = [...(row.values ?? []), ...(row.interests ?? [])].slice(0, 3);
+    /* Deduplicated: "Natural health" is legitimately both a stated value and a
+       stated interest, and the card rendered the same chip twice. De-duping
+       after concatenating keeps up to three DISTINCT traits. */
+    const traits = Array.from(
+      new Set([...(row.values ?? []), ...(row.interests ?? [])].filter(Boolean))
+    ).slice(0, 3);
 
     out.push({
       id: row.id,
