@@ -601,13 +601,13 @@ function ProfileInner() {
                 {profile.photos[0] ? (
                   <PhotoImage src={profile.photos[0] ?? ""} alt={profile.displayName} className="h-full w-full" imgClassName="object-cover" />
                 ) : (
-                  <span className="font-display text-3xl font-bold text-[var(--color-pearl)]">
+                  <span className="font-display text-3xl font-normal text-[var(--color-pearl)]">
                     {(profile.displayName || "You").charAt(0)}
                   </span>
                 )}
               </span>
               <div className="min-w-0 flex-1 pb-1">
-                <h2 className="font-display text-[27px] font-bold leading-[1.1] text-white sm:text-[30px]">
+                <h2 className="font-display text-[27px] font-normal leading-[1.15] tracking-tight text-white sm:text-[30px]">
                   {profile.displayName || "Add your name"}
                   {profile.age ? <span className="text-[var(--color-gold-300)]">{`, ${profile.age}`}</span> : null}
                 </h2>
@@ -685,7 +685,7 @@ function ProfileInner() {
           <button
             type="button"
             onClick={openVerifyFlow}
-            className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+            className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
           >
             Retry
           </button>
@@ -718,7 +718,7 @@ function ProfileInner() {
           <button
             type="button"
             onClick={openVerifyFlow}
-            className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+            className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
           >
             Verify now
           </button>
@@ -802,7 +802,7 @@ function ProfileInner() {
           <div className="animate-scale-in w-full max-w-[440px] rounded-[28px] border border-white/[0.09] bg-[#0c101d] p-5 shadow-[0_50px_120px_-24px_rgba(0,0,0,0.95)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-display text-[19px] font-semibold text-[var(--color-pearl)]">Your photos</p>
+                <p className="font-display text-[19px] font-medium text-[var(--color-pearl)]">Your photos</p>
                 <p className="mt-0.5 text-[12px] text-[var(--color-mist)]">
                   {profile.photos.length}/6 slots · first photo is your card photo
                 </p>
@@ -970,7 +970,7 @@ function ProfileInner() {
                   setPendingPhoto(null);
                   if (data) void uploadPhoto(data, { verified: true });
                 }}
-                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98]"
+                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-[#2a1a10] transition active:scale-[0.98]"
               >
                 Check & add
               </button>

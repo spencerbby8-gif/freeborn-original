@@ -1076,7 +1076,7 @@ export function ProfileView({
                 type="button"
                 disabled={!reportReason || reportBusy}
                 onClick={() => void submitReport()}
-                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-white transition active:scale-[0.98] disabled:opacity-50"
+                className="flex-1 rounded-full bg-[var(--gradient-ember-warm)] py-3 text-[13px] font-black text-[#2a1a10] transition active:scale-[0.98] disabled:opacity-50"
               >
                 {reportBusy ? "Sending…" : "Submit report"}
               </button>

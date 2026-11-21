@@ -28,7 +28,7 @@ function Card({ p, badge, action }: { p: LikedProfile; badge: string; action?: R
         {p.photo ? (
           <PhotoImage src={p.photo} alt={p.name} className="h-full w-full" imgClassName="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center bg-[var(--gradient-ember-warm)] font-display text-3xl font-bold text-white">
+          <span className="flex h-full w-full items-center justify-center bg-[var(--gradient-ember-warm)] font-display text-3xl font-bold text-[#2a1a10]">
             {p.name.charAt(0)}
           </span>
         )}
@@ -187,6 +187,7 @@ export function LikesView() {
   return (
     <div className="mx-auto max-w-[880px]">
       <div className="fb-section-head">
+        <p className="eyebrow">THE ROOM LIKED YOU</p>
         <h1 className="fb-h-title">Likes</h1>
         <p className="fb-meta">
           Everyone who liked you, visible for free, and everyone you have liked.

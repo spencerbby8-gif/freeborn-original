@@ -74,9 +74,10 @@ export function NotificationsView() {
   return (
     <div className="mx-auto max-w-[680px]">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Alerts</h1>
+        <p className="eyebrow">ALERTS</p>
+        <h1 className="font-display text-[30px] font-normal tracking-tight sm:text-[34px]">Alerts</h1>
         {unreadCount > 0 ? (
-          <span className="rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1 text-[11px] font-black text-white">
+          <span className="rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1 text-[11px] font-black text-[#2a1a10]">
             {unreadCount} new
           </span>
         ) : null}
@@ -91,10 +92,10 @@ export function NotificationsView() {
             key={n.id}
             type="button"
             onClick={() => open(n)}
-            className={`flex w-full items-start gap-4 rounded-[22px] border p-4 text-left transition hover:border-white/[0.2] ${
+            className={`flex w-full items-start gap-4 rounded-[20px] border p-4 text-left transition hover:border-[var(--color-line-strong)] ${
               n.unread
                 ? "border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05]"
-                : "border-white/[0.07] bg-white/[0.025] hover:bg-white/[0.045]"
+                : "border-[var(--color-line)] bg-[var(--color-midnight)] hover:bg-[var(--color-abyss)]"
             }`}
           >
             {n.photo ? (
@@ -106,7 +107,7 @@ export function NotificationsView() {
                     ? "bg-white/[0.06] text-[var(--color-sand)]"
                     : n.type === "verification"
                       ? "bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]"
-                      : "bg-[var(--gradient-ember-warm)] text-white"
+                      : "bg-[var(--gradient-ember-warm)] text-[#2a1a10]"
                 }`}
               >
                 {n.type === "message" ? (
@@ -132,7 +133,7 @@ export function NotificationsView() {
             )}
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <p className="truncate text-[14px] font-black">{n.title}</p>
+                <p className="truncate text-[14px] font-bold text-[var(--color-pearl)]">{n.title}</p>
                 <span className="shrink-0 text-[11px] text-[var(--color-ash)]">{timeAgo(n.at)}</span>
               </div>
               <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[var(--color-mist)]">
@@ -140,7 +141,7 @@ export function NotificationsView() {
               </p>
             </div>
             {n.unread ? (
-              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-ember-500)] shadow-[0_0_8px_rgba(239,94,94,0.7)]" />
+              <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_8px_rgba(233,195,124,0.7)]" />
             ) : (
               <svg className="mt-1 shrink-0 text-[var(--color-ash)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M9 6l6 6-6 6" />

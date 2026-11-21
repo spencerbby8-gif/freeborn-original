@@ -101,7 +101,7 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
           type="button"
           disabled={busy || city.trim().length < 2}
           onClick={() => void register()}
-          className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+          className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-[#2a1a10] transition active:scale-95 disabled:opacity-50"
         >
           {interested ? "Update city" : busy ? "Saving…" : "Count me in"}
         </button>
@@ -180,7 +180,7 @@ function SupportCard() {
         type="button"
         disabled={busy || message.trim().length < 5}
         onClick={() => void send()}
-        className="mt-2.5 rounded-xl bg-[var(--gradient-ember-warm)] px-5 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+        className="mt-2.5 rounded-xl bg-[var(--gradient-ember-warm)] px-5 py-2.5 text-[12.5px] font-black text-[#2a1a10] transition active:scale-95 disabled:opacity-50"
       >
         {busy ? "Sending…" : "Send message"}
       </button>
@@ -1058,7 +1058,7 @@ export function SettingsView() {
             <button
               type="button"
               onClick={openVerifyFlow}
-              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
             >
               Verify
             </button>
@@ -1079,7 +1079,7 @@ export function SettingsView() {
               aria-pressed={active}
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-5 py-3 text-[13.5px] font-bold transition ${
                 active
-                  ? "border-transparent bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
+                  ? "border-transparent bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[var(--shadow-primary-btn)]"
                   : "border-white/10 bg-white/[0.03] text-[var(--color-sand)] hover:border-white/25 hover:text-[var(--color-pearl)]"
               }`}
             >
@@ -1590,7 +1590,7 @@ export function SettingsView() {
                   type="button"
                   disabled={busy || !emailNew.trim()}
                   onClick={() => void accountAction({ action: "change-email", newEmail: emailNew.trim() }).then((ok) => ok && setEmailNew(""))}
-                  className="fb-btn fb-btn-sm shrink-0 bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
+                  className="fb-btn fb-btn-sm shrink-0 bg-[var(--gradient-ember-warm)] font-black text-[#2a1a10] disabled:opacity-50"
                 >
                   Update
                 </button>
@@ -1641,7 +1641,7 @@ export function SettingsView() {
                     pwdNew !== pwdConfirm
                   }
                   onClick={() => void changePassword()}
-                  className="fb-btn fb-btn-sm bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
+                  className="fb-btn fb-btn-sm bg-[var(--gradient-ember-warm)] font-black text-[#2a1a10] disabled:opacity-50"
                 >
                   Save new password
                 </button>

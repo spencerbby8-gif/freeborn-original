@@ -644,8 +644,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {loading ? (
         <div className="skeleton aspect-[3/4.6] rounded-[28px] border border-white/[0.07]" />
       ) : signedOut ? (
-        <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-xl font-semibold">The room is for members.</p>
+        <div className="rounded-[26px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-10 text-center">
+          <p className="font-display text-[26px] font-normal tracking-tight">The room is for members.</p>
           <p className="mx-auto mt-2 max-w-[36ch] text-sm leading-6 text-[var(--color-mist)]">
             Profiles are only shown to signed-in members, so no one&rsquo;s face, city or
             health views sit on a page the whole internet can read. Sign in to walk the
@@ -667,8 +667,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           </div>
         </div>
       ) : !current ? (
-        <div className="rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-xl font-semibold">
+        <div className="rounded-[26px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-10 text-center">
+          <p className="font-display text-[26px] font-normal tracking-tight">
             {filteredOut
               ? `${roomTotal} ${roomTotal === 1 ? "member is" : "members are"} in the room, and your filters leave none of them.`
               : panelFiltersOn
@@ -811,7 +811,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       aria-hidden
                       className="flex h-full w-full select-none items-center justify-center bg-[var(--gradient-ember-warm)]"
                     >
-                      <span className="font-display text-7xl font-bold text-white/90">
+                      <span className="font-display text-7xl font-normal text-[#2a1a10]/85">
                         {(profile.name || "M").charAt(0).toUpperCase()}
                       </span>
                     </div>
@@ -1035,7 +1035,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
                 aria-label="Super like"
                 title="Super Like: stand out"
-                className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-white transition hover:scale-[1.04] active:scale-95"
+                className="superlike-btn relative flex h-[82px] w-[82px] items-center justify-center rounded-full text-[#2a1a10] transition hover:scale-[1.04] active:scale-95"
               >
                 <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
@@ -1055,7 +1055,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 <svg width="26" height="26" viewBox="0 0 30 30" fill="none" aria-hidden>
                   <path
                     d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
-                    fill="#fff7f2"
+                    fill="#2a1a10"
                   />
                 </svg>
               </button>
@@ -1082,8 +1082,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
       {/* Super-like bubble */}
       {bubble ? (
         <div key={bubble.key} className="pointer-events-none fixed z-[90]" style={{ left: bubble.x - 30, top: bubble.y - 30 }}>
-          <div className="superlike-bubble flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] shadow-[0_18px_50px_-10px_rgba(239,94,94,0.7)]">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff7f2" aria-hidden>
+          <div className="superlike-bubble flex h-[60px] w-[60px] items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] shadow-[0_18px_50px_-10px_rgba(240,190,140,0.45)]">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#2a1a10" aria-hidden>
               <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
             </svg>
           </div>

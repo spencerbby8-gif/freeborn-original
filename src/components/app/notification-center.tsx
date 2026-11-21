@@ -223,7 +223,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
                     }
                     setAskOpen(false);
                   }}
-                  className="rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-white transition active:scale-95"
+                  className="rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-[#2a1a10] transition active:scale-95"
                 >
                   Turn on alerts
                 </button>
@@ -262,7 +262,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
             {b.photo ? (
               <PhotoImage src={b.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/15" imgClassName="object-cover" compact />
             ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-[#2a1a10]">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
                 </svg>

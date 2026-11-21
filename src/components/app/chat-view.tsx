@@ -443,7 +443,7 @@ function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?
   return (
     <span
       style={{ width: size, height: size }}
-      className="flex shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-black text-white"
+      className="flex shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-black text-[#2a1a10]"
     >
       {name.charAt(0)}
     </span>
@@ -1154,7 +1154,7 @@ function Thread({
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
-                ? "rounded-br-md bg-[var(--gradient-ember-warm)] text-white shadow-[0_8px_20px_-10px_rgba(239,94,94,0.6)]"
+                ? "rounded-br-md bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[0_8px_20px_-10px_rgba(240,190,140,0.35)]"
                 : "rounded-bl-md border border-white/[0.07] bg-white/[0.045] text-[var(--color-ivory)]"
             }`}
           >
@@ -1183,7 +1183,7 @@ function Thread({
             {burstId === m.id ? (
               <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <svg
-                  className="fb-heart-burst h-16 w-16 drop-shadow-[0_6px_18px_rgba(239,94,94,0.8)]"
+                  className="fb-heart-burst h-16 w-16 drop-shadow-[0_6px_18px_rgba(240,150,130,0.8)]"
                   viewBox="0 0 24 24"
                   fill="#ff6b7a"
                   aria-hidden
@@ -1248,7 +1248,7 @@ function Thread({
           <span className="relative shrink-0 rounded-full ring-2 ring-white/10">
             <Avatar photo={match.with.photo} name={match.with.name} size={46} />
             {match.with.active ? (
-              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#151724]" />
             ) : null}
           </span>
           <div className="min-w-0">
@@ -1371,7 +1371,7 @@ function Thread({
                 type="button"
                 onClick={() => void sendPacket()}
                 disabled={sending || uploading}
-                className="rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
+                className="rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
               >
                 Send packet
               </button>
@@ -1586,7 +1586,7 @@ function Thread({
           disabled={sending || uploading || (!text.trim() && staged.length === 0)}
           aria-label={staged.length > 0 ? "Send packet" : "Send message"}
           title={staged.length > 0 ? "Send packet" : "Send message"}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
         >
           {staged.length > 0 ? (
             <span className="text-[13px] font-black">{staged.length}</span>
@@ -1883,7 +1883,8 @@ export function ChatView() {
 
   return (
     <div className="mx-auto max-w-[680px]">
-      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Chat</h1>
+      <p className="eyebrow">MESSAGES</p>
+      <h1 className="font-display text-[30px] font-normal tracking-tight sm:text-[34px]">Chat</h1>
       <p className="mt-1.5 text-sm text-[var(--color-mist)]">
         Your matches and conversations, values already on the table.
       </p>
@@ -1947,8 +1948,8 @@ export function ChatView() {
       ) : null}
 
       {matches.length === 0 ? (
-        <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
-          <p className="font-display text-xl font-semibold">No conversations yet</p>
+        <div className="mt-10 rounded-[26px] border border-[var(--color-line)] bg-[var(--color-midnight)] p-10 text-center">
+          <p className="font-display text-[26px] font-normal tracking-tight">No conversations yet</p>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--color-mist)]">
             When you like someone in Discover and it&apos;s mutual, the conversation opens here.
           </p>
@@ -1984,7 +1985,7 @@ export function ChatView() {
                 <span className="relative block">
                   <Avatar photo={m.with.photo} name={m.with.name} />
                   {m.with.active ? (
-                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#151724]" />
                   ) : null}
                 </span>
               </button>
@@ -2004,7 +2005,7 @@ export function ChatView() {
                 </p>
               </div>
               {m.unread > 0 ? (
-                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1.5 text-[11px] font-black text-white">
+                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1.5 text-[11px] font-black text-[#2a1a10]">
                   {m.unread}
                 </span>
               ) : null}
