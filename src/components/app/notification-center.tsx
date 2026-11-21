@@ -197,57 +197,59 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   return (
     <>
       {/* Permission ask — once, polite, dismissible */}
-      {/* The permission ask sits clear of the action row. Measured on a 393x852
-          viewport: at bottom-24 (96px) it overlaid .action-row, which occupies the
-          band from ~584px to ~655px and must stay tappable — "Say hello" is the
-          product's primary action and a first-run prompt was sitting on top of it.
-          bottom-40 clears the row while staying reachable. */}
+      {/* PERMISSION ASK — compact, and deliberately out of the design's way.
+          Measured on a 393x852 viewport: as a large card it covered the
+          .card-tags and .card-bio of the deck card, and at bottom-24 it covered
+          .action-row as well. Neither is acceptable on the surface the member
+          spends most of their time on, and the prototype has no such prompt at
+          all.
+
+          It is now a single compact line pinned in the gap between the card and
+          the fixed action row (card body ends ~631px, row starts ~708px on this
+          viewport), so it never masks profile content or a control. The
+          capability is unchanged: same one-time ask, same two choices. */}
       {askOpen && !callUiUp ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-40 z-[310] flex justify-center px-4">
-          <div className="pointer-events-auto animate-scale-in flex w-full max-w-[440px] items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/40 bg-[#10141f]/97 p-4 shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md">
-            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <div className="pointer-events-none fixed inset-x-0 bottom-[152px] z-[310] flex justify-center px-4">
+          <div className="pointer-events-auto flex w-full max-w-[420px] items-center gap-2.5 rounded-full border border-[var(--color-gold-500)]/35 bg-[#10141f]/97 py-1.5 pl-2.5 pr-1.5 shadow-[0_18px_50px_-12px_rgba(0,0,0,0.9)] backdrop-blur-md">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M18 8.4a6 6 0 10-12 0c0 6.6-2.7 8.4-2.7 8.4h17.4S18 15 18 8.4z" />
                 <path d="M13.7 20a2 2 0 01-3.4 0" />
               </svg>
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Never miss a match</p>
-              <p className="mt-0.5 text-[12px] leading-4 text-[var(--color-mist)]">
-                Allow Freeborn alerts and sounds so matches, likes, and messages reach you the second they happen.
-              </p>
-              <div className="mt-2.5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void requestNotifyPermission().then(() => playChime());
-                    try {
-                      window.localStorage.setItem(ASKED_KEY, "1");
-                    } catch {
-                      /* ignore */
-                    }
-                    setAskOpen(false);
-                  }}
-                  className="rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-[#2a1a10] transition active:scale-95"
-                >
-                  Turn on alerts
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      window.localStorage.setItem(ASKED_KEY, "1");
-                    } catch {
-                      /* ignore */
-                    }
-                    setAskOpen(false);
-                  }}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[12px] font-bold text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
-                >
-                  Maybe later
-                </button>
-              </div>
-            </div>
+            <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-[var(--color-pearl)]">
+              Get alerts for matches and messages
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void requestNotifyPermission().then(() => playChime());
+                try {
+                  window.localStorage.setItem(ASKED_KEY, "1");
+                } catch {
+                  /* ignore */
+                }
+                setAskOpen(false);
+              }}
+              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-3 py-1.5 text-[11px] font-black text-[#2a1a10]"
+            >
+              Turn on
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.localStorage.setItem(ASKED_KEY, "1");
+                } catch {
+                  /* ignore */
+                }
+                setAskOpen(false);
+              }}
+              aria-label="Maybe later"
+              className="shrink-0 rounded-full px-2 py-1.5 text-[11px] font-bold text-[var(--color-ash)]"
+            >
+              Later
+            </button>
           </div>
         </div>
       ) : null}
