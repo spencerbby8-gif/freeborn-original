@@ -197,8 +197,13 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   return (
     <>
       {/* Permission ask — once, polite, dismissible */}
+      {/* The permission ask sits clear of the action row. Measured on a 393x852
+          viewport: at bottom-24 (96px) it overlaid .action-row, which occupies the
+          band from ~584px to ~655px and must stay tappable — "Say hello" is the
+          product's primary action and a first-run prompt was sitting on top of it.
+          bottom-40 clears the row while staying reachable. */}
       {askOpen && !callUiUp ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[310] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-40 z-[310] flex justify-center px-4">
           <div className="pointer-events-auto animate-scale-in flex w-full max-w-[440px] items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/40 bg-[#10141f]/97 p-4 shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

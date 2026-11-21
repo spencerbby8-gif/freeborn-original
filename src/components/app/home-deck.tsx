@@ -147,17 +147,43 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) return;
-        const me = (await res.json()) as {
-          city?: string;
-          relationshipGoals?: string[];
-          values?: string[];
+        /* The payload is nested: { profile: { … }, completeness, … }.
+           Reading city off the top level silently yielded "" and the eyebrow
+           fell back to the mock's own "BROOKLYN" for a member whose real city
+           is Enugu — measured, fixed. */
+        const json = (await res.json()) as {
+          profile?: {
+            city?: string;
+            relationshipGoals?: string[];
+            values?: string[];
+            lifestyle?: string[];
+          };
         };
+        const me = json.profile ?? {};
         if (cancelled) return;
         setViewerCity((me.city ?? "").trim());
-        setViewerIntents([
-          ...(me.relationshipGoals ?? []),
+        /* Chips, in the reference's own order: the member's primary intention
+           first (rendered with .chip-rose), then two things they actually
+           stated about themselves (rendered .chip-rose-dim), then the flame.
+           Deduplicated, and only ever from fields the member filled in. */
+        const goalLabel = (g: string) =>
+          (
+            {
+              life_partner: "Long-term",
+              marriage: "Marriage",
+              long_term: "Long-term",
+              still_exploring: "Still exploring",
+              short_term: "Something casual",
+              friends: "New friends",
+            } as Record<string, string>
+          )[g] ?? g.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
+        const goal = (me.relationshipGoals ?? [])[0];
+        const chips = [
+          ...(goal ? [goalLabel(goal)] : []),
           ...(me.values ?? []),
-        ].filter(Boolean).slice(0, 3));
+          ...(me.lifestyle ?? []),
+        ].filter(Boolean);
+        setViewerIntents(Array.from(new Set(chips)).slice(0, 3));
       } catch {
         /* header falls back to the prototype's own wording */
       }
@@ -1061,7 +1087,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
                   {/* Photo count stays visible on a multi-photo profile. */}
                   {profile.photos.length > 1 ? (
-                    <span className="absolute left-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
+                    <span className="absolute right-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
                       1/{profile.photos.length}
                     </span>
                   ) : null}
