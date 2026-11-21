@@ -315,8 +315,28 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
   const loadProfiles = useCallback(async () => {
     const params = buildProfileParams(filters, origin);
-    // Bearer token lets the API exclude the viewer's own card from the deck.
-    const token = await getAccessToken().catch(() => null);
+    /* Bearer token lets the API exclude the viewer's own card from the deck.
+       ---------------------------------------------------------------------
+       RACE, measured on the preview deployment (393x852, signed in as a real
+       member): this effect runs on mount, which can be BEFORE the Supabase
+       client has hydrated the stored session. getAccessToken() then returns
+       null, /api/profiles answers 401, and the deck latched into its
+       "The room is for members" panel for a member who was in fact signed in —
+       with no retry, because nothing re-ran once the session appeared. On the
+       same page load /api/profile/me returned 200, which is how the
+       inconsistency showed up.
+       Fix: wait for the session to hydrate before the first attempt, and if the
+       API still answers 401, retry once after getSession() has resolved. */
+    let token = await getAccessToken().catch(() => null);
+    if (!token) {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token ?? null;
+      } catch {
+        /* fall through to the 401 path below */
+      }
+    }
     const res = await fetch(`/api/profiles?${params.toString()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
@@ -746,6 +766,17 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         <>
         <div className="disc-head">
           <p className="eyebrow">{discoverEyebrow}</p>
+          <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("freeborn:open-filters"))}
+            aria-label="Open filters"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-sand)] transition hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+          </button>
           <Link
             href="/app/notifications"
             className="disc-heart"
@@ -763,6 +794,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               <span className="badge">{heartCount > 9 ? "9+" : heartCount}</span>
             ) : null}
           </Link>
+          </div>
         </div>
         <h1 className="display disc-headline">
           Someone you&rsquo;ll<br />remember.

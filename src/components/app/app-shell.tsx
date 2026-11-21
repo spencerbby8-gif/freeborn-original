@@ -102,6 +102,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  /* Discover renders its own header (the prototype's .disc-head), so the shell's
+     top bar is suppressed there to avoid two wordmarks and two hearts. The
+     Filters control moved into that header, and asks the shell to open the panel
+     through this event rather than duplicating the panel's state. */
+  useEffect(() => {
+    const open = () => setFiltersOpen(true);
+    window.addEventListener("freeborn:open-filters", open);
+    return () => window.removeEventListener("freeborn:open-filters", open);
+  }, []);
   /** True while a chat conversation is open — the bottom tab bar hides. */
   const [threadOpen, setThreadOpen] = useState(false);
   /** Unread dots — fed live by the NotificationCenter. */
@@ -303,6 +313,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               top-right and filtering is secondary to knowing someone is waiting.
               Alerts did not lose a home — they moved from a fifth tab into this
               heart, and the badge is the real unread count. */}
+          {pathname === "/app" ? null : (
           <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 lg:hidden">
             <Link href="/" className="transition hover:opacity-80">
               <Wordmark size="sm" />
@@ -334,6 +345,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
           </header>
+          )}
 
           <main className={`flex-1 px-4 pt-6 sm:px-6 ${threadOpen ? "pb-4" : "pb-28"}`}>{children}</main>
         </div>
