@@ -483,6 +483,11 @@ a { color: inherit; text-decoration: none; }
   background: var(--gradient-ember-warm);
   color: #fff7f2;
   box-shadow: var(--shadow-primary-btn);
+  /* CTAs stay on one line, same as .fb-btn. The unlayered element rule
+     `button { white-space: normal }` would otherwise beat the layered
+     `.whitespace-nowrap` utility and wrap the label to two lines inside
+     the pill. */
+  white-space: nowrap;
 }
 .btn-ember:hover { transform: translateY(-2px); filter: brightness(1.05); }
 .btn-ember:active { transform: translateY(0) scale(0.985); }
