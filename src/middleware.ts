@@ -37,6 +37,18 @@ const CSP_MODE: "enforce" | "report-only" = "enforce";
 const CSP_INLINE_SCRIPTS = false;
 
 export async function middleware(request: NextRequest) {
+  /* The static prototype mock is a review artifact, not a member surface.
+   * It is copied into public/prototype/ so Vercel PREVIEW deployments can serve
+   * it at /prototype/; production answers a plain 404. VERCEL_ENV is inlined by
+   * Vercel at build time ('production' | 'preview' | 'development'); unset means
+   * a local/self-hosted build, where the mock stays visible for review. */
+  if (
+    request.nextUrl.pathname.startsWith("/prototype") &&
+    process.env.VERCEL_ENV === "production"
+  ) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   /* CSRF layer for the whole surface (audit finding F-C / F-D follow-up, 2026-10-28).
    *
    * WHY HERE AND NOT ONLY PER-ROUTE

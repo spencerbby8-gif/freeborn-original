@@ -35,3 +35,13 @@ Any static file server works, e.g. `npx serve prototype` — or open `prototype/
 
 `src/` is the production application (freeborndating.com). Nothing in `prototype/` is
 imported by the app, ships with it, or affects its build. It is documentation as code.
+
+## Serving it on the PR preview
+
+`public/prototype/` carries a copy of just the runnable app (`index.html`,
+`styles.css`, `app.js`, `assets/`) so Vercel **preview** deployments can serve it
+at `/prototype/` — that is what the redesigned-15-screens review link uses.
+`src/middleware.ts` answers a plain **404 on production** for `/prototype/*`;
+local builds (where `VERCEL_ENV` is unset) keep it visible. The copies under
+`public/prototype/` are build artifacts of this folder — when either changes,
+re-copy, don't hand-edit the duplicate.
