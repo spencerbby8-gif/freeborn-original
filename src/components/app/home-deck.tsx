@@ -826,7 +826,12 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           Someone you&rsquo;ll<br />remember.
         </h1>
         {intentChips.length > 0 ? (
-          <div className="intent-chips">
+          /* The reference lays these out in one non-wrapping row. Real member
+             values ("Medical freedom", "Natural health") are longer than the
+             mock's placeholders, so the row overflowed the viewport by 10px and
+             clipped the flame chip. Scrolling the row keeps the single line the
+             mock specifies without widening the document. */
+          <div className="intent-chips overflow-x-auto pb-1">
             {intentChips.map((chip, i) => (
               <span key={chip} className={i === 0 ? "chip chip-rose" : "chip chip-rose-dim"}>
                 {chip}
@@ -1200,7 +1205,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               scroll to reach "Say hello". The mock is a fixed-height phone so it
               never hit this; a real scrolling page does.
               ------------------------------------------------------------------ */}
-          <div className="action-row sticky bottom-[72px] z-40 mt-4">
+          <div className="action-row fixed inset-x-0 bottom-[72px] z-40 mx-auto mt-4 w-[calc(100%-32px)] max-w-[420px] rounded-[26px] border border-white/[0.06] bg-[#070a12]/92 py-1 backdrop-blur-md">
             <button
               type="button"
               onClick={() => act("pass")}
@@ -1252,7 +1257,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           {/* Undo stays, below the row, because the reference draws exactly three
               controls and adding a fourth is what clipped the previous version.
               The capability is preserved rather than dropped. */}
-          <div className="mt-3 flex items-center justify-center gap-2">
+          {/* Clearance for the fixed action row (71px) + tab bar (72px), so the
+              bottom of the card is never hidden behind them. */}
+          <div className="h-[92px]" aria-hidden />
+          <div className="mt-3 flex items-center justify-center gap-2 pb-1">
             <button
               type="button"
               onClick={() => void undoLastSwipe()}
