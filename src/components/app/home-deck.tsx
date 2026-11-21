@@ -986,7 +986,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               y=864 in an 852px viewport, i.e. entirely below the fold, and the member has to
               scroll to reach "Say hello". Measured, not assumed — the first attempt at this
               row dropped the anchor and did exactly that. */}
-          <div className="action-row sticky bottom-[72px] z-40 mt-6 flex items-center justify-center gap-6">
+          <div className="action-row sticky bottom-[72px] z-40 mt-6 flex items-center justify-center gap-5 rounded-[26px] border border-white/[0.06] bg-[#070a12]/92 py-2 backdrop-blur-md">
             <button
               type="button"
               onClick={() => act("pass")}
@@ -1004,7 +1004,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               onClick={() => act("like")}
               aria-label="Like — say hello"
               title="Say hello"
-              className="btn-ember btn-shine relative flex h-[52px] shrink-0 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full px-7 transition active:scale-95"
+              className="btn-ember btn-shine relative flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full px-5 transition active:scale-95"
             >
               <svg width="19" height="19" viewBox="0 0 30 30" fill="none" aria-hidden>
                 <path
