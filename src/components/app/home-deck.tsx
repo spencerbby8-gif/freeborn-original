@@ -1026,7 +1026,7 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 onClick={() => act("like")}
                 aria-label="Like"
                 title="Say hello"
-                className="btn-ember btn-shine relative flex h-16 items-center justify-center gap-2.5 overflow-hidden rounded-full px-8 transition active:scale-95"
+                className="btn-ember btn-shine relative flex h-16 shrink-0 items-center justify-center gap-2.5 overflow-hidden whitespace-nowrap rounded-full px-8 transition active:scale-95"
               >
                 <svg width="22" height="22" viewBox="0 0 30 30" fill="none" aria-hidden>
                   <path
