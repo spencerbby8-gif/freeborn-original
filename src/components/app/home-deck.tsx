@@ -982,7 +982,11 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 · the pill now sizes to its content instead of carrying px-8 on a fixed
                   h-16, and is clamped with max-w so a long label can never push it out.
               Labels stay in aria-label/title, so nothing is lost to a screen reader. */}
-          <div className="action-row mt-6 flex items-center justify-center gap-6">
+          {/* `sticky bottom-[72px]` is load-bearing: without an anchor the row renders at
+              y=864 in an 852px viewport, i.e. entirely below the fold, and the member has to
+              scroll to reach "Say hello". Measured, not assumed — the first attempt at this
+              row dropped the anchor and did exactly that. */}
+          <div className="action-row sticky bottom-[72px] z-40 mt-6 flex items-center justify-center gap-6">
             <button
               type="button"
               onClick={() => act("pass")}
