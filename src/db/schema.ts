@@ -160,6 +160,13 @@ export const userProfiles = pgTable(
     smoking: text("smoking"),
     educationLevel: text("education_level"),
     heightCmProfile: integer("height_cm_profile"),
+    /* Self-described star sign shown in the profile-detail info grid.
+       Added in 20261121000000_proto_profile_fields.sql. Nullable: never
+       inferred from birth_date, and an absent value means the UI omits the
+       tile rather than printing a placeholder. The migration also appends it
+       to the column-level UPDATE allowlist, without which members can read it
+       but never save it. */
+    zodiac: text("zodiac"),
     identityConsistencyStatus: text("identity_consistency_status").notNull().default("ready"),
     lastConsistencyCheckedAt: timestamp("last_consistency_checked_at", { withTimezone: true }),
     lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),

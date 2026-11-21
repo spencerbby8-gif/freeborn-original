@@ -5,6 +5,10 @@ import { Fraunces, Inter } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
 import { absolute, CONTACT_EMAIL, OG_IMAGE, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
+/* The approved 15-screen design, lifted from prototype/styles.css and scoped to
+   .fb-proto. Imported AFTER globals.css so its tokens and component rules win
+   on the migrated surfaces without touching a single legacy selector. */
+import "./proto-skin.css";
 
 const fraunces = Fraunces({
   subsets: ["latin"],

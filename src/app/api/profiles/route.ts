@@ -515,6 +515,24 @@ export async function GET(request: Request) {
       interests: row.interests ?? [],
       lifestyle: row.lifestylePreferences ?? [],
       relationshipGoals: row.relationshipGoals ?? [],
+      /* ------------------------------------------------------------------
+         Facts the approved design renders in the card meta line and the
+         profile-detail info grid. Every one of these was already stored but
+         never reached the client, which is why earlier attempts at matching
+         the mock had to invent values. Sent raw and unsynthesised: an empty
+         string means the member has not answered, and every surface omits the
+         tile rather than printing a placeholder.
+         ------------------------------------------------------------------ */
+      heightCm: row.heightCm ?? row.heightCmProfile ?? null,
+      drinking: row.drinking ?? "",
+      zodiac: row.zodiac ?? "",
+      language: row.language ?? "",
+      religion: row.religion ?? "",
+      education: row.educationLevel ?? row.education ?? "",
+      smoking: row.smoking ?? "",
+      maritalStatus: row.maritalStatus ?? "",
+      hasKids: row.hasKids ?? "",
+      wantsKids: row.wantsKids ?? "",
       photo: resolvePhotoUrl(photoByUser.get(row.id)?.storagePath ?? ""),
       photos: (photosByUser.get(row.id) ?? []).map(resolvePhotoUrl),
       hasPhoto: photoByUser.has(row.id),

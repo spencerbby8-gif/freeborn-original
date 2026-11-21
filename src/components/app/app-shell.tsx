@@ -10,6 +10,26 @@ import { VerifyGate } from "./verify-modal";
 import { CallListener } from "./call-listener";
 import { NotificationCenter } from "./notification-center";
 
+/* ---------------------------------------------------------------------------
+   TAB BAR — the approved prototype's four tabs, in its order and with its
+   labels: Discover · Likes · Messages · Profile.
+
+   Two routes left the bar in this change and NEITHER was removed:
+
+     /app/chat           now lives under "Messages". The prototype's Messages
+                         screen is the conversation list, so the chat route is
+                         exactly what that tab opens. Nothing was deleted — the
+                         label changed from "Chat" to "Messages" and the route
+                         stayed identical.
+     /app/notifications  moved to the heart in the top-right of the Discover
+                         header, which is where the prototype puts alerts, with
+                         its live unread count as the badge. Reached by tapping
+                         the heart; the route is unchanged.
+
+   Filtering used to be a fifth nav item ("Filters"). It became a header
+   control beside the heart, matching the prototype's disc-head row, and keeps
+   opening the same FilterPanel.
+   ------------------------------------------------------------------------- */
 const tabs = [
   {
     href: "/app",
@@ -31,20 +51,10 @@ const tabs = [
   },
   {
     href: "/app/chat",
-    label: "Chat",
+    label: "Messages",
     icon: (
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/app/notifications",
-    label: "Alerts",
-    icon: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M18 8.4a6 6 0 10-12 0c0 6.6-2.7 8.4-2.7 8.4h17.4S18 15 18 8.4z" />
-        <path d="M13.7 20a2 2 0 01-3.4 0" />
       </svg>
     ),
   },
@@ -64,6 +74,25 @@ function FiltersIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M4 6h16M7 12h10M10 18h4" />
+    </svg>
+  );
+}
+
+/* The prototype's notification control, copied path-for-path from
+   prototype/index.html (#notifBell) so the shape is identical — the brief was
+   explicitly "don't edit that icon, leave it as it is". The only thing that
+   changes is the badge: in the mock it is the literal string "2", here it is
+   the live unread alert count, and the badge is omitted at zero rather than
+   showing a false "0". */
+export function ProtoHeartIcon({ size = 21 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 20s-6.8-4.5-9.2-9.3C1.6 7.7 4.2 4.9 7.2 4.9c1.8 0 3.3.9 4.8 2.4 1.5-1.5 3-2.4 4.8-2.4 3 0 5.6 2.8 4.4 5.8C18.8 15.5 12 20 12 20z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -115,6 +144,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const dotFor = (href: string): number =>
     href === "/app/notifications" ? unread.alerts : href === "/app/chat" ? unread.chat : href === "/app/likes" ? unread.likes : 0;
+
+  /* The heart shows alert + message unread together, because the prototype has
+     a single badge in that corner and a member should not have to open Alerts
+     to discover a message is waiting. Capped like the tab dots. */
+  const heartCount = unread.alerts + unread.chat;
 
   useEffect(() => {
     (async () => {
@@ -220,6 +254,24 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <Link
+              href="/app/notifications"
+              className={`relative flex items-center gap-3 rounded-2xl px-4 py-3 text-[14px] font-bold transition-all ${
+                isActive("/app/notifications")
+                  ? "rb-nav-active"
+                  : "text-[var(--color-mist)] hover:bg-[rgba(233,195,124,0.06)] hover:text-[var(--color-pearl)]"
+              }`}
+            >
+              <span className="relative">
+                <ProtoHeartIcon size={19} />
+                {heartCount > 0 ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-[#2a1a10] ring-2 ring-[#151724]">
+                    {heartCount > 9 ? "9+" : heartCount}
+                  </span>
+                ) : null}
+              </span>
+              Notifications
+            </Link>
             <button
               type="button"
               onClick={() => setFiltersOpen(true)}
@@ -244,20 +296,43 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Content column */}
         <div className="flex min-w-0 flex-1 flex-col">
-          {/* Top bar: wordmark + filters (sign-out lives in Settings) */}
-          <header className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 lg:hidden">
+          {/* Top bar — the prototype's disc-head row.
+              Left: wordmark. Right: the notification heart with its live badge,
+              then Filters. The heart replaces the button that used to say
+              "Filters" in this corner, because the prototype puts notifications
+              top-right and filtering is secondary to knowing someone is waiting.
+              Alerts did not lose a home — they moved from a fifth tab into this
+              heart, and the badge is the real unread count. */}
+          <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 lg:hidden">
             <Link href="/" className="transition hover:opacity-80">
               <Wordmark size="sm" />
             </Link>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              aria-label="Open filters"
-              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] font-bold text-[var(--color-sand)] transition hover:text-[var(--color-pearl)]"
-            >
-              <FiltersIcon />
-              Filters
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/app/notifications"
+                aria-label={
+                  heartCount > 0
+                    ? `Notifications, ${heartCount} unread`
+                    : "Notifications"
+                }
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-sand)] transition hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
+              >
+                <ProtoHeartIcon size={21} />
+                {heartCount > 0 ? (
+                  <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-[#2a1a10] ring-2 ring-[var(--color-night)]">
+                    {heartCount > 9 ? "9+" : heartCount}
+                  </span>
+                ) : null}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                aria-label="Open filters"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-sand)] transition hover:text-[var(--color-pearl)]"
+              >
+                <FiltersIcon />
+              </button>
+            </div>
           </header>
 
           <main className={`flex-1 px-4 pt-6 sm:px-6 ${threadOpen ? "pb-4" : "pb-28"}`}>{children}</main>

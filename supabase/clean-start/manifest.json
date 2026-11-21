@@ -12,9 +12,9 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 52,
+    "steps": 53,
     "publicTables": 44,
-    "publicColumns": 448,
+    "publicColumns": 449,
     "publicIndexes": 130,
     "publicChecks": 82
   },
@@ -324,6 +324,12 @@
       "name": "message_requests",
       "path": "db/migrations/2026-11-16-message-requests.sql",
       "sha256": "3895c769e2e8a9b9713c74e561c0668e9f8380314e4639e9edad38ccf860aacc"
+    },
+    {
+      "version": "20261121000000",
+      "name": "proto_profile_fields",
+      "path": "supabase/migrations/20261121000000_proto_profile_fields.sql",
+      "sha256": "b2c20acf634e19ae8e2dd912257a1ce20aa8f94557996426a5d9cab669898f00"
     },
     {
       "version": "20261105000800",

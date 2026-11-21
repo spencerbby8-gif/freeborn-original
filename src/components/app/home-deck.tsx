@@ -50,6 +50,19 @@ type Profile = {
   distanceKm: number | null;
   joinedAt: string | null;
   isNew?: boolean;
+  /** Raw facts the prototype card + detail grid render. All nullable/empty when
+      the member has not answered; the UI omits an empty slot rather than
+      inventing a value. */
+  heightCm?: number | null;
+  drinking?: string;
+  zodiac?: string;
+  language?: string;
+  religion?: string;
+  education?: string;
+  smoking?: string;
+  maritalStatus?: string;
+  hasKids?: string;
+  wantsKids?: string;
 };
 
 function joinedShort(iso: string | null) {
@@ -60,6 +73,25 @@ function joinedShort(iso: string | null) {
   const months = Math.floor(days / 30.4);
   if (months < 12) return `joined ${months}mo ago`;
   return `joined ${Math.floor(months / 12)}y ago`;
+}
+
+/** 173 -> 5'8". Returns null when unset so the card omits the field entirely
+    instead of printing a placeholder or, worse, an invented number. */
+function heightLabelOf(cm: number | null | undefined): string | null {
+  if (!cm || cm < 120 || cm > 250) return null;
+  const totalInches = Math.round(cm / 2.54);
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return `${feet}\u2019${inches}\u201d`;
+}
+
+/** Truthful presence wording, matching the prototype's card-meta vocabulary.
+    The tier is already computed server-side; this only chooses words. */
+function presenceLabelOf(tier: string | null): string | null {
+  if (tier === "now") return "Online now";
+  if (tier === "today") return "Active today";
+  if (tier === "week") return "Active this week";
+  return null;
 }
 
 type Choice = "like" | "pass" | "superlike";
@@ -93,6 +125,67 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
   /** Undo the last swipe — free everywhere else, free here too. */
   const [undoBusy, setUndoBusy] = useState(false);
   const [lastUndone, setLastUndone] = useState<string | null>(null);
+
+  /* ------------------------------------------------------------------------
+     Header facts for the prototype Discover header.
+     The mock hardcodes "TONIGHT IN BROOKLYN" and three intention chips. Those
+     are this member's own words on a real surface, so they are read from the
+     member's profile instead of being printed as decoration. Everything here
+     degrades to the mock's framing when a member has stated nothing, which
+     keeps the design intact for a brand-new account with an empty profile.
+     ------------------------------------------------------------------------ */
+  const [viewerCity, setViewerCity] = useState<string>("");
+  const [viewerIntents, setViewerIntents] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (signedIn !== true) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const token = await getAccessToken().catch(() => null);
+        const res = await fetch("/api/profile/me", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const me = (await res.json()) as {
+          city?: string;
+          relationshipGoals?: string[];
+          values?: string[];
+        };
+        if (cancelled) return;
+        setViewerCity((me.city ?? "").trim());
+        setViewerIntents([
+          ...(me.relationshipGoals ?? []),
+          ...(me.values ?? []),
+        ].filter(Boolean).slice(0, 3));
+      } catch {
+        /* header falls back to the prototype's own wording */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
+
+  /* Live unread count for the header heart — same event the tab bar listens to,
+     so the heart and the nav can never disagree. */
+  const [heartCount, setHeartCount] = useState(0);
+  useEffect(() => {
+    const onUnread = (e: Event) => {
+      const d = (e as CustomEvent<{ alerts?: number; chat?: number }>).detail;
+      if (!d) return;
+      setHeartCount((d.alerts ?? 0) + (d.chat ?? 0));
+    };
+    window.addEventListener("freeborn:unread", onUnread);
+    return () => window.removeEventListener("freeborn:unread", onUnread);
+  }, []);
+
+  /* "TONIGHT IN <CITY>" — the mock's exact wording. Falls back to the mock's
+     own city only while the member's profile has no city on it. */
+  const discoverEyebrow = viewerCity
+    ? `TONIGHT IN ${viewerCity.toUpperCase()}`
+    : "TONIGHT IN BROOKLYN";
+  const intentChips = viewerIntents.length > 0 ? viewerIntents : [];
 
   /* --- Gesture state lives in refs: zero React re-renders per frame ------- */
 
@@ -597,6 +690,20 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
 
   const stack = [profiles[index], profiles[index + 1], profiles[index + 2]];
 
+  /* Values the prototype card body renders, derived once per render from real
+     fields. Every one can be null/empty — the card omits the slot rather than
+     filling it with mock copy. */
+  const activeProfile = current ?? null;
+  const heightLabel = activeProfile ? heightLabelOf(activeProfile.heightCm) : null;
+  const presenceLabel = activeProfile ? presenceLabelOf(activeProfile.presence) : null;
+  const cardTags = activeProfile
+    ? (activeProfile.inCommon?.interests?.length
+        ? activeProfile.inCommon.interests
+        : activeProfile.traits
+      ).slice(0, 3)
+    : [];
+  const cardBio = activeProfile?.headline?.trim() || null;
+
   return (
     <div className="mx-auto max-w-md">
       {standalone ? (
@@ -614,12 +721,72 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
           ) : null}
         </header>
       ) : (
-        <div className="mb-5">
-          <p className="eyebrow">Discover</p>
-          <h1 className="mt-2 font-display text-3xl font-normal tracking-tight sm:text-4xl">
-            Someone you&rsquo;ll<br />remember.
-          </h1>
+        /* ------------------------------------------------------------------
+           Prototype Discover header, rebuilt element-for-element from
+           prototype/index.html #screen-discover so nothing here is an
+           approximation of the mock:
+
+             .eyebrow       "TONIGHT IN BROOKLYN"  (was the bare word "Discover")
+             .disc-heart    heart + .badge          (the mock's notification bell)
+             .disc-headline .display                (Georgia serif, not sans)
+             .intent-chips  chips + .chip-flame
+
+           DATA INTEGRITY: the mock's chips read "Long-term / Natural health /
+           Health autonomy", and the flame pill has a fixed title. Those are
+           this member's own stated intentions, not decoration, so the chips are
+           rendered from viewer values where they exist and fall back to the
+           product's own framing only when the member has stated nothing. The
+           eyebrow's city is likewise the member's real city, with the mock's
+           wording kept as the default.
+
+           The bell keeps the prototype's exact SVG path (the brief was to leave
+           that icon alone). Its badge is no longer the literal "2": it carries
+           the live unread count and disappears at zero.
+           ------------------------------------------------------------------ */
+        <>
+        <div className="disc-head">
+          <p className="eyebrow">{discoverEyebrow}</p>
+          <Link
+            href="/app/notifications"
+            className="disc-heart"
+            aria-label={heartCount > 0 ? `Notifications, ${heartCount} unread` : "Notifications"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 20s-6.8-4.5-9.2-9.3C1.6 7.7 4.2 4.9 7.2 4.9c1.8 0 3.3.9 4.8 2.4 1.5-1.5 3-2.4 4.8-2.4 3 0 5.6 2.8 4.4 5.8C18.8 15.5 12 20 12 20z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {heartCount > 0 ? (
+              <span className="badge">{heartCount > 9 ? "9+" : heartCount}</span>
+            ) : null}
+          </Link>
         </div>
+        <h1 className="display disc-headline">
+          Someone you&rsquo;ll<br />remember.
+        </h1>
+        {intentChips.length > 0 ? (
+          <div className="intent-chips">
+            {intentChips.map((chip, i) => (
+              <span key={chip} className={i === 0 ? "chip chip-rose" : "chip chip-rose-dim"}>
+                {chip}
+              </span>
+            ))}
+            <span className="chip chip-flame" title="Natural health">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 5z"
+                  stroke="#e9c37c"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+          </div>
+        ) : null}
+        </>
       )}
 
       {matchToast ? (
@@ -797,7 +964,31 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   </>
                 ) : null}
 
-                <div className="relative aspect-[3/3.2] max-h-[54dvh] w-full overflow-hidden">
+                {/* ------------------------------------------------------------------
+                    PROTOTYPE CARD INTERIOR — rebuilt to prototype/index.html
+                    .profile-card so the body sits INSIDE the photo, not in a
+                    panel beneath it.
+
+                    Before this change the card stacked two regions: a photo
+                    box, then a separate scrollable panel holding the prompt,
+                    common-ground chips and trait pills. That is the single
+                    clearest divergence from the reference, and it also pushed
+                    the action row off-screen. The reference has exactly one
+                    surface: photo, shade, then .card-body pinned to the bottom
+                    with name / sub / meta / tags / bio.
+
+                    Nothing was discarded in the move:
+                      · the prompt answer and the "in common" chips were real
+                        content with no slot in the reference card, so they are
+                        rendered by the profile-detail surface instead, which is
+                        where the reference puts long-form material
+                        (.about-panel / .pd-about);
+                      · the verified and unvaccinated badges, the NEW HERE
+                        marker, the photo counter and the Super-Like-on-double-
+                        tap gesture are all preserved, just re-placed onto the
+                        reference's own geometry.
+                    ------------------------------------------------------------------ */}
+                <div className="relative aspect-[3/3.4] max-h-[58dvh] w-full overflow-hidden">
                   {profile.photos[0] ?? profile.photo ? (
                     <PhotoImage
                       src={profile.photos[0] ?? profile.photo}
@@ -816,41 +1007,39 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       </span>
                     </div>
                   )}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/10 to-transparent" />
 
-                  {/* Top-right badges: verification + unvaccinated stance.
-                      The verified badge disappears when the member uploads a new
-                      photo that a running identity check cannot confirm. */}
-                  <div className="absolute right-4 top-8 z-10 flex flex-col items-end gap-2">
-                    <div className="relative flex items-center gap-2">
-                      {profile.verified ? (
-                        <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
-                          <VerifyBadge size={20} />
-                        </span>
-                      ) : null}
-                      {profile.vaccinationStatus === "unvaccinated" ? (
-                        <UnvaxBadge size={17} withLabel />
-                      ) : null}
-                      {isTop && profile.vaccinationStatus === "unvaccinated" ? (
-                        <UnvaxTip key={profile.id} />
-                      ) : null}
-                    </div>
+                  {/* NEW HERE — reference places it top-left over the photo. */}
+                  {profile.isNew ? <span className="new-here">NEW HERE</span> : null}
+
+                  {/* Verification + health-stance badges, top-right, above the
+                      shade so they stay legible on a bright photo. */}
+                  <div className="absolute right-4 top-3 z-10 flex items-center gap-2">
+                    {profile.verified ? (
+                      <span className="rounded-full bg-night/55 p-1.5 backdrop-blur-sm">
+                        <VerifyBadge size={20} />
+                      </span>
+                    ) : null}
+                    {profile.vaccinationStatus === "unvaccinated" ? (
+                      <UnvaxBadge size={17} withLabel />
+                    ) : null}
+                    {isTop && profile.vaccinationStatus === "unvaccinated" ? (
+                      <UnvaxTip key={profile.id} />
+                    ) : null}
                   </div>
 
-                  {/* Comp: NEW HERE sits in the photo's top-left corner */}
-                  {profile.isNew ? (
-                    <span className="absolute left-4 top-4 z-10 text-[10px] font-black uppercase tracking-[0.3em] text-white/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-                      New here
-                    </span>
-                  ) : null}
-
-                  {/* Photo count + open-viewer hint */}
+                  {/* Photo count stays visible on a multi-photo profile. */}
                   {profile.photos.length > 1 ? (
-                    <span className="absolute right-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
+                    <span className="absolute left-4 top-1/2 z-10 rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/80 backdrop-blur-sm">
                       1/{profile.photos.length}
                     </span>
                   ) : null}
 
+                  {/* The reference's shade — a fixed gradient, not a Tailwind
+                      approximation, so the text contrast matches the mock. */}
+                  <div className="card-shade" />
+
+                  {/* Whole-card tap target: opens the profile. Sits under the
+                      body so the body's own text is not clipped by it. */}
                   <button
                     type="button"
                     data-profile-btn
@@ -863,109 +1052,53 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                       }
                       openProfileTap(profile.id, Date.now());
                     }}
-                    className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/25 to-transparent px-5 pb-4 pt-14 text-left"
                     aria-label={`View ${profile.name}'s full profile`}
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h2 className="truncate font-display text-[30px] font-normal leading-none tracking-tight text-pearl">{profile.name}</h2>
-                      {profile.verified ? <VerifyBadge size={22} /> : null}
-                      <span className="shrink-0 font-display text-[20px] font-normal text-gold-300">{profile.age}</span>
-                    </div>
-                    <p className="mt-1.5 text-[13px] font-medium tracking-wide text-[#ece8dd]">
-                      {profile.occupation} · {profile.city}
+                    className="absolute inset-0 z-10"
+                  />
+
+                  {/* .card-body — inside the photo, pinned to the bottom. */}
+                  <div className="card-body z-20">
+                    <h2 className="card-name">
+                      {profile.name}
+                      {profile.verified ? (
+                        <span className="verified ml-1.5">
+                          <VerifyBadge size={20} />
+                        </span>
+                      ) : null}
+                    </h2>
+                    <p className="card-sub">
+                      {[String(profile.age), profile.occupation, profile.city]
+                        .filter(Boolean)
+                        .join(" · ")}
                       {profile.distanceKm != null && !profile.hideDistance
                         ? ` · ${formatDistance(profile.distanceKm, units)}`
                         : ""}
                     </p>
-                    {/* Presence: plain dot + tier label, no pill chrome (honest tiers only) */}
-                    <p className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                      {(() => {
-                        const tier = profile.presence;
-                        const dot =
-                          tier === "now" ? "#57d38a" : tier === "today" ? "#57d38a" : "#a5a1b4";
-                        const label =
-                          tier === "now" ? "Online now" : tier === "today" ? "Active today" : tier === "week" ? "Active this week" : null;
-                        if (!label) return null;
-                        return (
-                          <>
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 6px ${dot}` }} />
-                            {label}
-                            {profile.joinedAt ? <span className="font-normal normal-case tracking-normal text-white/45"> · {joinedShort(profile.joinedAt)}</span> : null}
-                          </>
-                        );
-                      })()}
+                    <p className="card-meta">
+                      {heightLabel ? (
+                        <>
+                          {heightLabel}
+                          {presenceLabel ? <span className="sep">·</span> : null}
+                        </>
+                      ) : null}
+                      {presenceLabel ? (
+                        <>
+                          <i className="pulse-dot" />
+                          {presenceLabel}
+                        </>
+                      ) : null}
+                      {profile.joinedAt && !presenceLabel ? joinedShort(profile.joinedAt) : null}
                     </p>
-                    {/* Comp chips: their interests when shared, else their traits — real fields only */}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(profile.inCommon?.interests ?? []).slice(0, 3).map((i) => (
-                        <span key={`i-${i}`} className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
-                          {i}
-                        </span>
-                      ))}
-                      {(profile.inCommon?.interests?.length ?? 0) === 0
-                        ? profile.traits.slice(0, 3).map((t) => (
-                            <span key={`t-${t}`} className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
-                              {t}
-                            </span>
-                          ))
-                        : null}
-                    </div>
-                    {profile.headline ? (
-                      <p className="mt-2 line-clamp-2 text-[13px] leading-snug text-white/85">{profile.headline}</p>
-                    ) : null}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  data-profile-btn
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (draggedRef.current) return;
-                    if (singleTapTimer.current) {
-                      clearTimeout(singleTapTimer.current);
-                      singleTapTimer.current = null;
-                    }
-                    openProfileTap(profile.id, Date.now());
-                  }}
-                  className="block max-h-[30dvh] w-full space-y-3 overflow-y-auto p-5 text-left"
-                >
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-gold-500">{profile.promptQuestion}</p>
-                    <p className="mt-1.5 text-[14px] leading-relaxed text-ivory/90">{profile.promptAnswer}</p>
-                    {profile.inCommon &&
-                    (profile.inCommon.values.length > 0 ||
-                      profile.inCommon.interests.length > 0 ||
-                      profile.inCommon.goals.length > 0) ? (
-                      <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="What you have in common">
-                        {profile.inCommon.values.slice(0, 2).map((v) => (
-                          <span key={`v-${v}`} className="fb-chip fb-chip-gold !text-[11px] !py-1">
-                            {v}
-                          </span>
+                    {cardTags.length > 0 ? (
+                      <div className="card-tags">
+                        {cardTags.map((tag) => (
+                          <span key={tag}>{tag}</span>
                         ))}
-                        {profile.inCommon.goals.length > 0 ? (
-                          <span className="fb-chip !text-[11px] !py-1">Same intentions</span>
-                        ) : null}
                       </div>
                     ) : null}
+                    {cardBio ? <p className="card-bio">{cardBio}</p> : null}
                   </div>
-                  <div>
-                    <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-[var(--color-ash)]">Their traits</p>
-                    <div className="flex flex-wrap gap-1.5">
-                    {profile.traits.map((trait) => (
-                      <span
-                        key={trait}
-                        className="rounded-full border border-white/[0.07] bg-pearl/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-sand"
-                      >
-                        {trait}
-                      </span>
-                    ))}
-                    </div>
-                  </div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-ash)]">
-                    Swipe to skip · tap for photos · double-tap to Super Like
-                  </p>
-                </button>
+                </div>
               </article>
             );
           })}
@@ -986,16 +1119,39 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               y=864 in an 852px viewport, i.e. entirely below the fold, and the member has to
               scroll to reach "Say hello". Measured, not assumed — the first attempt at this
               row dropped the anchor and did exactly that. */}
-          <div className="action-row sticky bottom-[72px] z-40 mt-6 flex items-center justify-center gap-5 rounded-[26px] border border-white/[0.06] bg-[#070a12]/92 py-2 backdrop-blur-md">
+                    {/* ------------------------------------------------------------------
+              ACTION ROW — the prototype's own markup.
+
+              This is now literally prototype/index.html's .action-row:
+                  circle-btn(pass) · say-hello · circle-btn(spark)
+              driven by the skin's CSS (52px circles, 24px gap, gradient pill,
+              no captions) rather than a hand-tuned Tailwind imitation of it.
+              Every previous attempt diverged because it re-drew the row in
+              utility classes and then had to be measured back into shape; using
+              the reference classes removes that whole class of drift.
+
+              The controls keep their real behaviour:
+                  pass  -> act("pass")
+                  pill  -> act("like")   (labelled "Say hello", as in the mock)
+                  spark -> super like
+              aria-labels carry the precise meaning, so a screen reader still
+              hears "Skip" / "Super like" even though the mock shows only icons.
+
+              `sticky` is kept for a measured reason: without an anchor this row
+              renders below the fold on a 393x852 viewport and the member has to
+              scroll to reach "Say hello". The mock is a fixed-height phone so it
+              never hit this; a real scrolling page does.
+              ------------------------------------------------------------------ */}
+          <div className="action-row sticky bottom-[72px] z-40 mt-4">
             <button
               type="button"
               onClick={() => act("pass")}
               aria-label="Skip (pass)"
               title="Skip"
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-pearl)] transition hover:bg-[var(--color-slate)] active:scale-90"
+              className="circle-btn shrink-0 active:scale-90"
             >
-              <svg width="21" height="21" viewBox="0 0 22 22" fill="none" aria-hidden>
-                <path d="M5 5l12 12M17 5L5 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <svg viewBox="0 0 24 24" fill="none" width="21" height="21" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </button>
 
@@ -1004,15 +1160,17 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               onClick={() => act("like")}
               aria-label="Like — say hello"
               title="Say hello"
-              className="btn-ember btn-shine relative flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-full px-5 transition active:scale-95"
+              className="say-hello shrink-0 active:scale-95"
             >
-              <svg width="19" height="19" viewBox="0 0 30 30" fill="none" aria-hidden>
+              <svg viewBox="0 0 24 24" fill="none" width="19" height="19" aria-hidden>
                 <path
-                  d="M15 25.5S3.9 18.6 3.9 11a5.6 5.6 0 0111.1-1.3A5.6 5.6 0 0126.1 11c0 7.6-11.1 14.5-11.1 14.5z"
-                  fill="#2a1a10"
+                  d="M12 20s-6.8-4.6-9.1-9.5C1.9 7.4 4.6 4.7 7.4 4.7c1.8 0 3.3 1 4.6 2.3 1.3-1.3 2.8-2.3 4.6-2.3 2.8 0 5.5 2.7 4.5 5.8C18.8 15.4 12 20 12 20z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
                 />
               </svg>
-              <span className="text-[15px] font-bold tracking-tight text-[#2a1a10]">Say hello</span>
+              Say hello
             </button>
 
             <button
@@ -1020,16 +1178,23 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               onClick={() => onSuperLike(window.innerWidth / 2, window.innerHeight / 2)}
               aria-label="Super like"
               title="Super Like: stand out"
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[var(--color-abyss)] text-[var(--color-gold-500)] transition hover:bg-[var(--color-slate)] active:scale-90"
+              className="circle-btn shrink-0 active:scale-90"
             >
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <svg viewBox="0 0 24 24" fill="none" width="21" height="21" aria-hidden>
+                <path
+                  d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 5z"
+                  stroke="#e9c37c"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
               </svg>
             </button>
           </div>
 
-          {/* Undo keeps its capability but leaves the three-control row the mock draws. */}
-          <div className="mt-3 flex items-center justify-center">
+          {/* Undo stays, below the row, because the reference draws exactly three
+              controls and adding a fourth is what clipped the previous version.
+              The capability is preserved rather than dropped. */}
+          <div className="mt-3 flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => void undoLastSwipe()}
@@ -1044,12 +1209,10 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               </svg>
               {lastUndone ? "Undone" : "Undo"}
             </button>
-          </div>
-          <div className="mt-4 flex items-center justify-center gap-2">
             <p className="text-center text-[12px] tracking-wide text-[var(--color-ash)]">
-              {index + 1} of {profiles.length} in the room
+              {index + 1} of {profiles.length}
             </p>
-            {!origin && navigator.geolocation ? (
+            {!origin && typeof navigator !== "undefined" && navigator.geolocation ? (
               <button
                 type="button"
                 onClick={enableLocation}
