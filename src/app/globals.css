@@ -2175,3 +2175,49 @@ textarea.fb-input { min-height: 110px; resize: none; line-height: 1.6; }
 .lp-page .lp-card h3, .lp-page .lp-step h3 { font-family: Georgia, "Times New Roman", serif; }
 .lp-hero-media img { object-position: 72% center; }
 @media (max-width: 700px) { .lp-hero-media img { object-position: 76% 48%; } }
+
+/* Premium visual language for the existing authenticated shell and onboarding.
+   These rules are scoped to the real surfaces; data and event handlers are unchanged. */
+.premium-app, .premium-onboarding {
+  background: radial-gradient(ellipse at 50% -15%, #20243e 0%, #101526 36%, #090d1b 75%);
+}
+.premium-app-sidebar {
+  background: linear-gradient(180deg, rgba(18, 24, 44, .72), rgba(8, 12, 25, .9));
+  border-color: rgba(232, 205, 161, .1);
+}
+.premium-app-nav-link[aria-current="page"] {
+  color: #f9e5bd;
+  background: linear-gradient(115deg, rgba(221, 175, 125, .18), rgba(219, 125, 118, .10));
+  box-shadow: inset 0 0 0 1px rgba(237, 191, 145, .25);
+}
+.premium-app-bottom-nav {
+  background: rgba(9, 13, 27, .96);
+  border-color: rgba(232, 205, 161, .12);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.premium-app-tab[aria-current="page"] { color: #f5d59f; }
+.premium-app .fb-h-display, .premium-onboarding .fb-h-display {
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: -.025em;
+}
+.premium-app .fb-card, .premium-onboarding .fb-card-lg {
+  border-color: rgba(227, 202, 165, .14);
+  background: linear-gradient(145deg, rgba(29, 35, 57, .82), rgba(15, 20, 37, .92));
+}
+.premium-app .fb-row { border-color: rgba(227, 202, 165, .1); }
+.premium-onboarding-step .fb-btn-primary {
+  color: #171524;
+  background: linear-gradient(105deg, #fff2d8, #f3d09d 58%, #efaa9d);
+  box-shadow: 0 10px 28px rgba(224, 151, 131, .13);
+}
+.premium-onboarding-option[aria-pressed="true"] {
+  border-color: rgba(244, 202, 152, .8);
+  background: linear-gradient(115deg, rgba(241, 197, 145, .13), rgba(231, 142, 135, .08));
+}
+.premium-app :focus-visible, .premium-onboarding :focus-visible {
+  outline: 2px solid #f3d6a1;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .premium-app *, .premium-onboarding * { scroll-behavior: auto; }
+}

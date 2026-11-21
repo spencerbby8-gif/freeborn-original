@@ -41,7 +41,7 @@ export function StepShell({
   const percent = Math.round(((stepIndex + 1) / totalSteps) * 100);
 
   return (
-    <div className="animate-scale-in w-full space-y-6">
+    <div className="premium-onboarding-step animate-scale-in w-full space-y-6">
       {/* Progress — step counter + a filling line + live save status */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.2em] text-[var(--color-sand)]">
@@ -50,7 +50,7 @@ export function StepShell({
           </span>
           <span className="text-[var(--color-ash)]">{saveStatus ?? `${percent}%`}</span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+        <div role="progressbar" aria-label="Profile setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
           <div
             className="h-full rounded-full bg-[var(--gradient-ember)] transition-all duration-500"
             style={{ width: `${percent}%` }}
