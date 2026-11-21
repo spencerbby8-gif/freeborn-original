@@ -38,10 +38,11 @@ imported by the app, ships with it, or affects its build. It is documentation as
 
 ## Serving it on the PR preview
 
-`public/prototype/` carries a copy of just the runnable app (`index.html`,
-`styles.css`, `app.js`, `assets/`) so Vercel **preview** deployments can serve it
-at `/prototype/` — that is what the redesigned-15-screens review link uses.
-`src/middleware.ts` answers a plain **404 on production** for `/prototype/*`;
-local builds (where `VERCEL_ENV` is unset) keep it visible. The copies under
-`public/prototype/` are build artifacts of this folder — when either changes,
-re-copy, don't hand-edit the duplicate.
+`public/prototype/` carries a generated copy of just the runnable app
+(`index.html`, `styles.css`, `app.js`, `assets/`) so Vercel **preview** deployments
+serve it at `/prototype` — that is what the redesigned-15-screens review link
+uses. Regenerate it with `node prototype/sync-public.mjs`; never hand-edit the
+duplicate. Next serves the file at `/prototype` (no trailing slash), so the
+script injects `<base href="/prototype/">` to keep the mock's relative URLs
+working. `src/middleware.ts` answers a plain **404 on production** for
+`/prototype/*`; local builds (where `VERCEL_ENV` is unset) keep it visible.
