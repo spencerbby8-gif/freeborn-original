@@ -1,0 +1,60 @@
+:root{
+  --page:#050813; --screen:#151724; --gold:#e9c37c; --coral:#d0805f;
+  --cream:#f7e6cb; --ink:#f4efe7; --muted:#a5a1b4;
+  --hairline:rgba(244,239,231,.08);
+  --btngrad:linear-gradient(120deg,#f7e6cb 0%,#f0c9a0 35%,#e5a878 70%,#d9805f 100%);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.lp-glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 600px at 12% -10%, rgba(233,195,124,.10), transparent 60%),
+             radial-gradient(800px 600px at 95% 15%, rgba(208,128,95,.09), transparent 55%),
+             radial-gradient(700px 500px at 50% 110%, rgba(224,104,95,.08), transparent 60%)}
+
+.lp-nav{position:relative;z-index:2;max-width:1220px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:20px 28px}
+.lp-logo{display:flex;align-items:center;gap:11px;text-decoration:none}
+.lp-logo-badge{width:34px;height:34px;border-radius:999px;background:var(--btngrad);display:grid;place-items:center}
+.lp-logo-badge svg{width:18px;height:18px}
+.lp-logo-word{font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#f8e9d2;letter-spacing:.01em}
+.lp-nav-cta{background:var(--btngrad);color:#2a1a10;font-weight:700;font-size:13.5px;border-radius:999px;padding:11px 22px;text-decoration:none;box-shadow:0 8px 22px rgba(240,190,140,.25);transition:transform .15s}
+.lp-nav-cta:hover{transform:translateY(-1px)}
+
+.lp-hero{position:relative;z-index:1;padding:22px 20px 0}
+.lp-phones{display:flex;justify-content:center;align-items:flex-start;gap:34px;max-width:1220px;margin:0 auto}
+.lp-ph{border-radius:52px;box-shadow:0 0 0 9px #04050d,0 0 0 10px rgba(255,255,255,.05),0 60px 120px rgba(0,0,0,.6),0 0 90px rgba(233,195,124,.07)}
+.lp-ph .phone{zoom:.64;box-shadow:none}
+
+.lp-band{position:relative;z-index:1;max-width:1220px;margin:6px auto 0;padding:36px 28px 60px;display:grid;grid-template-columns:1.05fr 1fr;gap:48px;align-items:center}
+.lp-head{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(44px,5.6vw,72px);line-height:1.03;letter-spacing:-.02em;
+  background:linear-gradient(100deg,#d0805f 0%,#e8a878 25%,#f7e6cb 55%,#f0d3ae 80%,#d9a06f 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-sub{margin-top:16px;color:#c9c5b8;font-size:17px;line-height:1.55}
+.lp-ctas{margin-top:26px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.lp-cta{background:var(--btngrad);color:#2a1a10;font-weight:750;font-size:15px;border-radius:999px;padding:15px 30px;text-decoration:none;box-shadow:0 12px 32px rgba(240,190,140,.28);transition:transform .15s}
+.lp-cta:hover{transform:translateY(-2px)}
+.lp-cta-note{color:var(--muted);font-size:12px}
+
+.lp-features{list-style:none;display:flex;flex-direction:column;gap:26px}
+.lp-features li{display:flex;gap:17px;align-items:center}
+.lp-fic{flex:0 0 46px;width:46px;height:46px;border-radius:999px;background:rgba(233,195,124,.10);border:1px solid rgba(233,195,124,.22);display:grid;place-items:center}
+.lp-features b{display:block;font-size:15.5px;font-weight:650;color:#f0ede2}
+.lp-features small{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+
+.lp-foot{position:relative;z-index:1;border-top:1px solid var(--hairline);padding:24px 28px 32px;max-width:1220px;margin:0 auto;display:flex;justify-content:space-between;gap:18px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.lp-foot a{color:#c9c5b8;text-decoration:none;margin-left:22px}
+.lp-foot a:hover{color:#f7e6cb}
+
+@media (max-width:1000px){
+  .lp-ph .phone{zoom:.56}
+  .lp-band{grid-template-columns:1fr;gap:32px;padding-top:24px}
+  .lp-features{max-width:440px}
+}
+@media (max-width:560px){
+  .lp-ph .phone{zoom:.44}
+  .lp-phones{gap:12px}
+  .lp-nav{padding:16px 18px}
+  .lp-band{padding:18px 18px 44px}
+  .lp-head{font-size:44px}
+}
