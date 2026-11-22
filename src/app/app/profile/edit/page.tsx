@@ -96,8 +96,8 @@ function SelectField({
 }) {
   return (
     <div id={id} data-edit-section={id?.replace("edit-", "")} className="space-y-2">
-      <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</span>
       <FreebornSelect
+        label={label}
         value={value}
         options={options.map((o) => ({ value: o, label: labels?.[o] ?? o }))}
         onChange={onChange}
@@ -197,7 +197,7 @@ function TextField({
 }) {
   return (
     <div className="space-y-2">
-      <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</span>
+      <label htmlFor={id} className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">{label}</label>
       <input
         id={id}
         value={value}
@@ -485,12 +485,12 @@ function ProfileInner() {
     return <p className="py-20 text-center text-sm text-[var(--color-mist)]">Couldn&apos;t load your profile.</p>;
   }
 
-  const set = (patch: Partial<MeProfile>) => setDraft((prev) => ({ ...prev, ...patch }));
+  const set = (patch: Partial<MeProfile>) => {setSaved(false);setDraft((prev) => ({ ...prev, ...patch }));};
 
   return (
     <div className="new-profile-editor mx-auto max-w-[720px] pb-10">
       {editing ? (
-        <div className="flex items-center justify-between">
+        <div className="editor-topbar flex items-center justify-between">
           <div>
             <h1 className="fb-h-hero">Edit profile</h1>
             <p className="fb-meta mt-1.5">Fine-tune how others see you.</p><button type="button" className="skip-btn" onClick={()=>setViewAs(profile.id??null)}>Preview profile</button>
@@ -511,6 +511,7 @@ function ProfileInner() {
         <h1 className="sr-only">Your profile — how others see you in the room</h1>
       )}
 
+      {editing&&<nav className="editor-section-nav" aria-label="Edit profile sections">{[{id:'photos',label:'Photos'},{id:'editor-basics',label:'About me'},{id:'editor-lifestyle',label:'Lifestyle'},{id:'editor-prompts',label:'Prompts'}].map(item=><a key={item.id} href={`#${item.id}`}>{item.label}</a>)}</nav>}
       {!editing&&<>
       {/* Hero — immersive full-bleed portrait: identity lives on the photo.
           Actions sit on the cover as glass controls; the name, age and meta
@@ -1300,7 +1301,7 @@ function ProfileInner() {
               new photo may trigger a quick identity re-check.
             </p>
           </div>
-          <div className="fb-card-lg" data-edit-section="basics">
+          <div id="editor-basics" className="fb-card-lg" data-edit-section="basics">
             <p className="mb-4 text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Basics</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField id="edit-displayName" label="Display name" value={draft.displayName ?? ""} onChange={(v) => set({ displayName: v })} placeholder="Your name" maxLength={40} />
@@ -1309,7 +1310,7 @@ function ProfileInner() {
               <TextField id="edit-heightCmProfile" label="Height (cm)" value={draft.heightCmProfile ? String(draft.heightCmProfile) : ""} onChange={(v) => set({ heightCmProfile: Number(v) || null })} placeholder="e.g. 175" />
             </div>
             <div className="mt-4 space-y-2">
-              <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">About me</span>
+              <label htmlFor="edit-bio" className="text-[12px] font-bold uppercase tracking-wider text-[var(--color-sand)]">About me</label>
               <textarea
                 id="edit-bio"
                 value={draft.bio ?? ""}
@@ -1322,7 +1323,7 @@ function ProfileInner() {
             </div>
           </div>
 
-          <div className="fb-card-lg" data-edit-section="lifestyle">
+          <div id="editor-lifestyle" className="fb-card-lg" data-edit-section="lifestyle">
             <p className="mb-4 text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Background & lifestyle</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <SelectField id="edit-language" label="Language" value={draft.language ?? ""} options={LANGUAGES} onChange={(v) => set({ language: v })} />
@@ -1337,7 +1338,7 @@ function ProfileInner() {
             </div>
           </div>
 
-          <div className="fb-card-lg" data-edit-section="prompts">
+          <div id="editor-prompts" className="fb-card-lg" data-edit-section="prompts">
             <p className="mb-1 text-[13px] font-bold uppercase tracking-wider text-[var(--color-sand)]">Your prompts</p>
             <p className="fb-meta mb-4">Answer up to three. They appear on your profile and start conversations.</p>
             <PromptsEditor
@@ -1346,7 +1347,7 @@ function ProfileInner() {
             />
           </div>
 
-          <ScreenError message={saveError}/><div className="flex items-center gap-3">
+          <ScreenError message={saveError}/><div className="editor-save-dock flex items-center gap-3">
             <button type="button" onClick={() => void save()} disabled={saving} className="fb-btn fb-btn-primary flex-1 !min-h-[52px] !text-[15px] disabled:opacity-60">
               {saving ? "Saving…" : "Save changes"}
             </button>

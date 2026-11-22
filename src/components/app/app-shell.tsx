@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const hideTabs = threadOpen || pathname.startsWith("/app/preferences") || pathname.startsWith("/app/premium") || pathname.startsWith("/app/verification");
+  const hideTabs = threadOpen || pathname.startsWith("/app/profile/edit") || pathname.startsWith("/app/preferences") || pathname.startsWith("/app/premium") || pathname.startsWith("/app/verification");
 
   return (
     <>

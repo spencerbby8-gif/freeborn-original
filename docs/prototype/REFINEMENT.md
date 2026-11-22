@@ -1,10 +1,12 @@
 # Owner-requested second visual pass
 
+> **Latest filter/editor follow-up:** the filter now follows the saved preferences reference’s primary section order (Looking for → Age → Distance → Interests → Show me), three primary intent pills, a shared dual-thumb age track, styled distance track, curated interest chips with Add more, three primary audience pills, and a bottom-docked gradient Save button. Extended real controls remain under More filters; real units, ages and saved values are respected rather than replacing them with sample values. Edit Profile now has matching serif hierarchy, compact labelled fields and listboxes, photo tiles, section jumps, a persistent Save/Cancel dock and no tab bar crowding the editor. The restored reference auth flame is unchanged. This is reference-aligned presentation with real functionality, not a pixel-identical screenshot assertion. Latest fixture run: **25/25 browser checks, 46 captures, zero page JS errors**. Includes editor error handling, section navigation, dock geometry, filter ordering and auth logo regression. Build, TS, lint, trust 619 and API adapter 23 passed. Current selected captures and results are in `evidence/filter-editor/`; older screenshots are historical. Hosted Preview acceptance is still outstanding.
+
 > **Latest owner correction — auth logo only:** the custom shared BrandMark on authentication was removed. The saved welcome reference’s exact flame SVG path, `#2a1a10` stroke at 1.7, 34px gradient disc, 18px icon and 21px wordmark were restored. Landing/member branding and the blue verification badge are unchanged. Current auth screenshot and local DOM checks: `evidence/auth-reference-logo/`. Earlier refinement auth screenshots below are historical. Build, TypeScript, targeted lint and local auth rendering passed; no hosted acceptance claim.
 
 ## Delivery boundary
 
-Work remains on `feat/prototype-to-production`, for the existing draft PR #90 only. No merge, production deployment, remote migration or environment edits. This pass is committed locally; pushing it requires repository write authentication again because the earlier token was deliberately not persisted. PR #90 must not be described as updated until the push is confirmed.
+Work remains on `feat/prototype-to-production`, for the existing draft PR #90 only. No merge, production deployment, remote migration or environment edits. Repository write authorization was renewed for this follow-up. The commit/push outcome is recorded separately in the delivery audit; no push is claimed until the remote branch hash is verified.
 
 ## References and actual changes
 

@@ -697,3 +697,51 @@
 .fb-prototype[data-motion=off] *,.fb-prototype[data-motion=off] *::before,.fb-prototype[data-motion=off] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 .fb-prototype .new-profile-editor button[aria-label="Back to profile"]{display:grid;place-items:center;padding:0}
 .fb-prototype .new-profile-editor button[aria-label="Back to profile"] svg{width:18px;height:18px;flex-shrink:0}
+
+/* Reference preferences composition. Extra production filters stay collapsed. */
+.fb-prototype .reference-filters,.fb-prototype .new-profile-editor{--btngrad:linear-gradient(102deg,#f8e7c6 0%,#f4cf9d 42%,#e9a98b 78%,#df93a0 100%)}
+.fb-prototype .reference-filters .reference-filter-scroll{padding:18px 0 112px;height:100%;min-height:100%;overflow:auto}
+.fb-prototype .reference-filters .filter-topbar{justify-content:space-between;padding:0 22px 7px 14px}
+.fb-prototype .reference-filters .pref-head{font-size:32px;line-height:1.18;padding:0 22px}
+.fb-prototype .reference-filters .pref-sub{font-size:11px;line-height:normal;padding:6px 22px 24px;color:var(--muted)}
+.fb-prototype .reference-filters .pref-pills{padding:9px 22px 24px;gap:8px}
+.fb-prototype .reference-filters .pref-pill{font-size:11px;padding:10px 14px;flex:1;text-align:center;font-weight:500;background:#171b2b;border-color:#f4efe712;color:#a7a5b3}
+.fb-prototype .reference-filters .pref-pill.selected{background:var(--cream);color:#241a10;border-color:transparent}
+.fb-prototype .reference-filters .pref-block{padding:0 22px 22px;margin:0}
+.fb-prototype .reference-filters .pref-block-head{margin-bottom:10px}
+.fb-prototype .reference-filters .coral-label{font-size:11px}
+.fb-prototype .reference-filters .interest-chips{padding:9px 22px 22px;gap:8px}
+.fb-prototype .reference-filters .i-chip{font-size:11px;font-weight:500;padding:9px 13px;background:#171b2b;color:#cfccc0;border:1px solid #f4efe712}
+.fb-prototype .reference-filters .i-chip.on{background:var(--cream);color:#241a10;border-color:transparent}
+.fb-prototype .reference-filters .i-chip.add{background:transparent;border:1px dashed #d0805f88;color:#e3a58b}
+.fb-prototype .reference-filters .new-accordion{margin:0 22px 18px;background:transparent;border:0;border-top:1px solid var(--line);border-radius:0}
+.fb-prototype .reference-filters .new-accordion summary{padding:13px 0;font-size:11px;color:var(--muted)}
+.fb-prototype .reference-filters .new-accordion>fieldset{margin:15px 0}
+.fb-prototype .reference-filters .new-accordion .interest-chips,.fb-prototype .reference-filters .filter-extra-interests .interest-chips{padding:0}
+.fb-prototype .reference-filters .filter-extra-interests{padding:0 22px}
+.fb-prototype .reference-filters .new-accordion>p{margin:0 0 16px}
+.fb-prototype .reference-filters .toggle-group{margin:12px 0}
+.fb-prototype .reference-filters .filter-save-dock{position:absolute;inset:auto 0 0;padding:24px 22px max(22px,env(safe-area-inset-bottom));background:linear-gradient(#0c101e00,#0c101e 22%);z-index:5}
+.fb-prototype .reference-filters .filter-save-dock .btn-grad{width:100%;margin:0;padding:16px 20px;font-size:14px;box-shadow:none}
+.fb-prototype .reference-filters .dual-range input[type=range],.fb-prototype .reference-filters .single-range input[type=range]{margin:0;top:0;height:30px;accent-color:var(--cream)}
+.fb-prototype .new-profile-editor{padding:0 18px 15px}
+.fb-prototype .new-profile-editor .editor-topbar{position:sticky;top:0;z-index:15;margin:0 -18px;padding:19px 21px 13px;background:#0c101ef5;backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.fb-prototype .new-profile-editor .fb-h-hero{font-size:30px;font-weight:400}
+.fb-prototype .new-profile-editor .editor-topbar .skip-btn{font-size:11px;padding:8px 0 0;color:var(--gold)}
+.fb-prototype .new-profile-editor .editor-section-nav{display:flex;gap:7px;padding:17px 0 0;overflow-x:auto}
+.fb-prototype .new-profile-editor .editor-section-nav a{padding:8px 13px;white-space:nowrap;font-size:10px;color:var(--muted);background:#171b2b;border:1px solid var(--line);border-radius:99px}
+.fb-prototype .new-profile-editor .editor-section-nav a:first-child{color:#241a10;background:var(--cream);border-color:transparent}
+.fb-prototype .new-profile-editor :is(#photos,#editor-basics,#editor-lifestyle,#editor-prompts){scroll-margin-top:135px}
+.fb-prototype .new-profile-editor #photos{border-radius:18px;background:linear-gradient(135deg,#161929,#101424);border-color:var(--line);padding:17px}
+.fb-prototype .new-profile-editor #photos>.grid>button{border-radius:14px;border-width:1px}
+.fb-prototype .new-profile-editor #photos>.grid>div>span{border-radius:14px}
+.fb-prototype .new-profile-editor #photos>p:last-child{border:0;background:none;padding:0;color:var(--muted);font-size:10px;line-height:1.7}
+.fb-prototype .new-profile-editor [data-edit-section] :is(label,[class*=tracking-wider]){text-transform:none;letter-spacing:0;font-size:11px;font-weight:400}
+.fb-prototype .new-profile-editor [data-edit-section]>p:first-child{color:var(--coral);font-size:11px;text-transform:none;letter-spacing:0}
+.fb-prototype .new-profile-editor .editor-save-dock{position:sticky;bottom:0;z-index:16;padding:20px 0 14px;margin-top:16px;background:linear-gradient(#0c101e00,#0c101e 20%)}
+.fb-prototype .new-profile-editor .editor-save-dock button{min-height:48px!important;padding:12px 18px!important}
+.fb-prototype .new-profile-editor [aria-haspopup=listbox]{font-size:12px;border-radius:12px;background:#0b1020;font-weight:400}
+.fb-prototype .new-profile-editor [role=listbox]{background:#14192b;border-color:var(--line);border-radius:13px}
+.fb-prototype .fb-content:has(.new-profile-editor){overflow:hidden;transform:translateZ(0)}
+.fb-prototype .new-profile-editor{height:100%;overflow-y:auto;padding-bottom:112px;scrollbar-width:none}
+.fb-prototype .new-profile-editor .editor-save-dock{position:fixed;bottom:0;left:18px;right:18px;margin:0;background:linear-gradient(#0c101e00,#0c101e 25%)}

@@ -1,0 +1,14 @@
+{
+  "status": "pass",
+  "scope": "Static member-route import reachability, not end-to-end button coverage",
+  "entryCount": 20,
+  "sourceCount": 65,
+  "bannedLegacyViews": [
+    "src/components/app/profile-view.tsx",
+    "src/components/app/settings-view.tsx",
+    "src/components/app/filter-panel.tsx",
+    "src/components/app/likes-view.tsx",
+    "src/components/app/home-deck.tsx"
+  ],
+  "reachedLegacyViews": []
+}

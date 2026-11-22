@@ -74,6 +74,7 @@ export function FreebornSelect({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          aria-label={label}
           aria-haspopup="listbox"
           aria-expanded={open}
           className={`flex min-h-[48px] w-full items-center justify-between gap-3 rounded-2xl border bg-white/[0.03] px-4 py-3 text-left text-[14px] font-medium outline-none transition-all hover:border-white/20 ${
