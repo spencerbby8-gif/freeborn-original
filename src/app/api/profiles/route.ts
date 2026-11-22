@@ -510,6 +510,7 @@ export async function GET(request: Request) {
       gender: row.gender ?? "",
       city: row.city ?? "",
       occupation: row.occupation ?? "",
+      heightCm: row.heightCmProfile,
       headline: row.bio ?? "",
       promptQuestion: firstPrompt?.prompt ?? "A value I will not compromise on\u2026",
       promptAnswer: firstPrompt?.answer ?? "",

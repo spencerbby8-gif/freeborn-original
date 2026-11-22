@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { PrototypeFrame } from "@/components/prototype/frame";
-import { FilterPanel } from "./filter-panel";
+import { DiscoveryFilters } from "@/components/prototype/filters";
 import { VerifyGate } from "./verify-modal";
 import { CallListener } from "./call-listener";
 import { NotificationCenter } from "./notification-center";
@@ -132,11 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <PrototypeFrame hideTabs={hideTabs} unread={unread}>{children}</PrototypeFrame>
-      <FilterPanel open={filtersOpen} onClose={() => setFiltersOpen(false)} />
-      <VerifyGate />
-      <CallListener />
-      <NotificationCenter pathname={pathname} />
+      <PrototypeFrame hideTabs={hideTabs || filtersOpen} unread={unread}>{children}{filtersOpen&&<DiscoveryFilters onClose={()=>setFiltersOpen(false)}/>}<VerifyGate/><CallListener/><NotificationCenter pathname={pathname}/></PrototypeFrame>
     </>
   );
 }

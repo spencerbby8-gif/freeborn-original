@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
-import { PrototypeIcon } from "@/components/prototype/frame";
+import { BrandMark } from "@/components/brand-mark";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AuthInput } from "./auth-input";
 import { PasswordStrength } from "./password-strength";
@@ -514,10 +514,9 @@ export function AuthExperience({
   if (isAuth && !codeStep) {
     return <section className="screen active" aria-label="Welcome"><div className="scroll welcome-scroll">
       {/* Reference portrait is decorative marketing art, never a member record. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="welcome-bg" src="/images/prototype/welcome.jpg" alt=""/>
       <div className="welcome-shade"/>
-      <div className="welcome-logo"><span className="logo-badge"><PrototypeIcon name="flame"/></span><span className="logo-word">Freeborn</span></div>
+      <div className="welcome-logo"><BrandMark size={36}/><span className="logo-word">Freeborn</span></div>
       <div className="welcome-content"><p className="welcome-eyebrow">MEET WITH INTENTION</p><h1 className="display welcome-head">Someone worth<br/>staying for.</h1><p className="welcome-sub">Real conversations, shared values, and connections that feel like they were worth the wait.</p></div>
       <div className="auth-card">
         <div className="seg" role="tablist" aria-label="Account access">{switchItems.map(item=><Button unstyled key={item.mode} className={`seg-btn ${mode===item.mode?'active':''}`} role="tab" aria-selected={mode===item.mode} onClick={()=>changeMode(item.mode)}>{item.label}</Button>)}</div>

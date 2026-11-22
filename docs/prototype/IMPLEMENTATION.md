@@ -1,5 +1,7 @@
 # Prototype-to-production implementation review
 
+> **Newer owner-requested visual pass:** see [REFINEMENT.md](REFINEMENT.md) and `evidence/refinement/`. Earlier captures/results below are historical, not this pass’s final UI.
+
 **Status: reviewable local implementation, NOT production acceptance. Do not merge or deploy on the strength of the fixture tests.**
 
 Branch: `feat/prototype-to-production`

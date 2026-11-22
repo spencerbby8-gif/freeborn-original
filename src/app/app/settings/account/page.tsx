@@ -1,4 +1,5 @@
+import type { Metadata } from "next";
 import { AppShell } from "@/components/app/app-shell";
-import { SettingsView } from "@/components/app/settings-view";
-import Link from "next/link";
-export default function Page(){return <AppShell><div className="fb-legacy"><Link href="/app/settings">← Settings</Link><SettingsView initialArea="account"/></div></AppShell>;}
+import { AccountScreen } from "@/components/prototype/account";
+export const metadata: Metadata = { title: 'Account', robots: { index: false } };
+export default function Page() { return <AppShell><AccountScreen/></AppShell>; }

@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 /** Member API requests retain the existing bearer/cookie authorization boundary. */
-export async function memberRequest<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function memberRequest<T>(url: string, body?: unknown, signal?: AbortSignal, method?: "POST" | "DELETE"): Promise<T> {
   const token = await getAccessToken();
   if (!token) throw new Error("Your session has expired. Please sign in again.");
   const response = await fetch(url, {
-    method: body === undefined ? "GET" : "POST",
+    method: method ?? (body === undefined ? "GET" : "POST"),
     cache: "no-store",
     signal,
     headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -47,6 +47,6 @@ export type MemberProfile = {
   id:string;displayName:string;age:number|null;city:string;bio:string;occupation:string;photos:string[];isVerified:boolean;interests:string[];values:string[];relationshipGoals:string[];drinking:string;language:string;
 };
 export type DeckProfile = {
-  id:string;name:string;age:number;city:string;occupation:string;headline:string;traits:string[];photo:string;photos:string[];verified:boolean;presence:string|null;distanceKm:number|null;isNew:boolean;
+  id:string;name:string;age:number;city:string;occupation:string;headline:string;traits:string[];photo:string;photos:string[];verified:boolean;presence:string|null;distanceKm:number|null;isNew:boolean;heightCm?:number|null;
 };
 export type Match = {id:string;with:{id:string;name:string;city:string;photo:string;active:boolean};createdAt:string;ended:boolean;unread:number;lastMessage:{body:string;mine:boolean;at:string}|null};

@@ -1,5 +1,7 @@
 # Screen comparisons
 
+> **Newer owner-requested visual pass:** see [REFINEMENT.md](REFINEMENT.md) and `evidence/refinement/`. Earlier captures/results below are historical, not this pass’s final UI.
+
 Reference captures are from the owner-supplied prototype. Implementation captures use local, intercepted test APIs — not real members or hosted-backend acceptance. See [status, tests and deviations](IMPLEMENTATION.md). Both original-size images are linked by each pair.
 
 ## 393x852

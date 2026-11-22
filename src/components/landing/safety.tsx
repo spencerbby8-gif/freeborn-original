@@ -91,7 +91,7 @@ const features = [
   {
     icon: "badge",
     title: "Verified-only discovery",
-    body: "Turn it on and the room shows just trust-checked profiles, and the teal seal always matches the face.",
+    body: "Choose verified-only discovery to see profiles that have passed the identity-check process. Verification is a signal, not a guarantee of someone’s intentions.",
     wide: false,
   },
 ];

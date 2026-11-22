@@ -1,0 +1,2 @@
+41cda993d6e49cb0ac81f5bbc6189033ec535e4fa321979c4da16113c1ffedef  public/images/couples-hero.jpg
+dba5ba12f644e79e3c3d1703146fb4a8d9395ba9a74e23a7361af40a5b215117  src/components/verify-badge.tsx

@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { ScreenError } from "@/components/prototype/settings";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
-import { ProfileView } from "@/components/app/profile-view";
+import { MemberDetail } from "@/components/prototype/member-detail";
 import { CameraCapture } from "@/components/camera-capture";
 import { FreebornSelect } from "@/components/select-menu";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -209,6 +211,8 @@ function TextField({
 }
 
 function ProfileInner() {
+  const router=useRouter();
+  const [saveError,setSaveError]=useState<string|null>(null);
   const [profile, setProfile] = useState<(MeProfile & { id?: string }) | null>(null);
   const [completeness, setCompleteness] = useState(0);
   const [items, setItems] = useState<CompletenessItem[]>([]);
@@ -459,20 +463,14 @@ function ProfileInner() {
   }, [editing, editFocus]);
 
   const save = async () => {
-    setSaving(true);
-    const token = await getAccessToken().catch(() => null);
-    const res = await fetch("/api/profile/me", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(draft),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setEditing(false);
-      await load();
-      setTimeout(() => setSaved(false), 2500);
-    }
+    setSaving(true);setSaveError(null);setSaved(false);
+    try {
+      const token=await getAccessToken();
+      const res=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(draft)});
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(json.error??'Could not save your profile.');
+      setSaved(true);await load();
+    }catch(e){setSaveError(e instanceof Error?e.message:'Could not save your profile.');}finally{setSaving(false);}
   };
 
   if (loading) {
@@ -490,16 +488,16 @@ function ProfileInner() {
   const set = (patch: Partial<MeProfile>) => setDraft((prev) => ({ ...prev, ...patch }));
 
   return (
-    <div className="mx-auto max-w-[720px] pb-10">
+    <div className="new-profile-editor mx-auto max-w-[720px] pb-10">
       {editing ? (
         <div className="flex items-center justify-between">
           <div>
             <h1 className="fb-h-hero">Edit profile</h1>
-            <p className="fb-meta mt-1.5">Fine-tune how others see you.</p>
+            <p className="fb-meta mt-1.5">Fine-tune how others see you.</p><button type="button" className="skip-btn" onClick={()=>setViewAs(profile.id??null)}>Preview profile</button>
           </div>
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => router.push("/app/profile")}
             aria-label="Back to profile"
             title="Back to profile"
             className="btn-ghost flex h-[42px] w-[42px] items-center justify-center rounded-full px-0"
@@ -513,6 +511,7 @@ function ProfileInner() {
         <h1 className="sr-only">Your profile — how others see you in the room</h1>
       )}
 
+      {!editing&&<>
       {/* Hero — immersive full-bleed portrait: identity lives on the photo.
           Actions sit on the cover as glass controls; the name, age and meta
           ride the scrim so the first screen reads as a person, not a form. */}
@@ -790,6 +789,8 @@ function ProfileInner() {
       </div>
 
 
+      </>}
+
       <input
         ref={photoInputRef}
         type="file"
@@ -989,7 +990,7 @@ function ProfileInner() {
       ) : null}
 
       {viewAs ? (
-        <ProfileView profileId={viewAs} onClose={() => setViewAs(null)} asOthers />
+        <MemberDetail profileId={viewAs} onClose={() => setViewAs(null)} ownPreview asOthers />
       ) : null}
 
       {cameraOpen ? (
@@ -1345,15 +1346,15 @@ function ProfileInner() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <ScreenError message={saveError}/><div className="flex items-center gap-3">
             <button type="button" onClick={() => void save()} disabled={saving} className="fb-btn fb-btn-primary flex-1 !min-h-[52px] !text-[15px] disabled:opacity-60">
               {saving ? "Saving…" : "Save changes"}
             </button>
-            <button type="button" onClick={() => setEditing(false)} className="fb-btn fb-btn-ghost !min-h-[52px] !text-[14px]">
+            <button type="button" onClick={() => router.push("/app/profile")} className="fb-btn fb-btn-ghost !min-h-[52px] !text-[14px]">
               Cancel
             </button>
           </div>
-          {saved ? <p className="text-center text-[13px] font-bold text-[var(--color-teal-300)]">✓ Profile saved</p> : null}
+          {saved ? <p role="status" className="new-inline-note">Profile saved</p> : null}
         </div>
       )}
     </div>

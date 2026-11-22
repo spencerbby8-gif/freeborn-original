@@ -24,7 +24,7 @@ import {
   type PendingMessage,
 } from "@/lib/chat-sync";
 import { joinChatChannel, relayMessageNotice, type ChatBus } from "@/lib/chat-bus";
-import { ProfileView } from "./profile-view";
+import { MemberDetail } from "@/components/prototype/member-detail";
 import { PhotoLightbox } from "./photo-lightbox";
 import { CallOverlay } from "./call-overlay";
 import { VoiceBubble, VoiceRecorder } from "./voice-note";
@@ -1870,7 +1870,7 @@ export function ChatView() {
   }
 
   const profileOverlay = openProfileId ? (
-    <ProfileView profileId={openProfileId} onClose={() => setOpenProfileId(null)} />
+    <MemberDetail profileId={openProfileId} onClose={() => setOpenProfileId(null)} />
   ) : null;
 
   if (openMatch) {

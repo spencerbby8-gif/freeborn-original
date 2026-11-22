@@ -2,12 +2,18 @@
 
 
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { DEFAULT_PREFS, loadPrefs, PREFS_EVENT } from "@/lib/device-prefs";
 import "./prototype.css";
 
-export type IconName = "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search";
+export type IconName = "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
 const paths: Record<IconName, ReactNode> = {
+  more:<><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
+  coffee:<><path d="M5 9h12v6a5 5 0 01-5 5h-2a5 5 0 01-5-5V9zM17 10h2a3 3 0 010 6h-2M8 3v3m4-3v3"/></>,
+  globe:<><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></>,
+  star:<path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3-5.7-3-5.7 3 1.1-6.3L2.8 9.7l6.4-.9L12 3z"/>,
   back: <path d="M15 6l-6 6 6 6" />,
   next: <path d="M9 6l6 6-6 6" />,
   heart: <path d="M12 20s-6.8-4.6-9.1-9.5C1.9 7.4 4.6 4.7 7.4 4.7c1.8 0 3.3 1 4.6 2.3 1.3-1.3 2.8-2.3 4.6-2.3 2.8 0 5.5 2.7 4.5 5.8C18.8 15.4 12 20 12 20z" />,
@@ -43,16 +49,18 @@ const tabs: {href:string; label:string; icon:IconName}[] = [
 
 export function PrototypeFrame({ children, hideTabs = false, unread }: { children: ReactNode; hideTabs?: boolean; unread?: { chat: number; likes: number } }) {
   const pathname = usePathname();
+  const [motion,setMotion]=useState(DEFAULT_PREFS.animations);
+  useEffect(()=>{const read=()=>setMotion(loadPrefs().animations);queueMicrotask(read);window.addEventListener(PREFS_EVENT,read);window.addEventListener("storage",read);return()=>{window.removeEventListener(PREFS_EVENT,read);window.removeEventListener("storage",read);};},[]);
   const active = pathname.startsWith('/app/matches') ? '/app/likes' : pathname.startsWith('/app/settings') || pathname.startsWith('/app/privacy') || pathname.startsWith('/app/profile') ? '/app/profile' : pathname.startsWith('/app/notifications') ? '/app/chat' : pathname;
-  return <div className="fb-prototype"><div className="stage">
+  return <div className="fb-prototype" data-motion={motion?"on":"off"}><div className="stage">
     <aside className="brand-rail" aria-label="About Freeborn">
-      <Link href="/" className="rail-mark"><span className="rail-badge"><PrototypeIcon name="flame" /></span><span className="rail-word">Freeborn</span></Link>
+      <Link href="/" className="rail-mark"><BrandMark size={38}/><span className="rail-word">Freeborn</span></Link>
       <h2 className="rail-head">Designed for <em>real<br />connections.</em></h2>
       <p className="rail-sub">Smart matches, real conversations, meaningful relationships.</p>
       <ul className="rail-points">
         <li><span className="rail-ic"><PrototypeIcon name="shield" /></span><span><b>Intent-based matching.</b><br />We focus on what truly matters to you.</span></li>
         <li><span className="rail-ic"><PrototypeIcon name="lock" /></span><span><b>Privacy first.</b><br />Your data stays private and secure.</span></li>
-        <li><span className="rail-ic"><PrototypeIcon name="messages" /></span><span><b>Better conversations.</b><br />AI-powered icebreakers that feel natural.</span></li>
+        <li><span className="rail-ic"><PrototypeIcon name="messages" /></span><span><b>Better conversations.</b><br />Start with something you share.</span></li>
       </ul>
     </aside>
     <div className="phone-wrap"><div className="phone" data-tab={hideTabs ? "none" : active}>
