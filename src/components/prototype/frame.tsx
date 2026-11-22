@@ -8,8 +8,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { DEFAULT_PREFS, loadPrefs, PREFS_EVENT } from "@/lib/device-prefs";
 import "./prototype.css";
 
-export type IconName = "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
+export type IconName = "file" | "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
 const paths: Record<IconName, ReactNode> = {
+  file:<><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></>,
   more:<><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
   coffee:<><path d="M5 9h12v6a5 5 0 01-5 5h-2a5 5 0 01-5-5V9zM17 10h2a3 3 0 010 6h-2M8 3v3m4-3v3"/></>,
   globe:<><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></>,

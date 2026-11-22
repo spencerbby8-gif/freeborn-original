@@ -458,7 +458,8 @@ const publicHealthSrc = readFileSync(new URL("../../src/app/api/health/route.ts"
 /* -- the reason/CHECK drift that 500'd live reports ------------------------------ */
 const migReasonBlock = /reports_reason_check check \(\s*reason in \(([\s\S]*?)\)\s*\);/.exec(migOps)?.[1] ?? "";
 const migReasons = new Set([...migReasonBlock.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
-const appReasons = new Set([...reportSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
+const reportReasonsSrc=readFileSync(new URL("../../src/lib/report-reasons.ts",import.meta.url),"utf8");
+const appReasons = new Set([...reportReasonsSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
 ok("migration 2026-10-29 exists and rebuilds both live CHECKs",
   migOps.includes("alter table public.reports drop constraint if exists reports_reason_check") &&
   migOps.includes("human_challenges_purpose_check"),
@@ -470,7 +471,7 @@ ok("schema.ts, the migration and the route agree on the same reason set",
   [...appReasons].every((r) => schemaSrc.includes(`'${r}'`)) === true &&
   /reports_reason_check/.test(schemaSrc));
 ok("the REASONS set is exported for consumers rather than duplicated",
-  reportSrc.includes("export const REASONS = new Set(["));
+  reportReasonsSrc.includes("export const REASONS = new Set([") && reportSrc.includes('import { REASONS } from "@/lib/report-reasons"'));
 ok("the report insert is guarded so a CHECK can never destroy a report again",
   /let filed: \{ id: string \} \| null = null;/.test(reportSrc) &&
   reportSrc.includes('reason: "other"') && reportSrc.includes('status: 503'));

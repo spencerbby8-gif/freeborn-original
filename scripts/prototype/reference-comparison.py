@@ -33,7 +33,7 @@ notes = {
  'premium': 'Not exact by design: no fabricated prices or live checkout. Planned membership and availability wording differ.',
  'matches': 'Reference structure retained, but one fixture match instead of four scripted matches. Not pixel-exact.',
  'notifications': 'Reference tabs/list pattern retained. One real-shape fixture event instead of the prototype scripted list; not pixel-exact.',
- 'onboarding': 'Not exact: production onboarding includes the real relationship-intention and values fields. This is not the prototype two-option simulation.',
+ 'onboarding': 'All seven production steps now use the shared reference chrome, cards, fields and progress header. Only the intentions sample was supplied as an onboarding reference; full service-backed choices, validation and values extend it. Not pixel-exact; the other six steps are a consistent extension, not a claimed unseen-reference match.',
  'welcome': 'Not exact: genuine Google sign-in/signup buttons and recovery access require more form space. Original auth flame remains unchanged.',
  'verification': 'Reference hero/frame/checklist retained, with truthful camera and service/status copy replacing the prototype simulation disclaimer. Not pixel-exact.',
  'login-verification': 'New native invitation uses the same verification-screen presentation. Consent/storage disclosure, dismissal and keyboard focus are required additions. No older sheet UI remains.'

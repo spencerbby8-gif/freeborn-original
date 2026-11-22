@@ -1,5 +1,6 @@
 "use client";
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
@@ -12,7 +13,7 @@ export function ScreenError({message,retry}:{message:string|null;retry?:()=>void
   if (!message) return null;
   return <div role="alert" className="fb-error">{message}{retry && <Button unstyled type="button" onClick={retry} style={{display:'block',marginTop:8,textDecoration:'underline'}}>Try again</Button>}</div>;
 }
-export function Loading() {return <div className="fb-loading" role="status">Loading…</div>;}
+export function Loading() {return <FreebornLoader/>;}
 export function SettingsScreen() {
   const [error,setError]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);

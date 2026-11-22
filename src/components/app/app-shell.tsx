@@ -1,5 +1,6 @@
 "use client";
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -121,10 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (checking) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-[var(--color-night)]">
-        <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
-        <p className="text-sm font-medium text-[var(--color-mist)]">Opening Freeborn…</p>
-      </div>
+      <FreebornLoader fullScreen label="Preparing your session"/>
     );
   }
 

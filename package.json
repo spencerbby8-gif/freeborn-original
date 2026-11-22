@@ -28,7 +28,9 @@
     "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs",
     "test:prototype-api": "node scripts/prototype/api-contracts.mjs",
     "test:prototype-ui": "node scripts/prototype/ui-acceptance.cjs",
-    "test:chat-verification": "node scripts/prototype/chat-verification.cjs"
+    "test:chat-verification": "node scripts/prototype/chat-verification.cjs",
+    "test:setup-interactions": "node scripts/prototype/setup-interactions.cjs",
+    "test:chat-media": "node scripts/prototype/chat-media-contracts.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

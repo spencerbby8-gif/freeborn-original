@@ -905,7 +905,7 @@ export const chatMedia = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   },
   (t) => [
-    check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice')`),
+    check("chat_media_kind_check", sql`${t.kind} in ('image','video','voice','file')`),
     index("chat_media_match_idx").on(t.matchId),
   ]
 );

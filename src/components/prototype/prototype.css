@@ -922,3 +922,100 @@
 .fb-prototype{--screen:#151724;--card:#1e1f33;--card2:#262743;--line:rgba(244,239,231,.07);--muted:#8f8ca3;--faint:#615e74;--coral:#d0805f;--btngrad:linear-gradient(102deg,#f8e7c6 0%,#f4cf9d 42%,#e9a98b 78%,#df93a0 100%)}
 .fb-prototype .phone{background:#151724}
 .fb-prototype .screen:not(.reference-chat){background:var(--screen)}
+
+/* Native seven-step setup: the reference's surface, scale and control rhythm,
+   extended to real required fields (the reference only contains intentions). */
+.fb-prototype .fb-onboarding{padding:2px 22px 24px;--color-gold-500:#e9c37c;--color-gold-300:#e9c37c;--color-sand:var(--ink);--color-teal-300:#a8d7bb;--color-ink:#211b23}
+.fb-prototype .fb-step-shell{min-height:calc(100dvh - 90px);display:flex;flex-direction:column}
+.fb-prototype .fb-step-shell h1{max-width:15ch;margin-top:22px}
+.fb-prototype .fb-step-shell form{display:flex;flex-direction:column;flex:1;margin-top:0}
+.fb-prototype .fb-step-shell form>div{margin-bottom:0}
+.fb-prototype .setup-fields{display:flex;flex-direction:column;gap:20px}
+.fb-prototype .setup-field{min-width:0;display:flex;flex-direction:column;gap:8px;border:0;padding:0;margin:0}
+.fb-prototype .setup-field-head,.fb-prototype .setup-label{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px;font-weight:650;color:var(--ink);letter-spacing:.01em}
+.fb-prototype .setup-field-head span,.fb-prototype .setup-label>span{font-size:10px;color:var(--faint);font-weight:400;float:right;margin-left:12px}
+.fb-prototype .setup-input{font-family:var(--sans);font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:16px;width:100%;min-height:50px;padding:13px 14px!important;outline:none;transition:border-color .15s,box-shadow .15s;color-scheme:dark}
+.fb-prototype .setup-input::placeholder{color:var(--faint)}
+.fb-prototype .setup-input:focus{border-color:rgba(233,195,124,.65);box-shadow:0 0 0 3px rgba(233,195,124,.08)}
+.fb-prototype .setup-input[aria-invalid=true]{border-color:#eb938f}
+.fb-prototype textarea.setup-input{line-height:1.65;resize:vertical;min-height:130px}
+.fb-prototype .setup-field-hint,.fb-prototype .setup-field-error{font-size:10px;line-height:1.6;color:var(--muted);margin:0}
+.fb-prototype .setup-field-error{color:#f3a5a0}
+.fb-prototype .setup-field-hint:empty{display:none}
+.fb-prototype .setup-select{position:relative}
+.fb-prototype .setup-select select{appearance:none;padding-right:28px!important}
+.fb-prototype .setup-select>span{position:absolute;right:12px;top:12px;pointer-events:none;color:var(--gold)}
+.fb-prototype .setup-select option{background:var(--card);color:var(--ink)}
+.fb-prototype .setup-date legend{margin-bottom:8px}
+.fb-prototype .setup-date-row{display:grid;grid-template-columns:1.25fr .8fr 1fr;gap:8px}
+.fb-prototype .setup-date-row .setup-input{font-size:12px;padding-left:10px!important}
+.fb-prototype .setup-chip-group{border:0;padding:0;margin:0;min-width:0}
+.fb-prototype .setup-chip-group legend{width:100%;margin-bottom:12px}
+.fb-prototype .setup-chips{display:flex;flex-wrap:wrap;gap:8px}
+.fb-prototype .setup-chip{min-height:38px;display:inline-flex;align-items:center;gap:5px;padding:9px 13px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--muted);font-size:11px;font-weight:500;transition:background .15s,border-color .15s}
+.fb-prototype .setup-chip.selected{border-color:rgba(233,195,124,.5);color:var(--gold);background:linear-gradient(160deg,rgba(233,195,124,.10),rgba(226,114,91,.06))}
+.fb-prototype .setup-chip:disabled{opacity:.35}
+.fb-prototype .setup-disclosure{color:var(--gold);font-size:11px;min-height:38px;text-decoration:underline;text-underline-offset:4px}
+.fb-prototype .setup-chip-group>.setup-field-hint{margin:8px 0 12px}
+.fb-prototype .setup-welcome-meta{display:flex;gap:8px;margin-bottom:2px}
+.fb-prototype .setup-welcome-meta span{font-size:10px;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--gold)}
+.fb-prototype .setup-welcome-cards .option-card{align-items:flex-start}
+.fb-prototype .setup-welcome-cards .option-text small{line-height:1.65;margin-top:4px}
+.fb-prototype .setup-note{display:flex;align-items:center;gap:10px;font-size:11px;line-height:1.6;color:var(--muted);padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--card);margin:0}
+.fb-prototype .setup-note svg{flex-shrink:0;color:var(--gold)}
+.fb-prototype .setup-photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.fb-prototype .setup-photo-grid button{font-size:10px}
+.fb-prototype .setup-photo-grid>button{border-radius:20px;border:1px dashed rgba(233,195,124,.35);background:var(--card);color:var(--muted);min-width:0}
+.fb-prototype .setup-photo-grid>div{border-radius:20px;background:var(--card)}
+.fb-prototype .setup-photo-grid>div>div:last-child{flex-wrap:wrap}
+.fb-prototype .fb-step-shell .onboard-foot{margin-top:auto;padding-top:28px}
+.fb-prototype .fb-step-shell .onboard-foot p{margin:12px 0 6px;font-size:9px}
+.fb-prototype .fb-step-shell .onboard-foot a{font-size:9px}
+.fb-prototype .email-code-scroll{padding:2px 24px 28px;display:flex;flex-direction:column;min-height:100%}
+.fb-prototype .email-code-seal{position:relative;display:grid;place-items:center;width:76px;height:76px;border-radius:26px;margin:40px 0 28px;border:1px solid rgba(233,195,124,.3);background:linear-gradient(145deg,rgba(233,195,124,.12),rgba(226,114,91,.06));color:var(--gold)}
+.fb-prototype .email-code-seal svg{width:30px;height:30px}
+.fb-prototype .email-code-seal span{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--gold);top:4px;right:4px;box-shadow:0 0 18px rgba(233,195,124,.4)}
+.fb-prototype .email-code-eyebrow{font-size:9px;color:var(--gold);letter-spacing:.18em;margin:0 0 14px}
+.fb-prototype .email-code-scroll h1{font-size:48px;line-height:1.12;margin:0 0 16px;font-weight:400}
+.fb-prototype .email-code-scroll h1 em{color:var(--gold);font-weight:400}
+.fb-prototype .email-code-scroll .onboard-sub{font-size:12px;line-height:1.8;margin:0 0 28px;overflow-wrap:anywhere}
+.fb-prototype .email-code-scroll strong{color:var(--ink);font-weight:500}
+.fb-prototype .email-code-form{display:flex;flex-direction:column;gap:12px}
+.fb-prototype .email-code-input{color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:18px;font-family:var(--sans);font-size:26px;text-align:center;letter-spacing:.25em;padding:18px 12px;min-width:0;width:100%;outline:none}
+.fb-prototype .email-code-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(233,195,124,.08)}
+.fb-prototype .email-code-input[aria-invalid=true]{border-color:#eb938f}
+.fb-prototype .email-code-form .btn-grad{margin:8px 0 0;display:flex;align-items:center;justify-content:center;gap:10px}
+.fb-prototype .email-code-form .fineprint{margin:0}
+.fb-prototype .email-code-resend,.fb-prototype .email-code-change{min-height:36px;font-size:11px;color:var(--gold)}
+.fb-prototype .email-code-resend:disabled{color:var(--faint)}
+.fb-prototype .email-code-change{color:var(--muted)}
+.fb-prototype .email-code-private{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:auto;padding-top:32px;font-size:10px}
+.fb-prototype .email-code-private svg{width:14px;height:14px;color:var(--gold)}
+@media(min-width:760px){.fb-prototype .fb-step-shell{min-height:740px}}
+/* Choices respond immediately; only the real server acknowledgement advances the deck. */
+.fb-prototype .profile-card{transition:transform .18s ease;user-select:none}
+.fb-prototype .discovery-choice{position:absolute;z-index:5;top:64px;left:24px;transform:rotate(-12deg);padding:10px 18px;border:2px solid currentColor;border-radius:12px;font-size:24px;font-weight:700;letter-spacing:.12em;pointer-events:none;opacity:0}
+.fb-prototype .profile-card[data-choice=like] .discovery-choice{opacity:1;color:#b7e6ca;background:#172f2acc}
+.fb-prototype .profile-card[data-choice=pass] .discovery-choice{opacity:1;color:#f3b4ac;background:#3d202dcc;left:auto;right:24px;transform:rotate(12deg)}
+.fb-prototype .profile-card[data-choice=superlike] .discovery-choice{opacity:1;color:var(--gold);background:#3b2925dd}
+.fb-prototype .profile-card[data-choice=like] .card-like,.fb-prototype .profile-card[data-choice=superlike] .circle-btn:last-child{color:#251b1d;background:var(--gold);box-shadow:0 0 24px rgba(233,195,124,.4);transform:scale(1.1)}
+.fb-prototype .profile-card[data-choice=like] .card-like svg{fill:currentColor}
+.fb-prototype .profile-card[data-choice=superlike] .circle-btn:last-child svg{fill:currentColor}
+.fb-prototype[data-motion=off] .freeborn-ignition *{animation:none!important}
+.fb-prototype .chat-document{min-width:180px;max-width:100%;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035);padding:10px}
+.fb-prototype .chat-document>button{display:flex;align-items:center;gap:10px;text-align:left;width:100%;color:var(--ink)}
+.fb-prototype .chat-document span{display:flex;flex:1;flex-direction:column;min-width:0;gap:5px}
+.fb-prototype .chat-document b{font-size:12px;font-weight:600;overflow-wrap:anywhere}
+.fb-prototype .chat-document small,.fb-prototype .chat-document p{font-size:10px;color:var(--muted)}
+.fb-prototype .chat-document svg{flex-shrink:0;color:var(--gold)}
+.fb-prototype .chat-document-stage{width:100px;height:84px;border:1px solid var(--line);background:var(--card);border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px;font-size:10px;color:var(--gold);overflow:hidden;overflow-wrap:anywhere}
+.fb-prototype .fb-bubble.out .chat-document{border-color:#7f563a33;background:#ffffff15}
+.fb-prototype .fb-bubble.out .chat-document>button{color:#2a1a10}
+.fb-prototype .fb-bubble.out .chat-document small,.fb-prototype .fb-bubble.out .chat-document p{color:#70523d}
+.fb-prototype .fb-bubble.out .chat-document svg{color:#80532c}
+
+/* Outgoing voice controls use ink on the reference's light gold bubble. */
+.fb-prototype .fb-bubble.out .chat-voice-bubble,.fb-prototype .fb-bubble.out .chat-voice-bubble button,.fb-prototype .fb-bubble.out .chat-voice-bubble>div>span,.fb-prototype .fb-bubble.out .chat-voice-fallback>*{color:#3a281d}
+.fb-prototype .fb-bubble.out .chat-voice-bubble button,.fb-prototype .fb-bubble.out .chat-voice-fallback a{background:#59371e14}
+.fb-prototype .fb-bubble.out .chat-voice-wave span{background:#70523d80}
+.fb-prototype .fb-bubble.out .chat-voice-wave span[data-played="true"]{background:#3a281d}

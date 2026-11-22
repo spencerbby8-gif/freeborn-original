@@ -9,6 +9,7 @@
  *  - One-tap capture → 4:5 center-cropped JPEG (matches the photo pipeline)
  */
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type CameraCaptureProps = {
@@ -158,7 +159,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
           />
           {starting ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
-              <span className="h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+              <FreebornLoader label="Starting your camera"/>
               <p className="text-[12px] font-bold text-white/80">Starting camera…</p>
             </div>
           ) : null}

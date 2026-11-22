@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { EmailCodeScreen } from "./email-code-screen";
 import { AuthInput } from "./auth-input";
 import { PasswordStrength } from "./password-strength";
 import { GoogleGlyph } from "@/components/icons";
@@ -95,14 +96,7 @@ async function isPwnedPassword(password: string): Promise<boolean | null> {
   }
 }
 
-function Spinner() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" className="spin" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-      <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
+
 
 function friendlyError(error: unknown): string {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
@@ -447,6 +441,7 @@ export function AuthExperience({
   const verifyCode = async (e?: FormEvent) => {
     if (e) e.preventDefault();
     if (!codeStep || codeBusy) return;
+    if (!/^\d{6,8}$/.test(code)){setCodeError("Enter the confirmation code from your email.");return;}
     if (!supabase) {
       setCodeError("Service unavailable. Refresh the page and try again.");
       return;
@@ -485,7 +480,7 @@ export function AuthExperience({
     }
   };
 
-  const resendCode = async () => {
+  const resendCode = async (freshCaptchaToken?: string) => {
     if (!codeStep || codeBusy) return;
     if (!supabase) {
       setCodeError("Service unavailable. Refresh the page and try again.");
@@ -497,6 +492,7 @@ export function AuthExperience({
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: codeStep.email,
+        ...(freshCaptchaToken?{options:{captchaToken:freshCaptchaToken}}:{}),
       });
       if (error) throw error;
       showToast({
@@ -511,7 +507,9 @@ export function AuthExperience({
     }
   };
 
-  if (isAuth && !codeStep) {
+  if (codeStep) return <EmailCodeScreen email={codeStep.email} code={code} onCode={setCode} busy={codeBusy} error={codeError} onVerify={e=>void verifyCode(e)} onResend={resendCode} onBack={()=>{setCodeStep(null);setCode("");setCodeError(null);setMode("sign-up");}}/>;
+
+  if (isAuth) {
     return <section className="screen active" aria-label="Welcome"><div className="scroll welcome-scroll">
       {/* Reference portrait is decorative marketing art, never a member record. */}
       <img className="welcome-bg" src="/images/prototype/welcome.jpg" alt=""/>
@@ -537,266 +535,15 @@ export function AuthExperience({
     </div></section>;
   }
 
-  return (
-    <div className="fb-legacy w-full max-w-[480px]">
-      <div className="surface magic-border relative overflow-hidden rounded-[28px] p-5 shadow-[var(--shadow-card-lg)] sm:p-7">
-        {codeStep ? (
-          <form
-            onSubmit={(e) => void verifyCode(e)}
-            className="animate-fade-in"
-            data-search="confirmation code verify email signup"
-          >
-            <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.22em] text-[var(--color-sand)]">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
-              Confirm it&apos;s you
-            </p>
-            <h1
-              className="mt-2.5 text-[clamp(1.7rem,6.5vw,2.25rem)] leading-[1.05] tracking-tight text-[var(--color-pearl)]"
-              style={{ fontFamily: "var(--font-display-stack)", fontVariationSettings: "'opsz' 144, 'wght' 450" }}
-            >
-              Enter your code
-            </h1>
-            <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-[var(--color-mist)]">
-              We sent a confirmation code to{" "}
-              <span className="font-bold text-[var(--color-pearl)]">{codeStep.email}</span>.
-              Enter it below to finish creating your account.
-            </p>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="••••••"
-              aria-label="Confirmation code"
-              className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-center text-[26px] font-bold tracking-[0.35em] text-[var(--color-pearl)] outline-none transition focus:border-[var(--color-gold-500)] focus:bg-white/[0.06]"
-              style={{ fontFamily: "var(--font-display-stack)" }}
-            />
-            {codeError ? (
-              <p className="mt-2 text-[12px] font-bold text-[var(--color-danger)]">{codeError}</p>
-            ) : null}
-            <Button unstyled
-              type="submit"
-              disabled={codeBusy || code.length < 6}
-              className="magic-button btn-shine mt-4 flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] text-[15px] font-bold text-[var(--color-ink)] transition-all hover:-translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {codeBusy ? "Checking…" : "Confirm and continue"}
-            </Button>
-            <div className="mt-3 flex items-center justify-between text-[12px] font-bold">
-              <Button unstyled
-                type="button"
-                onClick={() => void resendCode()}
-                disabled={codeBusy}
-                className="text-[var(--color-teal-300)] transition hover:text-[var(--color-teal-200)] disabled:opacity-50"
-              >
-                Resend code
-              </Button>
-              <Button unstyled
-                type="button"
-                onClick={() => {
-                  setCodeStep(null);
-                  setCode("");
-                  setMode("sign-in");
-                }}
-                className="text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Use a different email
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <>
-        <div key={mode} className="animate-fade-in">
-          {/* Eyebrow as plain micro-type instead of a 51px pill — same brand cue,
-              a fraction of the height. */}
-          <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.22em] text-[var(--color-sand)]">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-gold-500)] shadow-[0_0_10px_rgba(217,167,82,0.5)]" />
-            {copy.eyebrow}
-          </p>
-          <h1
-            className="mt-2.5 text-[clamp(1.7rem,6.5vw,2.25rem)] leading-[1.05] tracking-tight text-[var(--color-pearl)]"
-            style={{ fontFamily: "var(--font-display-stack)", fontVariationSettings: "'opsz' 144, 'wght' 450" }}
-          >
-            {copy.title}
-          </h1>
-          {copy.description ? (
-            <p className="mt-2 max-w-[42ch] text-[13.5px] leading-relaxed text-[var(--color-mist)]">
-              {copy.description}
-            </p>
-          ) : null}
-        </div>
-
-        {notice ? (
-          notice.tone === "error" ? (
-            <div className="mt-5 rounded-2xl border border-red-400/45 bg-red-500/10 px-4 py-3.5">
-              <p className="flex items-center gap-2 text-[13px] font-black text-red-300">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" aria-hidden>
-                  <path d="M12 8v5M12 16.5h.01" />
-                  <circle cx="12" cy="12" r="9" />
-                </svg>
-                {notice.title}
-              </p>
-              <p className="mt-1.5 text-[12.5px] font-semibold leading-relaxed text-red-200/85">{notice.body}</p>
-            </div>
-          ) : (
-            <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12.5px] font-semibold leading-relaxed text-[var(--color-mist)]">
-              <span className="text-[var(--color-pearl)]">{notice.title}.</span> {notice.body}
-            </p>
-          )
-        ) : null}
-
-        {/* Tabs: Sign in / Create account */}
-        {isAuth ? (
-          <div className="relative mt-5 grid grid-cols-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
-            <span
-              className="absolute inset-y-1.5 w-[calc(50%-6px)] rounded-xl bg-[var(--gradient-ember-warm)] shadow-[0_8px_20px_-8px_rgba(239,94,94,0.8)] transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              style={{ left: mode === "sign-up" ? "calc(50% + 1.5px)" : "4.5px" }}
-              aria-hidden
-            />
-            {switchItems.map((item) => {
-              const active = item.mode === mode;
-              return (
-                <Button unstyled
-                  key={item.mode}
-                  type="button"
-                  onClick={() => changeMode(item.mode)}
-                  className={`relative z-10 rounded-xl px-4 py-2.5 text-center text-[14px] font-bold transition-colors duration-300 ${
-                    active ? "text-white" : "text-[var(--color-mist)] hover:text-[var(--color-pearl)]"
-                  }`}
-                >
-                  {item.label}
-                </Button>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {isAuth ? (
-          <Button unstyled
-            type="button"
-            onClick={() => void handleGoogle()}
-            disabled={pending === "google"}
-            className="group mt-3 flex h-[50px] w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[15px] font-bold text-[var(--color-pearl)] transition-all hover:border-white/20 hover:bg-white/[0.08] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleGlyph size={20} />
-            {pending === "google" ? "Connecting…" : "Continue with Google"}
-          </Button>
-        ) : null}
-
-        {isAuth ? (
-          <div className="my-4 flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.25em] text-[var(--color-ash)]">
-            <span className="h-px flex-1 bg-white/5" />
-            or use email
-            <span className="h-px flex-1 bg-white/5" />
-          </div>
-        ) : null}
-
-        <form className="space-y-4" onSubmit={(e) => void handleEmailSubmit(e)} noValidate>
-          {mode !== "update-password" ? (
-            <AuthInput
-              id="email"
-              label="Email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              enterKeyHint="next"
-              placeholder="you@example.com"
-              value={values.email}
-              error={errors.email}
-              onChange={(event) => updateField("email", event.target.value)}
-            />
-          ) : null}
-
-          {mode !== "reset-password" ? (
-            <div className="space-y-2">
-              <AuthInput
-                id="password"
-                label={mode === "update-password" ? "New password" : "Password"}
-                type="password"
-                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-                enterKeyHint="done"
-                placeholder={mode === "sign-in" ? "Enter your password" : "Choose a strong password"}
-                value={values.password}
-                error={errors.password}
-                onChange={(event) => updateField("password", event.target.value)}
-              />
-              {/* Reserved slot. The strength meter fading in must NOT reflow the
-                  page mid-typing — that is exactly what pushed the focused field
-                  behind the phone keyboard. Height is identical empty or filled. */}
-              {mode !== "sign-in" ? (
-                <div className="min-h-[30px]">
-                  <PasswordStrength password={values.password} />
-                </div>
-              ) : null}
-              {mode === "sign-in" ? (
-                <div className="flex justify-end px-1">
-                  <Button unstyled
-                    type="button"
-                    onClick={() => changeMode("reset-password")}
-                    className="text-[13px] font-bold text-[var(--color-sand)] transition-colors hover:text-[var(--color-pearl)]"
-                  >
-                    Forgot password?
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {requiresHumanCheck(mode) ? (
-            /* key={mode}: a Turnstile token is single-use, so switching tabs must
-               mount a fresh widget and issue a fresh token rather than carrying a
-               spent one into the next submit. The wrapper reserves min-h-[65px],
-               so remounting cannot reflow the page. */
-            <TurnstileGate key={mode} onToken={setCaptchaToken} />
-          ) : null}
-
-          <Button unstyled
-            type="submit"
-            disabled={pending === "email"}
-            className="magic-button btn-shine group relative mt-1 flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-5 text-[16px] font-bold text-[var(--color-ink)] shadow-[0_20px_40px_-12px_rgba(251,247,242,0.2)] transition-all hover:-translate-y-px hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-          >
-            {pending === "email" ? <Spinner /> : null}
-            {submitLabel}
-          </Button>
-        </form>
-          </>
-        )}
-
-        {/* Sign-in / Create-account already have the tab switcher at the top, so a
-            second "Already have an account? Sign in" link down here was pure
-            duplication - 53px of it. Keep the escape hatch for recovery modes only. */}
-        {!isAuth ? (
-          <div className="mt-5 text-center text-[14px] font-medium text-[var(--color-mist)]">
-            <p>
-              Remembered it?{" "}
-              <Button unstyled
-                type="button"
-                onClick={() => changeMode("sign-in")}
-                className="font-bold text-[var(--color-pearl)] underline decoration-white/20 underline-offset-4 transition-all hover:decoration-white/60"
-              >
-                Back to sign in
-              </Button>
-            </p>
-          </div>
-        ) : null}
-
-        {/* One line carrying both the security cue and the community standard,
-            instead of two stacked decorative blocks (was 33px + 54px + margins). */}
-        <p className="mt-4 flex items-start justify-center gap-1.5 text-[11px] font-medium leading-relaxed text-[var(--color-ash)]">
-          <svg className="mt-[2px] shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
-            <path d="M8 10.5V7a4 4 0 018 0v3.5" />
-          </svg>
-          <span>
-            Encrypted and private. By continuing you agree to keep Freeborn
-            respectful: real photos, honest details.{" "}
-            <Link href="/#safety" className="underline decoration-white/20 underline-offset-2 hover:text-[var(--color-sand)]">
-              Read the standard
-            </Link>
-          </span>
-        </p>
-      </div>
-    </div>
-  );
+  return <section className="screen active" aria-label={mode==='reset-password'?'Reset password':'Choose a new password'}><div className="scroll email-code-scroll">
+    <div className="bare-head"><Button unstyled className="bare-icon" onClick={()=>changeMode('sign-in')} aria-label="Back to sign in">←</Button><span className="step-center">SECURE ACCOUNT ACCESS</span><span/></div>
+    <p className="email-code-eyebrow" style={{marginTop:48}}>{copy.eyebrow}</p><h1 className="display">{copy.title}</h1><p className="onboard-sub">{copy.description}</p>
+    {notice&&<p className="fb-error" role={notice.tone==='error'?'alert':'status'}>{notice.title}. {notice.body}</p>}
+    <form className="email-code-form" onSubmit={e=>void handleEmailSubmit(e)} noValidate>
+      {mode==='reset-password'?<label className="field"><span>Email address</span><input type="email" autoComplete="email" value={values.email} onChange={e=>updateField('email',e.target.value)} placeholder="you@example.com" aria-invalid={Boolean(errors.email)}/>{errors.email&&<span className="fb-error">{errors.email}</span>}</label>:<div className="prototype-password"><AuthInput label="New password" name="password" type="password" autoComplete="new-password" value={values.password} onChange={e=>updateField('password',e.target.value)} error={errors.password}/><PasswordStrength password={values.password}/></div>}
+      {requiresHumanCheck(mode)&&<TurnstileGate key={mode} onToken={setCaptchaToken}/>}
+      <Button unstyled type="submit" className="btn-grad big wide" disabled={pending==='email'}>{pending==='email'?'Please wait…':submitLabel}</Button>
+      <Button unstyled type="button" className="email-code-change" onClick={()=>changeMode('sign-in')}>Back to sign in</Button>
+    </form>
+  </div></section>;
 }

@@ -1,0 +1,9 @@
+
+> lint
+> eslint .
+
+
+> typecheck
+> tsc --noEmit
+
+secret scan OK — 682 tracked files scanned

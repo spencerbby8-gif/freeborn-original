@@ -1,5 +1,7 @@
 # Reference chat rebuild and native verification
 
+> Historical baseline. The newer loader/OTP/onboarding/media work, migration dependency and fresh results are documented in [SETUP-MEDIA-VERIFICATION-REVIEW.md](SETUP-MEDIA-VERIFICATION-REVIEW.md).
+
 ## Scope
 
 Continues the existing `feat/prototype-to-production` branch and draft PR #90. The previously reviewed, unpushed chat/settings work was preserved as commit `a7f185a` after recovering it against the remote `33001a6` baseline. No merge or direct production deployment.

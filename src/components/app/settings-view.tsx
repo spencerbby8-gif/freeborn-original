@@ -1,4 +1,5 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
@@ -936,7 +937,7 @@ export function SettingsView({ initialArea = "profile" }: { initialArea?: AreaId
   if (!settings) {
     return (
       <div className="flex justify-center py-20">
-        <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+        <FreebornLoader/>
       </div>
     );
   }

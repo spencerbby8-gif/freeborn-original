@@ -1,5 +1,6 @@
 "use client";
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { VerificationShield } from "@/components/prototype/verification-shield";
@@ -115,12 +116,21 @@ export function VerifyGate() {
       re-issued on every retry (the route expires the previous live row), and the
       camera step never touches it. */
   const challengeInFlight = useRef(false);
+  const [challengeLoading,setChallengeLoading]=useState(true);
+  const challengeAbort=useRef<AbortController|null>(null);
+  const submitAbort=useRef<AbortController|null>(null);
+  const cameraStarting=useRef(false);
+  const [cameraBusy,setCameraBusy]=useState(false);
+  useEffect(()=>()=>{challengeAbort.current?.abort();submitAbort.current?.abort();},[]);
   const issueChallenge = useCallback(async (): Promise<void> => {
     if (challengeInFlight.current) return;
     challengeInFlight.current = true;
+    setChallengeLoading(true);setLivenessToken(null);setPoseSource("local");
+    const controller=new AbortController();challengeAbort.current=controller;
     try {
       const r = await fetch("/api/verification/challenge", {
         method: "POST",
+        signal:AbortSignal.any([controller.signal,AbortSignal.timeout(12000)]),
         headers: await authHeaders(),
       });
       if (!r.ok) return; /* keep whatever pose is on screen: if it came from a
@@ -129,6 +139,7 @@ export function VerifyGate() {
         livenessToken?: string;
         pose?: { label?: string; demo?: string };
       };
+      if(controller.signal.aborted||!openRef.current)return;
       if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
       if (typeof j.pose?.label === "string" && j.pose.label.length > 0) {
         setPose((prev) => ({
@@ -145,7 +156,7 @@ export function VerifyGate() {
     } catch {
       /* no challenge: the attempt degrades to unverified-freshness, not to an error */
     } finally {
-      challengeInFlight.current = false;
+      challengeInFlight.current = false;setChallengeLoading(false);
     }
   }, []);
 
@@ -256,6 +267,7 @@ export function VerifyGate() {
    * The exact state is shown on screen — facts, not guesses.
    */
   const continueToCamera = async () => {
+    if(challengeLoading||challengeInFlight.current||cameraStarting.current)return;
     setErrorMsg(null);
     setCameraFacts(null);
 
@@ -268,6 +280,7 @@ export function VerifyGate() {
       return;
     }
 
+    cameraStarting.current=true;setCameraBusy(true);
     // Ask the browser what it actually knows about our camera permission.
     let permState = "unknown";
     try {
@@ -311,7 +324,7 @@ export function VerifyGate() {
       } else {
         setErrorMsg("The camera couldn't start. Close anything else using it, then try again.");
       }
-    }
+    } finally {cameraStarting.current=false;setCameraBusy(false);}
   };
 
   useEffect(() => {
@@ -435,7 +448,7 @@ export function VerifyGate() {
       review, never a substitute for it. */
   const livenessEvidence = () => {
     const s = capturedGateRef.current?.state;
-    if (!s || s.unavailable) return { gate: "unavailable", blink: false, singleFace: true };
+    if (!s || s.unavailable) return { gate: "unavailable", blink: false, singleFace: false };
     if (s.blinked) return { gate: "ok", blink: true, singleFace: s.faceCount === 1 };
     return {
       gate: capturedGateRef.current?.skipped ? "skipped" : "unavailable",
@@ -445,12 +458,14 @@ export function VerifyGate() {
   };
 
   const submit = async () => {
-    if (!selfie) return;
+    if (!selfie||submitAbort.current) return;
+    const controller=new AbortController();submitAbort.current=controller;
     setErrorMsg(null);
     setStep("checking");
     try {
       const res = await fetch("/api/verification/check", {
         method: "POST",
+        signal:AbortSignal.any([controller.signal,AbortSignal.timeout(125000)]),
         headers: await authHeaders(),
         body: JSON.stringify({
           selfie,
@@ -466,6 +481,7 @@ export function VerifyGate() {
           browser: browserObservations(),
         }),
       });
+      if(controller.signal.aborted||!openRef.current)return;
       setLivenessToken(null); /* one-shot: a retry needs a brand-new challenge */
       const json = await res.json().catch(() => ({}));
 
@@ -509,14 +525,14 @@ export function VerifyGate() {
         body: "Your selfie was received for review. No decision or completion time is promised.",
       });
     } catch (error) {
+      if(controller.signal.aborted||!openRef.current)return;
       setLivenessToken(null);
-      setErrorMsg(error instanceof Error?error.message:"We couldn’t confirm submission. Check your verification status before trying again.");
+      setErrorMsg(error instanceof Error&&error.name==="TimeoutError"?"The check took too long to respond. No result was confirmed. Check your verification status before starting a new attempt.":error instanceof Error?error.message:"We couldn’t confirm submission. Check your verification status before trying again.");
       setStep("error");
-    }
+    } finally {if(submitAbort.current===controller)submitAbort.current=null;}
   };
 
-  /* While pending, poll the review queue. The preview room completes the
-     check automatically after about a minute. */
+  /* Pending changes only when a real server verdict arrives. No promised completion time. */
   useEffect(() => {
     if (step !== "pending") return;
     const iv = setInterval(async () => {
@@ -535,6 +551,7 @@ export function VerifyGate() {
   }, [step]);
 
   const close = () => {
+    challengeAbort.current?.abort();submitAbort.current?.abort();submitAbort.current=null;
     stopCamera();
     dismissedAtRef.current = Date.now();
     openRef.current = false;
@@ -560,10 +577,10 @@ export function VerifyGate() {
           <ul className="check-list">{['Private by design','Recent photo required','No public biometric data'].map(t=><li key={t}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e9c37c"/><path d="M8 12l3 3 5-6" stroke="#241a10" strokeWidth="1.8" fill="none"/></svg>{t}</li>)}</ul>
           <details className="verification-disclosure"><summary>How your selfie is used</summary><p>No ID document or biometric template is required. The selfie itself is stored while a request is undecided, and after approval so later profile photos can be re-checked against the person who earned the seal. Rejected selfies are not stored. Withdrawing consent removes the seal and queues stored copies for cleanup.</p><p>Only a passing check grants a badge. When the checks cannot reach a decision, a received submission stays pending for review. No approval or completion time is promised. Verification never happens through links sent in DMs, texts or email.</p><a href="/app/settings/legal/privacy">Read the full Privacy Policy</a></details>
           <button type="button" className="btn-grad big" onClick={()=>setStep("pose")}>Start the selfie check</button><button type="button" className="verification-secondary" onClick={close}>Maybe later</button>
-        </> : step === "pose" ? <div className="verification-step-content"><h1 className="display">Copy this pose.</h1><p>{poseSource==='server'?'This is the pose bound to your server-issued check. Copy it when you take your selfie.':'The server challenge is unavailable. This device-selected pose is advisory only; the server still decides whether your submission can be verified.'}</p><figure className="verification-pose"><img src={pose.demo} alt={`Example pose: ${pose.label}`}/><figcaption>{pose.label}</figcaption></figure>{errorMsg&&<div role="alert" className="verification-error"><p>{errorMsg}</p>{cameraFacts&&<small>{cameraFacts}</small>}</div>}<button type="button" className="btn-grad" onClick={()=>void continueToCamera()}>Continue to camera</button><button type="button" className="verification-secondary" onClick={()=>{if(poseSource==='server')void issueChallenge();else sampleNewPose();}}>Show me a different pose</button><p className="verification-footnote">Your camera opens only when you choose to continue.</p></div>
+        </> : step === "pose" ? <div className="verification-step-content"><h1 className="display">Copy this pose.</h1><p>{poseSource==='server'?'This is the pose bound to your server-issued check. Copy it when you take your selfie.':'The server challenge is unavailable. This device-selected pose is advisory only; the server still decides whether your submission can be verified.'}</p><figure className="verification-pose"><img src={pose.demo} alt={`Example pose: ${pose.label}`}/><figcaption>{pose.label}</figcaption></figure>{errorMsg&&<div role="alert" className="verification-error"><p>{errorMsg}</p>{cameraFacts&&<small>{cameraFacts}</small>}</div>}<button type="button" className="btn-grad" disabled={challengeLoading||cameraBusy} onClick={()=>void continueToCamera()}>{challengeLoading?"Preparing your pose…":cameraBusy?"Opening camera…":"Continue to camera"}</button><button type="button" className="verification-secondary" onClick={()=>{if(poseSource==='server')void issueChallenge();else sampleNewPose();}}>Show me a different pose</button><p className="verification-footnote">Your camera opens only when you choose to continue.</p></div>
         : step === "camera" ? <div className="verification-step-content"><h1 className="display">Mimic the pose.</h1><p>Bright, even lighting. Face fully visible. No glasses or hats.</p><div className="verification-pose-reminder"><img src={pose.demo} alt=""/><span>{pose.label}</span></div><div className="verification-camera"><video ref={videoRef} playsInline muted/><span className="verification-face-guide"/></div><p className="verification-live-status" role="status">{!gate?'Preparing live checks…':gate.unavailable?'Live checks unavailable on this device. This is reported to the server, not treated as a pass.':!gate.ready?'Warming up live checks…':gate.faceCount!==1?gate.faceCount===0?'Center your face in the frame':'One face only. Step back a little':!gate.framed?'Move closer and center your face':gate.blinked?'Live blink captured':gateSkipped?'Live check skipped on this device':gate.challenging?'Blink now':'Face ready. Blink when prompted'}</p><button type="button" className="btn-grad" disabled={!captureAllowed} onClick={capture}>{captureAllowed?'Take selfie':'Blink when prompted to take the selfie'}</button>{challengeTries>=3&&gate&&!gate.blinked&&!gateSkipped&&<button type="button" className="verification-secondary" onClick={()=>setGateSkipped(true)}>Continue without the live check</button>}</div>
         : step === "review" && selfie ? <div className="verification-step-content"><h1 className="display">A clear view of you.</h1><p>Check your selfie before submitting it for a private identity review.</p><img className="verification-selfie" src={selfie} alt="Your verification selfie"/><button type="button" className="btn-grad" onClick={()=>void submit()}>Submit for review</button><button type="button" className="verification-secondary" onClick={()=>{setSelfie(null);setStep('pose');}}>Retake with a new pose</button></div>
-        : step === "checking" ? <div className="verification-step-content verification-verdict" role="status"><span className="verification-spinner"/><h1 className="display">Taking a closer look.</h1><p>Your identity check is running. Keep this screen open while we wait for the result.</p><p className="verification-footnote">No decision has been returned yet.</p></div>
+        : step === "checking" ? <div className="verification-step-content verification-verdict" role="status"><FreebornLoader label="Checking your selfie"/><h1 className="display">Taking a closer look.</h1><p>Your identity check is running. Keep this screen open while we wait for the result.</p><p className="verification-footnote">No decision has been returned yet.</p></div>
         : step === "pending" ? <div className="verification-step-content verification-verdict"><span className="shield-ring"><VerificationShield/></span><h1 className="display">In review.</h1><p role="status">Your selfie was received and is pending review. Your badge is not granted while a decision is outstanding.</p><p>No completion time is promised. You can continue browsing and check back here.</p><button type="button" className="btn-grad" onClick={close}>Continue browsing</button></div>
         : step === "approved" ? <div className="verification-step-content verification-verdict"><VerifyBadge size={58}/><h1 className="display">You’re verified.</h1><p>Your identity check passed. The blue verification badge now appears on your profile.</p><button type="button" className="btn-grad" onClick={close}>Back to the room</button></div>
         : step === "rejected" ? <div className="verification-step-content verification-verdict"><span className="shield-ring"><VerificationShield/></span><h1 className="display">Let’s try again.</h1><p role="status">{rejectReason}</p><button type="button" className="btn-grad" onClick={()=>{setRejectReason(null);setStep('pose');}}>Try again with a new pose</button><button type="button" className="verification-secondary" onClick={close}>Maybe later</button></div>

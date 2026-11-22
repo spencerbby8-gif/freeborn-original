@@ -77,8 +77,8 @@ export function WelcomeStep({
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="Welcome to a calmer way to build a profile."
-      subtitle="Freeborn is designed for intentional relationships. Seven focused screens, and you're in."
+      title="Good things start with you."
+      subtitle="A few things that make you, you. Let’s build something real."
       onContinue={(e?: FormEvent) => {
         e?.preventDefault();
         onSave({});
@@ -88,24 +88,8 @@ export function WelcomeStep({
       saveStatus={saveStatus}
       footerTip="Your progress auto-saves after every screen. Fine details live in settings later."
     >
-      <div className="flex flex-wrap justify-center gap-2">
-        <span className="fb-chip fb-chip-gold">7 screens</span>
-        <span className="fb-chip">about 3 minutes</span>
-        <span className="fb-chip">auto-saves every screen</span>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {cards.map((c) => (
-          <div key={c.title} className="fb-card flex flex-col justify-between !p-4">
-            <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-                <WelcomeIcon name={c.icon} />
-              </div>
-              <h3 className="mt-3 text-[15px] font-black text-[var(--color-pearl)]">{c.title}</h3>
-            </div>
-            <p className="mt-2 text-xs leading-5 text-[var(--color-mist)]">{c.body}</p>
-          </div>
-        ))}
-      </div>
+      <div className="setup-welcome-meta"><span>7 focused steps</span><span>About 3 minutes</span></div>
+      <div className="option-list setup-welcome-cards">{cards.map(c=><div key={c.title} className="option-card"><span className="option-ic"><WelcomeIcon name={c.icon}/></span><span className="option-text"><b>{c.title}</b><small>{c.body}</small></span></div>)}</div>
     </StepShell>
   );
 }
@@ -133,7 +117,7 @@ export function IdentityStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="Start with who you are."
+      title="First, the essentials."
       subtitle="Your name, a private age gate, and how you identify."
       onBack={onBack}
       onContinue={handleContinue}
@@ -317,12 +301,6 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
     });
   };
 
-  const sourceButton = (active: boolean) =>
-    `fb-card relative !p-4 text-left transition-all active:scale-[0.98] ${
-      active
-        ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
-        : "hover:border-white/20 hover:bg-white/[0.045]"
-    }`;
 
   return (
     <StepShell
@@ -336,78 +314,11 @@ export function LocationStep({ stepIndex, totalSteps, draft, onBack, onSave, pen
       saveStatus={saveStatus}
       footerTip="Only your city and region are public. Exact coordinates stay private."
     >
-      {/* Permission priming — why we ask, BEFORE the OS prompt (2026 onboarding research) */}
-      <div className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
-        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-          <PinIcon size={16} />
-        </span>
-        <p className="text-[12.5px] leading-5 text-[var(--color-mist)]">
-          <span className="font-black text-[var(--color-pearl)]">Why we ask:</span> precise
-          location means true distances, so real people near you see you first, and you see
-          them. Your exact coordinates stay private; only your city and region are ever shown.
-          You can always type your city instead.
-        </p>
+      <p className="setup-note"><PinIcon size={18}/>Nearby connections, without sharing your exact location.</p>
+      <div className="option-list">
+        <button type="button" className={`option-card ${locationSource==='gps'?'selected':''}`} aria-pressed={locationSource==='gps'} disabled={geoState==='locating'||geoState==='resolving'} onClick={()=>{setLocationSource('gps');handleRequestLocation();}}><span className="option-ic"><PinIcon size={20}/></span><span className="option-text"><b>{geoState==='locating'?'Finding you…':geoState==='resolving'?'Finding your city…':geoState==='granted'?'Location captured':'Use my location'}</b><small>Find people near you. Your coordinates stay private.</small></span><CheckIcon className="option-check" size={20}/></button>
+        <button type="button" className={`option-card ${locationSource==='manual'?'selected':''}`} aria-pressed={locationSource==='manual'} onClick={()=>{setLocationSource('manual');setErrors(prev=>({...prev,location_source:''}));}}><span className="option-ic"><WelcomeIcon name="route"/></span><span className="option-text"><b>Type it myself</b><small>Enter your city and region below.</small></span><CheckIcon className="option-check" size={20}/></button>
       </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => {
-            setLocationSource("gps");
-            handleRequestLocation();
-          }}
-          className={sourceButton(locationSource === "gps")}
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
-              <PinIcon size={18} />
-              {geoState === "locating" || geoState === "resolving" ? (
-                <span className="absolute inset-0 animate-ping rounded-xl bg-[var(--color-gold-500)]/20" />
-              ) : null}
-            </span>
-            <span className="text-sm font-black text-[var(--color-pearl)]">
-              {geoState === "locating"
-                ? "Finding you…"
-                : geoState === "resolving"
-                  ? "Naming your city…"
-                  : geoState === "granted"
-                    ? "Location captured"
-                    : "Use my location"}
-            </span>
-          </div>
-          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">One tap, and we fill in your city for you.</p>
-          {locationSource === "gps" ? (
-            <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
-              <CheckIcon size={13} strokeWidth={3} />
-            </span>
-          ) : null}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setLocationSource("manual");
-            setErrors((prev) => ({ ...prev, location_source: "" }));
-          }}
-          className={sourceButton(locationSource === "manual")}
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-[var(--color-sand)]">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-              </svg>
-            </span>
-            <span className="text-sm font-black text-[var(--color-pearl)]">Type it myself</span>
-          </div>
-          <p className="mt-1.5 text-xs leading-4 text-[var(--color-mist)]">Enter your city and region below.</p>
-          {locationSource === "manual" ? (
-            <span className="absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]">
-              <CheckIcon size={13} strokeWidth={3} />
-            </span>
-          ) : null}
-        </button>
-      </div>
-
       {detected ? (
         <p className="animate-scale-in flex items-center gap-2 rounded-xl border border-[var(--color-teal-500)]/25 bg-[var(--color-teal-500)]/[0.07] px-3.5 py-2.5 text-[12px] font-bold text-[var(--color-teal-300)]" role="status">
           <CheckIcon size={13} strokeWidth={2.5} />
@@ -474,7 +385,7 @@ export function IntentionsStep({ stepIndex, totalSteps, draft, onBack, onSave, p
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="What are you here for?"
+      title={<>What are you<br/>here for?</>}
       subtitle="Choose what feels true. You can always change this later."
       onBack={onBack}
       onContinue={handleContinue}

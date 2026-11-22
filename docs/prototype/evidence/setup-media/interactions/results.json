@@ -1,0 +1,610 @@
+{
+  "scope": "Local intercepted APIs + fake microphone + loopback WebSocket. No hosted delivery, inbox, biometric or RLS acceptance.",
+  "checks": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Shared ignition loader replaces generic text and respects reduced motion",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "All seven production onboarding steps use native reference chrome without legacy fields",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Onboarding identity validation, date selection and authorized real patch are wired",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "A failed onboarding save does not advance or discard the typed bio",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Photo upload, cover reorder/removal and actual completion payload are wired",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Swipe right likes exactly once and shows visible feedback; swipe left passes",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Like and Spark buttons visibly react; refused choices keep the same card",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Short drag and vertical scroll do not create choices",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Document is staged privately, then uploaded with match authorization and explicitly sent",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Failed upload retains document and caption; retry sends once",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Image picker uploads explicitly and renders the real media bubble",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Real MediaRecorder captures fake-device audio, previews and sends an authorized voice attachment",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Typing animation is driven by the subscribed private WebSocket and cleared by stop signal",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Native OTP screen uses actual signup/verifyOtp; invalid code stays an error, valid code enters setup",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Shared ignition loader replaces generic text and respects reduced motion",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "All seven production onboarding steps use native reference chrome without legacy fields",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Onboarding identity validation, date selection and authorized real patch are wired",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "A failed onboarding save does not advance or discard the typed bio",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Photo upload, cover reorder/removal and actual completion payload are wired",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Swipe right likes exactly once and shows visible feedback; swipe left passes",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Like and Spark buttons visibly react; refused choices keep the same card",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Short drag and vertical scroll do not create choices",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Document is staged privately, then uploaded with match authorization and explicitly sent",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Failed upload retains document and caption; retry sends once",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Image picker uploads explicitly and renders the real media bubble",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Real MediaRecorder captures fake-device audio, previews and sends an authorized voice attachment",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Typing animation is driven by the subscribed private WebSocket and cleared by stop signal",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Native OTP screen uses actual signup/verifyOtp; invalid code stays an error, valid code enters setup",
+      "ok": true
+    }
+  ],
+  "captures": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "shared-loader"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-1"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-1-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-2"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-2-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-3"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-3-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-4"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-4-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-5"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-5-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-6"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-6-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-7"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-7-bottom"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "onboarding-7-populated"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "swipe-like"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "button-like"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "button-spark"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "document-staged"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "document-delivered"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "image-delivered"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "voice-preview"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "voice-delivered"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "typing-live"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "email-otp"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "email-otp-error"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "shared-loader"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-1"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-1-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-2"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-2-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-3"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-3-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-4"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-4-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-5"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-5-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-6"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-6-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-7"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-7-bottom"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "onboarding-7-populated"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "swipe-like"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "button-like"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "button-spark"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "document-staged"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "document-delivered"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "image-delivered"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "voice-preview"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "voice-delivered"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "typing-live"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "email-otp"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "email-otp-error"
+    }
+  ],
+  "errors": []
+}

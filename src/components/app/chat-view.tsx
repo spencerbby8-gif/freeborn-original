@@ -1,5 +1,7 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
+import { CHAT_FILE_ACCEPT, CHAT_FILE_MAX, chatFileMime, safeChatFilename } from "@/lib/chat-file";
 import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
@@ -77,10 +79,12 @@ const ICEBREAKERS = [
 
 type StagedItem = {
   id: number;
-  kind: "image" | "video";
+  kind: "image" | "video" | "file";
   dataUrl: string;
   file?: File;
   dur?: number;
+  name?: string;
+  uploadedUrl?: string;
 };
 
 /** CSP-safe data-URL to Blob. connect-src deliberately excludes data:, so
@@ -94,7 +98,7 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
   return new Blob([bytes], { type: mime });
 };
 
-const MEDIA_RE = /^\[\[(image|video|voice|call):([^\]|]+)(?:\|([\d.]+))?\]\]$/;
+const MEDIA_RE = /^\[\[(image|video|voice|call|file):([^\]|]+)(?:\|([^\]]+))?\]\]$/;
 const QUOTE_RE = /^\[\[quote:([^|]{1,60})\|(.{1,220})\]\]$/;
 const MAX_PACKET_ITEMS = 10;
 
@@ -122,6 +126,7 @@ function fmtClock(totalSeconds: number) {
 }
 
 function previewBody(body: string) {
+  if (/\[\[file:/.test(body)) return "Document";
   if (/\[\[voice:/.test(body)) return "Voice note";
   if (/\[\[video:/.test(body)) return "Video";
   if (/\[\[image:/.test(body)) return "Photo";
@@ -164,7 +169,7 @@ function seededBars(seed: string, count: number) {
 
 type Segment =
   | { type: "quote"; name: string; text: string }
-  | { type: "media"; items: { kind: string; url: string; dur?: number }[] }
+  | { type: "media"; items: { kind: string; url: string; dur?: number; name?: string }[] }
   | { type: "text"; text: string };
 
 function parseSegments(body: string): Segment[] {
@@ -178,7 +183,7 @@ function parseSegments(body: string): Segment[] {
     }
     const m = MEDIA_RE.exec(line.trim());
     if (m) {
-      const item = { kind: m[1], url: m[2], dur: m[3] ? Number(m[3]) : undefined };
+      const item = { kind: m[1], url: m[2], dur: m[1]!=="file" && m[3] ? Number(m[3]) : undefined, name: m[1]==="file" ? (()=>{try{return decodeURIComponent(m[3]||"Document");}catch{return "Document";}})() : undefined };
       const last = segs[segs.length - 1];
       if (last && last.type === "media") last.items.push(item);
       else segs.push({ type: "media", items: [item] });
@@ -198,7 +203,7 @@ function plainText(body: string) {
         : s.type === "quote"
           ? `${s.name}: ${s.text}`
           : s.items
-              .map((i) => (i.kind === "voice" ? "[Voice note]" : i.kind === "video" ? "[Video]" : "[Photo]"))
+              .map((i) => (i.kind === "file" ? "[Document]" : i.kind === "voice" ? "[Voice note]" : i.kind === "video" ? "[Video]" : "[Photo]"))
               .join(" ")
     )
     .join("\n");
@@ -285,12 +290,17 @@ function VideoTile({
   );
 }
 
+function DocumentAttachment({url,name="Document"}:{url:string;name?:string}){
+ const [busy,setBusy]=useState(false);const [error,setError]=useState(false);
+ return <div className="chat-document"><Button unstyled type="button" disabled={busy} onPointerDown={e=>e.stopPropagation()} onClick={async()=>{if(!/^\/api\/chat\/media\/[a-f0-9-]{36}$/.test(url)){setError(true);return;}setBusy(true);setError(false);try{const token=await getAccessToken();const r=await fetch(url,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!r.ok)throw Error('Download refused');const objectUrl=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=objectUrl;a.download=safeChatFilename(name);a.click();window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);}catch{setError(true);}finally{setBusy(false);}}}><PrototypeIcon name="file"/><span><b>{safeChatFilename(name)}</b><small>{busy?'Downloading…':'Download document'}</small></span><PrototypeIcon name="next"/></Button>{error&&<p role="alert">Could not download. Check your access and try again.</p>}</div>;
+}
+
 function MediaPacket({
   items,
   onImage,
   onVideo,
 }: {
-  items: { kind: string; url: string; dur?: number }[];
+  items: { kind: string; url: string; dur?: number; name?: string }[];
   onImage: (url: string) => void;
   onVideo: (url: string) => void;
 }) {
@@ -298,6 +308,7 @@ function MediaPacket({
   const voices = items.filter((i) => i.kind === "voice");
   return (
     <div className="space-y-2">
+      {items.filter(i=>i.kind==="file").map((item,i)=><DocumentAttachment key={i} url={item.url} name={item.name}/>)}
       {visuals.length > 0 ? (
         <div className={visuals.length > 1 ? "grid grid-cols-2 gap-1.5" : ""}>
           {visuals.map((item, i) =>
@@ -313,6 +324,8 @@ function MediaPacket({
                 <PhotoImage
                   src={item.url}
                   alt="Shared photo"
+                  priority
+                  style={{width:visuals.length>1?'100%':240,maxWidth:'100%',aspectRatio:'4 / 3'}}
                   className="block max-h-[300px] w-full rounded-2xl"
                   imgClassName="max-h-[300px] w-full rounded-2xl object-cover"
                 />
@@ -731,9 +744,10 @@ export function Thread({
     setUploading(true);
     try {
       const url = await uploadMedia(blob, "voice");
-      if (!url) return; // uploadMedia already told the member why
+      if (!url) return false; // Keep the recorder preview available for retry
       await postMessage(buildBody(`[[voice:${url}|${seconds}]]`));
       setReplyTo(null);
+      return true;
     } finally {
       setUploading(false);
     }
@@ -850,16 +864,16 @@ export function Thread({
   const buildBody = (content: string) => {
     if (!replyTo) return content;
     const quote = `[[quote:${replyTo.name.slice(0, 40)}|${replyTo.text.slice(0, 120)}]]`;
-    return `${quote}\n${content}`.slice(0, 2000);
+    return `${quote}\n${content}`;
   };
 
   /** Upload into the media store via multipart (no base64 bloat → voice and
       video actually go through). */
-  const uploadMedia = async (blob: Blob, kind: "image" | "video" | "voice") => {
+  const uploadMedia = async (blob: Blob, kind: "image" | "video" | "voice" | "file") => {
     try {
       const ext = kind === "voice" ? "webm" : kind === "video" ? "mp4" : "jpg";
       const form = new FormData();
-      form.append("file", blob, `upload.${ext}`);
+      form.append("file", blob, blob instanceof File ? blob.name : `upload.${ext}`);
       form.append("kind", kind);
       // Required: the server records which conversation this attachment
       // belongs to so that GET /api/chat/media/:id can verify the fetcher is
@@ -899,11 +913,12 @@ export function Thread({
   const send = async () => {
     const clean = text.trim();
     if (!clean || sending || staged.length > 0) return;
+    const body = buildBody(clean);
+    if(body.length>2000){flash("Shorten your message or quoted reply to fit 2000 characters.");return;}
     setSending(true);
     setText("");
     setReplyTo(null);
     stopTypingNotice();
-    const body = buildBody(clean);
     /* One path owns the echo: postMessage queues it, renders it, retires it by server id and
        marks it retryable if the send is refused. Pushing a second copy here is how the same
        text could appear twice until the next fetch. */
@@ -913,6 +928,7 @@ export function Thread({
 
   /* --- Staged media packet -------------------------------------------------- */
 
+  const documentRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<StagedItem[]>([]);
@@ -922,15 +938,18 @@ export function Thread({
   const [showVoice, setShowVoice] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
 
-  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video" | "file") => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     for (const file of files) {
       if (staged.length >= MAX_PACKET_ITEMS) break;
-      if (file.size > 20 * 1024 * 1024) {
-        flash("That file is over 20 MB. Trim it down and try again.");
+      const max=kind==="video"?20*1024*1024:CHAT_FILE_MAX;
+      if(kind==="file"&&!chatFileMime(file.name)){flash("Choose a PDF, text, CSV or Office document.");continue;}
+      if (file.size > max) {
+        flash(`That file is over ${max/1024/1024} MB. Choose a smaller file.`);
         continue;
       }
+      if(kind==="file"){setStaged(s=>s.length>=MAX_PACKET_ITEMS?s:[...s,{id:Date.now()+Math.random(),kind,dataUrl:"",file,name:safeChatFilename(file.name)}]);continue;}
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = String(reader.result);
@@ -981,24 +1000,27 @@ export function Thread({
     if (items.length === 0) return;
     setUploading(true);
     setSending(true);
-    setText("");
-    setStaged([]);
+    stopTypingNotice();
     const markers: string[] = [];
+    let failed=false;
     for (const item of items) {
       try {
         const blob = item.file ?? dataUrlToBlob(item.dataUrl);
-        const url = await uploadMedia(blob, item.kind);
-        if (url) markers.push(`[[${item.kind}:${url}${item.dur ? `|${item.dur.toFixed(1)}` : ""}]]`);
-      } catch {
-        flash("One attachment couldn't be read, so it was skipped.");
-      }
+        const url = item.uploadedUrl ?? await uploadMedia(blob, item.kind);
+        if (!url) {failed=true;continue;}
+        // Keep uploaded ids for a retry; never upload the same successful file twice.
+        setStaged(s=>s.map(i=>i.id===item.id?{...i,uploadedUrl:url}:i));
+        const meta=item.kind==='file'?`|${encodeURIComponent(safeChatFilename(item.name||'Document'))}`:item.dur?`|${item.dur.toFixed(1)}`:'';
+        markers.push(`[[${item.kind}:${url}${meta}]]`);
+      } catch { failed=true; }
     }
-    if (markers.length) {
-      const content = [markers.join("\n"), caption].filter(Boolean).join("\n");
-      await postMessage(buildBody(content));
-    } else if (caption) {
-      await postMessage(buildBody(caption));
-    }
+    if(failed){flash("Some attachments didn’t upload. Your files and caption are kept — try Send packet again.");setUploading(false);setSending(false);return;}
+    const content = [markers.join("\n"), caption].filter(Boolean).join("\n");
+    const packetBody=buildBody(content);
+    if(packetBody.length>2000){flash("This packet is too long. Shorten the caption or send fewer attachments together. Your files are kept.");setUploading(false);setSending(false);return;}
+    await postMessage(packetBody);
+    // postMessage owns the retained failed-send bubble if delivery is refused.
+    setText(current=>current.trim()===caption?"":current);setStaged(current=>current.filter(i=>!items.some(sent=>sent.id===i.id)));
     setReplyTo(null);
     setUploading(false);
     setSending(false);
@@ -1269,6 +1291,7 @@ export function Thread({
       </div>
 
       {/* Hidden file pickers */}
+      <input ref={documentRef} type="file" accept={CHAT_FILE_ACCEPT} multiple className="hidden" aria-label="Choose documents" onChange={e=>onFilePicked(e,"file")}/>
       <input
         ref={fileRef}
         type="file"
@@ -1314,7 +1337,7 @@ export function Thread({
           <div className="flex gap-2.5 overflow-x-auto pb-1">
             {staged.map((item, i) => (
               <div key={item.id} className="relative shrink-0">
-                {item.kind === "image" ? (
+                {item.kind === "file" ? <div className="chat-document-stage"><PrototypeIcon name="file"/><span>{item.name}</span></div> : item.kind === "image" ? (
                   <img
                     src={item.dataUrl}
                     alt={`Staged photo ${i + 1}`}
@@ -1413,7 +1436,7 @@ export function Thread({
           {attachOpen ? (
             <>
               <div className="fixed inset-0 z-[55]" onClick={() => setAttachOpen(false)} />
-              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]"><button type="button" className="reference-voice-action" onClick={()=>{setShowVoice(true);setAttachOpen(false);}}>Record a voice note</button>
+              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]"><button type="button" className="reference-voice-action" onClick={()=>{setShowVoice(true);setAttachOpen(false);}}>Record a voice note</button><Button unstyled type="button" className="reference-voice-action" onClick={()=>{setAttachOpen(false);documentRef.current?.click();}}>Share a document</Button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1503,7 +1526,7 @@ export function Thread({
         />
 
         {showVoice&&<VoiceRecorder
-          onSend={(dataUrl, seconds) => void sendVoice(dataUrl, seconds)}
+          onSend={sendVoice}
           onError={flash}
           disabled={uploading}
         />}
@@ -1790,7 +1813,7 @@ export function ChatView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+        <FreebornLoader/>
       </div>
     );
   }
