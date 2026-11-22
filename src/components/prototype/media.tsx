@@ -12,6 +12,16 @@ export function PhotoViewer({photos,name,initialIndex=0,onClose}:{photos:string[
  return <div className="reference-photo-viewer" role="dialog" aria-modal="true" aria-label={`${name}'s photos`}><header><button className="bare-icon" type="button" aria-label="Close photos" onClick={onClose}><PrototypeIcon name="back"/></button><span>{name}<small>{index+1} / {photos.length}</small></span><span className="reference-photo-mark">FREEBORN</span></header><div className="reference-photo-stage" onTouchStart={e=>{start.current=e.touches[0].clientX;}} onTouchEnd={e=>{if(start.current===null)return;const dx=e.changedTouches[0].clientX-start.current;start.current=null;if(Math.abs(dx)>50)setIndex(i=>(i+(dx<0?1:photos.length-1))%photos.length);}}><PhotoImage key={photos[index]} src={photos[index]} alt={`${name}, photo ${index+1}`} className="reference-photo-full" imgClassName="object-contain" priority/></div>{photos.length>1&&<footer><button type="button" className="bare-icon" aria-label="Previous photo" onClick={()=>setIndex(i=>(i+photos.length-1)%photos.length)}><PrototypeIcon name="back"/></button><div className="reference-photo-dots">{photos.map((_,i)=><button key={i} type="button" aria-label={`Photo ${i+1}`} aria-current={i===index?'true':undefined} onClick={()=>setIndex(i)}/>)}</div><button type="button" className="bare-icon" aria-label="Next photo" onClick={()=>setIndex(i=>(i+1)%photos.length)}><PrototypeIcon name="next"/></button></footer>}</div>;
 }
 
+/** Intrinsic proportions and no upscaling: only shrink oversized photos to fit chat. */
+export function ChatPhoto({url,onOpen}:{url:string;onOpen:()=>void}){
+ const [attempt,setAttempt]=useState(0);const [failed,setFailed]=useState(false);const [width,setWidth]=useState<number>();
+ const media=useAuthedMedia(attempt?`${url}${url.includes('?')?'&':'?'}retry=${attempt}`:url);
+ const unavailable=failed||media.status==='failed';
+ return <button type="button" className="reference-chat-photo" aria-label={unavailable?'Retry shared photo':'Open photo full size'} style={width?{width}:undefined} onPointerDown={e=>e.stopPropagation()} onClick={()=>{if(unavailable){setFailed(false);setAttempt(a=>a+1);}else if(media.src)onOpen();}}>
+ {unavailable?<span>Photo unavailable · Tap to retry</span>:<img key={attempt} src={media.src||undefined} alt="Shared photo" draggable={false} onError={()=>setFailed(true)} onLoad={e=>{const img=e.currentTarget;setWidth(Math.min(img.naturalWidth,260,img.naturalWidth*340/img.naturalHeight));}}/>}
+ </button>;
+}
+
 const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 function PlayIcon({playing=false}:{playing?:boolean}){return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">{playing?<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>:<path d="m8 5 11 7-11 7z"/>}</svg>;}
 // One playing note at a time without mounting an old chat component.

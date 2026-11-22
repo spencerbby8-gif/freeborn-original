@@ -29,7 +29,7 @@ import {
 } from "@/lib/chat-sync";
 import { joinChatChannel, relayMessageNotice, type ChatBus } from "@/lib/chat-bus";
 import { MemberDetail } from "@/components/prototype/member-detail";
-import { PhotoViewer, VoiceBubble, VoiceRecorder } from "@/components/prototype/media";
+import { ChatPhoto, PhotoViewer, VoiceBubble, VoiceRecorder } from "@/components/prototype/media";
 import { CallOverlay } from "./call-overlay";
 
 
@@ -300,26 +300,10 @@ function MediaPacket({
     <div className="space-y-2">
       {items.filter(i=>i.kind==="file").map((item,i)=><DocumentAttachment key={i} url={item.url} name={item.name}/>)}
       {visuals.length > 0 ? (
-        <div className={visuals.length > 1 ? "grid grid-cols-2 gap-1.5" : ""}>
+        <div className="reference-packet-visuals">
           {visuals.map((item, i) =>
             item.kind === "image" ? (
-              <button
-                key={i}
-                type="button"
-                onClick={() => onImage(item.url)}
-                onPointerDown={(e) => e.stopPropagation()}
-                aria-label="Open photo full size"
-                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition active:scale-[0.98]"
-              >
-                <PhotoImage
-                  src={item.url}
-                  alt="Shared photo"
-                  priority
-                  style={{width:visuals.length>1?'100%':240,maxWidth:'100%',aspectRatio:'4 / 3'}}
-                  className="block max-h-[300px] w-full rounded-2xl"
-                  imgClassName="max-h-[300px] w-full rounded-2xl object-cover"
-                />
-              </button>
+              <ChatPhoto key={i} url={item.url} onOpen={()=>onImage(item.url)}/>
             ) : (
               <VideoTile
                 key={i}
@@ -1117,6 +1101,7 @@ export function Thread({
     }
     const segs = parseSegments(m.body);
     const mediaOnly = segs.every((s) => s.type === "media");
+    const hasMedia = segs.some((s) => s.type === "media");
     rows.push(
       <div key={m.id} className={`reference-message-row flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
@@ -1160,7 +1145,7 @@ export function Thread({
               transition: "transform 160ms ease",
             }}
             onContextMenu={(e) => e.preventDefault()}
-            className={`fb-bubble ${m.mine?"out":"in"} fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
+            className={`fb-bubble ${hasMedia?"reference-has-media":""} ${mediaOnly?"reference-media-only":""} ${m.mine?"out":"in"} fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
