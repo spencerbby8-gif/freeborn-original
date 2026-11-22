@@ -1,14 +1,16 @@
 "use client";
 
+import { draftChatHref } from "@/lib/conversation-opener";
 import { memberTapFeedback } from "@/lib/device-prefs";
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { VerifyBadge } from "@/components/verify-badge";
 
+import { DiscoveryCard } from "./discovery-card";
 import { MemberDetail } from "./member-detail";
 import { buildProfileParams, loadFilters, DEFAULT_FILTERS, FILTERS_EVENT, type HomeFilters } from "@/components/app/filters";
 import { openVerifyFlow } from "@/components/app/verify-modal";
@@ -21,7 +23,6 @@ function Portrait({src,name,className}:{src?:string;name:string;className?:strin
 }
 function Verified({yes}:{yes:boolean}) {return yes?<span className="verified"><VerifyBadge size={17}/></span>:null;}
 function Empty({title,body}:{title:string;body:string}) {return <div className="empty-state"><h3>{title}</h3><p>{body}</p></div>;}
-async function hello(to:string){return memberRequest<{matchId?:string;incomingId?:string;requestId?:string;pending?:boolean}>('/api/chat/requests',{to});}
 
 export function DiscoverScreen(){
   const [query,setQuery]=useState("");
@@ -33,16 +34,19 @@ export function DiscoverScreen(){
   const router=useRouter();const resource=useMemberResource<{profiles:DeckProfile[]}>(`/api/profiles${query}`);
   const [index,setIndex]=useState(0);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null);const [detail,setDetail]=useState<string|null>(null);
   const current=resource.data?.profiles[index];
+  const scrollRef=useRef<HTMLDivElement>(null);
+  useLayoutEffect(()=>{const node=scrollRef.current;if(node){node.scrollTop=0;const parent=node.closest('.fb-content');if(parent)parent.scrollTop=0;}},[current?.id]);
+  useEffect(()=>{if(!notice)return;const id=setTimeout(()=>setNotice(null),3500);return()=>clearTimeout(id);},[notice]);
   async function swipe(choice:'like'|'pass'|'superlike'){
     if(!current||busy)return;memberTapFeedback();setBusy(true);setError(null);setNotice(null);
     try{const r=await memberRequest<{matched?:boolean}>('/api/likes',{profileId:current.id,choice});setIndex(i=>i+1);if(r.matched)setNotice('It’s mutual — say hello while the moment is warm.');else if(choice!=='pass')setNotice(choice==='superlike'?'Spark sent.':'Added to your likes.');}catch(e){setError(e instanceof Error?e.message:'Could not record your choice.');}finally{setBusy(false);}
   }
-  async function sayHello(){if(!current||busy)return;setBusy(true);setError(null);try{const r=await hello(current.id);if(r.matchId)router.push(`/app/chat?match=${encodeURIComponent(r.matchId)}`);else if(r.incomingId)router.push('/app/chat');else if(r.requestId)setNotice('Message request sent. They can choose whether to start a conversation.');else throw new Error('The server did not confirm your request.');}catch(e){setError(e instanceof Error?e.message:'Could not send your request.');}finally{setBusy(false);}}
+  function sayHello(){if(current&&!busy)router.push(draftChatHref(current.id));}
   async function reset(){setBusy(true);setError(null);try{await memberRequest('/api/likes',{action:'reset-passes'});await resource.reload();setIndex(0);}catch(e){setError(e instanceof Error?e.message:'Could not reset the deck.');}finally{setBusy(false);}}
-  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll"><div className="disc-head"><span className="eyebrow">{current?.city?`TONIGHT IN ${current.city.toLocaleUpperCase()}`:'MEET WITH INTENTION'}</span><Link href="/app/notifications" className="disc-heart" aria-label="Notifications"><PrototypeIcon name="heart"/></Link></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
+  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll" ref={scrollRef}><div className="disc-head"><span className="eyebrow">{current?.city?`TONIGHT IN ${current.city.toLocaleUpperCase()}`:'MEET WITH INTENTION'}</span><Link href="/app/notifications" className="disc-heart" aria-label="Notifications"><PrototypeIcon name="heart"/></Link></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
     <div className="intent-chips"><Link href="/app/preferences" className="chip chip-rose">{intentLabel}</Link><Button unstyled className="chip chip-rose-dim" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}>{filterState.lifestyle[0]??"Lifestyle"}</Button><Button unstyled className="chip chip-rose-dim" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}>{filterState.interests[0]??"Interests"}</Button><Button unstyled className="chip chip-flame" aria-label="Discovery filters" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}><PrototypeIcon name="flame"/></Button></div>
-    <ScreenError message={error??resource.error} retry={resource.error?()=>void resource.reload():undefined}/>{notice&&<p className="fineprint center" role="status">{notice}</p>}
-    <div className="deck">{resource.loading?<Loading/>:current?<article className="profile-card"><Portrait src={current.photo||current.photos[0]} name={current.name}/><div className="card-shade"/>{current.isNew&&<span className="new-here">NEW HERE</span>}<Button unstyled className="card-like" aria-label={`Like ${current.name}`} disabled={busy} onClick={()=>void swipe('like')}><PrototypeIcon name="heart"/></Button><Button unstyled className="card-body" style={{textAlign:'left'}} onClick={()=>setDetail(current.id)} aria-label={`View ${current.name}’s profile`}><h2 className="card-name">{current.name} <Verified yes={current.verified}/></h2><p className="card-sub">{[current.age,current.occupation,current.city].filter(Boolean).join(' · ')}</p><p className="card-meta">{current.heightCm&&<span>↟ {Math.floor(Math.round(current.heightCm/2.54)/12)}′{Math.round(current.heightCm/2.54)%12}″</span>}{current.presence&&current.presence!=='hidden'&&<><span className="pulse-dot"/>{current.presence==='now'?'Active now':current.presence==='today'?'Active today':'Active this week'}</>}</p><div className="card-tags">{current.traits.slice(0,3).map(t=><span key={t}>{t}</span>)}</div><p className="card-bio">{current.headline}</p></Button><div className="action-row discover-actions"><Button unstyled className="circle-btn" aria-label="Pass" disabled={!current||busy} onClick={()=>void swipe('pass')}><PrototypeIcon name="close"/></Button><Button unstyled className="say-hello" disabled={!current||busy} onClick={()=>void sayHello()}><PrototypeIcon name="heart"/>Say hello</Button><Button unstyled className="circle-btn" aria-label="Spark" disabled={!current||busy} onClick={()=>void swipe('superlike')}><PrototypeIcon name="flame"/></Button></div></article>:<div className="deck-empty"><PrototypeIcon name="discover"/><h3>You’ve met everyone for now.</h3><p>A little pause can lead to something good.<br/>Try again soon, or widen your world.</p><div className="empty-actions"><Button unstyled className="btn-grad sm" onClick={()=>void reset()} disabled={busy}>Reset deck</Button><Link href="/app/preferences" className="btn-ghost">Widen preferences</Link></div></div>}</div>
+    <ScreenError message={error??resource.error} retry={resource.error?()=>void resource.reload():undefined}/>{notice&&<p className="discover-feedback" role="status">{notice}</p>}
+    <div className="deck">{resource.loading?<Loading/>:current?<DiscoveryCard key={current.id} profile={current} busy={busy} onOpen={()=>setDetail(current.id)} onChoice={choice=>void swipe(choice)} onHello={sayHello}/>:<div className="deck-empty"><PrototypeIcon name="discover"/><h3>You’ve met everyone for now.</h3><p>A little pause can lead to something good.<br/>Try again soon, or widen your world.</p><div className="empty-actions"><Button unstyled className="btn-grad sm" onClick={()=>void reset()} disabled={busy}>Reset deck</Button><Link href="/app/preferences" className="btn-ghost">Widen preferences</Link></div></div>}</div>
 
   </div>{detail&&<MemberDetail profileId={detail} onClose={()=>setDetail(null)}/>}</section>;
 }

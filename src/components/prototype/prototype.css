@@ -745,3 +745,78 @@
 .fb-prototype .fb-content:has(.new-profile-editor){overflow:hidden;transform:translateZ(0)}
 .fb-prototype .new-profile-editor{height:100%;overflow-y:auto;padding-bottom:112px;scrollbar-width:none}
 .fb-prototype .new-profile-editor .editor-save-dock{position:fixed;bottom:0;left:18px;right:18px;margin:0;background:linear-gradient(#0c101e00,#0c101e 25%)}
+
+/* Review pass: no card-flow changes for feedback; stable portrait across swipes. */
+.fb-prototype .discover-scroll{overflow-anchor:none}
+.fb-prototype .discover-feedback{position:absolute;z-index:35;left:26px;right:26px;top:12px;margin:0;padding:12px 16px;border:1px solid #dcaf8755;border-radius:14px;background:#151a2bf2;box-shadow:0 8px 28px #0006;font-size:12px;line-height:1.5;color:#f5d6b1;pointer-events:none}
+.fb-prototype .card-portrait{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+.fb-prototype .card-height{display:inline-flex;align-items:center;gap:5px}
+.fb-prototype .card-height svg{width:12px;height:14px}
+.fb-prototype .card-meta{flex-wrap:wrap;line-height:1.5}
+.fb-prototype .card-bio{font-size:11.5px;line-height:1.8}
+.fb-prototype .card-tags span{font-size:10px}
+.fb-prototype .draft-chat{display:flex!important;flex-direction:column;height:100%;min-height:0;background:#0c101e}
+.fb-prototype .draft-chat-head{display:flex;align-items:center;gap:8px;padding:20px 15px 15px;border-bottom:1px solid var(--line);flex-shrink:0}
+.fb-prototype .draft-person{display:flex;align-items:center;gap:11px;text-align:left}
+.fb-prototype .draft-person b{font-size:14px;font-weight:600;display:block}
+.fb-prototype .draft-person small{font-size:9px;color:var(--muted);display:block;margin-top:5px}
+.fb-prototype .draft-avatar{width:39px;height:39px;border-radius:50%;overflow:hidden;flex-shrink:0}
+.fb-prototype .draft-avatar img{width:100%;height:100%;object-fit:cover}
+.fb-prototype .draft-chat-body{flex:1;min-height:0;overflow:auto;padding:24px 21px}
+.fb-prototype .draft-intro{text-align:center;padding:24px 10px 30px}
+.fb-prototype .draft-intro>svg{width:31px;height:31px;color:var(--gold);margin:auto}
+.fb-prototype .draft-intro h1{font-size:31px;margin:18px 0 10px}
+.fb-prototype .draft-intro p,.fb-prototype .draft-consent{font-size:11px;line-height:1.8;color:var(--muted)}
+.fb-prototype .draft-opener-preview{padding:19px;border:1px dashed #d6b18855;border-radius:22px;background:#e6bc8210}
+.fb-prototype .draft-opener-preview>span{font-size:8px;letter-spacing:.18em;color:#d8b38f}
+.fb-prototype .draft-opener-preview p{font-size:13px;line-height:1.8;margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.fb-prototype .draft-consent{margin:22px 2px}
+.fb-prototype .draft-composer{padding:16px 20px 22px;border-top:1px solid var(--line);background:#101424;flex-shrink:0}
+.fb-prototype .draft-input-label{font-size:10px;color:var(--muted)}
+.fb-prototype .draft-input-label textarea{display:block;width:100%;resize:vertical;max-height:180px;border:1px solid #84728355;border-radius:15px;background:#191e31;color:var(--ink);padding:13px;font-size:12px;line-height:1.7;margin:8px 0 12px}
+.fb-prototype .draft-composer>div{display:flex;justify-content:space-between;gap:10px}
+.fb-prototype .draft-composer .btn-grad{padding:12px 19px;font-size:12px;box-shadow:none}
+.fb-prototype .draft-composer .btn-ghost{font-size:11px}
+.fb-prototype .auth-google{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;min-height:46px;padding:11px 16px;border:1px solid #dadce0;border-radius:99px;background:#fff;color:#1f1f1f;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:500}
+.fb-prototype .auth-google svg{flex-shrink:0}
+.fb-prototype .auth-divider{display:flex;align-items:center;gap:12px;color:#a8a2b3;font-size:10px;margin:8px 0 11px}
+.fb-prototype .auth-divider::before,.fb-prototype .auth-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.fb-prototype .welcome-scroll{padding-top:0;overflow-y:auto}
+.fb-prototype .welcome-content{position:relative;left:auto;right:auto;bottom:auto;margin:clamp(100px,22vh,210px) 22px 26px;z-index:2;flex-shrink:0}
+.fb-prototype .welcome-head{font-size:34px}
+.fb-prototype .auth-card{position:relative;left:auto;right:auto;bottom:auto;margin:auto 14px 12px;flex-shrink:0}
+.fb-prototype .member-legal-document{padding:20px 22px 40px}
+.fb-prototype .member-legal-document>h2{font-size:29px;margin:12px 0 18px;line-height:1.2}
+.fb-prototype .member-legal-lede{font-size:12px;color:var(--muted);line-height:1.85;margin-bottom:20px}
+.fb-prototype .member-legal-clauses{display:grid;gap:26px;margin-top:25px}
+.fb-prototype .member-legal-clauses section{padding:17px;background:#131829;border:1px solid var(--line);border-radius:17px;overflow-wrap:anywhere}
+.fb-prototype .member-legal-clauses h2{font-family:var(--serif);font-size:20px;font-weight:400;line-height:1.4}
+.fb-prototype .member-legal-clauses :is(p,li,td){font-size:11px;line-height:1.9}
+.fb-prototype .member-legal-clauses a{color:var(--gold);text-decoration:underline}
+.fb-prototype .member-legal-clauses table{min-width:450px}
+.landing-room.fb-prototype{min-height:0;background:#0a0e1b;padding:86px 24px}
+.landing-room-inner{max-width:1120px;margin:auto;text-align:center}
+.landing-room h2#new-room-title{font-size:clamp(36px,4vw,54px);line-height:1.12;margin:18px 0;color:#f4e9d8}
+.landing-room h2#new-room-title em{font-style:normal;color:#ecc49c}
+.landing-room-sub{font-size:14px;color:#aaa5b7;line-height:1.8;max-width:500px;margin:22px auto}
+.landing-sample-disclosure{font-size:10px;color:#b4a1a8;line-height:1.8;max-width:700px;margin:24px auto 34px}
+.landing-new-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;text-align:left}
+.landing-deck-card{height:590px;position:relative;min-width:0}
+.landing-room .profile-card{position:absolute;inset:0;border-radius:27px}
+.landing-room .profile-card .card-body{text-align:left}
+.landing-room .profile-card .action-row{gap:13px}
+.landing-room .say-hello{font-size:12px;padding:17px 23px;text-decoration:none}
+.landing-room .circle-btn{width:47px;height:47px}
+.landing-room-join{display:inline-flex;gap:28px;padding:16px 28px;background:linear-gradient(115deg,#fae9cd,#ecad98);border-radius:99px;color:#291e1a;margin-top:40px;font-size:13px;font-weight:600;text-decoration:none}
+@media(max-width:900px){.landing-new-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.landing-deck-card:last-child{display:none}}
+@media(max-width:580px){.landing-room.fb-prototype{padding:65px 20px}.landing-new-card-grid{grid-template-columns:1fr;max-width:380px;margin:auto}.landing-deck-card{height:610px}.landing-deck-card:last-child{display:block}.landing-room .card-name{font-size:35px}}
+.fb-prototype .member-appeal-content{padding:22px 0 45px}
+.fb-prototype .member-appeal-content>div{padding:22px;border-radius:20px;background:#131829;border:1px solid var(--line)}
+.fb-prototype .member-appeal-content h1{font-family:var(--serif);font-size:26px;font-weight:400}
+.fb-prototype .member-appeal-content p{font-size:11px;line-height:1.9;color:var(--muted)}
+.fb-prototype .member-appeal-content button{background:linear-gradient(115deg,#fae9cd,#ecad98);color:#291e1a}
+/* Tables scroll inside one clause, never size every legal clause to table width. */
+.fb-prototype .member-legal-clauses{grid-template-columns:minmax(0,1fr)}
+.fb-prototype .member-legal-clauses>section{min-width:0;max-width:100%}
+.fb-prototype .member-legal-clauses section>div{min-width:0;max-width:100%}
+.landing-room .profile-card>.card-portrait{opacity:1}

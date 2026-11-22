@@ -531,7 +531,7 @@ export function AuthExperience({
           {requiresHumanCheck(mode)&&<TurnstileGate key={mode} onToken={setCaptchaToken}/>}
           <Button unstyled className="btn-grad big wide" type="submit" disabled={pending==='email'}>{pending==='email'?submitLabel:'Continue'}</Button>
         </form>
-        <details className="fb-auth-more"><summary>More sign-in options</summary><Button unstyled type="button" onClick={()=>void handleGoogle()} disabled={pending==='google'}>Continue with Google</Button><Button unstyled type="button" onClick={()=>changeMode('reset-password')}>Forgot password?</Button></details>
+        <div className="auth-divider"><span>or</span></div><Button unstyled className="auth-google" type="button" onClick={()=>void handleGoogle()} disabled={pending!==null}><GoogleGlyph size={19}/>{pending==='google'?'Connecting…':mode==='sign-up'?'Sign up with Google':'Sign in with Google'}</Button><div className="fb-auth-more"><Button unstyled type="button" onClick={()=>changeMode('reset-password')}>Forgot password?</Button></div>
         <p className="fineprint center tight">By continuing, you agree to our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.</p>
       </div>
     </div></section>;

@@ -2603,7 +2603,7 @@ console.log("\n[27] account deletion is durable, owned-path scoped, and never fa
   const consent = readFileSync(new URL("../../src/app/api/verification/consent/route.ts", import.meta.url), "utf8");
   const settingsSrc = readFileSync(new URL("../../src/components/app/settings-view.tsx", import.meta.url), "utf8");
   const onboarding = readFileSync(new URL("../../src/lib/onboarding-store.ts", import.meta.url), "utf8");
-  const privacy = readFileSync(new URL("../../src/app/privacy/page.tsx", import.meta.url), "utf8");
+  const privacy = readFileSync(new URL("../../src/components/legal/privacy-document.tsx", import.meta.url), "utf8");
   const pkg = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
   const config = readFileSync(new URL("../../supabase/config.toml", import.meta.url), "utf8");
 
@@ -2899,7 +2899,16 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 10 &&
     sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
     !sitemap.includes("lastModified: now,"));
-  const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => src(`src/app/${slug}/page.tsx`));
+  const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => {
+    const page=src(`src/app/${slug}/page.tsx`);
+    if(["privacy","terms","cookies"].includes(slug)){
+      // Shared legal text is also rendered in the member chrome. Require the
+      // public route to retain BOTH the document and its metadata export.
+      const linked=page.includes(`from "@/components/legal/${slug}-document"`)&&page.includes('export { metadata }');
+      return linked?page+src(`src/components/legal/${slug}-document.tsx`):page;
+    }
+    return page;
+  });
   ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
     subpages.every((f) => f.includes("ogCard(") && f.includes("<PageStructuredData path=")) &&
     (layout.match(/"max-image-preview": "large"/g) || []).length >= 2 &&

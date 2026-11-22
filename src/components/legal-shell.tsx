@@ -18,6 +18,7 @@ import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSION } from "@/lib/site";
  */
 
 type LegalShellProps = {
+  member?: boolean;
   eyebrow: string;
   title: ReactNode;
   lede: ReactNode;
@@ -124,7 +125,8 @@ const siblings = [
   { href: "/cookies", label: "Cookie Policy" },
 ];
 
-export function LegalShell({ eyebrow, title, lede, children }: LegalShellProps) {
+export function LegalShell({ eyebrow, title, lede, children, member=false }: LegalShellProps) {
+  if(member)return <article className="member-legal-document"><p className="coral-label">{eyebrow}</p><h2 className="display">{title}</h2><div className="member-legal-lede">{lede}</div><p className="fineprint">Version {LEGAL_VERSION} · Effective {LEGAL_EFFECTIVE_DATE}</p><div className="member-legal-clauses">{children}</div></article>;
   return (
     <main className="night-field min-h-[100dvh]">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">

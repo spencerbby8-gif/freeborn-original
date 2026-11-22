@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Back } from "@/components/prototype/frame";
 import { Wordmark } from "@/components/wordmark";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { showToast } from "@/components/toast-host";
@@ -14,7 +15,7 @@ type AppealState = {
   ready: boolean;
 } | null;
 
-export function AppealExperience() {
+export function AppealExperience({member=false}:{member?:boolean}) {
   const [state, setState] = useState<"loading" | "form" | "filed" | "checking">("loading");
   const [appeal, setAppeal] = useState<AppealState>(null);
   const [plea, setPlea] = useState("");
@@ -113,9 +114,9 @@ export function AppealExperience() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[640px] flex-col px-5 py-8">
-        <div className="flex items-center justify-between">
+    <div className={member?"screen active member-appeal":"relative min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]"}>
+      <div className={member?"scroll new-form-screen":"mx-auto flex min-h-[100dvh] w-full max-w-[640px] flex-col px-5 py-8"}>
+        {member?<div className="bare-head settings-head"><Back href="/app/settings/safety"/><h1 className="display settings-title">Account appeals</h1></div>:<div className="flex items-center justify-between">
           <Link href="/" className="transition hover:opacity-80">
             <Wordmark size="sm" />
           </Link>
@@ -125,9 +126,9 @@ export function AppealExperience() {
           >
             Sign in
           </Link>
-        </div>
+        </div>}
 
-        <div className="my-auto py-10">
+        <div className={member?"member-appeal-content":"my-auto py-10"}>
           {state === "loading" ? (
             <div className="flex justify-center py-20">
               <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
@@ -170,10 +171,10 @@ export function AppealExperience() {
               </p>
               {appeal.verdict === "cleared" ? (
                 <Link
-                  href="/auth?mode=sign-in"
+                  href={member?"/app":"/auth?mode=sign-in"}
                   className="btn-ember mt-6 inline-flex rounded-full px-7 py-3 text-[14px] font-bold"
                 >
-                  Sign back in
+                  {member?"Back to Discover":"Sign back in"}
                 </Link>
               ) : null}
             </div>

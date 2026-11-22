@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { draftChatHref } from "@/lib/conversation-opener";
 import { useRouter } from "next/navigation";
 import { memberTapFeedback } from "@/lib/device-prefs";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function MemberDetail({profileId,onClose,ownPreview=false,asOthers=false}
  const [menu,setMenu]=useState(false);const [action,setAction]=useState<'report'|'block'|null>(null);const [reason,setReason]=useState('');const [end,setEnd]=useState<EndConversationKind|null>(null);const [endReason,setEndReason]=useState<UnmatchReason|null>(null);useModalFocus(Boolean(menu||action||end));
  useEffect(()=>{const esc=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy){if(action)setAction(null);else if(menu)setMenu(false);else if(end)setEnd(null);else onClose();}};window.addEventListener('keydown',esc);return()=>window.removeEventListener('keydown',esc);},[onClose,action,menu,end,busy]);
  async function choice(value:'like'|'pass'|'superlike'){memberTapFeedback();setBusy(true);setError(null);try{const r=await memberRequest<{matched?:boolean}>('/api/likes',{profileId,choice:value});if(value==='pass')onClose();else setNotice(r.matched?'It’s mutual — you can now chat.':value==='superlike'?'Spark sent.':'Added to your likes.');}catch(e){setError(e instanceof Error?e.message:'Could not save your choice.');}finally{setBusy(false);}}
- async function hello(){if(p?.messageRestricted){setError(p.messageRestricted);return;}setBusy(true);setError(null);try{const r=await memberRequest<{matchId?:string;requestId?:string;incomingId?:string}>('/api/chat/requests',{to:profileId});if(r.matchId)router.push(`/app/chat?match=${encodeURIComponent(r.matchId)}`);else if(r.incomingId)router.push('/app/chat');else if(r.requestId)setNotice('Message request sent. They can choose whether to start a conversation.');else throw new Error('The server did not confirm your request.');}catch(e){setError(e instanceof Error?e.message:'Could not send your request.');}finally{setBusy(false);}}
+ function hello(){router.push(draftChatHref(profileId));}
  async function safety(){setBusy(true);setError(null);try{if(action==='report'){await memberRequest('/api/reports',{profileId,reason});setNotice('Report received for review. Thank you for telling us.');setAction(null);}else if(action==='block'){await memberRequest('/api/blocks',{profileId});onClose();}}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.');}finally{setBusy(false);}}
  async function endConversation(why:UnmatchReason|null){if(!end||!match)return;setBusy(true);setError(null);try{if(end==='unmatch'){await memberRequest('/api/chat/unmatch',{with:profileId,...(why?{reason:why}:{}),destructive:true});onClose();}else{await memberRequest(`/api/chat/messages?match=${encodeURIComponent(match.id)}`,{destructive:true},undefined,'DELETE');setNotice('Every message in this conversation was deleted.');}setEnd(null);setMenu(false);}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.');}finally{setBusy(false);}}
  const tiles=p?([

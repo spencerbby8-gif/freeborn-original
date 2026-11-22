@@ -455,13 +455,15 @@ function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?
 
 /* ========================================================================== */
 
-function Thread({
+export function Thread({
   match,
   token,
   onBack,
   onChanged,
   onTapProfile,
+  initialDraft = "",
 }: {
+  initialDraft?: string;
   match: MatchRow;
   token: string | null;
   onBack: () => void;
@@ -469,7 +471,7 @@ function Thread({
   onTapProfile: (id: string) => void;
 }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialDraft);
   const [sending, setSending] = useState(false);
   const [call, setCall] = useState<"voice" | "video" | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
