@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
-import { BrandMark } from "@/components/brand-mark";
+
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AuthInput } from "./auth-input";
 import { PasswordStrength } from "./password-strength";
@@ -516,7 +516,9 @@ export function AuthExperience({
       {/* Reference portrait is decorative marketing art, never a member record. */}
       <img className="welcome-bg" src="/images/prototype/welcome.jpg" alt=""/>
       <div className="welcome-shade"/>
-      <div className="welcome-logo"><BrandMark size={36}/><span className="logo-word">Freeborn</span></div>
+      {/* Auth-only restoration: exact SVG path, stroke, dimensions and gradient
+          from the supplied welcome reference. Do not substitute BrandMark. */}
+      <div className="welcome-logo"><span className="logo-badge" style={{ background: 'linear-gradient(102deg,#f8e7c6 0%,#f4cf9d 42%,#e9a98b 78%,#df93a0 100%)' }}><svg fill="none" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 5z" stroke="#2a1a10" strokeLinecap="round" strokeWidth="1.7"/></svg></span><span className="logo-word">Freeborn</span></div>
       <div className="welcome-content"><p className="welcome-eyebrow">MEET WITH INTENTION</p><h1 className="display welcome-head">Someone worth<br/>staying for.</h1><p className="welcome-sub">Real conversations, shared values, and connections that feel like they were worth the wait.</p></div>
       <div className="auth-card">
         <div className="seg" role="tablist" aria-label="Account access">{switchItems.map(item=><Button unstyled key={item.mode} className={`seg-btn ${mode===item.mode?'active':''}`} role="tab" aria-selected={mode===item.mode} onClick={()=>changeMode(item.mode)}>{item.label}</Button>)}</div>

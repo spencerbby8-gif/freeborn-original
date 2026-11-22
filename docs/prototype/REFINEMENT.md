@@ -1,5 +1,7 @@
 # Owner-requested second visual pass
 
+> **Latest owner correction — auth logo only:** the custom shared BrandMark on authentication was removed. The saved welcome reference’s exact flame SVG path, `#2a1a10` stroke at 1.7, 34px gradient disc, 18px icon and 21px wordmark were restored. Landing/member branding and the blue verification badge are unchanged. Current auth screenshot and local DOM checks: `evidence/auth-reference-logo/`. Earlier refinement auth screenshots below are historical. Build, TypeScript, targeted lint and local auth rendering passed; no hosted acceptance claim.
+
 ## Delivery boundary
 
 Work remains on `feat/prototype-to-production`, for the existing draft PR #90 only. No merge, production deployment, remote migration or environment edits. This pass is committed locally; pushing it requires repository write authentication again because the earlier token was deliberately not persisted. PR #90 must not be described as updated until the push is confirmed.
