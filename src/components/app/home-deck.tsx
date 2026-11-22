@@ -800,17 +800,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
         <>
         <div className="disc-head">
           <p className="eyebrow">{discoverEyebrow}</p>
-          <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("freeborn:open-filters"))}
-            aria-label="Open filters"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--color-sand)] transition hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M4 6h16M7 12h10M10 18h4" />
-            </svg>
-          </button>
           <Link
             href="/app/notifications"
             className="disc-heart"
@@ -828,7 +817,6 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               <span className="badge">{heartCount > 9 ? "9+" : heartCount}</span>
             ) : null}
           </Link>
-          </div>
         </div>
         <h1 className="display disc-headline">
           Someone you&rsquo;ll<br />remember.
@@ -845,12 +833,8 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                 {chip}
               </span>
             ))}
-            {/* The flame is the product's standing statement about health
-                autonomy, not a member value, so it is ordered FIRST and never
-                scrolls out of view when a member's own chips are longer than
-                the mock's placeholders. In the reference it is last because
-                nothing there overflows. */}
-            <span className="chip chip-flame order-first" title="Natural health">
+            {/* Reference order: member chips first, flame last. */}
+            <span className="chip chip-flame" title="Natural health">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
                   d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 5z"
@@ -1087,6 +1071,29 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
                   {/* NEW HERE — reference places it top-left over the photo. */}
                   {profile.isNew ? <span className="new-here">NEW HERE</span> : null}
 
+                  {/* .card-like — the reference's heart button inside the photo
+                      (top 13 / right 13, 50px, glass). In the mock it likes the
+                      person; here a tap likes too, and the whole-card tap target
+                      underneath still opens the profile. */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      act("like");
+                    }}
+                    aria-label={`Like ${profile.name}`}
+                    className="card-like z-20 active:scale-90"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" width="22" height="22" aria-hidden>
+                      <path
+                        d="M12 20s-6.8-4.6-9.1-9.5C1.9 7.4 4.6 4.7 7.4 4.7c1.8 0 3.3 1 4.6 2.3 1.3-1.3 2.8-2.3 4.6-2.3 2.8 0 5.5 2.7 4.5 5.8C18.8 15.4 12 20 12 20z"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+
                   {/* Verification + health-stance badges, top-right, above the
                       shade so they stay legible on a bright photo. */}
                   <div className="absolute right-4 top-3 z-10 flex items-center gap-2">
@@ -1218,7 +1225,9 @@ export function HomeDeck({ standalone = false }: { standalone?: boolean }) {
               scroll to reach "Say hello". The mock is a fixed-height phone so it
               never hit this; a real scrolling page does.
               ------------------------------------------------------------------ */}
-          <div className="action-row fixed inset-x-0 bottom-[72px] z-40 mx-auto mt-4 w-[calc(100%-32px)] max-w-[420px] rounded-[26px] border border-white/[0.06] bg-[#070a12]/92 py-1 backdrop-blur-md">
+          {/* The reference row is bare — no card, no border. It sits on the page
+              background between the deck and the tab bar. */}
+          <div className="action-row fixed inset-x-0 bottom-[64px] z-40 mx-auto w-[calc(100%-32px)] max-w-[420px]">
             <button
               type="button"
               onClick={() => act("pass")}

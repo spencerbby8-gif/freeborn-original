@@ -34,37 +34,55 @@ const tabs = [
   {
     href: "/app",
     label: "Discover",
+    key: "discover",
     icon: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 2.5l2.1 4.9 5.3.5-4 3.6 1.2 5.2-4.6-2.8-4.6 2.8 1.2-5.2-4-3.6 5.3-.5L12 2.5z" />
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="8.6" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
     href: "/app/likes",
     label: "Likes",
+    key: "likes",
     icon: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M12 20s-6.8-4.6-9.1-9.5C1.9 7.4 4.6 4.7 7.4 4.7c1.8 0 3.3 1 4.6 2.3 1.3-1.3 2.8-2.3 4.6-2.3 2.8 0 5.5 2.7 4.5 5.8C18.8 15.4 12 20 12 20z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
       </svg>
     ),
   },
   {
+    /* The prototype's third tab is "Messages"; in this app that tab is the chat
+       list, so its route is /app/chat and its badge is the message unread count.
+       Label, icon and badge position are copied from prototype/index.html. */
     href: "/app/chat",
     label: "Messages",
+    key: "messages",
     icon: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M21 11.5a8.4 8.4 0 01-8.5 8.3 8.8 8.8 0 01-3.7-.8L3 20.5l1.5-5.2a8.1 8.1 0 01-1-3.9A8.4 8.4 0 0112 3.2a8.4 8.4 0 019 8.3z" />
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M8 10h8M8 13.5h5M21 12c0 4-4 7-9 7a9.6 9.6 0 01-4-.8L3 20l1.6-4.2A7.4 7.4 0 013 12c0-4 4-7 9-7s9 3 9 7z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
       </svg>
     ),
   },
   {
     href: "/app/profile",
     label: "Profile",
+    key: "my-profile",
     icon: (
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="7.8" r="3.6" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5.4 20a6.6 6.6 0 0113.2 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -351,10 +369,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* Bottom tab bar — hidden while a chat conversation is open */}
+      {/* BOTTOM TAB BAR — the prototype's own .tabbar / .tab markup.
+          Copied from prototype/index.html: four tabs in this order, sentence-case
+          labels (the previous version uppercased them), 22px icons, and the
+          .tab-badge count positioned where the mock puts it. Alerts are not a tab
+          — they live in the Discover header heart, as in the reference. */}
       {!threadOpen ? (
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(244,239,231,0.07)] bg-[#101018]/95 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-[560px] items-stretch justify-around">
+        <nav className="tabbar fixed inset-x-0 bottom-0 z-40" aria-label="Primary">
           {tabs.map((tab) => {
             const active = isActive(tab.href);
             const count = dotFor(tab.href);
@@ -362,24 +383,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`rb-tab flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                  active ? "rb-tab-active text-[var(--color-gold-500)]" : "text-[var(--color-ash)]"
-                }`}
+                aria-label={tab.label}
+                aria-current={active ? "page" : undefined}
+                className={`tab${active ? " active" : ""}`}
               >
-                <span className="relative">
-                  {tab.icon}
-                  {count > 0 ? (
-                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] px-1 text-[9px] font-black text-[#2a1a10] ring-2 ring-[#151724]">
-                      {count > 9 ? "9+" : count}
-                    </span>
-                  ) : null}
-                </span>
-                {tab.label}
+                {tab.icon}
+                <span>{tab.label}</span>
+                {count > 0 ? <em className="tab-badge">{count > 9 ? "9+" : count}</em> : null}
               </Link>
             );
           })}
-        </div>
-      </nav>
+        </nav>
       ) : null}
 
       <FilterPanel open={filtersOpen} onClose={() => setFiltersOpen(false)} />

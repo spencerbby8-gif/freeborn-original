@@ -1224,10 +1224,18 @@ export function SettingsView() {
               data-search="standing preferences filters session defaults note"
               className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-[12px] font-semibold leading-[1.5] text-[var(--color-sand)]"
             >
-                These apply to every session, and the Filters panel on the discovery
-                screen reads and writes the same values - change them in either door
-                and the other follows. The panel can still narrow a single session
-                further with interests, lifestyle and more.
+                These apply to every session, and the Filters panel reads and writes
+                the same values - change them in either door and the other follows.
+                The panel can still narrow a single session further with interests,
+                lifestyle and more.
+            </p>
+            {/* The approved prototype's Discover header has no filter control.
+                Rather than add a control the reference does not have, the panel is
+                opened from here by the existing Preferences entry below, which
+                reads and writes the same store. */}
+            <p className="text-[12px] leading-[1.5] text-[var(--color-ash)]">
+              Narrowing a single session (interests, lifestyle and more) lives in
+              Filters, reachable from Preferences.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
