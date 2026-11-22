@@ -296,6 +296,10 @@
   ],
   "checks": [
     {
+      "name": "Verification badge uses exact reference blue and white SVG fills",
+      "status": "passed"
+    },
+    {
       "name": "Notification clear is wired to the authenticated API (fixture)",
       "status": "passed"
     },

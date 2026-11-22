@@ -35,6 +35,10 @@ The existing Vercel project was identified, and its configured Preview Supabase 
 
 Additional legacy controls remain accessible through the original settings tabs. Account opens the Account area, support links to the real support form, and About links to actual policy/support pages.
 
+## Exact reference badge follow-up
+
+The shared verification badge now copies the reference’s exact two SVG paths: solid `#3b9df2` seal and `#fff` check. There is no teal gradient. Source path/fill equality was checked against the saved authoritative HTML, and browser computed fills were checked on Discover, Likes and My profile. Badge dimensions, conditional verification gates and backend verification behavior are unchanged.
+
 ## Backend changes
 
 - Settings reads now return interests, profile goals and saved discovery intentions. Read failures return an error rather than fabricated defaults that could overwrite existing preferences.
@@ -66,7 +70,7 @@ Local environment: Node 24.22.2. Production builds used explicit nonfunctional t
 | Database TLS controls | 10/10 passed |
 | TURN controls | 30/30 passed, local doubles |
 | New settings/notification handler contracts | 23/23 passed, substituted auth/database adapters |
-| UI interaction checks | 9/9 passed, intercepted fixture APIs |
+| UI interaction checks | 10/10 passed, intercepted fixture APIs |
 | UI captures | 15 screens × 2 viewports = 30 implementation screenshots; no page JavaScript errors in that run |
 | Local HTTP boundaries | Settings/discovery/likes/notifications anonymous GET: 401; foreign-Origin notification POST: 403 |
 | Environment-isolation / secret scan | Passed |
@@ -96,7 +100,7 @@ This is not an assertion that every original acceptance criterion is complete.
 - Onboarding preserves required existing values validation and all existing intention choices, so it is longer than the reference's three-option demonstration. The actual intent step is step 4 of the retained flow, not the reference's decorative step 2. Additional camera/upload/editor/recovery/safety controls retain their original fuller UI.
 - Profile-detail tiles use only real stored attributes. There is no fabricated zodiac/matcha/lifestyle metadata. Extra safety access and existing call/voice/media controls remain visible rather than being removed to achieve a screenshot match.
 - Welcome contains additional provider/recovery/legal access; Premium contains truthful unavailability text; member counts/content naturally differ from sample screenshots. Icon paths and some retained subflows are not pixel-identical.
-- UI tests cover nine targeted interactions, not every button or every error/empty state. They are not a substitute for the outstanding real-backend and device checks.
+- UI tests cover ten targeted checks, not every button or every error/empty state. They are not a substitute for the outstanding real-backend and device checks.
 
 ## Delivery restrictions
 
