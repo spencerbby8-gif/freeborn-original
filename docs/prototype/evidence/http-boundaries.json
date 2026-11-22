@@ -1,0 +1,28 @@
+[
+  {
+    "path": "/api/settings",
+    "method": "GET",
+    "status": 401
+  },
+  {
+    "path": "/api/profiles",
+    "method": "GET",
+    "status": 401
+  },
+  {
+    "path": "/api/likes",
+    "method": "GET",
+    "status": 401
+  },
+  {
+    "path": "/api/notifications",
+    "method": "GET",
+    "status": 401
+  },
+  {
+    "path": "/api/notifications",
+    "method": "POST",
+    "scope": "foreign Origin",
+    "status": 403
+  }
+]

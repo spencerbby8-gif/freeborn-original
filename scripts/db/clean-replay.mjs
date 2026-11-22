@@ -97,11 +97,9 @@ try {
     (select count(*)::int from auth.users) as auth_users,
     (select count(*)::int from storage.objects) as storage_objects`);
   const actual = verification.rows[0];
-  // migrations counts recorded supabase_migrations rows: every replay step except
-// the final verify step records one. 51 as of the message_requests step
-// (db/migrations/2026-11-16-message-requests.sql). Object counts include that
-// table: 44 tables, 448 columns, 130 indexes, 82 checks, 44 RLS-enabled+forced.
-  const expected = { tables: 44, columns: 448, indexes: 130, checks: 82, rls_enabled_forced: 44, anon_grants: 0, migrations: 51, auth_users: 0, storage_objects: 0 };
+  // Every manifest step is recorded after it executes, including the legacy
+  // verification step. Additive migrations run after that frozen verifier.
+  const expected = { tables: 44, columns: manifest.expected.publicColumns, indexes: 130, checks: 82, rls_enabled_forced: 44, anon_grants: 0, migrations: manifest.steps.length, auth_users: 0, storage_objects: 0 };
   for (const [key, value] of Object.entries(expected)) {
     if (actual[key] !== value) fail(`post-replay verification ${key}=${actual[key]}, expected ${value}`);
   }

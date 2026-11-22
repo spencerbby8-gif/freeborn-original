@@ -16,7 +16,7 @@ export async function GET(request: Request) {
            but never selected, so they always answered "everyone" no matter what
            the member had chosen. Since the Profile tab saves the whole object
            back, that wrong answer was then written over the real one. */
-        "display_name, city, region, bio, occupation, education, discoverable, is_verified, onboarding_stage, message_privacy, discover_privacy, deal_breakers"
+        "display_name, city, region, bio, occupation, education, discoverable, is_verified, onboarding_stage, message_privacy, discover_privacy, deal_breakers, interests, relationship_goals"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -24,6 +24,9 @@ export async function GET(request: Request) {
     supabase.from("notification_preferences").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("user_private_settings").select("*").eq("user_id", user.id).maybeSingle(),
   ]);
+
+  const readError = [profileRes, prefsRes, notifRes, privRes].find((result) => result.error)?.error;
+  if (readError) return Response.json({ error: "Couldn't load your settings. Please try again." }, { status: 500 });
 
   const profile = (profileRes.data ?? {}) as Record<string, unknown>;
   const prefs = (prefsRes.data ?? {}) as Record<string, unknown>;
@@ -34,6 +37,8 @@ export async function GET(request: Request) {
     account: { email: user.email },
     profile: {
       displayName: profile.display_name ?? "",
+      interests: profile.interests ?? [],
+      relationshipGoals: profile.relationship_goals ?? [],
       city: profile.city ?? "",
       region: profile.region ?? "",
       bio: profile.bio ?? "",
@@ -49,6 +54,7 @@ export async function GET(request: Request) {
         : [],
     },
     discovery: {
+      relationshipIntents: prefs.relationship_intents ?? [],
       ageMin: prefs.age_min ?? 22,
       ageMax: prefs.age_max ?? 45,
       distanceKm: prefs.distance_km ?? 80,
@@ -96,6 +102,9 @@ export async function POST(request: Request) {
 
   try {
     if (profile) {
+      if (profile.interests !== undefined && (!Array.isArray(profile.interests) || profile.interests.length > 20 || profile.interests.some((x: unknown) => typeof x !== "string" || !x.trim() || x.length > 60))) {
+        return Response.json({ error: "Choose at most 20 interests, each between 1 and 60 characters." }, { status: 400 });
+      }
       const patch: Record<string, unknown> = {};
       /* Was `.slice(0, 40)`, which truncated but never checked the floor. The
          production CHECK allows NULL or 2..40, so an empty string violated it and
@@ -107,6 +116,7 @@ export async function POST(request: Request) {
         if (!name.ok) return Response.json({ error: name.error }, { status: 400 });
         if (name.write) patch.display_name = name.value;
       }
+      if (Array.isArray(profile.interests)) patch.interests = [...new Set(profile.interests.map((x: string) => x.trim()))];
       if (typeof profile.city === "string") patch.city = profile.city.slice(0, 60);
       if (typeof profile.region === "string") patch.region = profile.region.slice(0, 60);
       if (typeof profile.bio === "string") patch.bio = profile.bio.slice(0, 500);
@@ -141,6 +151,14 @@ export async function POST(request: Request) {
       if (typeof discovery.ageMax === "number") patch.age_max = Math.min(99, Math.max(18, discovery.ageMax));
       if (typeof discovery.distanceKm === "number") patch.distance_km = Math.min(500, Math.max(5, discovery.distanceKm));
       if (Array.isArray(discovery.showGenders)) patch.show_genders = discovery.showGenders;
+      if (discovery.relationshipIntents !== undefined) {
+        const intents = discovery.relationshipIntents;
+        const allowed = new Set(["long_term", "life_partner", "meaningful_connection", "still_exploring", "friendship"]);
+        if (!Array.isArray(intents) || intents.length > allowed.size || intents.some((x: unknown) => typeof x !== "string" || !allowed.has(x))) {
+          return Response.json({ error: "Choose a supported relationship intention." }, { status: 400 });
+        }
+        patch.relationship_intents = [...new Set(intents)];
+      }
       if (typeof discovery.verifiedOnly === "boolean") patch.verified_only = discovery.verifiedOnly;
       if (typeof discovery.photosRequired === "boolean") patch.photos_required = discovery.photosRequired;
       if (

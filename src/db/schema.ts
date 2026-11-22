@@ -238,6 +238,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
   messageAlerts: boolean("message_alerts").notNull().default(true),
   likeAlerts: boolean("like_alerts").notNull().default(true),
   profileActivity: boolean("profile_activity").notNull().default(true),
+  dismissedBefore: timestamp("dismissed_before", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
 });

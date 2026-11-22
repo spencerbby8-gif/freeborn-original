@@ -116,6 +116,7 @@ export async function GET(request: Request) {
   let baseAgeMin = NaN;
   let baseAgeMax = NaN;
   let baseGenders: string[] = [];
+  let baseIntents: string[] = [];
   let baseVerifiedOnly = false;
   let basePhotosRequired = true;
   let baseVax = "any";
@@ -130,6 +131,7 @@ export async function GET(request: Request) {
       baseAgeMin = prefs.ageMin;
       baseAgeMax = prefs.ageMax;
       baseGenders = prefs.showGenders ?? [];
+      baseIntents = prefs.relationshipIntents ?? [];
       baseVerifiedOnly = prefs.verifiedOnly;
       basePhotosRequired = prefs.photosRequired;
       baseVax = prefs.vaccinationPreference ?? "any";
@@ -146,7 +148,8 @@ export async function GET(request: Request) {
   const genders = genderParam.length ? genderParam : baseGenders;
   const lifestyle = list(url.searchParams.get("lifestyle"));
   const interests = list(url.searchParams.get("interests"));
-  const intents = list(url.searchParams.get("intent"));
+  const intentParams = list(url.searchParams.get("intent"));
+  const intents = intentParams.length ? intentParams : baseIntents;
   const religions = list(url.searchParams.get("religion"));
   const marital = list(url.searchParams.get("marital"));
   const kids = list(url.searchParams.get("kids"));

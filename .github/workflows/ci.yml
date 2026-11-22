@@ -88,6 +88,9 @@ jobs:
       - name: Trust harness (blocking)
         run: npm run test:harness
 
+      - name: Prototype API contracts — substituted adapters (blocking)
+        run: npm run test:prototype-api
+
       - name: Engine request controls (blocking)
         run: npm run test:engines
 

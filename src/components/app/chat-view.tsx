@@ -3,6 +3,8 @@
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
 import { AuthedVideo } from "@/components/ui/authed-media";
+import { PrototypeIcon } from "@/components/prototype/frame";
+import { MessagesHeading } from "@/components/prototype/screens";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,6 +32,7 @@ import { CameraCapture } from "@/components/camera-capture";
 
 type MatchRow = {
   id: string;
+  ended?: boolean;
   with: {
     id: string;
     name: string;
@@ -1150,7 +1153,7 @@ function Thread({
               transition: "transform 160ms ease",
             }}
             onContextMenu={(e) => e.preventDefault()}
-            className={`fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
+            className={`fb-bubble ${m.mine?"out":"in"} fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
@@ -1227,8 +1230,8 @@ function Thread({
   }
 
   return (
-    <div className="flex w-full max-w-full min-h-[380px] flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
-      <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
+    <div className="fb-thread flex w-full max-w-full min-h-[380px] flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
+      <div className="fb-thread-header flex items-center gap-3 border-b border-white/[0.06] pb-4">
         <button
           type="button"
           onClick={onBack}
@@ -1318,7 +1321,7 @@ function Thread({
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
+      <div ref={scrollRef} className="fb-thread-feed flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
         <div className="pt-8 text-center">
           <p className="text-sm text-[var(--color-mist)]">The conversation is open. Say hello.</p>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
@@ -1464,7 +1467,7 @@ function Thread({
 
       {/* Composer — voice recording overlays it Telegram-style */}
       {threadAccess && !threadAccess.canSend ? null : (
-      <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
+      <div className="fb-composer relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
         <div className="relative shrink-0">
           <button
             type="button"
@@ -1591,9 +1594,7 @@ function Thread({
           {staged.length > 0 ? (
             <span className="text-[13px] font-black">{staged.length}</span>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-            </svg>
+            <PrototypeIcon name="next"/>
           )}
         </button>
       </div>
@@ -1772,6 +1773,12 @@ type RequestLists = {
 };
 
 export function ChatView() {
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const listener = (e: Event) => setSearch(String((e as CustomEvent).detail ?? ""));
+    window.addEventListener("freeborn:chat-search", listener);
+    return () => window.removeEventListener("freeborn:chat-search", listener);
+  }, []);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMatch, setOpenMatch] = useState<MatchRow | null>(null);
@@ -1882,11 +1889,12 @@ export function ChatView() {
   }
 
   return (
-    <div className="mx-auto max-w-[680px]">
-      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Chat</h1>
-      <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        Your matches and conversations, values already on the table.
-      </p>
+    <div className="fb-messages">
+      <MessagesHeading />
+      <div className="story-row" aria-label="Conversation profiles">
+        <a className="story-item" href="/app/profile/edit#photos" title="Edit your profile photos; stories are not available yet"><span className="story-add">+</span><span>Your story</span></a>
+        {matches.filter(m=>!m.ended).map(m=><Button unstyled className="story-item" key={m.id} onClick={()=>setOpenProfileId(m.with.id)}><span className="story-ring"><Avatar photo={m.with.photo} name={m.with.name} size={48}/></span><span>{m.with.name}</span></Button>)}
+      </div>
 
       {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
         <div className="mt-8">
@@ -1960,17 +1968,17 @@ export function ChatView() {
           </a>
         </div>
       ) : (
-        <div className="mt-6 space-y-2.5">
-          {matches.map((m) => (
+        <div className="thread-list">
+          {matches.filter((m) => !search.trim() || `${m.with.name} ${m.lastMessage?.body ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).map((m) => (
             <div
               key={m.id}
               role="button"
               tabIndex={0}
               onClick={() => setOpenMatch(m)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setOpenMatch(m);
+                if (e.key === "Enter" || e.key === " ") {e.preventDefault();setOpenMatch(m);}
               }}
-              className="flex w-full cursor-pointer items-center gap-4 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 text-left transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              className={`thread-row ${m.unread>0?"unread":""}`}
             >
               <button
                 type="button"

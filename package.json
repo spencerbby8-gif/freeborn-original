@@ -25,7 +25,9 @@
     "test:preview-deletion-verify": "esbuild scripts/trust/preview-auth-deletion-verify.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-auth-deletion-verify.build.mjs --packages=external && node scripts/trust/.preview-auth-deletion-verify.build.mjs",
     "test:prepare-local": "node scripts/trust/prepare-local-db.mjs",
     "test:preview-deletion-drain": "esbuild scripts/trust/preview-deletion-drain.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-deletion-drain.build.mjs --packages=external && node scripts/trust/.preview-deletion-drain.build.mjs",
-    "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs"
+    "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs",
+    "test:prototype-api": "node scripts/prototype/api-contracts.mjs",
+    "test:prototype-ui": "node scripts/prototype/ui-acceptance.cjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

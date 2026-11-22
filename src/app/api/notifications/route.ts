@@ -151,7 +151,7 @@ export async function GET(request: Request) {
         id: `verify-${latestVerify.id}`,
         type: "verification",
         title: "Verification in review",
-        body: "Your selfie is being checked. It completes shortly in this preview room.",
+        body: "Your selfie is being checked. We’ll update this feed when a result is available.",
         at: latestVerify.submittedAt,
         unread: false,
         href: "/app/profile",
@@ -192,5 +192,22 @@ export async function GET(request: Request) {
     });
   }
 
-  return Response.json({ notifications: items });
+  // Clearing a feed never marks a private message read or deletes source data.
+  const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
+  return Response.json({ notifications: visible });
+}
+
+
+export async function POST(request: Request) {
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  let body: unknown;
+  try { body = await request.json(); } catch { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
+  if (!body || typeof body !== "object" || !("action" in body) || body.action !== "clear") {
+    return Response.json({ error: "Unknown notification action." }, { status: 400 });
+  }
+  const now = new Date();
+  await db.insert(notificationPreferences).values({ userId: member.id, dismissedBefore: now })
+    .onConflictDoUpdate({ target: notificationPreferences.userId, set: { dismissedBefore: now, updatedAt: now } });
+  return Response.json({ ok: true });
 }

@@ -156,6 +156,7 @@ export const genderOptions = [
 ];
 
 export const relationshipGoalOptions = [
+  { value: "friendship", label: "New friends", caption: "Meet people with shared interests" },
   { value: "long_term", label: "Long-term relationship", caption: "Building something serious and lasting." },
   { value: "life_partner", label: "Life partner", caption: "Ready to share a full life together." },
   { value: "meaningful_connection", label: "Meaningful connection", caption: "Open to wherever depth leads." },

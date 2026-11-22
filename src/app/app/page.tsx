@@ -1,16 +1,5 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app/app-shell";
-import { HomeDeck } from "@/components/app/home-deck";
-
-export const metadata: Metadata = {
-  title: "Discover",
-  robots: { index: false },
-};
-
-export default function AppDiscoverPage() {
-  return (
-    <AppShell>
-      <HomeDeck />
-    </AppShell>
-  );
-}
+import { DiscoverScreen } from "@/components/prototype/screens";
+export const metadata: Metadata = { title: 'Discover', robots: { index: false } };
+export default function Page() { return <AppShell><DiscoverScreen/></AppShell>; }

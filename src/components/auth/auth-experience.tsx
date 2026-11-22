@@ -1,6 +1,9 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 import Link from "next/link";
+import { PrototypeIcon } from "@/components/prototype/frame";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AuthInput } from "./auth-input";
 import { PasswordStrength } from "./password-strength";
@@ -508,8 +511,33 @@ export function AuthExperience({
     }
   };
 
+  if (isAuth && !codeStep) {
+    return <section className="screen active" aria-label="Welcome"><div className="scroll welcome-scroll">
+      {/* Reference portrait is decorative marketing art, never a member record. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="welcome-bg" src="/images/prototype/welcome.jpg" alt=""/>
+      <div className="welcome-shade"/>
+      <div className="welcome-logo"><span className="logo-badge"><PrototypeIcon name="flame"/></span><span className="logo-word">Freeborn</span></div>
+      <div className="welcome-content"><p className="welcome-eyebrow">MEET WITH INTENTION</p><h1 className="display welcome-head">Someone worth<br/>staying for.</h1><p className="welcome-sub">Real conversations, shared values, and connections that feel like they were worth the wait.</p></div>
+      <div className="auth-card">
+        <div className="seg" role="tablist" aria-label="Account access">{switchItems.map(item=><Button unstyled key={item.mode} className={`seg-btn ${mode===item.mode?'active':''}`} role="tab" aria-selected={mode===item.mode} onClick={()=>changeMode(item.mode)}>{item.label}</Button>)}</div>
+        {notice&&<p role={notice.tone==='error'?'alert':'status'} className="fb-error">{notice.title}. {notice.body}</p>}
+        <form onSubmit={e=>void handleEmailSubmit(e)} noValidate>
+          <label className="field"><span>Email address</span><input type="email" autoComplete="email" autoCapitalize="none" value={values.email} onChange={e=>updateField('email',e.target.value)} placeholder="you@example.com" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email?'prototype-email-error':undefined}/></label>
+          {errors.email&&<p id="prototype-email-error" className="fb-error">{errors.email}</p>}
+          <div className="prototype-password"><AuthInput label="Password" name="password" type="password" autoComplete={mode==='sign-in'?'current-password':'new-password'} value={values.password} onChange={e=>updateField('password',e.target.value)} placeholder="••••••••" error={errors.password}/></div>
+          {mode==='sign-up'&&values.password&&<PasswordStrength password={values.password}/>}
+          {requiresHumanCheck(mode)&&<TurnstileGate key={mode} onToken={setCaptchaToken}/>}
+          <Button unstyled className="btn-grad big wide" type="submit" disabled={pending==='email'}>{pending==='email'?submitLabel:'Continue'}</Button>
+        </form>
+        <details className="fb-auth-more"><summary>More sign-in options</summary><Button unstyled type="button" onClick={()=>void handleGoogle()} disabled={pending==='google'}>Continue with Google</Button><Button unstyled type="button" onClick={()=>changeMode('reset-password')}>Forgot password?</Button></details>
+        <p className="fineprint center tight">By continuing, you agree to our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.</p>
+      </div>
+    </div></section>;
+  }
+
   return (
-    <div className="w-full max-w-[480px]">
+    <div className="fb-legacy w-full max-w-[480px]">
       <div className="surface magic-border relative overflow-hidden rounded-[28px] p-5 shadow-[var(--shadow-card-lg)] sm:p-7">
         {codeStep ? (
           <form
@@ -545,23 +573,23 @@ export function AuthExperience({
             {codeError ? (
               <p className="mt-2 text-[12px] font-bold text-[var(--color-danger)]">{codeError}</p>
             ) : null}
-            <button
+            <Button unstyled
               type="submit"
               disabled={codeBusy || code.length < 6}
               className="magic-button btn-shine mt-4 flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[var(--color-pearl)] text-[15px] font-bold text-[var(--color-ink)] transition-all hover:-translate-y-px active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {codeBusy ? "Checking…" : "Confirm and continue"}
-            </button>
+            </Button>
             <div className="mt-3 flex items-center justify-between text-[12px] font-bold">
-              <button
+              <Button unstyled
                 type="button"
                 onClick={() => void resendCode()}
                 disabled={codeBusy}
                 className="text-[var(--color-teal-300)] transition hover:text-[var(--color-teal-200)] disabled:opacity-50"
               >
                 Resend code
-              </button>
-              <button
+              </Button>
+              <Button unstyled
                 type="button"
                 onClick={() => {
                   setCodeStep(null);
@@ -571,7 +599,7 @@ export function AuthExperience({
                 className="text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
               >
                 Use a different email
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
@@ -626,7 +654,7 @@ export function AuthExperience({
             {switchItems.map((item) => {
               const active = item.mode === mode;
               return (
-                <button
+                <Button unstyled
                   key={item.mode}
                   type="button"
                   onClick={() => changeMode(item.mode)}
@@ -635,14 +663,14 @@ export function AuthExperience({
                   }`}
                 >
                   {item.label}
-                </button>
+                </Button>
               );
             })}
           </div>
         ) : null}
 
         {isAuth ? (
-          <button
+          <Button unstyled
             type="button"
             onClick={() => void handleGoogle()}
             disabled={pending === "google"}
@@ -650,7 +678,7 @@ export function AuthExperience({
           >
             <GoogleGlyph size={20} />
             {pending === "google" ? "Connecting…" : "Continue with Google"}
-          </button>
+          </Button>
         ) : null}
 
         {isAuth ? (
@@ -702,13 +730,13 @@ export function AuthExperience({
               ) : null}
               {mode === "sign-in" ? (
                 <div className="flex justify-end px-1">
-                  <button
+                  <Button unstyled
                     type="button"
                     onClick={() => changeMode("reset-password")}
                     className="text-[13px] font-bold text-[var(--color-sand)] transition-colors hover:text-[var(--color-pearl)]"
                   >
                     Forgot password?
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </div>
@@ -722,14 +750,14 @@ export function AuthExperience({
             <TurnstileGate key={mode} onToken={setCaptchaToken} />
           ) : null}
 
-          <button
+          <Button unstyled
             type="submit"
             disabled={pending === "email"}
             className="magic-button btn-shine group relative mt-1 flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[var(--color-pearl)] px-5 text-[16px] font-bold text-[var(--color-ink)] shadow-[0_20px_40px_-12px_rgba(251,247,242,0.2)] transition-all hover:-translate-y-px hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
           >
             {pending === "email" ? <Spinner /> : null}
             {submitLabel}
-          </button>
+          </Button>
         </form>
           </>
         )}
@@ -741,13 +769,13 @@ export function AuthExperience({
           <div className="mt-5 text-center text-[14px] font-medium text-[var(--color-mist)]">
             <p>
               Remembered it?{" "}
-              <button
+              <Button unstyled
                 type="button"
                 onClick={() => changeMode("sign-in")}
                 className="font-bold text-[var(--color-pearl)] underline decoration-white/20 underline-offset-4 transition-all hover:decoration-white/60"
               >
                 Back to sign in
-              </button>
+              </Button>
             </p>
           </div>
         ) : null}

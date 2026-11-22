@@ -474,8 +474,8 @@ export function IntentionsStep({ stepIndex, totalSteps, draft, onBack, onSave, p
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="What are you looking for?"
-      subtitle="Your intentions first, then the values you stand on. Clarity is part of chemistry."
+      title="What are you here for?"
+      subtitle="Choose what feels true. You can always change this later."
       onBack={onBack}
       onContinue={handleContinue}
       pending={pending}
@@ -491,7 +491,7 @@ export function IntentionsStep({ stepIndex, totalSteps, draft, onBack, onSave, p
           </span>
         </div>
         <OptionCardRow
-          options={relationshipGoalOptions.map((o) => ({ value: o.value, label: o.label, caption: o.caption }))}
+          options={[{value:"long_term",label:"Something real",caption:"A meaningful, long-term connection"},{value:"friendship",label:"New friends",caption:"Meet people with shared interests"},{value:"still_exploring",label:"Still figuring it out",caption:"Keep things open and see who clicks"},...relationshipGoalOptions.filter(o=>o.value==="life_partner"||o.value==="meaningful_connection")]}
           value={goals}
           onChange={(next) => {
             setGoals(next);
