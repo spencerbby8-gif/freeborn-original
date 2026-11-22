@@ -159,24 +159,10 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
         />
         <Callout label="About the verified seal">
           <p>
-            The teal seal means one specific thing: at a recorded moment, two
-            independent AI models agreed that a live person completed a pose-mimic
-            check and that the person in the selfie is consistent with the profile
-            photographs. It means nothing beyond that. It is not a background check,
-            not an identity document check, not a character reference and not a
-            safety guarantee. Uploading a new face photograph revokes the seal until
-            you verify again, so the seal always corresponds to the face currently
-            shown.
+            The blue verification badge means the configured identity checks returned an approval for a submitted selfie and profile photographs at a recorded time. It is not an identity-document check, background check, character reference, proof of health status or safety guarantee. Detection may be unavailable on a device, and automated checks can be wrong. A pending submission never grants a badge.
           </p>
           <p>
-            One thing to know before you rely on it: new seals are not being issued
-            at the moment. Verification depends on two vision engines reached through
-            a free third-party relay, and that relay currently strips the image out of
-            the request before it reaches a model, so no selfie can be assessed.
-            Requests are held as pending rather than approved or rejected, and a
-            pending request never grants the seal. If you try to verify today you will
-            be told your request is pending, and it will stay pending until the relay
-            is repaired. Seals already issued stay in place.
+            A new profile photo may be checked against the stored verification selfie. An unconfirmed or failing comparison can affect verification; the app reports the actual outcome rather than promising that every upload keeps or removes a badge. Provider availability and review times are not guaranteed. A failed submission is not represented as approved or as successfully received without confirmation.
           </p>
         </Callout>
       </Clause>
@@ -263,7 +249,7 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
           head={["Step", "What happens"]}
           rows={[
             ["A report is filed", "Report tools are rate limited per account so one person cannot weaponise them with volume. A report opens an investigation; it never punishes anyone on its own."],
-            ["Evidence is assessed", "Two AI models from different providers assess reported content independently, judging observable evidence only. They do not read your private conversations."],
+            ["Evidence is assessed", "Two AI models from different providers assess reported content independently, judging observable evidence only. They assess submitted evidence; this is not represented as routine monitoring of every private conversation."],
             ["Disagreement is held, not decided", "If the models do not agree, nothing is done to your account. A report never suspends anyone and never removes content on its own. Where the engines cannot both run, the report is recorded without a verdict and no action follows."],
             ["Warning first", "For a first substantiated breach that is not severe, you receive a warning with the reason stated. Warnings are recorded in your trust history."],
             ["Suspension", "One ground suspends an account automatically: your sign-in address resolving to a hosting or datacenter range, which the acceptable-use terms do not permit. You are told the reason. Nothing else suspends an account automatically, and being reported is not one of those grounds."],

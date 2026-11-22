@@ -21,10 +21,9 @@ export const metadata: Metadata = {
  *
  * HOW THIS WAS WRITTEN
  * --------------------
- * Every factual statement below was checked against the database schema in
- * `src/db/schema.ts`, the API routes in `src/app/api`, the live Supabase project
- * `ihwtpwlszegrjgakqsxx`, and the deployed build, on 2026-10-19. Nothing here is
- * aspirational copy. Where the system has a limitation, the limitation is stated.
+ * Updated against local handlers and schema for the reference-native experience.
+ * Local tests do not establish live provider availability, hosted RLS or device accuracy.
+ * Do not copy historical outage reports here as claims about current operations.
  *
  * MAINTAINING IT
  * --------------
@@ -51,9 +50,9 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
       }
       lede={
         <p>
-          Freeborn asks people for more than most apps do: where they are, how they
-          live, what they believe about their own health, and a photograph of their
-          face. That is a serious thing to request, so this policy describes the real
+          Freeborn is an adults-only dating and connection service. You share profile
+          photographs, interests, intentions and the details you choose about your life.
+          Optional information can include faith, health choices and location. That is a serious thing to request, so this policy describes the real
           system rather than a reassuring summary of it. Where we fall short of an
           ideal, we say so below instead of leaving you to find out later.
         </p>
@@ -88,7 +87,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
               <>We sell nothing. There are no advertisers, no data brokers, no advertising cookies and no third-party analytics on this site.</>,
               <>Your face photograph used for identity verification is <strong className="text-pearl">stored</strong>, not discarded after the check. Clause 7 explains precisely what is kept and for how long.</>,
               <>Your verification image is sent to two external AI providers so two independent models can compare it to your profile photos. Neither provider has signed a data processing agreement with us. That is disclosed in clause 8 rather than glossed over.</>,
-              <>Your exact coordinates are stored so distance can be calculated. Only a distance in kilometres is ever shown to another member.</>,
+              <>Your exact coordinates are stored so distance can be calculated. Only an approximate distance is shown, in your chosen units, unless you hide it.</>,
               <>You can export everything at Settings, and delete everything at Settings. Deletion reaches the authentication system too, not just the profile table.</>,
               <>{SITE_NAME} is for adults. Membership requires you to be {18} or older.</>,
             ]}
@@ -154,7 +153,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <strong key="k9" className="text-pearl">Chat media</strong>,
-              "Images and other files you send inside a conversation.",
+              "Photos, videos, recorded voice notes and supported documents you explicitly send inside a conversation. Microphone access starts only after your action; closing a preview does not send it.",
               "So the conversation you chose to have can contain them.",
               "Contract",
             ],
@@ -184,7 +183,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             <>You are asked separately, in plain language, before either is collected. It is not bundled into accepting these terms.</>,
             <>Both are optional. You can use Freeborn with an unverified profile and with no vaccination status shown. Choosing not to consent does not lock you out of matching or messaging.</>,
             <>You can withdraw consent at any time from Settings. Withdrawing removes the data; it does not undo anything already lawfully done with it before you withdrew.</>,
-            <>Withdrawing consent for your verification image removes the teal verified seal from your profile, because the seal is a claim we can no longer support.</>,
+            <>Withdrawing consent for your verification image removes the blue verification badge from your profile, because the seal is a claim we can no longer support.</>,
           ]}
         />
         <Callout label="One thing we will not pretend">
@@ -203,8 +202,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
         <p>
           Discovery is controlled by you and enforced on the server, not hidden with
           styling. Other signed-in members can see the profile fields you published,
-          your first or chosen display name, your age in years, your city, a distance
-          in kilometres, and your verification status.
+          your first or chosen display name, your age in years, your city, an approximate distance when permitted, and your verification status. Optional work, education, language and faith fields are public profile details when supplied.
         </p>
         <p>They cannot see, through any surface we provide:</p>
         <ClauseList
@@ -213,17 +211,15 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             <>Your full date of birth. Age is derived; the date is not published.</>,
             <>Your surname, unless you chose to put it in your display name.</>,
             <>Your exact coordinates. Only a calculated distance is exposed, and if you enable <em className="text-pearl">hide distance</em> the value is withheld on the server rather than blurred in the browser.</>,
-            <>Your messages, matches, likes or reports.</>,
+            <>Private conversations you are not part of, your reports, and your account export. Your conversation partner can see messages and attachments you send to them; recipients see your likes and matches.</>,
             <>Your verification selfie. It is never served to another member through any route.</>,
-            <>Whether you are in incognito, paused or hidden. Those settings remove you from other members&rsquo; discovery results entirely.</>,
+            <>Whether you are in incognito, paused or hidden. Pausing discovery removes your card from discovery. Incognito limits visibility, with exceptions for members you have liked or matched; it does not erase prior conversations.</>,
           ]}
         />
         <p>
           Profile data is only returned to authenticated sessions that pass your
           discovery settings. It is not a public directory and it is not crawlable.
-          Both profile endpoints refuse anonymous requests outright, and neither one
-          will show you a member who is hidden, snoozed, incognito, or who has blocked
-          you. The public discovery preview requires an account for the same reason.
+          Profile endpoints refuse anonymous requests and enforce block and audience rules. Direct profile access and incognito exceptions are not identical to discovery filtering. Public landing cards are labelled illustrative examples, not searchable member records.
         </p>
       </Clause>
 
@@ -232,9 +228,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
           Freeborn ranks and filters candidates using the preferences you set: age
           range, distance, genders shown, intentions, and whether to see verified
           members only. That is a filter you configured, applied to fields you
-          published. It is not an opaque recommendation model, there is no
-          compatibility percentage, and no machine learning model decides who you are
-          shown beyond the filters you chose.
+          published. There is no compatibility percentage. Within the eligible results, a deterministic ranking considers stated values and interests, profile completeness, activity and freshness; declared health preferences can also affect ordering. A hidden activity status is not displayed. Optional-field filters can exclude people who have not provided those fields.
         </p>
         <p>
           Two automated systems do make judgements about you, and you should know
@@ -242,8 +236,8 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
         </p>
         <ClauseList
           items={[
-            <><strong className="text-pearl">Identity verification.</strong> Two independent AI models compare your selfie to your profile photographs. The system is deliberately moderate: it hard-rejects only objective failures such as no face detected, unusable light, or a clearly different person. Anything doubtful is escalated rather than decided.</>,
-            <><strong className="text-pearl">Report triage.</strong> Two models from different providers assess reported content against observable evidence only. They never read your private conversations. A report on its own never suspends anyone.</>,
+            <><strong className="text-pearl">Identity verification.</strong> Configured vision engines assess your submitted selfie, challenge and profile photographs. Approval requires the configured passing checks; a single available engine is not a substitute for the required agreement. Missing evidence, disagreement and provider failures do not grant a badge. Automated checks can make mistakes and are not a safety guarantee.</>,
+            <><strong className="text-pearl">Report triage.</strong> Two models from different providers assess reported content against observable evidence only. They assess submitted report evidence; this is not represented as routine monitoring of every private conversation. A report on its own is not a verdict.</>,
             <>In both cases, anything the models do not agree on is held rather than decided. It is never resolved by whichever model answered last, and doubt is never resolved against you by default.</>,
             <>There is no review queue inside the product today. An unresolved verification request sits as pending until an operator reads it, which in practice means until you write to{" "}
               <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>
@@ -252,19 +246,8 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             <>Every suspension can be appealed at <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href={member?"/app/settings/appeal":"/appeal"}>/appeal</a>.</>,
           ]}
         />
-        <Callout label="Current operational status, stated plainly">
-          <p>
-            Verification is not working at the moment. Both AI engines are reached
-            through a free third-party relay, and that relay currently strips the
-            image out of the request before it reaches a model, so no selfie can be
-            assessed at all. New requests are recorded as pending. A pending request
-            never grants the seal, and it never rejects you either. It holds.
-          </p>
-          <p>
-            Until the relay is repaired, no new member can earn the verified seal. We
-            would rather tell you that outright than display a badge nobody is able to
-            obtain, and we would rather the seal be slow than the seal be wrong.
-          </p>
+        <Callout label="Submission is not approval">
+          <p>The app distinguishes approved, rejected, pending and failed or unconfirmed submissions. Provider availability can change. This policy does not assert that a provider is currently working or broken, promise a completion time, or treat local fake-camera tests as evidence of biometric accuracy.</p>
         </Callout>
       </Clause>
 
@@ -466,8 +449,8 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
         <ClauseList
           items={[
             <><strong className="text-pearl">Access and export.</strong> Settings has a data export. It produces a scoped copy of your own data. Nothing is gated behind an email request or an identity interrogation.</>,
-            <><strong className="text-pearl">Correction.</strong> Every profile field is editable by you at any time. If something is wrong that you cannot edit yourself, email us.</>,
-            <><strong className="text-pearl">Deletion.</strong> Settings, danger zone, delete. Deletion removes your profile, photographs, messages, chat media, matches, likes, reports, security events, sessions, verification records and selfies, and it removes your authentication account, refresh tokens and identities from the auth system. It is immediate and it is not reversible.</>,
+            <><strong className="text-pearl">Correction.</strong> Most optional profile fields can be edited in your profile. Restricted identity details, including date of birth, may require support; email us if you cannot correct a field.</>,
+            <><strong className="text-pearl">Deletion.</strong> Settings → Account → Delete account. Deletion requests removal of your profile, photographs, messages, chat media, matches, likes, reports, security events, sessions, verification records and selfies, and it removes your authentication account, refresh tokens and identities from the auth system. It cannot be undone. The app distinguishes completed deletion from pending cleanup; storage or provider cleanup can take longer and failed work may need retry.</>,
             <><strong className="text-pearl">Withdraw consent.</strong> Turn off verification or clear your health fields in Settings at any time.</>,
             <><strong className="text-pearl">Object and restrict.</strong> Email us. We will stop the processing you object to unless we can show a compelling legitimate ground, which we will explain to you in writing rather than assert.</>,
             <><strong className="text-pearl">Complain.</strong> To your local regulator. In the UK that is the Information Commissioner&rsquo;s Office. In the EU, your national authority. In Nigeria, the Nigeria Data Protection Commission. In California, the CPPA. You do not need our permission and we will not ask you to explain why.</>,
@@ -564,10 +547,9 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
           first published on 19 October 2026.
         </p>
         <p>
-          1.1 changes who this policy names and where you write to us: the operator is
+          Version 1.2 clarifies dating profile fields, chat media and recording consent, approximate distance, incognito exceptions, notification dismissal, deterministic discovery ranking and asynchronous deletion. It removes an obsolete provider-outage assertion rather than claiming current hosted availability. Clearing notifications dismisses feed entries, not private messages; opening a conversation can mark its messages read. Typing indicators are short-lived activity notices, not message content. Chats are access-controlled but are not represented as end-to-end encrypted. Earlier version 1.1 changed who this policy names and where you write to us: the operator is
           identified by its trading name, {OPERATOR_NAME}, and contact moves from a
-          personal inbox to {CONTACT_EMAIL}. Nothing changed about what is collected,
-          why, who can see it, or how long it is kept.
+          personal inbox to {CONTACT_EMAIL}. That earlier operator/contact update did not change collection or retention.
         </p>
         <p>
           When we make a substantive change we will update the version number and the

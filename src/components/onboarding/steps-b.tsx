@@ -14,6 +14,8 @@ import {
   interestOptions,
   lifestyleOptions,
   occupationOptions,
+  languageOptions,
+  religionOptions,
   onboardingFieldHints,
   validateBio,
   validateCount,
@@ -48,6 +50,8 @@ function SafetyPanel({ values }: { values: string[] }) {
 
 export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pending, saveStatus }: StepProps) {
   const [bio, setBio] = useState(draft.bio);
+  const [language,setLanguage]=useState(draft.language??"");
+  const [religion,setReligion]=useState(draft.religion??"");
   const [occupation, setOccupation] = useState(draft.occupation);
   const [education, setEducation] = useState(draft.education);
   const [vaccinationStatus, setVaccinationStatus] = useState(draft.vaccinationStatus || "prefer_not_to_say");
@@ -65,6 +69,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
     setErrors({});
     onSave({
       bio: bio.trim(),
+      language, religion,
       occupation: occupation.trim(),
       education: education.trim(),
       vaccinationStatus,
@@ -126,6 +131,8 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
           hint={onboardingFieldHints.education}
           optional
         />
+      <ComboField label="Language" value={language} onChange={setLanguage} options={languageOptions} optional hint="Optional. Share the language you’re most comfortable using."/>
+      <ComboField label="Faith & beliefs" value={religion} onChange={setReligion} options={religionOptions} optional hint="Optional. Only share what you want on your profile."/>
       </div>
 
       <fieldset className="setup-chip-group"><legend className="setup-label">Vaccination stance <span>Optional</span></legend><p className="setup-field-hint">Choose a profile badge, or keep this private.</p><div className="option-list">{vaxOptions.map(o=><button key={o.value} type="button" className={`option-card ${vaccinationStatus===o.value?'selected':''}`} onClick={()=>setVaccinationStatus(o.value)} aria-pressed={vaccinationStatus===o.value}><span className="option-text"><b>{o.label}</b><small>{o.caption}</small></span><CheckIcon className="option-check" size={20}/></button>)}</div></fieldset>

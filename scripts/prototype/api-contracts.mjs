@@ -17,6 +17,7 @@ const virtual = {
       async upsert(patch){s.writes.push({table,patch});return {error:s.writeError}},
       then(ok,bad){return Promise.resolve({error:s.writeError}).then(ok,bad)}};return q}
   }}`,
+  '@/lib/supabase/server':'export async function createSupabaseServerClient(){throw Error("Unexpected hosted client")}',
   '@/lib/app-auth': 'export async function getMember(){return globalThis.__freebornContract.user}',
   '@/db': `export const db={
     select(){const q={from(){return q},where(){return q},orderBy(){return q},limit(){return q},then(ok,bad){return Promise.resolve(globalThis.__freebornContract.selects.shift()??[]).then(ok,bad)}};return q},
@@ -24,14 +25,15 @@ const virtual = {
   }`,
 };
 const bundle = await build({
-  stdin: { contents: `export * as settings from './src/app/api/settings/route';export * as notifications from './src/app/api/notifications/route';`, resolveDir: process.cwd(), loader: 'ts' },
+  stdin: { contents: `export * as settings from './src/app/api/settings/route';export * as notifications from './src/app/api/notifications/route';export * as profileMe from './src/app/api/profile/me/route';export * as onboarding from './src/lib/onboarding-store';`, resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, write: false, format: 'esm', platform: 'node',
   plugins: [{ name: 'isolated-contract-adapters', setup(b) {
-    b.onResolve({filter:/^@\/(?:lib\/(?:supabase\/api-auth|app-auth)|db)$/}, args=>({path:args.path,namespace:'contract'}));
+    b.onResolve({filter:/^@\/(?:lib\/(?:supabase\/(?:api-auth|server)|app-auth)|db)$/}, args=>({path:args.path,namespace:'contract'}));
     b.onLoad({filter:/.*/,namespace:'contract'},args=>({contents:virtual[args.path],loader:'js'}));
   }}],
 });
-const {settings,notifications}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+const {settings,notifications,profileMe,onboarding}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
+async function notificationGet(request){if(state.user)state.selects.splice(1,0,[]);return notifications.GET(request);}
 let passed=0;
 function ok(name,fn){fn();passed++;console.log(`ok ${passed} - ${name}`)}
 function req(body,method='POST'){return new Request('http://local.test/api/test',{method,...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});}
@@ -58,8 +60,13 @@ reset();const before=Date.now();response=await notifications.POST(req({action:'c
 ok('clear uses the authenticated owner, never the body owner',()=>{assert.equal(response.status,200);assert.equal(write.patch.userId,'owner-fixture')});
 ok('clear cutoff is a server timestamp, not client-supplied time',()=>assert.ok(write.patch.dismissedBefore.getTime()>=before&&write.patch.dismissedBefore.getTime()<=Date.now()));
 ok('clear only updates dismissal and preferences bookkeeping, not source messages',()=>{assert.equal(state.writes.length,1);assert.deepEqual(Object.keys(write.conflict.set).sort(),['dismissedBefore','updatedAt']);});
-reset();state.selects=[[],[],[],[]];response=await notifications.GET(req(undefined,'GET'));body=await response.json();ok('new feed keeps the existing welcome notification',()=>assert.equal(body.notifications[0]?.id,'tip-1'));
-reset();state.selects=[[],[],[],[{dismissedBefore:new Date(),matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notifications.GET(req(undefined,'GET'));body=await response.json();ok('dismissed feed does not recreate the synthetic welcome notification',()=>assert.deepEqual(body.notifications,[]));
-reset();const cutoff=new Date('2026-11-20T12:00:00Z');state.selects=[[],[{likerId:'one',action:'like',createdAt:cutoff},{likerId:'two',action:'like',createdAt:new Date(cutoff.getTime()+1)}],[{id:'one',displayName:'One'}],[],[{id:'two',displayName:'Two'}],[],[],[{dismissedBefore:cutoff,matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notifications.GET(req(undefined,'GET'));body=await response.json();ok('clear excludes the cutoff boundary but keeps newer real events',()=>{assert.equal(body.notifications.length,1);assert.equal(body.notifications[0].title,'Two liked you');});
+reset();state.selects=[[],[],[],[]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('new feed keeps the existing welcome notification',()=>assert.equal(body.notifications[0]?.id,'tip-1'));
+reset();state.selects=[[],[],[],[{dismissedBefore:new Date(),matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('dismissed feed does not recreate the synthetic welcome notification',()=>assert.deepEqual(body.notifications,[]));
+reset();const cutoff=new Date('2026-11-20T12:00:00Z');state.selects=[[],[{likerId:'one',action:'like',createdAt:cutoff},{likerId:'two',action:'like',createdAt:new Date(cutoff.getTime()+1)}],[{id:'one',displayName:'One'}],[],[{id:'two',displayName:'Two'}],[],[],[{dismissedBefore:cutoff,matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('clear excludes the cutoff boundary but keeps newer real events',()=>{assert.equal(body.notifications.length,1);assert.equal(body.notifications[0].title,'Two liked you');});
+reset();response=await settings.POST(req({privacy:{user_id:'other',hideDistance:true,hideActiveStatus:true,discoveryPaused:true,incognito:true,readReceipts:false}}));ok('Privacy persistence maps flags to the authenticated owner only',()=>{assert.equal(response.status,200);assert.deepEqual(state.writes[0].patch,{user_id:'owner-fixture',hide_distance:true,hide_active_status:true,discovery_paused:true,incognito:true,read_receipts:false});});
+reset();response=await settings.POST(req({profile:{messagePrivacy:'verified',discoverPrivacy:'unvaccinated'}}));ok('Audience controls persist recognized values',()=>{assert.equal(response.status,200);assert.equal(state.writes[0].patch.message_privacy,'verified');assert.equal(state.writes[0].patch.discover_privacy,'unvaccinated');});
+reset();response=await profileMe.POST(req({language:'Igbo',religion:'Buddhist',occupation:'Cybersecurity'}));ok('Expanded language, religion and work fields use the actual edit-profile handler',()=>{assert.equal(response.status,200);assert.deepEqual(state.writes[0].patch,{language:'Igbo',religion:'Buddhist',occupation:'Cybersecurity'});});
+reset();const suppliedClient={from(table){return{update(patch){state.writes.push({table,patch});return{async eq(column,value){state.writes.at(-1).where={column,value};return{error:state.writeError}}}}}}};let nextStep=await onboarding.applyStepPatch('owner-fixture','fixture@example.test','bio',{bio:'A genuine introduction that is long enough.',language:' Igbo ',religion:' Buddhist ',occupation:'Cybersecurity'},suppliedClient);ok('New onboarding choices actually map to saved profile columns',()=>{assert.equal(nextStep,'interests');assert.equal(state.writes[0].patch.language,'Igbo');assert.equal(state.writes[0].patch.religion,'Buddhist');assert.deepEqual(state.writes[0].where,{column:'id',value:'owner-fixture'});});
+reset();state.writeError={message:'fixture refused'};let threw=false;try{await onboarding.applyStepPatch('owner-fixture','fixture@example.test','bio',{language:'Igbo'},suppliedClient)}catch{threw=true}ok('Onboarding persistence failure is thrown rather than advancing',()=>assert.equal(threw,true));
 console.log(`PASS ${passed} local API contract assertions (substituted adapters; no remote database or RLS claim).`);
 delete globalThis.__freebornContract;

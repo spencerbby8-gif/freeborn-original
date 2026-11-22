@@ -32,6 +32,8 @@ export type OnboardingDraft = {
   interests: string[];
   lifestyle_preferences: string[];
   deal_breakers: string[];
+  language: string;
+  religion: string;
   occupation: string;
   education: string;
   vaccinationStatus: string;
@@ -63,6 +65,8 @@ export const EMPTY_DRAFT: OnboardingDraft = {
   interests: [],
   lifestyle_preferences: [],
   deal_breakers: [],
+  language: "",
+  religion: "",
   occupation: "",
   education: "",
   vaccinationStatus: "prefer_not_to_say",
@@ -164,6 +168,7 @@ export const relationshipGoalOptions = [
 ];
 
 export const lifestyleOptions = [
+  "Active lifestyle", "Slow weekends", "Creative", "Food lover", "Live music lover", "Travel often", "Family time", "Animal lover", "Lifelong learner", "Community-minded",
   "Health autonomy", "Natural living", "Low-tox home", "Organic food", "Homeschool curious",
   "Family-minded", "Faith-friendly", "Early bird", "Night owl", "Homebody", "Social butterfly",
   "Adventurous", "Routine-oriented", "Spontaneous", "Planner", "Fitness-focused",
@@ -178,6 +183,7 @@ export const lifestyleOptions = [
 ];
 
 export const valueOptions = [
+  "Emotional availability", "Open communication", "Mutual respect", "Trust", "Empathy", "Commitment", "Shared growth", "Humor", "Equality", "Curiosity", "Adventure", "Financial responsibility", "Quality time", "Independence",
   "Medical freedom", "Health autonomy", "Informed consent", "Natural health", "Holistic wellness",
   "Herbal remedies", "Traditional food", "Low-tox living", "Family values", "Faith",
   "Personal sovereignty", "Self-reliance", "Community", "Environmental stewardship",
@@ -187,6 +193,7 @@ export const valueOptions = [
 ];
 
 export const interestOptions = [
+  "Dinner dates", "Live music", "Weekend getaways", "Picnics", "Comedy shows", "Food festivals", "Brunch", "Matcha", "Ambient music", "Foodie", "Theatre", "Salsa", "Karaoke", "Language learning", "History", "Nature walks", "Badminton", "Pilates", "Surfing", "Book clubs", "Stargazing", "Chess", "Sewing", "Ceramics",
   "Natural health", "Medical freedom", "Holistic wellness", "Herbal remedies", "Homesteading",
   "Regenerative farming", "Farmers markets", "Traditional food", "Travel", "Cooking", "Hiking",
   "Reading", "Photography", "Music", "Art", "Yoga", "Dancing", "Running", "Cycling", "Gardening",
@@ -198,6 +205,7 @@ export const interestOptions = [
 ];
 
 export const occupationOptions = [
+  "Product manager", "Project manager", "Data analyst", "Data scientist", "Cybersecurity", "Researcher", "Pharmacist", "Dentist", "Veterinarian", "Therapist / counsellor", "Psychologist", "Social worker", "Architect", "Civil service", "Public policy", "Human resources", "Recruiter", "Administrative professional", "Banking", "Insurance", "Consultant", "Journalist", "Editor", "Translator", "Musician", "Actor / performer", "Filmmaker", "Photographer", "Fashion designer", "Beauty professional", "Fitness trainer", "Electrician", "Plumber", "Mechanic", "Construction", "Logistics / transport", "Pilot", "Cabin crew", "Retail", "Customer service", "Hotel / tourism", "Event planner", "Nonprofit / charity", "Self-employed", "Between roles", "Prefer not to say",
   "Student",
   "Entrepreneur",
   "Business owner",
@@ -221,6 +229,13 @@ export const occupationOptions = [
   "Military / first responder",
   "Homemaker",
   "Retired",
+];
+
+export const languageOptions = [
+ "English", "Spanish", "French", "German", "Portuguese", "Arabic", "Mandarin", "Cantonese", "Hindi", "Urdu", "Bengali", "Punjabi", "Tamil", "Telugu", "Marathi", "Italian", "Dutch", "Swedish", "Norwegian", "Danish", "Finnish", "Polish", "Ukrainian", "Russian", "Greek", "Turkish", "Hebrew", "Persian", "Japanese", "Korean", "Vietnamese", "Thai", "Indonesian", "Malay", "Filipino / Tagalog", "Swahili", "Yoruba", "Igbo", "Hausa", "Nigerian Pidgin", "Twi", "Amharic", "Somali", "Zulu", "Afrikaans", "Irish", "Welsh", "Romanian", "Hungarian", "Czech", "Serbian", "Croatian", "Nepali", "Sinhala", "American Sign Language", "British Sign Language", "Nigerian Sign Language", "Other", "Prefer not to say",
+];
+export const religionOptions = [
+ "Christian", "Catholic", "Protestant", "Orthodox Christian", "Pentecostal", "Anglican", "Baptist", "Methodist", "Seventh-day Adventist", "Muslim", "Sunni Muslim", "Shia Muslim", "Jewish", "Hindu", "Buddhist", "Sikh", "Jain", "Baha’i", "Taoist", "Shinto", "Traditional / Indigenous beliefs", "African traditional religion", "Spiritual", "Agnostic", "Atheist", "Humanist", "No religion", "Other", "Prefer not to say",
 ];
 
 export const educationOptions = [

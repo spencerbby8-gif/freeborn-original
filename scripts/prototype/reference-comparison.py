@@ -18,7 +18,7 @@ p.add_argument('--output', type=Path, required=True)
 p.add_argument('--html', type=Path, required=True)
 a = p.parse_args()
 notes = {
- 'chat': 'Reference header, four text bubbles and composer rebuilt. Same fixture content/artwork. No scripted typing indicator: dots appear only on a real typing notice. Message timestamps/receipts remain accessible but do not add rows to the reference bubbles.',
+ 'chat': 'Reference header, four text bubbles and composer chrome retained with the same fixture content/artwork. The requested separate mic control intentionally extends the supplied composer. Plus now opens native photo/video/document choices; staging, recording and viewers are new reference-style components, not legacy UI. Dots require a real typing notice. Not pixel-exact.',
  'discover': 'Not exact: enclosed actions, portrait crop, deck stack, spacing and data-driven filter chips differ from this supplied capture. Member fields are real, not fabricated reference facts.',
  'discover-empty': 'Not exact: truthful empty-state copy, controls and spacing differ.',
  'likes': 'Reference list pattern retained, but fixture has one member instead of the prototype list. Row details and activity link differ; not pixel-exact.',
@@ -32,7 +32,7 @@ notes = {
  'privacy': 'Reference controls retained. Audience/blocked-account destination is named honestly; switch values reflect actual fixture preferences. Not pixel-exact.',
  'premium': 'Not exact by design: no fabricated prices or live checkout. Planned membership and availability wording differ.',
  'matches': 'Reference structure retained, but one fixture match instead of four scripted matches. Not pixel-exact.',
- 'notifications': 'Reference tabs/list pattern retained. One real-shape fixture event instead of the prototype scripted list; not pixel-exact.',
+ 'notifications': 'Reference tabs/list pattern retained, with functional category and unread filters and explicit failure states. Events use authorized data, not the prototype scripted list. Not pixel-exact.',
  'onboarding': 'All seven production steps now use the shared reference chrome, cards, fields and progress header. Only the intentions sample was supplied as an onboarding reference; full service-backed choices, validation and values extend it. Not pixel-exact; the other six steps are a consistent extension, not a claimed unseen-reference match.',
  'welcome': 'Not exact: genuine Google sign-in/signup buttons and recovery access require more form space. Original auth flame remains unchanged.',
  'verification': 'Reference hero/frame/checklist retained, with truthful camera and service/status copy replacing the prototype simulation disclaimer. Not pixel-exact.',

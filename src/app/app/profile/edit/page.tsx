@@ -8,7 +8,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { openVerifyFlow } from "@/components/app/verify-modal";
 import { MemberDetail } from "@/components/prototype/member-detail";
 import { CameraCapture } from "@/components/camera-capture";
-import { FreebornSelect } from "@/components/select-menu";
+import { SelectMenu as FreebornSelect, ComboField } from "@/components/onboarding/fields";
+import { languageOptions, religionOptions, occupationOptions, educationOptions } from "@/lib/onboarding-data";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { prettyText } from "@/lib/pretty-text";
 
@@ -54,13 +55,13 @@ const PROMPT_STARTERS = [
   "What I'm looking for right now",
 ];
 
-const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Arabic", "Mandarin", "Other"];
-const RELIGIONS = ["Christian", "Spiritual", "Catholic", "Protestant", "Jewish", "Muslim", "Buddhist", "Hindu", "Agnostic", "Atheist", "Prefer not to say"];
+const LANGUAGES = languageOptions;
+const RELIGIONS = religionOptions;
 const MARITAL = ["Never married", "Divorced", "Widowed", "Separated", "It's complicated"];
 const KIDS = ["No kids", "Have kids", "Kids grown", "Prefer not to say"];
 const WANTS_KIDS = ["Want kids", "Not sure", "Don't want kids", "Already have enough"];
 const FREQUENCY = ["Never", "Rarely", "Socially", "Regularly"];
-const EDUCATION_LEVELS = ["High school", "Trade school", "Some college", "Bachelor's", "Master's", "Doctorate", "Self-taught"];
+const EDUCATION_LEVELS = educationOptions;
 const VAX = ["prefer_not_to_say", "unvaccinated", "vaccinated"];
 const VAX_LABELS: Record<string, string> = {
   prefer_not_to_say: "Prefer not to say",
@@ -99,7 +100,7 @@ function SelectField({
       <FreebornSelect
         label={label}
         value={value}
-        options={options.map((o) => ({ value: o, label: labels?.[o] ?? o }))}
+        options={Array.from(new Set([...options,...(value?[value]:[])])).map((o) => ({ value: o, label: labels?.[o] ?? o }))}
         onChange={onChange}
         placeholder="Select…"
       />
@@ -212,6 +213,7 @@ function TextField({
 
 function ProfileInner() {
   const router=useRouter();
+  const editorMounted=useRef(true);useEffect(()=>{editorMounted.current=true;return()=>{editorMounted.current=false;};},[]);
   const [saveError,setSaveError]=useState<string|null>(null);
   const [profile, setProfile] = useState<(MeProfile & { id?: string }) | null>(null);
   const [completeness, setCompleteness] = useState(0);
@@ -469,7 +471,7 @@ function ProfileInner() {
       const res=await fetch('/api/profile/me',{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(draft)});
       const json=await res.json().catch(()=>({}));
       if(!res.ok)throw new Error(json.error??'Could not save your profile.');
-      setSaved(true);await load();
+      if(!editorMounted.current)return;setSaved(true);window.dispatchEvent(new CustomEvent("freeborn:profile-saved"));await new Promise(resolve=>setTimeout(resolve,700));if(!editorMounted.current)return;const previous=sessionStorage.getItem("freeborn.editor-return");router.replace(previous&&/^\/app(?:\/|$)/.test(previous)&&!previous.startsWith("/app/profile/edit")?previous:"/app/profile?saved=1");
     }catch(e){setSaveError(e instanceof Error?e.message:'Could not save your profile.');}finally{setSaving(false);}
   };
 
@@ -1306,7 +1308,7 @@ function ProfileInner() {
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField id="edit-displayName" label="Display name" value={draft.displayName ?? ""} onChange={(v) => set({ displayName: v })} placeholder="Your name" maxLength={40} />
               <TextField id="edit-city" label="City" value={draft.city ?? ""} onChange={(v) => set({ city: v })} placeholder="City" maxLength={60} />
-              <TextField id="edit-occupation" label="Occupation" value={draft.occupation ?? ""} onChange={(v) => set({ occupation: v })} placeholder="What you do" maxLength={80} />
+              <ComboField label="Occupation" value={draft.occupation ?? ""} onChange={(v) => set({ occupation: v })} options={occupationOptions} placeholder="Select or type your work"/>
               <TextField id="edit-heightCmProfile" label="Height (cm)" value={draft.heightCmProfile ? String(draft.heightCmProfile) : ""} onChange={(v) => set({ heightCmProfile: Number(v) || null })} placeholder="e.g. 175" />
             </div>
             <div className="mt-4 space-y-2">
@@ -1349,7 +1351,7 @@ function ProfileInner() {
 
           <ScreenError message={saveError}/><div className="editor-save-dock flex items-center gap-3">
             <button type="button" onClick={() => void save()} disabled={saving} className="fb-btn fb-btn-primary flex-1 !min-h-[52px] !text-[15px] disabled:opacity-60">
-              {saving ? "Saving…" : "Save changes"}
+              {saved ? "Saved ✓" : saving ? "Saving…" : "Save changes"}
             </button>
             <button type="button" onClick={() => router.push("/app/profile")} className="fb-btn fb-btn-ghost !min-h-[52px] !text-[14px]">
               Cancel

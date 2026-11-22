@@ -141,15 +141,17 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const vaxParam = url.searchParams.get("vax"); // any | vaccinated | unvaccinated
-  const vax = vaxParam && vaxParam !== "any" ? vaxParam : baseVax;
-  const verifiedOnly = url.searchParams.get("verified") === "1" ? true : baseVerifiedOnly;
+  const vax = vaxParam !== null ? vaxParam : baseVax;
+  const verifiedOnly = url.searchParams.has("verified") ? url.searchParams.get("verified") === "1" : baseVerifiedOnly;
   const onlineOnly = url.searchParams.get("online") === "1";
   const genderParam = list(url.searchParams.get("gender"));
-  const genders = genderParam.length ? genderParam : baseGenders;
+  const genders = url.searchParams.has("gender") ? genderParam : baseGenders;
   const lifestyle = list(url.searchParams.get("lifestyle"));
   const interests = list(url.searchParams.get("interests"));
   const intentParams = list(url.searchParams.get("intent"));
-  const intents = intentParams.length ? intentParams : baseIntents;
+  const intents = url.searchParams.has("intent") ? intentParams : baseIntents;
+  const occupations = list(url.searchParams.get("occupation"));
+  const educations = list(url.searchParams.get("education"));
   const religions = list(url.searchParams.get("religion"));
   const marital = list(url.searchParams.get("marital"));
   const kids = list(url.searchParams.get("kids"));
@@ -178,15 +180,10 @@ export async function GET(request: Request) {
   const latParam = url.searchParams.get("lat");
   const lngParam = url.searchParams.get("lng");
   // 500 means "Anywhere" — treat it (and anything above) as no cap at all.
-  const distance =
-    distanceParam !== null && Number(distanceParam) < 500
-      ? Number(distanceParam)
-      : Number.isFinite(baseDistance) && baseDistance < 500
-        ? baseDistance
-        : NaN;
-  const fromLat = latParam !== null ? Number(latParam) : NaN;
-  const fromLng = lngParam !== null ? Number(lngParam) : NaN;
-  const haveOrigin = Number.isFinite(fromLat) && Number.isFinite(fromLng) && Number.isFinite(distance);
+  const effectiveDistance = distanceParam !== null ? Number(distanceParam) : baseDistance;
+  const distance = Number.isFinite(effectiveDistance) && effectiveDistance < 500 ? effectiveDistance : NaN;
+  let fromLat = latParam !== null ? Number(latParam) : NaN;
+  let fromLng = lngParam !== null ? Number(lngParam) : NaN;
 
   /* SUPPRESSION IS REAL, NOT DECORATIVE.
      moderation-policy.ts documents suppression's three effects; effect 1 is "not in the
@@ -273,6 +270,13 @@ export async function GET(request: Request) {
 
   const locations = await db.select().from(userPrivateLocations);
   const locByUser = new Map(locations.map((l) => [l.userId, l]));
+  // A saved distance cap must work without asking the browser for GPS again.
+  const savedOrigin=locByUser.get(viewer.id);
+  if(!Number.isFinite(fromLat)||!Number.isFinite(fromLng)){
+    fromLat=savedOrigin?.latitude??NaN;fromLng=savedOrigin?.longitude??NaN;
+  }
+  const haveOrigin=Number.isFinite(fromLat)&&Number.isFinite(fromLng);
+  if(Number.isFinite(distance)&&!haveOrigin&&!facetsOnly)return Response.json({profiles:[],locationRequired:true,error:"A distance filter needs your location. Add your city location in onboarding or choose Anywhere."});
 
   /* Who has asked for a mixer. At most one city per member, written only when
      they ask, so this is a stated intention and can be filtered and counted
@@ -442,6 +446,7 @@ export async function GET(request: Request) {
         nowMs - v.row.lastActiveAt.getTime() < DAY_MS
     ).length,
     gender: tally((r) => r.gender),
+    occupation: tally((r) => r.occupation),
     religion: tally((r) => r.religion),
     marital: tally((r) => r.maritalStatus),
     kids: tally((r) => r.hasKids),
@@ -450,7 +455,7 @@ export async function GET(request: Request) {
     smoking: tally((r) => r.smoking),
     language: tally((r) => r.language),
     education: tally((r) => r.educationLevel),
-    lifestyle: tallyMany((r) => r.lifestylePreferences),
+    lifestyle: tallyMany((r) => Array.from(new Set([...(r.lifestylePreferences??[]),...(r.values??[])]))),
     interests: tallyMany((r) => r.interests),
     intents: tallyMany((r) => r.relationshipGoals),
   };
@@ -468,7 +473,7 @@ export async function GET(request: Request) {
     if (verifiedOnly && !row.isVerified) continue;
     if (
       onlineOnly &&
-      !(row.lastActiveAt != null && nowMs - row.lastActiveAt.getTime() < ONLINE_WINDOW_MS)
+      !(!hideActiveStatus && row.lastActiveAt != null && nowMs - row.lastActiveAt.getTime() < ONLINE_WINDOW_MS)
     ) {
       continue;
     }
@@ -477,9 +482,11 @@ export async function GET(request: Request) {
     if (genders.length && (!row.gender || !genders.includes(row.gender))) continue;
     if (Number.isFinite(ageMin) && (age === null || age < ageMin)) continue;
     if (Number.isFinite(ageMax) && (age === null || age > ageMax)) continue;
-    if (lifestyle.length && !lifestyle.some((x) => (row.lifestylePreferences ?? []).includes(x))) continue;
+    if (lifestyle.length && !lifestyle.some((x) => [...(row.lifestylePreferences ?? []),...(row.values ?? [])].includes(x))) continue;
     if (interests.length && !interests.some((x) => (row.interests ?? []).includes(x))) continue;
     if (intents.length && !intents.some((x) => (row.relationshipGoals ?? []).includes(x))) continue;
+    if (occupations.length && !occupations.includes(row.occupation??"")) continue;
+    if (educations.length && !educations.includes(row.educationLevel??row.education??"")) continue;
     if (religions.length && !religions.includes(row.religion ?? "")) continue;
     if (marital.length && !marital.includes(row.maritalStatus ?? "")) continue;
     if (kids.length && !kids.includes(row.hasKids ?? "")) continue;
@@ -492,8 +499,8 @@ export async function GET(request: Request) {
     let distanceKm: number | null = null;
     if (haveOrigin && loc?.latitude != null && loc?.longitude != null) {
       distanceKm = Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude));
-      if (distanceKm > distance) continue;
-    } else if (haveOrigin) {
+      if (Number.isFinite(distance) && distanceKm > distance) continue;
+    } else if (Number.isFinite(distance)) {
       continue; // tight distance filter + unknown location -> hide
     }
 
@@ -535,7 +542,7 @@ export async function GET(request: Request) {
          "Online" over a 24-hour window. */
       presence: presenceOf(row.lastActiveAt, hideActiveStatus),
       vaccinationStatus: row.vaccinationStatus,
-      distanceKm,
+      distanceKm: hideDistance ? null : distanceKm,
       likes: countByProfile.get(row.id) ?? 0,
       joinedAt: row.createdAt,
       isNew,

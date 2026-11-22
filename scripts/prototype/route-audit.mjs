@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 const root=process.cwd(),seen=new Set();
-const banned=['src/components/app/profile-view.tsx','src/components/app/settings-view.tsx','src/components/app/filter-panel.tsx','src/components/app/likes-view.tsx','src/components/app/home-deck.tsx'];
+const banned=['src/components/app/voice-note.tsx','src/components/app/photo-lightbox.tsx','src/components/app/profile-view.tsx','src/components/app/settings-view.tsx','src/components/app/filter-panel.tsx','src/components/app/likes-view.tsx','src/components/app/home-deck.tsx'];
 function resolve(base,spec){let p=spec.startsWith('@/')?path.join(root,'src',spec.slice(2)):spec.startsWith('.')?path.resolve(path.dirname(base),spec):null;if(!p)return null;return [p,p+'.tsx',p+'.ts',path.join(p,'index.tsx'),path.join(p,'index.ts')].find(p=>fs.existsSync(p)&&fs.statSync(p).isFile());}
 function visit(file){if(seen.has(file))return;seen.add(file);const text=fs.readFileSync(file,'utf8');for(const m of text.matchAll(/import\s+(?!type\s)[\s\S]*?\sfrom\s+["']([^"']+)["']/g)){const p=resolve(file,m[1]);if(p&&/\.[jt]sx?$/.test(p))visit(p);}}
 function pages(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?pages(path.join(dir,e.name)):e.name==='page.tsx'?[path.join(dir,e.name)]:[]);}

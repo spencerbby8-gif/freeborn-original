@@ -3,9 +3,9 @@ import type { DeckProfile } from "@/components/prototype/data";
 import "@/components/prototype/prototype.css";
 
 const examples:DeckProfile[]=[
- {id:'example-aria',name:'Aria',age:27,city:'Brooklyn',occupation:'Graphic Designer',headline:'Designing by day, chasing sunsets by night. I believe in deep talks, random adventures, and good coffee.',traits:['Hiking','Ambient music','Matcha lover'],photo:'/images/prototype/welcome.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false,heightCm:168},
- {id:'example-jonah',name:'Jonah',age:34,city:'Boise',occupation:'Regenerative farmer',headline:'Sunrise coffee, a long walk, and phones away by dinner. What does a good Sunday look like to you?',traits:['Outdoors','Cooking','Slow living'],photo:'/images/samples/jonah.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false},
- {id:'example-elena',name:'Elena',age:31,city:'Franklin',occupation:'Midwife',headline:'Curious conversations, new trails and a home full of laughter. Looking for something thoughtful and real.',traits:['Travel','Nature','Family'],photo:'/images/samples/elena.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false},
+ {id:'example-aria',name:'Aria',age:27,city:'Brooklyn',occupation:'Graphic Designer',headline:'Designing by day, chasing sunsets by night. I believe in deep talks, random adventures, and good coffee.',traits:['Hiking','Ambient music','Matcha'],photo:'/images/prototype/welcome.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false,heightCm:168},
+ {id:'example-jonah',name:'Jonah',age:34,city:'Boise',occupation:'Architect',headline:'Sunrise coffee, a long walk, and phones away by dinner. What does a good Sunday look like to you?',traits:['Hiking','Cooking','Live music'],photo:'/images/samples/jonah.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false},
+ {id:'example-elena',name:'Elena',age:31,city:'Franklin',occupation:'Teacher',headline:'Curious conversations, new trails and a home full of laughter. Looking for something thoughtful and real.',traits:['Travel','Nature walks','Reading'],photo:'/images/samples/elena.jpg',photos:[],verified:false,presence:null,distanceKm:null,isNew:false},
 ];
 /** Same card component as authenticated Discover. All landing examples are
  * explicit design samples, never member records, verification or activity claims. */

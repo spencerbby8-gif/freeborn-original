@@ -105,8 +105,8 @@ export const OPERATOR_COUNTRY = "Nigeria";
 export const CONTACT_EMAIL = "support@freeborndating.com";
 
 /** Legal document version. Bump on every substantive edit; shown on each page. */
-export const LEGAL_VERSION = "1.1";
-export const LEGAL_EFFECTIVE_DATE = "13 November 2026";
+export const LEGAL_VERSION = "1.2";
+export const LEGAL_EFFECTIVE_DATE = "21 November 2026";
 
 /** Minimum membership age. Mirrors MIN_AGE in `src/lib/age.ts`. */
 export const MIN_AGE = 18;

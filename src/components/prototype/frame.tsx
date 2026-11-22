@@ -8,8 +8,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { DEFAULT_PREFS, loadPrefs, PREFS_EVENT } from "@/lib/device-prefs";
 import "./prototype.css";
 
-export type IconName = "file" | "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
+export type IconName = "mic" | "video" | "file" | "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
 const paths: Record<IconName, ReactNode> = {
+  mic:<><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3m-4 0h8"/></>,
+  video:<><rect x="3" y="5" width="13" height="14" rx="3"/><path d="m16 10 5-3v10l-5-3"/></>,
   file:<><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></>,
   more:<><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
   coffee:<><path d="M5 9h12v6a5 5 0 01-5 5h-2a5 5 0 01-5-5V9zM17 10h2a3 3 0 010 6h-2M8 3v3m4-3v3"/></>,
@@ -50,6 +52,7 @@ const tabs: {href:string; label:string; icon:IconName}[] = [
 
 export function PrototypeFrame({ children, hideTabs = false, unread }: { children: ReactNode; hideTabs?: boolean; unread?: { chat: number; likes: number } }) {
   const pathname = usePathname();
+  useEffect(()=>{try{const previous=sessionStorage.getItem('freeborn.member-route');if(pathname==='/app/profile/edit'&&previous&&previous!==pathname&&/^\/app(?:\/|$)/.test(previous))sessionStorage.setItem('freeborn.editor-return',previous);sessionStorage.setItem('freeborn.member-route',pathname);}catch{}},[pathname]);
   const [motion,setMotion]=useState(DEFAULT_PREFS.animations);
   useEffect(()=>{const read=()=>setMotion(loadPrefs().animations);queueMicrotask(read);window.addEventListener(PREFS_EVENT,read);window.addEventListener("storage",read);return()=>{window.removeEventListener(PREFS_EVENT,read);window.removeEventListener("storage",read);};},[]);
   const active = pathname.startsWith('/app/matches') ? '/app/likes' : pathname.startsWith('/app/settings') || pathname.startsWith('/app/privacy') || pathname.startsWith('/app/profile') ? '/app/profile' : pathname.startsWith('/app/notifications') ? '/app/chat' : pathname;

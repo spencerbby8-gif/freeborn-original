@@ -33,6 +33,8 @@ type SbProfileRow = {
   city: string | null;
   region: string | null;
   bio: string | null;
+  language: string | null;
+  religion: string | null;
   occupation: string | null;
   education: string | null;
   relationship_goals: string[] | null;
@@ -182,6 +184,8 @@ export async function draftFromDb(
     interests: profile.interests ?? [],
     lifestyle_preferences: profile.lifestyle_preferences ?? [],
     deal_breakers: profile.deal_breakers ?? [],
+    language: profile.language ?? "",
+    religion: profile.religion ?? "",
     occupation: profile.occupation ?? "",
     education: profile.education ?? "",
     vaccinationStatus: (profile as { vaccination_status?: string }).vaccination_status ?? "prefer_not_to_say",
@@ -356,6 +360,8 @@ export async function applyStepPatch(
   if (has("city")) profilePatch.city = patch.city;
   if (has("region")) profilePatch.region = patch.region;
   if (has("bio")) profilePatch.bio = patch.bio;
+  if (has("language")) profilePatch.language = typeof patch.language === "string" ? patch.language.trim().slice(0,80) : "";
+  if (has("religion")) profilePatch.religion = typeof patch.religion === "string" ? patch.religion.trim().slice(0,80) : "";
   if (has("occupation")) profilePatch.occupation = patch.occupation;
   if (has("education")) profilePatch.education = patch.education;
   if (has("vaccinationStatus")) profilePatch.vaccination_status = patch.vaccinationStatus;
