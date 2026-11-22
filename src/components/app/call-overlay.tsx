@@ -723,11 +723,11 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
               }`}
             />
           ) : (
-            <span className="flex h-32 w-32 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-4xl font-bold text-white">
+            <span className="flex h-32 w-32 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-4xl font-bold text-[#2a1a10]">
               {peer.name.charAt(0)}
             </span>
           )}
-          <p className="font-display text-2xl font-semibold text-[var(--color-pearl)]">{peer.name}</p>
+          <p className="font-display text-2xl font-normal tracking-tight text-[var(--color-pearl)]">{peer.name}</p>
           {state === "live" ? (
             <p className="rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)]">
               Live · {fmt}

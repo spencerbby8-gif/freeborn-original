@@ -251,11 +251,11 @@ export function CallListener() {
             {incoming.from.photo ? (
               <PhotoImage src={incoming.from.photo} alt={incoming.from.name} className="h-36 w-36 rounded-full border-2 border-white/15" imgClassName="animate-pulse object-cover" />
             ) : (
-              <span className="flex h-36 w-36 animate-pulse items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-5xl font-bold text-white">
+              <span className="flex h-36 w-36 animate-pulse items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] font-display text-5xl font-bold text-[#2a1a10]">
                 {(incoming.from.name || "?").charAt(0)}
               </span>
             )}
-            <p className="font-display text-3xl font-semibold text-[var(--color-pearl)]">
+            <p className="font-display text-3xl font-normal tracking-tight text-[var(--color-pearl)]">
               {incoming.from.name || "Freeborn member"}
             </p>
             <p className="text-[13px] text-[var(--color-mist)]">is calling you on Freeborn…</p>

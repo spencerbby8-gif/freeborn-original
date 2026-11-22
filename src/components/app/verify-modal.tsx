@@ -769,7 +769,7 @@ export function VerifyGate() {
                 type="button"
                 onClick={capture}
                 disabled={!captureAllowed}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
               >
                 <span className="h-3.5 w-3.5 rounded-full border-2 border-white" />
                 {captureAllowed ? "Take selfie" : "Blink when prompted to take the selfie"}
@@ -802,7 +802,7 @@ export function VerifyGate() {
               <button
                 type="button"
                 onClick={() => void submit()}
-                className="mt-5 w-full rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98]"
+                className="mt-5 w-full rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98]"
               >
                 Submit for review
               </button>

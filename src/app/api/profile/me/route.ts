@@ -70,6 +70,10 @@ export async function GET(request: Request) {
     smoking: row.smoking ?? "",
     educationLevel: row.education_level ?? "",
     heightCmProfile: row.height_cm_profile ?? null,
+    /* Self-described star sign for the profile-detail info grid.
+       20261121000000_proto_profile_fields.sql adds the column and its write
+       grant; the row comes from select("*") so nothing else is needed here. */
+    zodiac: row.zodiac ?? "",
     vaccinationStatus: row.vaccination_status ?? "prefer_not_to_say",
     values: row.values ?? [],
     interests: row.interests ?? [],

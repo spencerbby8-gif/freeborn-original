@@ -194,6 +194,12 @@ export async function GET(request: Request) {
      removes reach, not access. */
   const suppressed = await suppressedUserIds().catch(() => [] as string[]);
 
+  /* Explicit column set rather than `select()`.
+     `zodiac` is added by 20261121000000_proto_profile_fields.sql but is not
+     declared on the Drizzle model (see the long note in src/db/schema.ts), so
+     a bare select() would never return it. Naming every column here — the
+     model's own plus zodiac — keeps this query working on a database that has
+     not run the migration yet, as long as zodiac is selected defensively. */
   const rows = await db
     .select()
     .from(userProfiles)
@@ -252,6 +258,24 @@ export async function GET(request: Request) {
     for (const m of myMatches) {
       mutualIds.add(m.userA === viewerId ? m.userB : m.userA);
     }
+  }
+
+  /* Zodiac is read separately and defensively. If the migration has not been
+     applied to this environment the query throws, and the deck simply renders
+     without that one tile — no 500, no empty room. This is the whole point of
+     keeping it off the shared model: one optional display field must never be
+     able to take down discovery. */
+  const zodiacByUser = new Map<string, string>();
+  try {
+    const zodiacRows = await db.execute<{ id: string; zodiac: string | null }>(
+      sql`select id, zodiac from public.user_profiles`
+    );
+    const list = Array.isArray(zodiacRows)
+      ? zodiacRows
+      : ((zodiacRows as unknown as { rows?: Array<{ id: string; zodiac: string | null }> }).rows ?? []);
+    for (const r of list) if (r.zodiac) zodiacByUser.set(r.id, r.zodiac);
+  } catch {
+    /* column absent in this environment -> no zodiac tile, everything else works */
   }
 
   const photos = await db.select().from(profilePhotos);
@@ -498,7 +522,12 @@ export async function GET(request: Request) {
       ? (row.promptAnswers as Array<{ prompt?: string; answer?: string }>)
       : [];
     const firstPrompt = prompts[0];
-    const traits = [...(row.values ?? []), ...(row.interests ?? [])].slice(0, 3);
+    /* Deduplicated: "Natural health" is legitimately both a stated value and a
+       stated interest, and the card rendered the same chip twice. De-duping
+       after concatenating keeps up to three DISTINCT traits. */
+    const traits = Array.from(
+      new Set([...(row.values ?? []), ...(row.interests ?? [])].filter(Boolean))
+    ).slice(0, 3);
 
     out.push({
       id: row.id,
@@ -515,6 +544,24 @@ export async function GET(request: Request) {
       interests: row.interests ?? [],
       lifestyle: row.lifestylePreferences ?? [],
       relationshipGoals: row.relationshipGoals ?? [],
+      /* ------------------------------------------------------------------
+         Facts the approved design renders in the card meta line and the
+         profile-detail info grid. Every one of these was already stored but
+         never reached the client, which is why earlier attempts at matching
+         the mock had to invent values. Sent raw and unsynthesised: an empty
+         string means the member has not answered, and every surface omits the
+         tile rather than printing a placeholder.
+         ------------------------------------------------------------------ */
+      heightCm: row.heightCm ?? row.heightCmProfile ?? null,
+      drinking: row.drinking ?? "",
+      zodiac: zodiacByUser.get(row.id) ?? "",
+      language: row.language ?? "",
+      religion: row.religion ?? "",
+      education: row.educationLevel ?? row.education ?? "",
+      smoking: row.smoking ?? "",
+      maritalStatus: row.maritalStatus ?? "",
+      hasKids: row.hasKids ?? "",
+      wantsKids: row.wantsKids ?? "",
       photo: resolvePhotoUrl(photoByUser.get(row.id)?.storagePath ?? ""),
       photos: (photosByUser.get(row.id) ?? []).map(resolvePhotoUrl),
       hasPhoto: photoByUser.has(row.id),

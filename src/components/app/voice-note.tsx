@@ -778,7 +778,7 @@ export function VoiceRecorder({
             type="button"
             onClick={sendPreview}
             aria-label="Send voice note"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
@@ -873,7 +873,7 @@ export function VoiceRecorder({
               type="button"
               onClick={() => safeStop()}
               aria-label="Stop and preview voice note"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                 <rect x="6" y="6" width="12" height="12" rx="2" />

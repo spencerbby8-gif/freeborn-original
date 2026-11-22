@@ -352,7 +352,7 @@ export function FilterPanel({ open, onClose }: { open: boolean; onClose: () => v
       >
         <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
           <div className="flex items-center gap-3">
-            <h2 className="font-display text-xl font-semibold">Filters</h2>
+            <h2 className="font-display text-[24px] font-normal tracking-tight">Filters</h2>
             {activeCount > 0 ? (
               <span className="rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/12 px-2.5 py-0.5 text-[10.5px] font-black uppercase tracking-wider text-[var(--color-gold-300)]">
                 {activeCount} active

@@ -101,7 +101,7 @@ export function MixerCard({ defaultCity }: { defaultCity: string }) {
           type="button"
           disabled={busy || city.trim().length < 2}
           onClick={() => void register()}
-          className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+          className="rounded-xl bg-[var(--gradient-ember-warm)] px-4 py-2.5 text-[12.5px] font-black text-[#2a1a10] transition active:scale-95 disabled:opacity-50"
         >
           {interested ? "Update city" : busy ? "Saving…" : "Count me in"}
         </button>
@@ -180,7 +180,7 @@ function SupportCard() {
         type="button"
         disabled={busy || message.trim().length < 5}
         onClick={() => void send()}
-        className="mt-2.5 rounded-xl bg-[var(--gradient-ember-warm)] px-5 py-2.5 text-[12.5px] font-black text-white transition active:scale-95 disabled:opacity-50"
+        className="mt-2.5 rounded-xl bg-[var(--gradient-ember-warm)] px-5 py-2.5 text-[12.5px] font-black text-[#2a1a10] transition active:scale-95 disabled:opacity-50"
       >
         {busy ? "Sending…" : "Send message"}
       </button>
@@ -1058,7 +1058,7 @@ export function SettingsView() {
             <button
               type="button"
               onClick={openVerifyFlow}
-              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
+              className="shrink-0 rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-[#2a1a10] shadow-[var(--shadow-primary-btn)] transition active:scale-95"
             >
               Verify
             </button>
@@ -1079,7 +1079,7 @@ export function SettingsView() {
               aria-pressed={active}
               className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-5 py-3 text-[13.5px] font-bold transition ${
                 active
-                  ? "border-transparent bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)]"
+                  ? "border-transparent bg-[var(--gradient-ember-warm)] text-[#2a1a10] shadow-[var(--shadow-primary-btn)]"
                   : "border-white/10 bg-white/[0.03] text-[var(--color-sand)] hover:border-white/25 hover:text-[var(--color-pearl)]"
               }`}
             >
@@ -1224,10 +1224,18 @@ export function SettingsView() {
               data-search="standing preferences filters session defaults note"
               className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-[12px] font-semibold leading-[1.5] text-[var(--color-sand)]"
             >
-                These apply to every session, and the Filters panel on the discovery
-                screen reads and writes the same values - change them in either door
-                and the other follows. The panel can still narrow a single session
-                further with interests, lifestyle and more.
+                These apply to every session, and the Filters panel reads and writes
+                the same values - change them in either door and the other follows.
+                The panel can still narrow a single session further with interests,
+                lifestyle and more.
+            </p>
+            {/* The approved prototype's Discover header has no filter control.
+                Rather than add a control the reference does not have, the panel is
+                opened from here by the existing Preferences entry below, which
+                reads and writes the same store. */}
+            <p className="text-[12px] leading-[1.5] text-[var(--color-ash)]">
+              Narrowing a single session (interests, lifestyle and more) lives in
+              Filters, reachable from Preferences.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
@@ -1590,7 +1598,7 @@ export function SettingsView() {
                   type="button"
                   disabled={busy || !emailNew.trim()}
                   onClick={() => void accountAction({ action: "change-email", newEmail: emailNew.trim() }).then((ok) => ok && setEmailNew(""))}
-                  className="fb-btn fb-btn-sm shrink-0 bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
+                  className="fb-btn fb-btn-sm shrink-0 bg-[var(--gradient-ember-warm)] font-black text-[#2a1a10] disabled:opacity-50"
                 >
                   Update
                 </button>
@@ -1641,7 +1649,7 @@ export function SettingsView() {
                     pwdNew !== pwdConfirm
                   }
                   onClick={() => void changePassword()}
-                  className="fb-btn fb-btn-sm bg-[var(--gradient-ember-warm)] font-black text-white disabled:opacity-50"
+                  className="fb-btn fb-btn-sm bg-[var(--gradient-ember-warm)] font-black text-[#2a1a10] disabled:opacity-50"
                 >
                   Save new password
                 </button>
@@ -1710,13 +1718,13 @@ export function SettingsView() {
             <form method="POST" action="/auth/signout">
               <button
                 type="submit"
-                className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-7 py-3.5 text-[13px] font-bold text-[var(--color-mist)] transition hover:border-white/25 hover:bg-white/[0.06] hover:text-[var(--color-pearl)]"
+                className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-2xl border border-[#e0685f]/30 bg-[#43303c]/55 px-7 py-3.5 text-[13px] font-bold text-[#f0998a] transition hover:bg-[#4e3745] hover:text-[#f7b1a6]"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                   <path d="M16 17l5-5-5-5M21 12H9" />
                 </svg>
-                Sign out
+                Log out
               </button>
             </form>
           </div>
