@@ -27,7 +27,8 @@
     "test:preview-deletion-drain": "esbuild scripts/trust/preview-deletion-drain.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-deletion-drain.build.mjs --packages=external && node scripts/trust/.preview-deletion-drain.build.mjs",
     "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs",
     "test:prototype-api": "node scripts/prototype/api-contracts.mjs",
-    "test:prototype-ui": "node scripts/prototype/ui-acceptance.cjs"
+    "test:prototype-ui": "node scripts/prototype/ui-acceptance.cjs",
+    "test:chat-verification": "node scripts/prototype/chat-verification.cjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

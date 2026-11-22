@@ -1,6 +1,6 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches, messages, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, matches, messages, profilePhotos, userProfiles, userPrivateSettings } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
@@ -91,6 +91,7 @@ export async function GET(request: Request) {
       action: "count_unread",
     }).allow;
 
+    const [privacy] = await db.select({hideActiveStatus:userPrivateSettings.hideActiveStatus}).from(userPrivateSettings).where(eq(userPrivateSettings.userId,otherId)).limit(1);
     const active =
       other.lastActiveAt != null && Date.now() - other.lastActiveAt.getTime() < 15 * 60 * 1000;
     out.push({
@@ -100,8 +101,9 @@ export async function GET(request: Request) {
         name: other.displayName ?? "Member",
         city: other.city ?? "",
         photo: resolvePhotoUrl(photo?.storagePath ?? ""),
-        active,
-        lastActiveAt: other.lastActiveAt ?? null,
+        verified: other.isVerified,
+        active: active && !privacy?.hideActiveStatus,
+        lastActiveAt: privacy?.hideActiveStatus ? null : other.lastActiveAt ?? null,
       },
       lastMessage: last
         ? {

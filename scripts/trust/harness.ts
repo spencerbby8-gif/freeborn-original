@@ -713,6 +713,8 @@ const photoDir = new URL("../../public/images/verify/", import.meta.url);
 const { existsSync } = await import("node:fs");
 
 ok("[13] pose pool is non-trivial and disjoint", POSES.length >= 6 && new Set(POSES.map((x) => x.label)).size === POSES.length, `n=${POSES.length}`);
+ok("[13] capture freezes live evidence before the camera is torn down",modalSrc.includes('capturedGateRef.current = {state:gateRef.current?.state()??gate,skipped:gateSkipped}')&&modalSrc.indexOf('capturedGateRef.current = {state:')<modalSrc.indexOf('setStep("review")'));
+ok("[13] submit uses frozen capture evidence instead of an already-stopped gate",modalSrc.includes('const s = capturedGateRef.current?.state;')&&modalSrc.includes('capturedGateRef.current?.skipped'));
 ok("[13] every pose has artwork that exists", POSES.every((x) => /^\/images\/verify\/[a-z0-9-]+\.jpg$/.test(x.demo) && existsSync(new URL(x.demo.replace("/images/verify/", ""), photoDir))));
 ok("[13] poseId is stable + injectively named", poseIdFor(POSES[0].label) === poseIdFor(POSES[0].label) && new Set(POSES.map((x) => poseIdFor(x.label))).size === POSES.length);
 ok("[13] poseId shape is a safe token", POSES.every((x) => /^p[0-9a-f]{8}$/.test(poseIdFor(x.label))));
@@ -1917,6 +1919,9 @@ console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, ever
     tempId: "t1", body: "ok", at: Date.now(), attempts: 0, failed: false, ...over,
   });
   const now = Date.now();
+  ok("[29] acknowledged chat echo retires by stored identity despite clock skew", reconcilePending([P({ackId:"stored-late",at:Date.now()+80_000})],{serverRows:[{id:"stored-late",body:"ok",mine:true,at:new Date().toISOString()}]}).length===0);
+  ok("[29] acknowledged chat echo does not retire against a different identical-text row", reconcilePending([P({ackId:"not-arrived"})],{serverRows:[{id:"other",body:"ok",mine:true}]}).length===1);
+  ok("[18] a stored ack cannot consume an unrelated identical pending echo",reconcilePending([P({tempId:"one",ackId:"stored"}),P({tempId:"two"})],{serverRows:[{id:"stored",body:"ok",mine:true}]}).map(p=>p.tempId).join(',')==='two');
   ok("[18] an ack by tempId retires exactly the echo it answers",
     reconcilePending([P(), P({ tempId: "t2" })], { tempId: "t1" }).map((x) => x.tempId).join(",") === "t2");
   ok("[18] an ack by server id retires the echo it was attached to",

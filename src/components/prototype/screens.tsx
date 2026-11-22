@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PhotoImage } from "@/components/ui/photo-image";
+import { VerificationShield } from "@/components/prototype/verification-shield";
 import { VerifyBadge } from "@/components/verify-badge";
 
 import { DiscoveryCard } from "./discovery-card";
@@ -75,7 +76,7 @@ export function MyProfileScreen(){
 
 export function VerificationScreen(){
   const resource=useMemberResource<{profile:MemberProfile}>('/api/profile/me');
-  return <section className="screen active" aria-label="Verification"><div className="scroll"><div className="bare-head"><Back/></div><div className="verify-hero"><span className="shield-ring"><PrototypeIcon name="shield"/></span><h1 className="display verify-head">Show you’re<br/>really you.</h1><p className="verify-sub">A quick, private check helps keep Freeborn a place for real people.</p></div><div className="face-frame"><div className="face-glow" aria-hidden="true"/><p className="face-hint">{resource.data?.profile.isVerified?'Your profile is verified.':'Center your face in the frame'}</p></div><ul className="check-list">{['Private by design','Recent photo required','No public biometric data'].map(label=><li key={label}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e9c37c"/><path d="M8 12l3 3 5-6" stroke="#241a10" strokeWidth="1.8" fill="none"/></svg>{label}</li>)}</ul><Button unstyled className="btn-grad big" onClick={()=>openVerifyFlow()} disabled={resource.loading}>Start verification</Button><p className="fineprint center">Your camera opens only when you choose to begin. Verification is evaluated by the existing private verification service.</p><ScreenError message={resource.error}/></div></section>;
+  return <section className="screen active" aria-label="Verification"><div className="scroll"><div className="bare-head"><Back/></div><div className="verify-hero"><span className="shield-ring"><VerificationShield/></span><h1 className="display verify-head">Show you’re<br/>really you.</h1><p className="verify-sub">A quick, private check helps keep Freeborn a place for real people.</p></div><div className="face-frame"><div className="face-glow" aria-hidden="true"/><p className="face-hint">{resource.data?.profile.isVerified?'Your profile is verified.':'Center your face in the frame'}</p></div><ul className="check-list">{['Private by design','Recent photo required','No public biometric data'].map(label=><li key={label}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e9c37c"/><path d="M8 12l3 3 5-6" stroke="#241a10" strokeWidth="1.8" fill="none"/></svg>{label}</li>)}</ul><Button unstyled className="btn-grad big" onClick={()=>openVerifyFlow()} disabled={resource.loading}>Start verification</Button><p className="fineprint center">Your camera opens only when you choose to begin. Verification is evaluated by the existing private verification service.</p><ScreenError message={resource.error}/></div></section>;
 }
 
 // Existing messages, media, calls, reactions and consent logic remain in ChatView.

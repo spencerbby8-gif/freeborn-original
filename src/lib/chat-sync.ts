@@ -269,6 +269,13 @@ export function reconcilePending(
     if (ack.tempId && p.tempId === ack.tempId) return false;
     if (ack.ackId && p.ackId === ack.ackId) return false;
     if (now - p.at > SYNC_LIMITS.pendingTtlMs) return false;
+    // Once POST acknowledges an id, only THAT stored row retires this echo.
+    // Clock skew/slow delivery must not leave two bubbles for one real message.
+    if (p.ackId) {
+      const stored = rows.findIndex((r) => r.id === p.ackId);
+      if (stored >= 0) { consumed.add(stored); return false; }
+      return true;
+    }
     /* Legacy fallback for a server that returns no id: pair each echo with AT MOST ONE
        matching server row. One-to-one is the whole point — a naive `.some()` retires every
        duplicate the member typed ("ok" twice) against the single row that arrived first,

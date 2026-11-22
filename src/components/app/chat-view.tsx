@@ -1,5 +1,6 @@
 "use client";
 
+import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
 import { AuthedVideo } from "@/components/ui/authed-media";
@@ -40,6 +41,7 @@ type MatchRow = {
     photo: string;
     active?: boolean;
     lastActiveAt?: string | null;
+    verified?: boolean;
   };
   lastMessage: { body: string; mine: boolean; at: string } | null;
   unread: number;
@@ -422,11 +424,7 @@ function MessageContent({
 
 function DayDivider({ label }: { label: string }) {
   return (
-    <div className="flex justify-center py-1.5">
-      <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-3.5 py-1 text-[10.5px] font-black uppercase tracking-[0.14em] text-[var(--color-ash)]">
-        {label}
-      </span>
-    </div>
+    <div className="reference-chat-day">{label}</div>
   );
 }
 
@@ -491,16 +489,18 @@ export function Thread({
   useEffect(() => {
     const measure = () => {
       const vh = window.visualViewport?.height ?? window.innerHeight;
-      /* The bottom tab bar hides while a conversation is open (and the shell's
-         bottom padding shrinks), so the chrome allowance is smaller here. */
-      const chrome = window.innerWidth >= 1024 ? 58 : 110;
-      setHeightPx(Math.max(380, Math.round(vh - chrome)));
+      const parent = bottomRef.current?.closest(".fb-thread")?.parentElement;
+      setHeightPx(Math.max(220, Math.min(parent?.clientHeight ?? vh, vh)));
     };
     measure();
+    const parent = bottomRef.current?.closest(".fb-thread")?.parentElement;
+    const observer = new ResizeObserver(measure);
+    if (parent) observer.observe(parent);
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
     window.visualViewport?.addEventListener("resize", measure);
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
       window.visualViewport?.removeEventListener("resize", measure);
@@ -706,7 +706,7 @@ export function Thread({
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
     if (!firstScroll.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
     firstScroll.current = false;
   }, [messages.length, heightPx]);
@@ -919,6 +919,7 @@ export function Thread({
   const [uploading, setUploading] = useState(false);
   /** "+" attach menu (photo / video / live camera) + camera overlay state. */
   const [attachOpen, setAttachOpen] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
@@ -1113,7 +1114,7 @@ export function Thread({
     const segs = parseSegments(m.body);
     const mediaOnly = segs.every((s) => s.type === "media");
     rows.push(
-      <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
+      <div key={m.id} className={`reference-message-row flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
           {m.failed && m.blocked ? (
             <span
@@ -1178,7 +1179,7 @@ export function Thread({
             ) : null}
             <MessageContent body={m.body} onImage={setLightboxUrl} onVideo={setVideoUrl} />
             <span
-              className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+              className={`chat-receipt sr-only ${
                 m.mine ? "text-white/70" : "text-[var(--color-ash)]"
               }`}
             >
@@ -1232,98 +1233,18 @@ export function Thread({
   }
 
   return (
-    <div className="fb-thread flex w-full max-w-full min-h-[380px] flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
-      <div className="fb-thread-header flex items-center gap-3 border-b border-white/[0.06] pb-4">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to conversations"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => onTapProfile(match.with.id)}
-          aria-label={`View ${match.with.name}'s profile`}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-85"
-        >
-          <span className="relative shrink-0 rounded-full ring-2 ring-white/10">
-            <Avatar photo={match.with.photo} name={match.with.name} size={46} />
-            {match.with.active ? (
-              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
-            ) : null}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-display text-[16.5px] font-bold tracking-tight">{match.with.name}</p>
-            <p className="flex items-center gap-1.5 truncate text-[12px] text-[var(--color-mist)]">
-              {peerTyping ? (
-                /* The live typing indicator: three staggered dots, driven by the
-                   other member's actual keystrokes over the thread channel. */
-                <span
-                  className="flex items-center gap-1.5 rounded-full border border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/10 px-2.5 py-0.5 font-bold text-[var(--color-gold-300)]"
-                  aria-label={`${match.with.name} is typing`}
-                >
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]" />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
-                    style={{ animationDelay: "0.12s" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
-                    style={{ animationDelay: "0.24s" }}
-                  />
-                  typing…
-                </span>
-              ) : match.with.active ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-[#2fbf71]/30 bg-[#2fbf71]/10 px-2 py-0.5 font-bold text-[#5fd394]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2fbf71]" />
-                  Active now
-                </span>
-              ) : (
-                match.with.city || "Freeborn member"
-              )}
-            </p>
-          </div>
-        </button>
-
-        {/* Call controls — top right */}
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCall("voice")}
-            aria-label={`Voice call ${match.with.name}`}
-            title="Voice call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCall("video")}
-            aria-label={`Video call ${match.with.name}`}
-            title="Video call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="6" width="13" height="12" rx="2.5" />
-              <path d="M16 10.5l5-3v9l-5-3" />
-            </svg>
-          </button>
-        </div>
-      </div>
+    <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
+      <ChatHeader name={match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
+        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={()=>setCall("voice")} aria-label={`Voice call ${match.with.name}`}>Voice call</button><button type="button" onClick={()=>setCall("video")} aria-label={`Video call ${match.with.name}`}>Video call</button><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
+      </ChatHeader>
 
       {toast ? (
-        <div className="animate-scale-in mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-2 text-center text-[12px] font-bold text-[var(--color-sand)]">
+        <div role="status" className="reference-chat-notice animate-scale-in mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-2 text-center text-[12px] font-bold text-[var(--color-sand)]">
           {toast}
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="fb-thread-feed flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
+      <div ref={scrollRef} className="fb-thread-feed reference-chat-feed">{rows.length > 0 ? rows : (
         <div className="pt-8 text-center">
           <p className="text-sm text-[var(--color-mist)]">The conversation is open. Say hello.</p>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
@@ -1343,7 +1264,8 @@ export function Thread({
           </div>
         </div>
       )}
-        <div ref={bottomRef} />
+        {peerTyping&&<div className="reference-typing" role="status" aria-label={`${match.with.name} is typing`}><i/><i/><i/></div>}
+        <div ref={bottomRef} className="reference-chat-bottom"/>
       </div>
 
       {/* Hidden file pickers */}
@@ -1469,7 +1391,7 @@ export function Thread({
 
       {/* Composer — voice recording overlays it Telegram-style */}
       {threadAccess && !threadAccess.canSend ? null : (
-      <div className="fb-composer relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
+      <div className="fb-composer reference-chat-composer">
         <div className="relative shrink-0">
           <button
             type="button"
@@ -1491,7 +1413,7 @@ export function Thread({
           {attachOpen ? (
             <>
               <div className="fixed inset-0 z-[55]" onClick={() => setAttachOpen(false)} />
-              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
+              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]"><button type="button" className="reference-voice-action" onClick={()=>{setShowVoice(true);setAttachOpen(false);}}>Record a voice note</button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1571,7 +1493,8 @@ export function Thread({
               else void send();
             }
           }}
-          placeholder={staged.length > 0 ? "Add a caption to the packet\u2026" : `Message ${match.with.name}\u2026`}
+          aria-label="Message"
+          placeholder={staged.length > 0 ? "Add a caption to the packet\u2026" : "Write something thoughtful..."}
           maxLength={1800}
           autoComplete="off"
           enterKeyHint="send"
@@ -1579,11 +1502,12 @@ export function Thread({
           className="max-h-[160px] min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-[14px] leading-5 text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
         />
 
-        <VoiceRecorder
+        {showVoice&&<VoiceRecorder
           onSend={(dataUrl, seconds) => void sendVoice(dataUrl, seconds)}
           onError={flash}
           disabled={uploading}
-        />
+        />}
+        {showVoice&&<button type="button" className="reference-voice-close" aria-label="Close voice recorder" onClick={()=>setShowVoice(false)}>×</button>}
 
         <button
           type="button"
@@ -1596,7 +1520,7 @@ export function Thread({
           {staged.length > 0 ? (
             <span className="text-[13px] font-black">{staged.length}</span>
           ) : (
-            <PrototypeIcon name="next"/>
+            <ChatSendIcon/>
           )}
         </button>
       </div>

@@ -1,0 +1,362 @@
+{
+  "scope": "Local intercepted APIs, fake camera and fixture identities. No hosted auth, biometric or database acceptance.",
+  "checks": [
+    {
+      "name": "393px · Login invitation opens the native verification screen, no camera before consent",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Chat matches reference structure and measured header/composer/bubble geometry",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Calls, uploads, voice notes and profile/safety remain reachable through native menus",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Real message send and refused delivery preserve contracts",
+      "status": "passed"
+    },
+    {
+      "name": "393px · No badge for unverified members and no composer in a read-only thread",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Pose uses server challenge; camera denial is recoverable in the new flow",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Fake-camera capture/review stops tracks; approved only after explicit server-confirmed submit",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Verification outcome review stays native and truthful",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Verification outcome rejected stays native and truthful",
+      "status": "passed"
+    },
+    {
+      "name": "393px · Verification outcome service-error stays native and truthful",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Login invitation opens the native verification screen, no camera before consent",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Chat matches reference structure and measured header/composer/bubble geometry",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Calls, uploads, voice notes and profile/safety remain reachable through native menus",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Real message send and refused delivery preserve contracts",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · No badge for unverified members and no composer in a read-only thread",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Pose uses server challenge; camera denial is recoverable in the new flow",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Fake-camera capture/review stops tracks; approved only after explicit server-confirmed submit",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Verification outcome review stays native and truthful",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Verification outcome rejected stays native and truthful",
+      "status": "passed"
+    },
+    {
+      "name": "1440px · Verification outcome service-error stays native and truthful",
+      "status": "passed"
+    }
+  ],
+  "captures": [
+    {
+      "name": "login-verification",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "chat-reference-content",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "chat-refused",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-pose",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-camera-denied",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-selfie-review",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-checking",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-approved",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-review",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-rejected",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "verification-service-error",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      }
+    },
+    {
+      "name": "login-verification",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "chat-reference-content",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "chat-refused",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-pose",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-camera-denied",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-selfie-review",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-checking",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-approved",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-review",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-rejected",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-camera",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    },
+    {
+      "name": "verification-service-error",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    }
+  ],
+  "errors": [],
+  "geometry": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "header": {
+        "x": 0,
+        "y": 0,
+        "w": 393,
+        "h": 73
+      },
+      "composer": {
+        "x": 0,
+        "y": 784,
+        "w": 393,
+        "h": 68
+      },
+      "firstBubble": {
+        "x": 18,
+        "y": 115,
+        "w": 278.453125,
+        "h": 59.6875
+      },
+      "feed": {
+        "x": 0,
+        "y": 73,
+        "w": 393,
+        "h": 711
+      },
+      "background": "rgb(21, 23, 36)"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "header": {
+        "x": 1,
+        "y": 1,
+        "w": 391,
+        "h": 73
+      },
+      "composer": {
+        "x": 1,
+        "y": 783,
+        "w": 391,
+        "h": 68
+      },
+      "firstBubble": {
+        "x": 19,
+        "y": 116,
+        "w": 276.890625,
+        "h": 59.6875
+      },
+      "feed": {
+        "x": 1,
+        "y": 74,
+        "w": 391,
+        "h": 709
+      },
+      "background": "rgb(21, 23, 36)"
+    }
+  ]
+}

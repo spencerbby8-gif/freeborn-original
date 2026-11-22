@@ -49,4 +49,4 @@ export type MemberProfile = {
 export type DeckProfile = {
   id:string;name:string;age:number;city:string;occupation:string;headline:string;traits:string[];photo:string;photos:string[];verified:boolean;presence:string|null;distanceKm:number|null;isNew:boolean;heightCm?:number|null;interests?:string[];lifestyle?:string[];promptAnswer?:string;
 };
-export type Match = {id:string;with:{id:string;name:string;city:string;photo:string;active:boolean};createdAt:string;ended:boolean;unread:number;lastMessage:{body:string;mine:boolean;at:string}|null};
+export type Match = {id:string;with:{id:string;name:string;city:string;photo:string;active:boolean;verified?:boolean};createdAt:string;ended:boolean;unread:number;lastMessage:{body:string;mine:boolean;at:string}|null};

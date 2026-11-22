@@ -1,0 +1,418 @@
+{
+  "scope": "Raw PNG comparison, not hosted acceptance or a layout score. Live data differs from the scripted prototype. Exact means zero changed pixels, not a chosen tolerance.",
+  "comparisons": [
+    {
+      "screen": "chat",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/chat.png",
+      "current": "/home/user/freeborn-audit/chat-verification-shots/393x852/chat-reference-content.png",
+      "note": "Reference header, four text bubbles and composer rebuilt. Same fixture content/artwork. No scripted typing indicator: dots appear only on a real typing notice. Message timestamps/receipts remain accessible but do not add rows to the reference bubbles.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 0.16085,
+      "changedPixelsPercent": 3.737
+    },
+    {
+      "screen": "discover-empty",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/discover-empty.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/discover-empty.png",
+      "note": "Not exact: truthful empty-state copy, controls and spacing differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 17.00991,
+      "changedPixelsPercent": 60.101
+    },
+    {
+      "screen": "discover",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/discover.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/discover.png",
+      "note": "Not exact: enclosed actions, portrait crop, deck stack, spacing and data-driven filter chips differ from this supplied capture. Member fields are real, not fabricated reference facts.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 34.45904,
+      "changedPixelsPercent": 99.912
+    },
+    {
+      "screen": "likes",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/likes.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/likes.png",
+      "note": "Reference list pattern retained, but fixture has one member instead of the prototype list. Row details and activity link differ; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 15.51804,
+      "changedPixelsPercent": 60.047
+    },
+    {
+      "screen": "matches",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/matches.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/matches.png",
+      "note": "Reference structure retained, but one fixture match instead of four scripted matches. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 7.53102,
+      "changedPixelsPercent": 23.186
+    },
+    {
+      "screen": "messages-bottom",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/messages-bottom.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/messages-bottom.png",
+      "note": "Sparse fixture list does not fill the reference list. No fake conversations added to mimic density.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 12.8113,
+      "changedPixelsPercent": 28.539
+    },
+    {
+      "screen": "messages",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/messages.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/messages.png",
+      "note": "Reference list pattern retained. One authorized fixture match instead of eight scripted people; search and compose remain working. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 10.36584,
+      "changedPixelsPercent": 20.802
+    },
+    {
+      "screen": "my-profile-bottom",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/my-profile-bottom.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/my-profile-bottom.png",
+      "note": "Native profile rows retained. Live fields, photo count and statistics differ; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 10.53898,
+      "changedPixelsPercent": 42.442
+    },
+    {
+      "screen": "my-profile",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/my-profile.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/my-profile.png",
+      "note": "Not exact: statistics come from services; unavailable view tracking shows a dash, not a made-up count. Photo count/content and crop differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 8.2572,
+      "changedPixelsPercent": 24.227
+    },
+    {
+      "screen": "notifications",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/notifications.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/notifications.png",
+      "note": "Reference tabs/list pattern retained. One real-shape fixture event instead of the prototype scripted list; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 8.90233,
+      "changedPixelsPercent": 45.15
+    },
+    {
+      "screen": "onboarding",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/onboarding.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/onboarding.png",
+      "note": "Not exact: production onboarding includes the real relationship-intention and values fields. This is not the prototype two-option simulation.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 18.98974,
+      "changedPixelsPercent": 50.999
+    },
+    {
+      "screen": "preferences",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/preferences.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/preferences.png",
+      "note": "Reference interaction pattern retained. Interests/intentions are editable service data; labels, saved selections and some spacing differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 1.38368,
+      "changedPixelsPercent": 2.427
+    },
+    {
+      "screen": "premium",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/premium.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/premium.png",
+      "note": "Not exact by design: no fabricated prices or live checkout. Planned membership and availability wording differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 19.82504,
+      "changedPixelsPercent": 27.221
+    },
+    {
+      "screen": "privacy",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/privacy.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/privacy.png",
+      "note": "Reference controls retained. Audience/blocked-account destination is named honestly; switch values reflect actual fixture preferences. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 0.85454,
+      "changedPixelsPercent": 9.139
+    },
+    {
+      "screen": "profile-detail",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/profile-detail.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/profile-detail.png",
+      "note": "Not exact: fuller authorized profile details, taller photo, enclosed controls and hidden main tabs are retained from the prior requested presentation.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 37.86515,
+      "changedPixelsPercent": 96.166
+    },
+    {
+      "screen": "settings",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/settings.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/settings.png",
+      "note": "Reference menu grouping retained. Membership copy/destination now says unavailable rather than offering a fake upgrade. Minor spacing/text differences remain.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 1.31444,
+      "changedPixelsPercent": 9.791
+    },
+    {
+      "screen": "verification",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/verification.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/verification.png",
+      "note": "Reference hero/frame/checklist retained, with truthful camera and service/status copy replacing the prototype simulation disclaimer. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 0.62337,
+      "changedPixelsPercent": 1.57
+    },
+    {
+      "screen": "welcome",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/welcome.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/393x852/welcome.png",
+      "note": "Not exact: genuine Google sign-in/signup buttons and recovery access require more form space. Original auth flame remains unchanged.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 34.52896,
+      "changedPixelsPercent": 63.969
+    },
+    {
+      "screen": "login-verification",
+      "viewport": "393x852",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/393x852/verification.png",
+      "current": "/home/user/freeborn-audit/chat-verification-shots/393x852/login-verification.png",
+      "note": "New native invitation uses the same verification-screen presentation. Consent/storage disclosure, dismissal and keyboard focus are required additions. No older sheet UI remains.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 8.7438,
+      "changedPixelsPercent": 15.329
+    },
+    {
+      "screen": "chat",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/chat.png",
+      "current": "/home/user/freeborn-audit/chat-verification-shots/1440x1000/chat-reference-content.png",
+      "note": "Reference header, four text bubbles and composer rebuilt. Same fixture content/artwork. No scripted typing indicator: dots appear only on a real typing notice. Message timestamps/receipts remain accessible but do not add rows to the reference bubbles.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 2.47056,
+      "changedPixelsPercent": 3.34
+    },
+    {
+      "screen": "discover",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/discover.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/discover.png",
+      "note": "Not exact: enclosed actions, portrait crop, deck stack, spacing and data-driven filter chips differ from this supplied capture. Member fields are real, not fabricated reference facts.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 10.33247,
+      "changedPixelsPercent": 25.461
+    },
+    {
+      "screen": "likes",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/likes.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/likes.png",
+      "note": "Reference list pattern retained, but fixture has one member instead of the prototype list. Row details and activity link differ; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 6.02994,
+      "changedPixelsPercent": 16.362
+    },
+    {
+      "screen": "matches",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/matches.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/matches.png",
+      "note": "Reference structure retained, but one fixture match instead of four scripted matches. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 4.17627,
+      "changedPixelsPercent": 7.86
+    },
+    {
+      "screen": "messages-bottom",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/messages-bottom.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/messages-bottom.png",
+      "note": "Sparse fixture list does not fill the reference list. No fake conversations added to mimic density.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 5.40466,
+      "changedPixelsPercent": 9.149
+    },
+    {
+      "screen": "messages",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/messages.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/messages.png",
+      "note": "Reference list pattern retained. One authorized fixture match instead of eight scripted people; search and compose remain working. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 4.83645,
+      "changedPixelsPercent": 7.293
+    },
+    {
+      "screen": "my-profile-bottom",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/my-profile-bottom.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/my-profile-bottom.png",
+      "note": "Native profile rows retained. Live fields, photo count and statistics differ; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 5.01672,
+      "changedPixelsPercent": 12.317
+    },
+    {
+      "screen": "my-profile",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/my-profile.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/my-profile.png",
+      "note": "Not exact: statistics come from services; unavailable view tracking shows a dash, not a made-up count. Photo count/content and crop differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 4.22754,
+      "changedPixelsPercent": 7.67
+    },
+    {
+      "screen": "notifications",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/notifications.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/notifications.png",
+      "note": "Reference tabs/list pattern retained. One real-shape fixture event instead of the prototype scripted list; not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 4.49531,
+      "changedPixelsPercent": 12.921
+    },
+    {
+      "screen": "onboarding",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/onboarding.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/onboarding.png",
+      "note": "Not exact: production onboarding includes the real relationship-intention and values fields. This is not the prototype two-option simulation.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 6.80751,
+      "changedPixelsPercent": 14.332
+    },
+    {
+      "screen": "preferences",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/preferences.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/preferences.png",
+      "note": "Reference interaction pattern retained. Interests/intentions are editable service data; labels, saved selections and some spacing differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 2.7552,
+      "changedPixelsPercent": 3.125
+    },
+    {
+      "screen": "premium",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/premium.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/premium.png",
+      "note": "Not exact by design: no fabricated prices or live checkout. Planned membership and availability wording differ.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 7.02197,
+      "changedPixelsPercent": 8.863
+    },
+    {
+      "screen": "privacy",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/privacy.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/privacy.png",
+      "note": "Reference controls retained. Audience/blocked-account destination is named honestly; switch values reflect actual fixture preferences. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 2.62601,
+      "changedPixelsPercent": 4.596
+    },
+    {
+      "screen": "profile-detail",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/profile-detail.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/profile-detail.png",
+      "note": "Not exact: fuller authorized profile details, taller photo, enclosed controls and hidden main tabs are retained from the prior requested presentation.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 11.17074,
+      "changedPixelsPercent": 24.592
+    },
+    {
+      "screen": "settings",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/settings.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/settings.png",
+      "note": "Reference menu grouping retained. Membership copy/destination now says unavailable rather than offering a fake upgrade. Minor spacing/text differences remain.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 2.73891,
+      "changedPixelsPercent": 4.744
+    },
+    {
+      "screen": "verification",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/verification.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/verification.png",
+      "note": "Reference hero/frame/checklist retained, with truthful camera and service/status copy replacing the prototype simulation disclaimer. Not pixel-exact.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 2.57954,
+      "changedPixelsPercent": 2.931
+    },
+    {
+      "screen": "welcome",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/welcome.png",
+      "current": "/home/user/freeborn-audit/chat-verify-all-screens/1440x1000/welcome.png",
+      "note": "Not exact: genuine Google sign-in/signup buttons and recovery access require more form space. Original auth flame remains unchanged.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 10.38598,
+      "changedPixelsPercent": 17.062
+    },
+    {
+      "screen": "login-verification",
+      "viewport": "1440x1000",
+      "reference": "/home/user/freeborn-audit/reference/screenshots/1440x1000/verification.png",
+      "current": "/home/user/freeborn-audit/chat-verification-shots/1440x1000/login-verification.png",
+      "note": "New native invitation uses the same verification-screen presentation. Consent/storage disclosure, dismissal and keyboard focus are required additions. No older sheet UI remains.",
+      "pixelExact": false,
+      "status": "compared",
+      "meanAbsoluteChannelError": 4.45494,
+      "changedPixelsPercent": 6.108
+    }
+  ],
+  "excluded": [
+    {
+      "screen": "verification-simulated",
+      "reason": "Prototype-only fake verification success is deliberately not reproduced; server-confirmed outcome captures are provided instead."
+    }
+  ]
+}
