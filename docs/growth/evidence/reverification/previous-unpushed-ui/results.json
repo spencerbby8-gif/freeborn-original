@@ -1,0 +1,366 @@
+{
+  "scope": "Local intercepted APIs + fake microphone + loopback WebSocket. No hosted delivery, inbox, biometric or RLS acceptance.",
+  "checks": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Worldwide discovery has an honest generic heading and a woman reference card",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for locator('.card-name').filter({ hasText: 'Maya' }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "No health badge even after identity approval; member chips change with the swipe",
+      "ok": false,
+      "error": "locator.innerText: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Current member’s profile details')\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Reset/everybody clears saved photo, gender, verified and distance restrictions",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Discovery filters', exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Verified-only is an authenticated persisted filter, not a decorative toggle",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Discovery filters', exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Settings keeps one Help entry and surfaces verification withdrawal",
+      "ok": false,
+      "error": "Settings help duplicated/missing"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Every settings sub-screen has new reference chrome and stays within screen width",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Notification preferences save real toggles and do not advertise an unwired activity engine",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('switch', { name: 'Likes', exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Deep link never paints the message list or legacy empty-chat controls during delayed history",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for locator('.reference-chat-head') to be visible\n    - waiting for \"http://127.0.0.1:3002/auth?mode=sign-in\" navigation to finish...\n    - navigated to \"http://127.0.0.1:3002/auth?mode=sign-in\"\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "New voice call UI preserves session, microphone and end controls",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Conversation options', { exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "New video call UI preserves session, microphone and end controls",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Conversation options', { exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Incoming call uses the same new surface and preserves decline action",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog', { name: 'Incoming Freeborn call', exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Notification history stays visibly unread across polling and remount; new events show banners",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('1 unread notifications', { exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "GPS consent uses viewer city and device time; denial leaves generic headline",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: /Refresh my location|Find people in my area/ })\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Worldwide discovery has an honest generic heading and a woman reference card",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for locator('.card-name').filter({ hasText: 'Maya' }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "No health badge even after identity approval; member chips change with the swipe",
+      "ok": false,
+      "error": "locator.innerText: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Current member’s profile details')\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Reset/everybody clears saved photo, gender, verified and distance restrictions",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Discovery filters', exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Verified-only is an authenticated persisted filter, not a decorative toggle",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Discovery filters', exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Settings keeps one Help entry and surfaces verification withdrawal",
+      "ok": false,
+      "error": "Settings help duplicated/missing"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Every settings sub-screen has new reference chrome and stays within screen width",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Notification preferences save real toggles and do not advertise an unwired activity engine",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('switch', { name: 'Likes', exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Deep link never paints the message list or legacy empty-chat controls during delayed history",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for locator('.reference-chat-head') to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "New voice call UI preserves session, microphone and end controls",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Conversation options', { exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "New video call UI preserves session, microphone and end controls",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('Conversation options', { exact: true })\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Incoming call uses the same new surface and preserves decline action",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog', { name: 'Incoming Freeborn call', exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Notification history stays visibly unread across polling and remount; new events show banners",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByLabel('1 unread notifications', { exact: true }) to be visible\n"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "GPS consent uses viewer city and device time; denial leaves generic headline",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: /Refresh my location|Find people in my area/ })\n"
+    }
+  ],
+  "captures": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-account"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-notifications"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-preferences"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-audience"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-device"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-support"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-appeal"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-terms"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-policy"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-account"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-notifications"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-preferences"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-audience"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-device"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-support"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-appeal"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-terms"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-policy"
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "scope": "Local handlers/pure logic with test doubles; no hosted provider/RLS certification. Covers earlier unpushed commit code as well as growth-page dependencies.",
+  "results": [
+    {
+      "command": "npm run test:prototype-api",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:chat-media",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:filter-storage",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:discovery-presentation",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:notification-receipts",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test:engines",
+      "exitCode": 0
+    }
+  ]
+}

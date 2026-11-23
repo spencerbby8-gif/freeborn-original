@@ -249,7 +249,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
       ) : null}
 
       {/* Alert banners */}
-      <div aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4">
+      <div aria-live="polite" aria-relevant="additions" className="member-alert-stack pointer-events-none fixed inset-x-0 z-[300] flex flex-col items-center gap-2 px-4">
         {!verificationUp && banners.map((b) => (
           <button
             key={b.key}

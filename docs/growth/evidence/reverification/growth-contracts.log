@@ -1,0 +1,68 @@
+ok 1 - missing baseline is unknown, not a fabricated zero
+ok 2 - no-data report never asserts growth
+ok 3 - HTML explicitly identifies missing exports
+ok 4 - completion report displays supplied counts without asserting conversion
+ok 5 - synthetic mode stays prominently synthetic
+ok 6 - space-separated brand variant classified branded
+ok 7 - nonbrand aggregate separate from brand
+ok 8 - query-only export cannot invent page attribution
+ok 9 - raw queries absent from output
+ok 10 - source is marked unverified, never console-authenticated
+ok 11 - no network collection performed
+ok 12 - completion report does not create a conversion rate
+ok 13 - imports require an explicit period
+ok 14 - start-only period is rejected even without inputs
+ok 15 - end-only period is rejected even without inputs
+ok 16 - CSV missing trailing fields is rejected
+ok 17 - reversed dates rejected
+ok 18 - invalid date rejected
+ok 19 - reject noneditorial/sensitive page /app
+ok 20 - reject noneditorial/sensitive page /auth
+ok 21 - reject noneditorial/sensitive page /discover
+ok 22 - reject noneditorial/sensitive page /api/profiles
+ok 23 - reject noneditorial/sensitive page /guides/not-real
+ok 24 - reject noneditorial/sensitive page https://evil.example/free-dating
+ok 25 - reject noneditorial/sensitive page //evil.example/free-dating
+ok 26 - reject noneditorial/sensitive page /free-dating?email=private
+ok 27 - reject noneditorial/sensitive page /free-dating#private
+ok 28 - reject noneditorial/sensitive page https://freeborndating.com:443/free-dating
+ok 29 - canonical public URL accepted
+ok 30 - PII-bearing additional columns rejected
+ok 31 - negative counts rejected
+ok 32 - missing counts not coerced to zero
+ok 33 - impossible click/impression counts rejected
+ok 34 - duplicate aggregate dimensions rejected
+ok 35 - ambiguous dimension aliases rejected
+ok 36 - missing query does not become nonbrand
+ok 37 - out-of-period rows rejected
+ok 38 - page-only export keeps query class unknown
+ok 39 - signup-start clicks cannot count as completions
+ok 40 - unknown organic source cannot be asserted nonbrand signup
+ok 41 - default release state is blocked
+ok 42 - synthetic metrics cannot clear a release gate
+ok 43 - source fingerprint mismatch blocks readiness
+ok 44 - failed evidence blocks readiness
+ok 45 - private submission plan rejected
+ok 46 - release reviewer never deploys or submits
+ok 47 - no-data measurements cannot clear release gate
+ok 48 - complete synthetic inputs exercise manual-review branch only
+ok 49 - even manual-ready state never asserts independent attestation
+ok 50 - stale approval blocks readiness
+ok 51 - false external gate cannot clear readiness
+ok 52 - imported data never becomes an automatic growth claim
+ok 53 - two Google exports cannot substitute for Google and Bing
+ok 54 - mismatched completion period blocks readiness
+ok 55 - mismatched Bing period blocks readiness
+ok 56 - invalid period blocks readiness
+ok 57 - missing source identity blocks readiness
+ok 58 - invalid search container fails closed
+ok 59 - invalid completion container fails closed
+ok 60 - invalid gates container fails closed
+ok 61 - invalid approval date type fails closed
+ok 62 - boolean assertion count does not qualify as evidence
+ok 63 - invalid CLI input clears stale readiness instead of leaving an old pass
+ok 64 - release output cannot overwrite input evidence
+ok 65 - measurement output cannot overwrite its source CSV
+ok 66 - measurement HTML cannot overwrite its JSON report
+ok 67 - invalid import clears stale measurement output
+PASS 67 growth contracts

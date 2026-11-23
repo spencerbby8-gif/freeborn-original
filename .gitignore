@@ -23,6 +23,10 @@ netlify/
 .netlify/
 *.zip
 
+# Python growth-tool runtime artifacts
+__pycache__/
+*.py[cod]
+
 # misc
 .DS_Store
 npm-debug.log*

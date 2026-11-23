@@ -1,0 +1,134 @@
+
+> build
+> next build
+
+▲ Next.js 16.4.6 (Turbopack)
+✓ Running next.config.ts took 70ms
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.8s
+  Running TypeScript ...
+  Finished TypeScript in 10.7s ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/15) ...
+  Generating static pages using 1 worker (3/15)
+  Generating static pages using 1 worker (7/15)
+  Generating static pages using 1 worker (11/15)
+✓ Generating static pages using 1 worker (15/15) in 104ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /admin
+├ ƒ /alternatives
+├ ƒ /api/account
+├ ƒ /api/account/deletion-status
+├ ƒ /api/account/export
+├ ƒ /api/admin/review-queue
+├ ƒ /api/appeals
+├ ƒ /api/auth/callback-exchange
+├ ƒ /api/blocks
+├ ƒ /api/calls/ice
+├ ƒ /api/calls/session
+├ ƒ /api/calls/session/[id]
+├ ƒ /api/calls/trace
+├ ƒ /api/chat/matches
+├ ƒ /api/chat/media
+├ ƒ /api/chat/media/[id]
+├ ƒ /api/chat/messages
+├ ƒ /api/chat/reactions
+├ ƒ /api/chat/requests
+├ ƒ /api/chat/requests/[id]
+├ ƒ /api/chat/start
+├ ƒ /api/chat/unmatch
+├ ƒ /api/debug/auth
+├ ƒ /api/debug/setcookie
+├ ƒ /api/device/self
+├ ƒ /api/events/interest
+├ ƒ /api/health
+├ ƒ /api/health/engines
+├ ƒ /api/heartbeat
+├ ƒ /api/human/issue
+├ ƒ /api/human/verify
+├ ƒ /api/likes
+├ ƒ /api/location
+├ ƒ /api/notifications
+├ ƒ /api/onboarding
+├ ƒ /api/onboarding/complete
+├ ƒ /api/onboarding/state
+├ ƒ /api/profile/[id]
+├ ƒ /api/profile/me
+├ ƒ /api/profile/photos
+├ ƒ /api/profiles
+├ ƒ /api/reports
+├ ƒ /api/safety/cases
+├ ƒ /api/safety/cases/ack
+├ ƒ /api/security/check
+├ ƒ /api/settings
+├ ƒ /api/support
+├ ƒ /api/trust/self
+├ ƒ /api/verification
+├ ƒ /api/verification/challenge
+├ ƒ /api/verification/check
+├ ƒ /api/verification/consent
+├ ƒ /app
+├ ƒ /app/chat
+├ ƒ /app/likes
+├ ƒ /app/likes/activity
+├ ƒ /app/matches
+├ ƒ /app/notifications
+├ ƒ /app/preferences
+├ ƒ /app/premium
+├ ƒ /app/privacy
+├ ƒ /app/profile
+├ ƒ /app/profile/edit
+├ ƒ /app/settings
+├ ƒ /app/settings/about
+├ ƒ /app/settings/account
+├ ƒ /app/settings/appeal
+├ ƒ /app/settings/device
+├ ƒ /app/settings/legal/cookies
+├ ƒ /app/settings/legal/privacy
+├ ƒ /app/settings/legal/terms
+├ ƒ /app/settings/notifications
+├ ƒ /app/settings/privacy
+├ ƒ /app/settings/safety
+├ ƒ /app/settings/support
+├ ƒ /app/settings/verification
+├ ƒ /app/verification
+├ ƒ /appeal
+├ ƒ /auth
+├ ƒ /auth/callback
+├ ƒ /auth/signout
+├ ƒ /cookies
+├ ƒ /dating/[country]/[city]
+├ ƒ /discover
+├ ƒ /free-dating
+├ ƒ /guides
+├ ƒ /guides/dating-privacy-checklist
+├ ƒ /guides/dating-verification-explained
+├ ƒ /guides/intentional-dating-profile
+├ ƒ /guides/long-distance
+├ ƒ /guides/meet-without-apps
+├ ƒ /guides/relationship-values-questions
+├ ƒ /guides/scam-spotting
+├ ƒ /guides/shared-values-dating
+├ ƒ /onboarding
+├ ƒ /privacy
+├ ○ /robots.txt
+├ ƒ /safety
+├ ƒ /sitemap.xml
+└ ƒ /terms
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

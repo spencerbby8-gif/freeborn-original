@@ -1,0 +1,140 @@
+{
+  "checks": 40,
+  "results": [
+    "narrow public response/title/canonical/OG",
+    "narrow one main / one h1 / exact current brand mark",
+    "narrow six readable features with caveats",
+    "narrow native disclosures open and close",
+    "narrow FAQ keyboard interaction",
+    "narrow JSON-LD matches every visible FAQ answer",
+    "narrow jump links have real targets",
+    "narrow sensitive/profile collection not introduced",
+    "narrow no horizontal overflow, closed or expanded",
+    "narrow expanded page WCAG automated scan",
+    "narrow signup CTA navigates to real sign-up mode without submitting",
+    "mobile public response/title/canonical/OG",
+    "mobile one main / one h1 / exact current brand mark",
+    "mobile six readable features with caveats",
+    "mobile native disclosures open and close",
+    "mobile FAQ keyboard interaction",
+    "mobile JSON-LD matches every visible FAQ answer",
+    "mobile jump links have real targets",
+    "mobile sensitive/profile collection not introduced",
+    "mobile no horizontal overflow, closed or expanded",
+    "mobile expanded page WCAG automated scan",
+    "mobile signup CTA navigates to real sign-up mode without submitting",
+    "desktop public response/title/canonical/OG",
+    "desktop one main / one h1 / exact current brand mark",
+    "desktop six readable features with caveats",
+    "desktop native disclosures open and close",
+    "desktop FAQ keyboard interaction",
+    "desktop JSON-LD matches every visible FAQ answer",
+    "desktop jump links have real targets",
+    "desktop sensitive/profile collection not introduced",
+    "desktop no horizontal overflow, closed or expanded",
+    "desktop expanded page WCAG automated scan",
+    "desktop signup CTA navigates to real sign-up mode without submitting",
+    "no-JS all feature rows and FAQ text present",
+    "no-JS native disclosure still works",
+    "sitemap lists product and tool once, excludes private paths",
+    "homepage, hub and tool link to product page",
+    "all product-page internal links resolve without following private data",
+    "no account/message/payment mutation made by page interactions",
+    "zero browser page errors"
+  ],
+  "pageErrors": [],
+  "mutationRequests": [],
+  "linked": [
+    {
+      "from": "/",
+      "to": "/free-dating",
+      "status": 200
+    },
+    {
+      "from": "/guides",
+      "to": "/free-dating",
+      "status": 200
+    },
+    {
+      "from": "/guides/relationship-values-questions",
+      "to": "/free-dating",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/manifest.json",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/sitemap.xml",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/icons/flame.svg",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/icons/favicon-32.png",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/icons/apple-touch-icon.png",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/guides",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/safety",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/auth?mode=sign-in",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/auth?mode=sign-up",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/guides/meet-without-apps",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/guides/relationship-values-questions",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/privacy",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/terms",
+      "status": 200
+    },
+    {
+      "from": "/free-dating",
+      "to": "/cookies",
+      "status": 200
+    }
+  ],
+  "scope": "Local production build only; no real signup submission, messages, payments, provider or physical-device certification, search results or production deployment."
+}

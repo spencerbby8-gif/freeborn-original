@@ -2901,8 +2901,11 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     layout.includes("OG_IMAGE.path") &&
     (layout.match(/images: \[/g) || []).length >= 2 &&
     layout.includes("OG_IMAGE.alt"));
+  const editorialBlock = /export const INDEXABLE_PATHS = \[([\s\S]*?)\];/.exec(site)?.[1] ?? "";
+  const editorialEntries = [...editorialBlock.matchAll(/\{\s*path: "[^"]+"[^}]*\}/g)].map(match => match[0]);
   ok("[31] every indexable path carries a truthful lastmod and the sitemap serves it, not build time",
-    (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 10 &&
+    editorialEntries.length >= 10 &&
+    editorialEntries.every(entry => /lastModified: "\d{4}-\d{2}-\d{2}"/.test(entry)) &&
     sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
     !sitemap.includes("lastModified: now,"));
   const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => {
@@ -2916,22 +2919,22 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     return page;
   });
   ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
-    subpages.every((f) => f.includes("ogCard(") && f.includes("<PageStructuredData path=")) &&
+    subpages.every((f) => f.includes("ogCard(") && (f.includes("<PageStructuredData path=") || f.includes("<GuidePage path="))) &&
     (layout.match(/"max-image-preview": "large"/g) || []).length >= 2 &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "BreadcrumbList"') &&
     src("src/components/seo/page-structured-data.tsx").includes('"@type": "WebPage"'));
   const alt = src("src/app/alternatives/page.tsx");
   ok("[31] the comparison page carries dated competitor facts and zero fabricated trust markup",
-    alt.includes("2026-11-16") && !alt.includes("aggregateRating") &&
-    alt.includes("FAQPage") && !/numberOfUsers|award|sameAs/.test(alt));
+    /const reviewed=['"]\d{4}-\d{2}-\d{2}['"]/.test(alt) && !/aggregateRating|ratingValue|reviewCount/.test(alt) &&
+    alt.includes("GuidePage") && alt.includes("faqs={faqs}") && alt.includes("https://www.unjected.com/") && !/numberOfUsers|award|sameAs/.test(alt));
   const guideFiles = ["guides/page.tsx", "guides/meet-without-apps/page.tsx", "guides/long-distance/page.tsx", "guides/scam-spotting/page.tsx"].map((g) => src(`src/app/${g}`));
   const shell = src("src/components/guides/guide-page.tsx");
   const banned = /\bvaccin|\bdetox|\b5g\b|shedding|\bmiracle|\bcure[sd]?\b/i;
-  ok("[33] every guide carries ogCard, the shared shell, a codebase-checked date and zero banned claim vocabulary",
-    guideFiles.slice(1).every((f) => f.includes("ogCard(") && f.includes("GuidePage") && f.includes("2026-11-16") && !banned.test(f) && !f.includes("aggregateRating")) &&
-    guideFiles[0].includes("ogCard(") && guideFiles[0].includes("2026-11-16") && !banned.test(guideFiles[0]) &&
+  ok("[33] existing guide routes carry metadata, a shared edited-date source and no fabricated trust markup",
+    guideFiles.slice(1).every((f) => f.includes("ogCard(") && f.includes("GuidePage") && f.includes("GUIDE_REVIEW_DATE") && !banned.test(f) && !f.includes("aggregateRating")) &&
+    guideFiles[0].includes("ogCard(") && guideFiles[0].includes("GUIDE_REVIEW_DATE") && !banned.test(guideFiles[0]) &&
     shell.includes("PageStructuredData") && shell.includes("FAQPage") && !banned.test(shell) &&
-    src("src/app/guides/page.tsx").includes("/guides/scam-spotting") &&
+    src("src/lib/dating-guides.ts").includes("slug:'scam-spotting'") && guideFiles[0].includes("...datingGuides.map") &&
     src("src/components/landing/footer.tsx").includes('href="/guides"'));
   ok("[31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages",
     src("src/app/app/page.tsx").includes("robots: { index: false }") &&

@@ -1,212 +1,36 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
-import Link from "next/link";
-import { ogCard } from "@/lib/site";
-import { PageStructuredData } from "@/components/seo/page-structured-data";
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ogCard } from '@/lib/site';
+import { GuidePage } from '@/components/guides/guide-page';
+import styles from '@/components/guides/editorial.module.css';
 
-export const metadata: Metadata = {
-  title: "Unjected alternative on the open web",
-  description:
-    "Unjected holds 2.4 stars on the US App Store. Freeborn runs the same idea — values-aligned dating for health autonomy — on the open web: no install, no store gatekeeper, no paywalled basics.",
-  alternates: { canonical: "/alternatives" },
-  openGraph: ogCard(
-    "/alternatives",
-    "Unjected alternative on the open web · Freeborn",
-    "Unjected holds 2.4 stars on the US App Store. Freeborn runs the same idea — values-aligned dating for health autonomy — on the open web: no install, no store gatekeeper, no paywalled basics."
-  ),
-};
-
-/**
- * The honest comparison page (B16).
- *
- * WHY THIS PAGE EXISTS. People frustrated with app-store-only niche dating apps
- * search for alternatives by name. The high-intent version of this page is the
- * one that tells the truth: every claim about Freeborn below is checkable in
- * this codebase (no billing infrastructure exists at all; verification and
- * moderation are the shipped systems described on /safety), and every claim
- * about a competitor is a dated snapshot of public store data, retrieved
- * 2026-11-16 through Apple's public iTunes Search API and the public App Store
- * page (raw responses kept in evidence/taskboard-2026-11-14/b16/).
- *
- * WHAT THIS PAGE REFUSES TO DO, by construction and by harness pin: no
- * star-rating or review-count markup about Freeborn anywhere (the trust ledger
- * line), no member counts, no borrowed press logos, and no guessed competitor
- * numbers — where a fact could not be verified today, the cell says so instead
- * of carrying a number.
- */
-const VERIFIED_ON = "2026-11-16";
-
-const faqs = [
-  {
-    q: "Do I have to install an app to use Freeborn?",
-    a: "No. Freeborn is a web platform at freeborndating.com that works in any modern browser and installs to your home screen as a progressive web app. There is no app store account, no store review waiting period and no store removal risk between you and your matches.",
-  },
-  {
-    q: "Does Freeborn paywall messaging?",
-    a: "No. Matching, chat, photos and voice notes are free. The codebase contains no billing or subscription infrastructure at all, so there is no paywall waiting to be switched on behind the basics.",
-  },
-  {
-    q: "How does Freeborn keep bots and scammers out?",
-    a: "Pose-mimic selfie verification checks that the person behind a profile is present and live, dual-model moderation reads uploads and messages, and a scam guard watches for extortion and payment-scam patterns. The full description, including what each check can and cannot do, is on the safety page.",
-  },
+const path='/alternatives';
+const title='Considering an Unjected alternative? Compare what matters';
+const description='Compare current Freeborn access with first-party information from Unjected and Tinder. Check browser access, messaging, limitations and privacy without relying on stale ratings.';
+export const metadata:Metadata={title:{absolute:title+' | Freeborn'},description,alternates:{canonical:path},openGraph:ogCard(path,title,description)};
+const reviewed='2026-11-21';
+const unjected='https://www.unjected.com/';
+const tinder='https://www.help.tinder.com/hc/en-us/articles/115004647686-Tinder-Overview';
+const faqs=[
+ {q:'Is Freeborn the only dating service with free chat or browser access?',a:'No. Tinder’s own overview describes a free version with matching and chat, as well as Tinder for Web. These features are not exclusive to Freeborn.'},
+ {q:'Does this comparison confirm Unjected’s current messaging price?',a:'No. The inspected Unjected homepage did not establish detailed current messaging prices or limits. Check the service’s current product and terms rather than treating missing information as a paid or free claim.'},
+ {q:'Will Freeborn always be free?',a:'This page describes current core access and the absence of an available paid plan at present. It does not make a permanent pricing promise.'},
+ {q:'Does verification prove health status or safe intentions?',a:'No. Profile checks do not establish medical history or guarantee intentions or safety. Freeborn’s COVID-19 status is optional and self-reported; no health badge is currently issued.'},
 ];
-
-const rows: { dimension: string; freeborn: string; unjected: string; stores: string }[] = [
-  {
-    dimension: "How you reach it",
-    freeborn: "Any browser, installable as a PWA. No store account, no install.",
-    unjected: "iOS app through the US App Store (listing live when checked).",
-    stores: "Install through Apple or Google stores, per app.",
-  },
-  {
-    dimension: "Store gatekeeping between you and your matches",
-    freeborn: "None — an independent web platform on its own domain.",
-    unjected: "Subject to App Store policies, review and removal, like every iOS app.",
-    stores: "Subject to each store's policies and enforcement.",
-  },
-  {
-    dimension: `US App Store rating, checked ${VERIFIED_ON}`,
-    freeborn: "Not applicable — there is no app listing to rate.",
-    unjected: "2.4 average over 220 ratings (public listing data, retrieved 2026-11-16).",
-    stores: "Varies per app; see each listing.",
-  },
-  {
-    dimension: "Paywall on the basics",
-    freeborn: "None. Match, chat, send photos and voice notes for free; no billing code exists in the platform.",
-    unjected: "See the listing's in-app purchase declarations.",
-    stores: "Varies per app; see each listing.",
-  },
-  {
-    dimension: "Bot and scam defence",
-    freeborn: "Pose-mimic selfie verification, dual-model moderation and a scam guard, described in full on /safety.",
-    unjected: "See the listing and the developer's own documentation.",
-    stores: "Varies per app.",
-  },
-  {
-    dimension: "Public policy documents",
-    freeborn: "Privacy, cookie and terms pages published, written to describe the system that actually ships.",
-    unjected: "See the developer's site and listing.",
-    stores: "Varies per app.",
-  },
-];
-
-export default async function AlternativesPage() {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
-  const faqLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqs.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-  return (
-    <>
-      <PageStructuredData path="/alternatives" name="Unjected alternative on the open web" description="Unjected holds 2.4 stars on the US App Store. Freeborn runs the same idea — values-aligned dating for health autonomy — on the open web: no install, no store gatekeeper, no paywalled basics." />
-      <script
-        type="application/ld+json"
-        nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
-      />
-      <main className="night-field min-h-[100dvh]">
-        <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
-          <Link href="/" className="transition hover:opacity-80">
-            <span className="font-display text-2xl tracking-tight">Freeborn</span>
-          </Link>
-          <nav className="flex items-center gap-5 text-sm text-[var(--color-pearl-dim)]">
-            <Link href="/safety" className="transition hover:text-[var(--color-pearl)]">Safety</Link>
-            <Link href="/auth" className="transition hover:text-[var(--color-pearl)]">Sign in</Link>
-          </nav>
-        </header>
-
-        <section className="mx-auto max-w-4xl px-5 pb-16 pt-10 sm:px-8">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-gold)]">
-            An honest comparison · figures checked {VERIFIED_ON}
-          </p>
-          <h1 className="mt-4 font-display text-4xl leading-tight tracking-tight sm:text-5xl">
-            An Unjected alternative that lives on the open web
-          </h1>
-          <p className="mt-6 text-lg leading-relaxed text-[var(--color-pearl-dim)]">
-            If you found values-aligned, health-autonomy dating through the app
-            stores and left frustrated — by ratings, by paywalls, by bots or by a
-            listing disappearing — this page is the straight comparison. Freeborn
-            carries the same idea, dating for people who take health autonomy and
-            natural living seriously, and runs it as a web platform: nothing to
-            install, no store gatekeeper between you and your matches, and no
-            paywall on the basics.
-          </p>
-
-          <div className="mt-10 overflow-x-auto rounded-2xl border border-[var(--color-line)] bg-[var(--color-ink)]/60">
-            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-line)] text-[var(--color-pearl-dim)]">
-                  <th className="px-4 py-3 font-medium">Dimension</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-gold)]">Freeborn</th>
-                  <th className="px-4 py-3 font-medium">Unjected</th>
-                  <th className="px-4 py-3 font-medium">App-store-only apps, generally</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.dimension} className="border-b border-[var(--color-line)]/60 last:border-0">
-                    <td className="px-4 py-3 align-top font-medium">{r.dimension}</td>
-                    <td className="px-4 py-3 align-top text-[var(--color-pearl-dim)]">{r.freeborn}</td>
-                    <td className="px-4 py-3 align-top text-[var(--color-pearl-dim)]">{r.unjected}</td>
-                    <td className="px-4 py-3 align-top text-[var(--color-pearl-dim)]">{r.stores}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-4 text-xs leading-relaxed text-[var(--color-pearl-dim)]">
-            Unjected figures: public US App Store listing data (2.4 average over 220
-            ratings) retrieved {VERIFIED_ON} through Apple&apos;s public iTunes
-            Search API; raw responses are kept in the project evidence directory.
-            A US App Store search for &ldquo;Unjabbed&rdquo; on the same date returned
-            no current listing, so this page makes no rating claim about it. Where a
-            competitor fact could not be verified today, the cell says where to look
-            instead of carrying a number.
-          </p>
-
-          <div className="mt-10 rounded-2xl border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/5 px-6 py-5">
-            <h2 className="font-display text-xl">What this page will never do</h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-[var(--color-pearl-dim)]">
-              <li>No invented ratings or review markup about Freeborn — the platform publishes no star-rating or review-count structured data anywhere, on this page or any other.</li>
-              <li>No member counts, no borrowed press logos, no manufactured scarcity.</li>
-              <li>No undated competitor numbers: every third-party figure carries the date it was retrieved and gets re-checked whenever this page changes.</li>
-            </ul>
-          </div>
-
-          <section className="mt-12">
-            <h2 className="font-display text-2xl">Questions people actually ask</h2>
-            <div className="mt-5 space-y-6">
-              {faqs.map((f) => (
-                <div key={f.q}>
-                  <h3 className="font-medium text-[var(--color-pearl)]">{f.q}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--color-pearl-dim)]">{f.a}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="mt-12 flex flex-wrap items-center gap-4">
-            <Link
-              href="/auth"
-              className="rounded-full bg-[var(--color-gold)] px-6 py-3 text-sm font-semibold text-[var(--color-night)] transition hover:opacity-90"
-            >
-              Create your profile
-            </Link>
-            <Link
-              href="/safety"
-              className="rounded-full border border-[var(--color-line)] px-6 py-3 text-sm text-[var(--color-pearl-dim)] transition hover:text-[var(--color-pearl)]"
-            >
-              Read how verification works
-            </Link>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+const toc=[{id:'choose',title:'Choose by what you need'},{id:'comparison',title:'Current evidence side by side'},{id:'unanswered',title:'What is not established'},{id:'sources',title:'Sources and recheck scope'}];
+/** The shared shell emits page entities and FAQPage using the visible faqs array. */
+export default function AlternativesPage(){
+ return <GuidePage path={path} title={title} description={description} eyebrow="A sourced comparison, not a ranking" updated={reviewed} intro="If you are considering an Unjected alternative, start with the features and limits that matter to you. A service’s own page is evidence of what it advertises—not independent proof of outcomes, safety or local availability." faqs={faqs} toc={toc}>
+  <aside className={styles.callout}>Freeborn’s current core matching and communication do not require a paid plan. That does not make free chat or browser access exclusive, and it does not guarantee members near you.</aside>
+  <section id="choose"><h2>Choose by what you need, not a star-rating headline</h2><p>Check whether you want browser access, what communication is included, how contact works and what information you are comfortable sharing. A rating snapshot can become stale and does not answer those questions. This page publishes no competitor scores, invented reviews or winner badge.</p><p>Freeborn is for adults interested in values-led connections, including natural living and personal choice. You can read its <Link href="/free-dating">current access details</Link>, <Link href="/safety">safety information</Link> and <Link href="/privacy">privacy policy</Link> before deciding whether to join.</p></section>
+  <section id="comparison"><h2>Current evidence side by side</h2><div className={styles.tableWrap} role="region" aria-label="Dating service comparison; scroll horizontally on smaller screens" tabIndex={0}><table className={styles.table}><caption>Reviewed {reviewed}. Freeborn: local product implementation. Other services: attributed first-party page claims, not independent testing.</caption><thead><tr><th scope="col">Question</th><th scope="col">Freeborn</th><th scope="col">Unjected</th><th scope="col">Tinder</th></tr></thead><tbody>
+   <tr><th scope="row">Who is it presented for?</th><td>Adults interested in values-led dating, including natural living and personal choice.</td><td>Its homepage presents love, friendship and community connections centered on remaining unvaccinated. <a href={unjected} rel="noreferrer">Homepage source</a>.</td><td>Its overview presents a service for meeting new people. <a href={tinder} rel="noreferrer">Overview source</a>.</td></tr>
+   <tr><th scope="row">Browser or download?</th><td>Browser-based; an app-store download is not required. Device support and internet access still matter.</td><td>The inspected homepage links to Apple App Store and Google Play downloads. That alone does not establish every possible access method. <a href={unjected} rel="noreferrer">Source</a>.</td><td>Its overview explicitly describes Tinder for Web alongside mobile apps. <a href={tinder} rel="noreferrer">Source</a>.</td></tr>
+   <tr><th scope="row">Core matching and chat?</th><td>Current profile, discovery, likes, matching and chat are included without a paid plan. Contact restrictions still apply.</td><td>Detailed current messaging prices and limits were not established from the inspected homepage. Check the service before purchase. <a href={unjected} rel="noreferrer">Page inspected</a>.</td><td>Its overview says the free version supports matching and chat, with optional subscription tiers. Exact limits may depend on its current offering. <a href={tinder} rel="noreferrer">Source</a>.</td></tr>
+   <tr><th scope="row">Guaranteed safe people or local matches?</th><td>No guarantee of identity, intentions, safety, local supply or outcomes.</td><td>No independent safety, local-supply or outcome assessment performed for this comparison.</td><td>No independent safety, local-supply or outcome assessment performed for this comparison.</td></tr>
+  </tbody></table></div></section>
+  <section id="unanswered"><h2>What this comparison has not established</h2><p>We have not tested competitor accounts, purchased a plan, audited their providers or measured their active members. Missing information is not evidence that a service lacks a feature or charges for it. Check current product information and cancellation terms directly.</p><p>Freeborn’s planned membership area is not currently purchasable. Absence of an available paid plan today does not prove future pricing can never change. Read the current terms rather than treating this page as a lifetime promise.</p><p>A profile check cannot establish a person’s medical history or safe intentions. Freeborn’s COVID-19 declaration is optional and self-reported, legacy entries may predate the COVID-specific wording, and no health badge is currently issued.</p></section>
+  <section id="sources" className={styles.sources}><h2>Sources and recheck scope</h2><ul><li><a href={unjected} rel="noreferrer">Unjected official homepage</a>: positioning and visible store-download links only.</li><li><a href={tinder} rel="noreferrer">Tinder official overview</a>: stated free matching/chat and web access.</li><li><Link href="/free-dating">Freeborn current access</Link>: local implementation and its documented limitations, not a new production certification.</li></ul><p>Editorial review date: {reviewed}. No ratings or numerical review counts are carried forward from the older comparison. Source content may change; revisit the linked pages before deciding. First-party marketing is attributed, not endorsed or adopted as a medical claim.</p></section>
+  <section id="keep-reading"><h2>Keep reading</h2><div className={styles.related}><Link href="/guides/meet-without-apps">Browser dating without a download ↗</Link><Link href="/guides/dating-verification-explained">What verification means—and does not ↗</Link><Link href="/free-dating">Free matching and messaging ↗</Link><Link href="/guides/shared-values-dating">Meeting people with shared values ↗</Link></div></section>
+ </GuidePage>;
 }

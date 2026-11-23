@@ -11,6 +11,14 @@ function session(){return {access_token:Buffer.from(JSON.stringify({alg:'HS256',
 const deck={id:peer,name:'Aria',age:27,city:'Brooklyn',occupation:'Designer',headline:'A curious mind and a kind heart.',traits:['Hiking','Coffee','Music'],photo:'/images/prototype/welcome.jpg',photos:['/images/prototype/welcome.jpg'],verified:true,presence:'today',distanceKm:10,isNew:true};
 const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'Brooklyn',region:'New York',relationship_goals:['long_term'],values:['Health autonomy'],bio:'I love long walks, thoughtful conversations and good coffee.',interests:['Hiking','Coffee','Reading'],lifestyle_preferences:['Natural living'],photos:[]};
 (async()=>{
+ // This suite supplies ONLY fixture credentials and intercepts fixture services.
+ // Refuse a normal provider-configured build rather than mistaking sign-in redirects for UI regressions.
+ const authResponse=await fetch(base+'/auth?mode=sign-in');
+ if(!authResponse.ok)throw Error('Fixture preflight: local auth page unavailable');
+ const html=await authResponse.text();
+ const chunks=[...new Set([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(m=>m[1]).filter(path=>path.startsWith('/_next/')))];
+ const sources=await Promise.all(chunks.map(async path=>{const response=await fetch(base+path);if(!response.ok)throw Error('Fixture preflight: script unavailable');return response.text()}));
+ if(!sources.some(source=>source.includes('https://fixture.supabase.co'))||!sources.some(source=>source.includes('fixture-publishable-key')))throw Error('Fixture preflight: rebuild a separate local fixture app with NEXT_PUBLIC_SUPABASE_URL=https://fixture.supabase.co and NEXT_PUBLIC_SUPABASE_ANON_KEY=fixture-publishable-key. Do not weaken application auth. See docs/prototype/IMPLEMENTATION.md.');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  const results={scope:'Local intercepted APIs + fake microphone + loopback WebSocket. No hosted delivery, inbox, biometric or RLS acceptance.',checks:[],captures:[],errors:[]};
  for(const viewport of [{width:393,height:852},{width:1440,height:1000}].filter(v=>!process.env.FREEBORN_UI_VIEWPORT||v.width===Number(process.env.FREEBORN_UI_VIEWPORT))){
@@ -109,7 +117,9 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
    await page.reload({waitUntil:'networkidle'});await page.getByLabel('1 unread notifications',{exact:true}).waitFor();
    notificationItems.push({id:'fixture-match-2',type:'match',title:'New match: Daniel',body:'Fixture match only',at:'2026-11-21T09:00:00Z',unread:false,href:'/app/chat'});
    await page.evaluate(()=>window.dispatchEvent(new Event('freeborn:feed-refresh')));await page.getByRole('button',{name:/New match: Daniel.*Fixture match only/}).waitFor();await page.getByLabel('2 unread notifications',{exact:true}).waitFor();await capture('notification-banner-unread');
-   await page.getByRole('link',{name:'Notifications',exact:true}).click();await page.locator('.notif-row').first().waitFor();await page.waitForTimeout(500);
+   const history=page.getByRole('link',{name:'Notifications',exact:true});
+   if(!await history.evaluate(link=>{const box=link.getBoundingClientRect();const hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);return hit===link||link.contains(hit)}))throw Error('New alert obscures the notification-history control');
+   await history.click({timeout:2000});await page.locator('.notif-row').first().waitFor();await page.waitForTimeout(500);
    await page.goto(base+'/app',{waitUntil:'networkidle'});if(await page.locator('.disc-heart .badge').count())throw Error('Feed acknowledgement did not persist');await capture('notifications-acknowledged');notificationItems=[];
   });
   await check('GPS consent uses viewer city and device time; denial leaves generic headline',async()=>{
