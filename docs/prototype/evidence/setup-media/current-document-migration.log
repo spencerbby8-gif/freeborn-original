@@ -1,0 +1,26 @@
+BEGIN
+ALTER TABLE
+ALTER TABLE
+COMMIT
+BEGIN
+ALTER TABLE
+ALTER TABLE
+COMMIT
+BEGIN
+ kind  
+-------
+ image
+ video
+ voice
+ file
+(4 rows)
+
+INSERT 0 4
+NOTICE:  PASS: unsupported kind rejected
+DO
+ROLLBACK
+                                  constraint_definition                                  
+-----------------------------------------------------------------------------------------
+ CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text, 'voice'::text, 'file'::text])))
+(1 row)
+

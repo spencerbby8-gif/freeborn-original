@@ -1,5 +1,6 @@
 "use client";
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
 import type { OnboardingDraft, OnboardingStepName } from "@/lib/onboarding-data";
@@ -82,9 +83,7 @@ export function OnboardingGate() {
 
   if (state.phase === "loading") {
     return (
-      <div className="flex flex-col items-center justify-center gap-5 py-24">
-        <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
-      </div>
+      <FreebornLoader label="Restoring your profile setup"/>
     );
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createMediaUrlCache } from "./media-url-cache";
 import { getAccessToken } from "@/lib/supabase/browser";
 
 /**
@@ -62,12 +63,6 @@ export function isAuthedMediaSrc(src: string | null | undefined): boolean {
   return false;
 }
 
-type Entry = { objectUrl: string | null; promise: Promise<string | null>; refs: number };
-
-/* One fetch per attachment however many places render it (a thread and the
-   lightbox, a card and the profile), revoked only when the last one closes. */
-const cache = new Map<string, Entry>();
-
 async function fetchObjectUrl(key: string): Promise<string | null> {
   try {
     const token = await getAccessToken().catch(() => null);
@@ -81,35 +76,8 @@ async function fetchObjectUrl(key: string): Promise<string | null> {
   }
 }
 
-function acquire(key: string): Promise<string | null> {
-  const hit = cache.get(key);
-  if (hit) {
-    hit.refs += 1;
-    return hit.promise;
-  }
-  const promise = fetchObjectUrl(key);
-  cache.set(key, { objectUrl: null, promise, refs: 1 });
-  void promise.then((objectUrl) => {
-    const entry = cache.get(key);
-    /* Released while the fetch was still in flight: nobody will use this blob,
-       so it is revoked here rather than leaked for the life of the tab. */
-    if (!entry) {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      return;
-    }
-    entry.objectUrl = objectUrl;
-  });
-  return promise;
-}
-
-function release(key: string) {
-  const entry = cache.get(key);
-  if (!entry) return;
-  entry.refs -= 1;
-  if (entry.refs > 0) return;
-  cache.delete(key);
-  if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl);
-}
+// One authenticated fetch per live attachment, with generation-safe retirement.
+const cache = createMediaUrlCache(fetchObjectUrl, url=>URL.revokeObjectURL(url));
 
 export type AuthedMediaStatus = "direct" | "pending" | "ready" | "failed";
 export type AuthedMedia = { src: string; status: AuthedMediaStatus };
@@ -146,7 +114,7 @@ export function useAuthedMedia(src: string | null | undefined): AuthedMedia {
   useEffect(() => {
     if (!key) return;
     let alive = true;
-    void acquire(key).then((objectUrl) => {
+    void cache.acquire(key).then((objectUrl) => {
       if (!alive) return;
       setState((prev) =>
         prev.forKey === key ? { ...prev, objectUrl, failed: !objectUrl } : prev
@@ -154,7 +122,7 @@ export function useAuthedMedia(src: string | null | undefined): AuthedMedia {
     });
     return () => {
       alive = false;
-      release(key);
+      cache.release(key);
     };
   }, [key]);
 

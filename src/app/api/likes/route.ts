@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { ageFromBirthDate } from "@/lib/age";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { undoMayDeleteMatchRow } from "@/lib/match-lifecycle";
 import {
@@ -25,6 +26,9 @@ async function profileCard(id: string) {
   return {
     id: p.id,
     name: p.displayName ?? "Member",
+    age: ageFromBirthDate(p.birthDate),
+    occupation: p.occupation ?? "",
+    interests: p.interests ?? [],
     city: p.city ?? "",
     photo: resolvePhotoUrl(photo?.storagePath ?? ""),
     verified: p.isVerified,

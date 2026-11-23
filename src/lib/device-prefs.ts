@@ -85,3 +85,10 @@ export function useDistanceUnits(): DistanceUnits {
 
   return units;
 }
+
+/** Small optional tap feedback; unsupported browsers simply do nothing. */
+export function memberTapFeedback(){
+  if(typeof navigator!=="undefined"&&loadPrefs().haptics&&typeof navigator.vibrate==="function"){
+    try{navigator.vibrate(12);}catch{/* Device may decline vibration. */}
+  }
+}

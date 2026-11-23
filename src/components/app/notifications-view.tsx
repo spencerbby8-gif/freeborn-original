@@ -1,4 +1,5 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useState } from "react";
@@ -66,7 +67,7 @@ export function NotificationsView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+        <FreebornLoader/>
       </div>
     );
   }

@@ -194,7 +194,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
        path is reached by real members, not only by broken links. Say what
        happened and hand over the file, which any device can open. */
     return (
-      <div className="flex w-[262px] max-w-full flex-col gap-2 py-1">
+      <div className="chat-voice-fallback flex w-[262px] max-w-full flex-col gap-2 py-1">
         <p className="text-[12.5px] leading-snug text-white/80">
           This voice note won&rsquo;t play on your device. The recording itself is
           intact &mdash; download it to listen.
@@ -212,7 +212,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
 
   return (
     <div
-      className="fb-no-callout flex w-[262px] max-w-full touch-pan-y items-center gap-2.5 py-1"
+      className="chat-voice-bubble fb-no-callout flex w-[262px] max-w-full touch-pan-y items-center gap-2.5 py-1"
       onContextMenu={(e) => e.preventDefault()}
       onPointerDown={(e) => {
         swipeRef.current = { x: e.clientX, y: e.clientY };
@@ -248,7 +248,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
       </button>
       <div
         ref={waveRef}
-        className="flex h-9 flex-1 cursor-pointer touch-none items-center gap-[2.5px]"
+        className="chat-voice-wave flex h-9 flex-1 cursor-pointer touch-none items-center gap-[2.5px]"
         aria-hidden
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -271,6 +271,7 @@ export function VoiceBubble({ url, mine, seconds }: { url: string; mine: boolean
         {bars.map((b, i) => (
           <span
             key={i}
+            data-played={i / bars.length <= progress}
             className={`w-[3px] rounded-full ${
               i / bars.length <= progress ? "bg-white" : mine ? "bg-white/40" : "bg-white/25"
             }`}
@@ -316,7 +317,7 @@ export function VoiceRecorder({
   onError,
   disabled,
 }: {
-  onSend: (blob: Blob, seconds: number) => void;
+  onSend: (blob: Blob, seconds: number) => void | boolean | Promise<void | boolean>;
   onError?: (message: string) => void;
   disabled?: boolean;
 }) {
@@ -327,6 +328,7 @@ export function VoiceRecorder({
   const [liveBars, setLiveBars] = useState<number[]>([]);
 
   /* Preview state */
+  const [previewSending,setPreviewSending]=useState(false);
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewSecs, setPreviewSecs] = useState(0);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -635,14 +637,15 @@ export function VoiceRecorder({
     setPreviewPos(frac);
   };
 
-  const sendPreview = () => {
-    if (!previewBlob) return;
-    const blob = previewBlob;
-    const secs = previewSecs;
-    setPreviewBlob(null);
-    phaseRef.current = "idle";
-    setPhase("idle");
-    onSend(blob, secs);
+  const sendPreview = async () => {
+    if (!previewBlob||previewSending||disabled) return;
+    setPreviewSending(true);
+    try {
+      const sent=await onSend(previewBlob,previewSecs);
+      if(sent===false)return;
+      setPreviewBlob(null);phaseRef.current="idle";setPhase("idle");
+    } catch {onError?.("Voice note could not be sent. Your recording is kept; try again.");}
+    finally {setPreviewSending(false);}
   };
 
   const discardPreview = () => {
@@ -766,6 +769,7 @@ export function VoiceRecorder({
           <button
             type="button"
             onClick={discardPreview}
+            disabled={previewSending}
             aria-label="Discard voice note"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-400/40 bg-red-500/15 text-red-300 transition hover:bg-red-500/25"
           >
@@ -776,7 +780,9 @@ export function VoiceRecorder({
 
           <button
             type="button"
-            onClick={sendPreview}
+            onClick={()=>void sendPreview()}
+            disabled={disabled||previewSending}
+            aria-busy={previewSending}
             aria-label="Send voice note"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95"
           >

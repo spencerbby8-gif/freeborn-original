@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { StepShell } from "./step-shell";
 import { ComboField, OnboardingTextarea } from "./fields";
 import { CheckIcon } from "@/components/icons";
@@ -13,6 +14,8 @@ import {
   interestOptions,
   lifestyleOptions,
   occupationOptions,
+  languageOptions,
+  religionOptions,
   onboardingFieldHints,
   validateBio,
   validateCount,
@@ -47,6 +50,8 @@ function SafetyPanel({ values }: { values: string[] }) {
 
 export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pending, saveStatus }: StepProps) {
   const [bio, setBio] = useState(draft.bio);
+  const [language,setLanguage]=useState(draft.language??"");
+  const [religion,setReligion]=useState(draft.religion??"");
   const [occupation, setOccupation] = useState(draft.occupation);
   const [education, setEducation] = useState(draft.education);
   const [vaccinationStatus, setVaccinationStatus] = useState(draft.vaccinationStatus || "prefer_not_to_say");
@@ -64,6 +69,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
     setErrors({});
     onSave({
       bio: bio.trim(),
+      language, religion,
       occupation: occupation.trim(),
       education: education.trim(),
       vaccinationStatus,
@@ -80,7 +86,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="Write your first impression."
+      title="A little more you."
       subtitle="Short, human, grounded: what lights you up and what feels meaningful."
       onBack={onBack}
       onContinue={handleContinue}
@@ -125,49 +131,11 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
           hint={onboardingFieldHints.education}
           optional
         />
+      <ComboField label="Language" value={language} onChange={setLanguage} options={languageOptions} optional hint="Optional. Share the language you’re most comfortable using."/>
+      <ComboField label="Faith & beliefs" value={religion} onChange={setReligion} options={religionOptions} optional hint="Optional. Only share what you want on your profile."/>
       </div>
 
-      {/* Vaccination stance */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <span className="fb-eyebrow !text-[12px]">Vaccination stance</span>
-          <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-mist)]">
-            Shown as a badge on your profile so you can find people aligned with you. You can keep it private.
-          </p>
-        </div>
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          {vaxOptions.map((o) => {
-            const active = vaccinationStatus === o.value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setVaccinationStatus(o.value)}
-                aria-pressed={active}
-                className={`relative min-h-[56px] rounded-2xl border p-4 pr-11 text-left transition-all active:scale-[0.98] ${
-                  active
-                    ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)]/10 shadow-[0_0_20px_-5px_rgba(217,167,82,0.15)]"
-                    : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
-                }`}
-              >
-                <span className={`block text-[14px] font-black ${active ? "text-[var(--color-pearl)]" : "text-[var(--color-sand)]"}`}>
-                  {o.label}
-                </span>
-                <span className="mt-1 block text-[12px] leading-4 text-[var(--color-mist)]">{o.caption}</span>
-                <span
-                  className={`absolute right-3.5 top-3.5 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-300 ${
-                    active
-                      ? "border-[var(--color-gold-500)] bg-[var(--color-gold-500)] text-[var(--color-ink)]"
-                      : "border-white/10 bg-black/20 text-transparent"
-                  }`}
-                >
-                  <CheckIcon size={13} strokeWidth={3} />
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <fieldset className="setup-chip-group"><legend className="setup-label">Vaccination stance <span>Optional</span></legend><p className="setup-field-hint">Choose a profile badge, or keep this private.</p><div className="option-list">{vaxOptions.map(o=><button key={o.value} type="button" className={`option-card ${vaccinationStatus===o.value?'selected':''}`} onClick={()=>setVaccinationStatus(o.value)} aria-pressed={vaccinationStatus===o.value}><span className="option-text"><b>{o.label}</b><small>{o.caption}</small></span><CheckIcon className="option-check" size={20}/></button>)}</div></fieldset>
     </StepShell>
   );
 }
@@ -205,7 +173,7 @@ export function VibeStep({ stepIndex, totalSteps, draft, onBack, onSave, pending
     <StepShell
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      title="Show your vibe."
+      title="Find your kind of people."
       subtitle="How you actually live, and the things people can start a conversation from."
       onBack={onBack}
       onContinue={handleContinue}
@@ -293,6 +261,7 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
   const [photos, setPhotos] = useState<OnboardingDraft["photos"]>(draft.photos);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const photoInput=useRef<HTMLInputElement>(null);
   const [inputKey, setInputKey] = useState(0);
   const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -400,14 +369,16 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
 
       <input
         key={inputKey}
+        ref={photoInput}
         type="file"
+        aria-label="Add profile photos"
         accept="image/*"
         multiple
         className="hidden"
         onChange={(e) => addFiles(e.target.files)}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="setup-photo-grid">
         {photos.map((photo, index) => (
           <div key={photo.id} className="animate-scale-in overflow-hidden rounded-2xl border border-white/10 bg-black/20">
             <div className="relative aspect-[4/5]">
@@ -468,15 +439,14 @@ export function PhotosStep({ stepIndex, totalSteps, draft, onBack, onSave, pendi
           <button
             type="button"
             onClick={() => {
-              const input = document.querySelector<HTMLInputElement>('input[type="file"]');
-              input?.click();
+              photoInput.current?.click();
             }}
             disabled={busy}
             className="flex aspect-[4/5] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.02] text-[var(--color-mist)] transition hover:border-[var(--color-gold-500)]/40 hover:bg-white/[0.04] disabled:opacity-50"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05]">
               {busy ? (
-                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <FreebornLoader compact label="Processing your photo"/>
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />

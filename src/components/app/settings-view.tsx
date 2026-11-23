@@ -1,4 +1,5 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
@@ -742,9 +743,9 @@ function DeleteAccount() {
   );
 }
 
-export function SettingsView() {
+export function SettingsView({ initialArea = "profile" }: { initialArea?: AreaId } = {}) {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [area, setArea] = useState<AreaId>("profile");
+  const [area, setArea] = useState<AreaId>(initialArea);
   /** Settings search — filters the rows of the active tab (Instagram/Android pattern). */
   const [query, setQuery] = useState("");
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -936,7 +937,7 @@ export function SettingsView() {
   if (!settings) {
     return (
       <div className="flex justify-center py-20">
-        <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+        <FreebornLoader/>
       </div>
     );
   }
@@ -1490,7 +1491,7 @@ export function SettingsView() {
               </div>
             </div>
 
-            <p className="fb-eyebrow pt-1" data-search="blocked members list unblock">Blocked members</p>
+            <p id="blocked" className="fb-eyebrow pt-1" data-search="blocked members list unblock">Blocked members</p>
             <BlockedList />
 
             <p className="fb-caption" data-search="never shown publicly private email birth date coordinates fixed">
@@ -1705,7 +1706,7 @@ export function SettingsView() {
             </Disclosure>
 
             <DeleteAccount />
-            <SupportCard />
+            <div id="support"><SupportCard /></div>
 
             <form method="POST" action="/auth/signout">
               <button

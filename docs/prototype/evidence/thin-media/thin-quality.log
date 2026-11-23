@@ -1,0 +1,39 @@
+
+> lint
+> eslint .
+
+
+> typecheck
+> tsc --noEmit
+
+
+> test:chat-media
+> node scripts/prototype/chat-media-contracts.mjs
+
+ok 1 - PDF upload reaches real handler and records authenticated sender, match, kind and bytes
+ok 2 - HTML executable is rejected without persistence
+ok 3 - forged PDF is rejected without persistence
+ok 4 - forged Office is rejected without persistence
+ok 5 - empty document is rejected without persistence
+ok 6 - oversize document is rejected without persistence
+ok 7 - binary text is rejected without persistence
+ok 8 - missing match is rejected without persistence
+ok 9 - blocked recipient cannot receive uploads
+ok 10 - unmatched conversation is upload-read-only
+ok 11 - nonparticipant/missing match cannot upload
+ok 12 - unsigned user cannot upload
+ok 13 - cross-origin browser upload is refused
+ok 14 - allowed pdf type remains explicit
+ok 15 - allowed txt type remains explicit
+ok 16 - allowed csv type remains explicit
+ok 17 - allowed docx type remains explicit
+ok 18 - allowed xlsx type remains explicit
+ok 19 - allowed pptx type remains explicit
+ok 20 - download filename cannot contain slash or marker/control injection
+ok 21 - UTF-8 plain text accepted
+ok 22 - Office ZIP signature accepted without executing contents
+ok 23 - two live media views share one authenticated fetch
+ok 24 - closing one media view does not revoke a shared URL
+ok 25 - a retired in-flight URL is revoked, never installed into a new generation
+ok 26 - the new media URL is revoked exactly once when its last view closes
+PASS 26 local media contract assertions; no hosted RLS/database acceptance.

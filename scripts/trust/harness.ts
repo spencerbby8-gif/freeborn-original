@@ -31,7 +31,7 @@ import {
   needsPublishedProfilePhotoLookup,
   type MediaAccessFacts,
 } from "@/lib/media-access";
-import { createHash } from "node:crypto";
+import { createHash, randomInt, randomBytes } from "node:crypto";
 import {
   decideMatchAccess,
   isUnmatchReason,
@@ -203,9 +203,9 @@ const expect = 50 + 8 /* age cap */ - 6 /* unverified */ - 6 /* unconfirmed emai
 ok("per-factor caps hold: huge age alone = 50+8-6-6", onlyAge.score === expect, `score=${onlyAge.score} expected=${expect}`);
 let escaped = 0;
 for (let i = 0; i < 20000; i++) {
-  const r = (n: number) => Math.floor(Math.random() * n);
+  const r = (n: number) => randomInt(n);
   const f = computeTrustScore(sig({
-    verified: r(2) === 0, emailConfirmed: r(2) === 0, accountAgeDays: Math.random() * 1e6,
+    verified: r(2) === 0, emailConfirmed: r(2) === 0, accountAgeDays: randomInt(1e6),
     verificationAttempts: r(50), verificationSuccesses: r(50), verificationFailures: r(50),
     mismatchHistoryCount: r(50), duplicatePhotoHits: r(50), sharedDeviceAccounts: r(50),
     gpsSpoofSuspects7d: r(50), automatedTrafficBlocks7d: r(50), scamFlags7d: r(50),
@@ -388,7 +388,7 @@ await rm("/tmp/ph", { recursive: true, force: true });
   const vs = hamming64(d, "ffffffffffffffff")!;
   ok("distance over random pairs stays in 0..64 and matches bit-popcount", (() => {
     for (let i = 0; i < 4000; i++) {
-      const r = () => Array.from({ length: 16 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+      const r = () => randomBytes(8).toString("hex");
       const x = r(), y = r(), got = hamming64(x, y)!;
       let want = 0;
       for (let k = 0; k < 16; k++) {
@@ -426,7 +426,7 @@ ok("the issue payload carries a solver budget and a re-request rule",
   issueSrc.includes("solverBudget") && issueSrc.includes("onExhausted"));
 let powSolved = 0, powTried = 0, powWorst = 0;
 for (let k = 0; k < 25; k++) {
-  const nn = Array.from({ length: 32 }, () => "0123456789abcdef"[(Math.random() * 16) | 0]).join("");
+  const nn = randomBytes(16).toString("hex");
   const t1 = Date.now();
   powTried++;
   for (let n = 0; n < BUDGET; n++) {
@@ -458,7 +458,8 @@ const publicHealthSrc = readFileSync(new URL("../../src/app/api/health/route.ts"
 /* -- the reason/CHECK drift that 500'd live reports ------------------------------ */
 const migReasonBlock = /reports_reason_check check \(\s*reason in \(([\s\S]*?)\)\s*\);/.exec(migOps)?.[1] ?? "";
 const migReasons = new Set([...migReasonBlock.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
-const appReasons = new Set([...reportSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
+const reportReasonsSrc=readFileSync(new URL("../../src/lib/report-reasons.ts",import.meta.url),"utf8");
+const appReasons = new Set([...reportReasonsSrc.matchAll(/^  "([a-z_]+)",$/gm)].map((m) => m[1]));
 ok("migration 2026-10-29 exists and rebuilds both live CHECKs",
   migOps.includes("alter table public.reports drop constraint if exists reports_reason_check") &&
   migOps.includes("human_challenges_purpose_check"),
@@ -470,7 +471,7 @@ ok("schema.ts, the migration and the route agree on the same reason set",
   [...appReasons].every((r) => schemaSrc.includes(`'${r}'`)) === true &&
   /reports_reason_check/.test(schemaSrc));
 ok("the REASONS set is exported for consumers rather than duplicated",
-  reportSrc.includes("export const REASONS = new Set(["));
+  reportReasonsSrc.includes("export const REASONS = new Set([") && reportSrc.includes('import { REASONS } from "@/lib/report-reasons"'));
 ok("the report insert is guarded so a CHECK can never destroy a report again",
   /let filed: \{ id: string \} \| null = null;/.test(reportSrc) &&
   reportSrc.includes('reason: "other"') && reportSrc.includes('status: 503'));
@@ -713,6 +714,8 @@ const photoDir = new URL("../../public/images/verify/", import.meta.url);
 const { existsSync } = await import("node:fs");
 
 ok("[13] pose pool is non-trivial and disjoint", POSES.length >= 6 && new Set(POSES.map((x) => x.label)).size === POSES.length, `n=${POSES.length}`);
+ok("[13] capture freezes live evidence before the camera is torn down",modalSrc.includes('capturedGateRef.current = {state:gateRef.current?.state()??gate,skipped:gateSkipped}')&&modalSrc.indexOf('capturedGateRef.current = {state:')<modalSrc.indexOf('setStep("review")'));
+ok("[13] submit uses frozen capture evidence instead of an already-stopped gate",modalSrc.includes('const s = capturedGateRef.current?.state;')&&modalSrc.includes('capturedGateRef.current?.skipped'));
 ok("[13] every pose has artwork that exists", POSES.every((x) => /^\/images\/verify\/[a-z0-9-]+\.jpg$/.test(x.demo) && existsSync(new URL(x.demo.replace("/images/verify/", ""), photoDir))));
 ok("[13] poseId is stable + injectively named", poseIdFor(POSES[0].label) === poseIdFor(POSES[0].label) && new Set(POSES.map((x) => poseIdFor(x.label))).size === POSES.length);
 ok("[13] poseId shape is a safe token", POSES.every((x) => /^p[0-9a-f]{8}$/.test(poseIdFor(x.label))));
@@ -1587,7 +1590,7 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
          `\f` for `.fb-btn` and `\b` for `.btn-ghost` — a form-feed and a word boundary — which
          matched nearly every selector and failed the pin for the wrong reason. Escape the dot, then
          require a real class boundary so `.fb-btn--sm` is not counted as `.fb-btn`. */
-      const esc = cls.replace(/\./g, "\\.");
+      const esc = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(`(^|[\\s,>+~])${esc}(?![-\\w])`).test(sel);
     };
     const ctaVisualRules = (() => {
@@ -1917,6 +1920,9 @@ console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, ever
     tempId: "t1", body: "ok", at: Date.now(), attempts: 0, failed: false, ...over,
   });
   const now = Date.now();
+  ok("[29] acknowledged chat echo retires by stored identity despite clock skew", reconcilePending([P({ackId:"stored-late",at:Date.now()+80_000})],{serverRows:[{id:"stored-late",body:"ok",mine:true,at:new Date().toISOString()}]}).length===0);
+  ok("[29] acknowledged chat echo does not retire against a different identical-text row", reconcilePending([P({ackId:"not-arrived"})],{serverRows:[{id:"other",body:"ok",mine:true}]}).length===1);
+  ok("[18] a stored ack cannot consume an unrelated identical pending echo",reconcilePending([P({tempId:"one",ackId:"stored"}),P({tempId:"two"})],{serverRows:[{id:"stored",body:"ok",mine:true}]}).map(p=>p.tempId).join(',')==='two');
   ok("[18] an ack by tempId retires exactly the echo it answers",
     reconcilePending([P(), P({ tempId: "t2" })], { tempId: "t1" }).map((x) => x.tempId).join(",") === "t2");
   ok("[18] an ack by server id retires the echo it was attached to",
@@ -2603,7 +2609,7 @@ console.log("\n[27] account deletion is durable, owned-path scoped, and never fa
   const consent = readFileSync(new URL("../../src/app/api/verification/consent/route.ts", import.meta.url), "utf8");
   const settingsSrc = readFileSync(new URL("../../src/components/app/settings-view.tsx", import.meta.url), "utf8");
   const onboarding = readFileSync(new URL("../../src/lib/onboarding-store.ts", import.meta.url), "utf8");
-  const privacy = readFileSync(new URL("../../src/app/privacy/page.tsx", import.meta.url), "utf8");
+  const privacy = readFileSync(new URL("../../src/components/legal/privacy-document.tsx", import.meta.url), "utf8");
   const pkg = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
   const config = readFileSync(new URL("../../supabase/config.toml", import.meta.url), "utf8");
 
@@ -2899,7 +2905,16 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     (site.match(/lastModified: "\d{4}-\d{2}-\d{2}"/g) || []).length === 10 &&
     sitemap.includes("lastModified: new Date(`${lastModified}T00:00:00.000Z`)") &&
     !sitemap.includes("lastModified: now,"));
-  const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => src(`src/app/${slug}/page.tsx`));
+  const subpages = ["safety", "privacy", "terms", "cookies", "alternatives"].map((slug) => {
+    const page=src(`src/app/${slug}/page.tsx`);
+    if(["privacy","terms","cookies"].includes(slug)){
+      // Shared legal text is also rendered in the member chrome. Require the
+      // public route to retain BOTH the document and its metadata export.
+      const linked=page.includes(`from "@/components/legal/${slug}-document"`)&&page.includes('export { metadata }');
+      return linked?page+src(`src/components/legal/${slug}-document.tsx`):page;
+    }
+    return page;
+  });
   ok("[31] every indexable subpage owns its og:url and carries page-level structured data",
     subpages.every((f) => f.includes("ogCard(") && f.includes("<PageStructuredData path=")) &&
     (layout.match(/"max-image-preview": "large"/g) || []).length >= 2 &&
@@ -2948,7 +2963,7 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     layoutNow.includes('"msvalidate.01"') && layoutNow.includes("21AFBB7C27303E2A2F4F26CC3D69B50F"));
   const submit = src("scripts/seo/indexnow-submit.mjs");
   ok("[32] the IndexNow submit script posts to the protocol endpoint off INDEXABLE_PATHS",
-    submit.includes("https://api.indexnow.org/indexnow") &&
+    [...submit.matchAll(/fetch\(\s*["']([^"']+)["']/g)].some(m => { const u=new URL(m[1]);return u.protocol==='https:'&&u.hostname==='api.indexnow.org'&&u.pathname==='/indexnow'&&!u.port&&!u.username&&!u.password; }) &&
     submit.includes("INDEXABLE_PATHS") && submit.includes("keyLocation"));
 }
 

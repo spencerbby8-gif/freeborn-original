@@ -1,0 +1,127 @@
+{
+  "pr": "https://github.com/spencerbby8-gif/freeborn-original/pull/90",
+  "head": "454ffef7008f516dd20ff7d37aec6bcbeeb9ba4e",
+  "state": "open",
+  "draft": true,
+  "mergeable": true,
+  "mergeable_state": "unstable",
+  "merged": false,
+  "checks": [
+    {
+      "name": "CodeQL",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/spencerbby8-gif/freeborn-original/runs/137401775482",
+      "output": {
+        "title": "5 new alerts including 5 high severity security vulnerabilities",
+        "summary": "### New alerts in code changed by this pull request\n\nSecurity Alerts:\n * 5 high\n\n\n_Alerts not introduced by this pull request might have been detected because the code changes were too large._\n\nSee annotations below for details.\n\n[View all branch alerts](/spencerbby8-gif/freeborn-original/security/code-scanning?query=pr%3A90+tool%3ACodeQL+is%3Aopen).",
+        "text": null,
+        "annotations_count": 5,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401775482/annotations"
+      }
+    },
+    {
+      "name": "Vercel Preview Comments",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://vercel.com/github",
+      "output": {
+        "title": "\u2705 No unresolved feedback",
+        "summary": "\ud83d\udcac 0 unresolved, 0 resolved. [Go to feedback](https://vercel.live/open-feedback/freeborn-git-feat-prototype-t-c1cd20-spencerbby8-5225s-projects.vercel.app?via=pr-comment-feedback-link)",
+        "text": null,
+        "annotations_count": 0,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401614201/annotations"
+      }
+    },
+    {
+      "name": "Redirect rules - freeborn",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://app.netlify.com/projects/freeborn/deploys/6b037ea8280b8f91df3e7c8b",
+      "output": {
+        "title": "3 redirect rules processed",
+        "summary": "All redirect rules processed without errors.",
+        "text": null,
+        "annotations_count": 0,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401412088/annotations"
+      }
+    },
+    {
+      "name": "Header rules - freeborn",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://app.netlify.com/projects/freeborn/deploys/6b037ea8280b8f91df3e7c8b",
+      "output": {
+        "title": "1 header rule processed",
+        "summary": "All header rules processed without errors.",
+        "text": null,
+        "annotations_count": 0,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401410592/annotations"
+      }
+    },
+    {
+      "name": "Pages changed - freeborn",
+      "status": "completed",
+      "conclusion": "neutral",
+      "url": "https://app.netlify.com/projects/freeborn/deploys/6b037ea8280b8f91df3e7c8b",
+      "output": {
+        "title": "23 new files uploaded",
+        "summary": "No generated pages and 23 assets changed.",
+        "text": null,
+        "annotations_count": 0,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401408247/annotations"
+      }
+    },
+    {
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/spencerbby8-gif/freeborn-original/actions/runs/45084971864/job/137401402538",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 2,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401402538/annotations"
+      }
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/spencerbby8-gif/freeborn-original/actions/runs/45084971856/job/137401402409",
+      "output": {
+        "title": null,
+        "summary": null,
+        "text": null,
+        "annotations_count": 3,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401402409/annotations"
+      }
+    },
+    {
+      "name": "Supabase Preview",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://supabase.com/dashboard/project/ihwtpwlszegrjgakqsxx/branches",
+      "output": {
+        "title": "Supabase Preview",
+        "summary": "This git branch is not associated with any Supabase Branch. You can open a PR to create a new branch.",
+        "text": null,
+        "annotations_count": 0,
+        "annotations_url": "https://api.github.com/repos/spencerbby8-gif/freeborn-original/check-runs/137401390601/annotations"
+      }
+    }
+  ],
+  "statuses": [
+    {
+      "context": "Vercel",
+      "state": "success",
+      "description": "Deployment has completed"
+    },
+    {
+      "context": "netlify/freeborn/deploy-preview",
+      "state": "success",
+      "description": "Deploy Preview ready!"
+    }
+  ]
+}

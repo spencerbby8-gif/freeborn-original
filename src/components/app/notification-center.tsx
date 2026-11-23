@@ -41,6 +41,9 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
      incoming ring and speaker/mute/end on a live call. */
   const [callUiUp, setCallUiUp] = useState(isCallUiActive);
   useEffect(() => subscribeCallUiActive(setCallUiUp), []);
+  const [verificationUp,setVerificationUp]=useState(false);
+  const [threadUp,setThreadUp]=useState(false);
+  useEffect(()=>{const verification=(e:Event)=>setVerificationUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));const thread=(e:Event)=>setThreadUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));window.addEventListener('freeborn:verification',verification);window.addEventListener('freeborn:chat-thread',thread);return()=>{window.removeEventListener('freeborn:verification',verification);window.removeEventListener('freeborn:chat-thread',thread);};},[]);
   const seq = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
   const firstRun = useRef(true);
@@ -66,7 +69,6 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   useEffect(() => {
     const unlock = () => {
       warmAudio();
-      void requestNotifyPermission();
     };
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
@@ -197,9 +199,9 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   return (
     <>
       {/* Permission ask — once, polite, dismissible */}
-      {askOpen && !callUiUp ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[310] flex justify-center px-4">
-          <div className="pointer-events-auto animate-scale-in flex w-full max-w-[440px] items-start gap-3 rounded-2xl border border-[var(--color-gold-500)]/40 bg-[#10141f]/97 p-4 shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md">
+      {askOpen && !callUiUp && !verificationUp && !threadUp ? (
+        <div className="member-notification-ask" role="region" aria-label="Optional notifications">
+          <div className="member-notification-card">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M18 8.4a6 6 0 10-12 0c0 6.6-2.7 8.4-2.7 8.4h17.4S18 15 18 8.4z" />
@@ -209,7 +211,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
             <div className="min-w-0 flex-1">
               <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Never miss a match</p>
               <p className="mt-0.5 text-[12px] leading-4 text-[var(--color-mist)]">
-                Allow Freeborn alerts and sounds so matches, likes, and messages reach you the second they happen.
+                Choose whether to receive browser alerts and sounds for new matches, likes and messages.
               </p>
               <div className="mt-2.5 flex gap-2">
                 <button
@@ -223,7 +225,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
                     }
                     setAskOpen(false);
                   }}
-                  className="rounded-full bg-[var(--gradient-ember-warm)] px-4 py-2 text-[12px] font-black text-white transition active:scale-95"
+                  className="btn-grad"
                 >
                   Turn on alerts
                 </button>
@@ -249,7 +251,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
 
       {/* Alert banners */}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4">
-        {banners.map((b) => (
+        {!verificationUp && banners.map((b) => (
           <button
             key={b.key}
             type="button"

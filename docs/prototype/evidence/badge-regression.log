@@ -1,0 +1,678 @@
+
+> lint
+> eslint .
+
+
+/home/user/freeborn-original/src/components/auth/auth-experience.tsx
+  517:8  warning  Unused eslint-disable directive (no problems were reported from '@next/next/no-img-element')
+
+/home/user/freeborn-original/src/components/prototype/notifications.tsx
+  14:103  warning  React Hook useEffect has a missing dependency: 'resource'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 2 problems (0 errors, 2 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+
+
+> test:harness
+> esbuild scripts/trust/harness.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.harness.build.mjs --packages=external && node scripts/trust/.harness.build.mjs
+
+
+  scripts/trust/.harness.build.mjs  295.9kb
+
+⚡ Done in 39ms
+
+[1] photo hashing, computed from real decodable images
+  ok   hash is produced for a real jpeg  [3cc1a3c33e3e3ca3/0ff0f0f00f0f0ff0 640x480]
+  ok   identical bytes give an identical hash
+  ok   recompression q88->q40 survives dHash  [d=2]
+  ok   downscale 640x480->320x240 survives  [d=2]
+  ok   brightness +25% survives  [d=6]
+  ok   a different photo is far away  [d=29]
+  ok   mirroring is detected as different (we do not claim invariance we lack)  [d=49]
+  ok   a 5% crop breaks the dHash bound (stated limitation, not a pass)  [d=9]
+  ok   a 40% crop diverges further  [9 -> 24]
+  ok   exact-byte hash still separates them
+  ok   exact-byte hash catches a byte-identical re-upload
+  ok   isSamePhoto reports exact-byte identity without relying on distance
+  ok   unusable bytes -> null, never a fake hash
+  ok   isSamePhoto agrees on the recompressed pair
+  ok   isSamePhoto rejects the unrelated pair
+  ok   dHash of a flat field is all-zeros (no left<right anywhere)
+  ok   dHash of a monotonic ramp is all-ones
+  ok   aHash of a flat field is all-zeros (nothing above its own mean)
+
+[2] composite identity anchor
+  ok   anchor is 16 hex chars  [be636a7a03fd0033]
+  ok   anchor is order-independent (sorted fold)
+  ok   a different photo set yields a different anchor
+  ok   empty photo set yields no anchor (not a zero anchor)
+  ok   garbage hash is refused
+  ok   1000 distinct photo sets -> 1000 distinct anchors  [unique=1000]
+
+[3] trust score, adversarial
+  ok   a brand-new unverified account sits in the middle, not in trouble  [score=38 band=watch]
+  ok   scoring is deterministic
+  ok   verification + age lifts the score  [38 -> 79]
+  ok   even maximally bad signals stay in bounds  [score=0]
+  ok   per-factor caps hold: huge age alone = 50+8-6-6  [score=46 expected=46]
+  ok   20000 randomised signal vectors, none escape 0..100  [escaped=0]
+  ok   a single strong negative signal cannot push a good account to zero  [score=59]
+  ok   engine outage halves identity penalties, not the member's standing  [0 -> 14]
+  ok   outage is disclosed in the factors
+  ok   every applied factor is labelled
+  ok   investigative factors are withheld from the subject
+  ok   reproach factors a member should see are not withheld
+
+[4] graduated enforcement policy
+  ok   a mass-report wave never suppresses or suspends  [tier=warning]
+  ok   one reporter opens nothing  [Reports alone never act on an account (moderation.ts rule 1)]
+  ok   system+media with no verdict de-escalates to warning  [tier=warning]
+  ok   a duplicate photo is corroborated by the fact itself  [tier=suspension]
+  ok   automated traffic can carry suspension, still needs a human  [tier=suspension]
+  ok   a suppression-tier code with traffic evidence stays at suppression  [tier=suppression]
+  ok   a verified member gets a notice for a recoverable signal  [tier=warning]
+  ok   a verified member with a unanimous mismatch steps down one tier, not two  [tier=warning]
+  ok   a signal repeating inside a week is logged, not escalated
+  ok   underage suspicion escalates on the fact, without a ban  [tier=suspension]
+  ok   no combination of 720 inputs produces an automatic ban  [ban-tier outputs=0]
+  ok   every tier has a distinct reversible resolution code
+  ok   warning is acknowledgeable and has a deadline
+  ok   suppression points at verify-or-appeal
+  ok   nothing open means nothing to do
+  ok   first appeal needs no challenge
+  ok   a third appeal needs a challenge
+  ok   re-filing within 3 days needs a challenge
+
+[5] human challenge: real PoW verification, replay, expiry
+  ok   a 20-bit challenge is solvable by a client  [candidates=481553 in 783ms]
+  ok   cost is a real cost but not a phone-killer (<10s on this box)  [783ms]
+  ok   the answer verifies (string encoding, as the route receives it)
+  ok   an off-by-one answer fails
+  ok   a different nonce fails with the same answer
+  ok   a lower-difficulty solve does not satisfy the higher check  [leaks=0]
+
+[6] cost of the check (so a control that is too slow gets ignored)
+  ok   hashing one 640x480 jpeg is well under the request budget  [12.6ms per image]
+  ok   a 3000x2000 upload still hashes fast  [39ms, 1003 KB]
+  ok   phash_d is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   phash_a is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   photo_dhash is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   photo_ahash is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   anchor is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   device_hash is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   token_hash is char(16) hex, never bit(64) (schema↔code contract)  [declared=char(16)]
+  ok   phash_bytes is char(64) (full sha256 hex)  [declared=char(64)]
+  ok   hamming64 does not text-cast to bit (Postgres has no hex->bit cast)
+  ok   hamming64 does not call power(numeric) (PG numeric power is approximate)
+  ok   hamming64 does not call the non-existent popcount()
+  ok   hamming64 guards malformed input to NULL  [guard-present=true]
+  ok   app hamming64 matches the verified SQL function on all 13 vectors
+  ok   hamming64 is symmetric
+  ok   hamming64 rejects malformed input rather than guessing
+  ok   byte-identical upload matches with a useless perceptual hash
+  ok   a hashable upload with different bytes is NOT called a duplicate
+  ok   distance over random pairs stays in 0..64 and matches bit-popcount  [probe=33]
+  ok   issue route exposes the difficulty constants the suite pins  [default=18 max=20 budget=4000000]
+  ok   default difficulty is at or below the measured reliability ceiling  [18 <= 20]
+  ok   default difficulty is the level measured at zero budget failures  [default=18 (18-bit: 0/120 unsolved; 20-bit: 5/106)]
+  ok   the issue payload carries a solver budget and a re-request rule
+  ok   default difficulty solves 25/25 fresh nonces inside the stated budget  [worst 1191ms]
+  ok   difficulty above the ceiling is rejected by the ceiling rule, not silently used
+  ok   migration 2026-10-29 exists and rebuilds both live CHECKs  [constraints=2]
+  ok   every app report reason is accepted by the live CHECK (the 'safety' 23514 class)  [app=8 migration=13 missing=none]
+  ok   schema.ts, the migration and the route agree on the same reason set
+  ok   the REASONS set is exported for consumers rather than duplicated
+  ok   the report insert is guarded so a CHECK can never destroy a report again
+  ok   a rejected reason is recorded as a security event, not swallowed
+  ok   legacy reason values normalise instead of being dropped
+  ok   triage state is persisted, so 'unjudged' is distinguishable from 'unread'
+  ok   the enforcement case is opened for the reason that actually landed
+  ok   all scam rules compile and the set grew beyond the old 10  [rules=22]
+  ok   six ordinary messages produce zero false positives  [clean]
+  ok   all nine recovered scam shapes cross the warn threshold  [all caught]
+  ok   each attack is attributed to the correct category (not just flagged)  [all correct]
+  ok   a first offence warns but never escalates  [score=45]
+  ok   a repeat sender escalates, and only because of the prior flag  [45 -> 65]
+  ok   score is capped so a long message cannot accumulate into a conviction
+  ok   thresholds are exported constants, not magic numbers in the route
+  ok   the customs reading outranks the ambiguous mule rule (rule order is load-bearing)
+  ok   escalation is arithmetically reachable (the bug that made it dead code)  [45+cap => 65]
+  ok   one prior flag alone is not enough to escalate
+  ok   a verification purpose exists in schema and migration, not only in code
+  ok   the challenge route is auth-gated, cross-origin-guarded and single-live
+  ok   the token is consumed, not looked up twice, and bound to one member
+  ok   replay, expiry and absence are distinct states rather than one boolean
+  ok   the single-engine path fails closed to human review (FB-04)
+  ok   freshness is consumed BEFORE any engine call (no budget burn on a replay)  [consume@729]
+  ok   an unproven attempt is recorded and routed to a human, never silently dropped
+  ok   the outcome is written into the audit row, so it is reconstructable later
+  ok   a malformed token id cannot reach the database at all
+  ok   stage 1 reports WHY it has no answer, instead of returning a bare null
+  ok   stage 1 uses the shared bounded caller instead of a frozen hand-written retry loop
+  ok   the engine ladder enforces a real upstream attempt cap, not only a time cap
+  ok   engine failures distinguish timeouts and redact credentials before diagnostics
+  ok   the second verification engine shares the same three-attempt budget
+  ok   engine diagnostics require an operator allowlist in every environment
+  ok   the public database health response cannot expose upstream text or a stack
+  ok   an unavailable engine parks the attempt as pending rather than rejecting the member
+  ok   a model verdict we could not read stays the member's own readable outcome
+  ok   the stage-1 model id is an operator setting, since it is a property of the gateway
+  ok   the client sends the token once and clears it, so retries re-challenge
+  ok   the queue is gated fail-closed in EVERY environment, and the dev-mode exception is gone
+  ok   the queue declares and implements read-only (no POST handler)
+  ok   member accusations outrank identity-gate receipts
+  ok   age is capped so an old row cannot outrank a live safety claim
+  ok   the queue never emits a whole email address
+  ok   the queue never emits chat content or message bodies
+  ok   the queue never exposes bucket paths or media keys
+  ok   client difficulty predicate agrees with the server's on 400 random inputs x 6 tiers
+  ok   the browser tier exists and is 12 bits, and the default is still 18  [browser=12 default=18]
+  ok   a higher risk still raises difficulty, and nothing exceeds the ceiling
+  ok   a 12-bit browser challenge actually solves under WebCrypto  [tried=12410 in 651ms]
+  ok   the solution the client produced is accepted by the server's own semantics
+  ok   12-bit cost is human-acceptable (under 100k candidates, unlike the 18-bit default)  [avg-expected ~4096, saw 12410; 18-bit measured ~31s and never finished a 4M run]
+  ok   an aborted solve reports 'aborted' rather than hanging forever
+  ok   the full issue -> solve -> verify -> token round trip completes  [token=tok-fixed-0001]
+  ok   runHumanChallenge asks the server for the browser tier, not the default
+  ok   the appeal client handles 428 and retries with the token (this is what makes enforce usable)
+  ok   the challenge note is announced, not just rendered
+  ok   a failed challenge tells the member what to do instead of failing silently
+  ok   the solver yields to the event loop so the form cannot appear frozen
+  ok   [13] pose pool is non-trivial and disjoint  [n=8]
+  ok   [13] every pose has artwork that exists
+  ok   [13] poseId is stable + injectively named
+  ok   [13] poseId shape is a safe token
+  ok   [13] stage-1 prompt is fed askedPose, not poseLabel
+  ok   [13] askedPose comes from the consumed challenge row
+  ok   [13] client-fallback text is neutralised before prompting
+  ok   [13] pose is consumed with the member + token it was issued to
+  ok   [13] single-engine path cannot grant a badge without identity comparison (FB-04)
+  ok   [13] poseServed is derived from the challenge state only
+  ok   [13] every request row records which pose path decided it  [method strings=4]
+  ok   [13] failure degrades to review, never to a silent drop
+  ok   [13] pose consumption is compare-and-set on status
+  ok   [13] foreign member is indistinguishable from a mismatch
+  ok   [13] the adapter keys the active-lookup on the token
+  ok   [13] hygiene sweep excludes the caller's own token in the SQL it emits
+  ok   [13] a client claim of a different pose is recorded, not ignored
+  ok   [13] poseTag never overclaims
+  ok   [13] every pose state is surfaced in the audit string
+  ok   [13] pose TTL matches the liveness token it rides on
+  ok   [13] challenge route issues the pose before responding
+  ok   [13] a pose-assignment failure is reported, not swallowed
+  ok   [13] client adopts the server pose via a functional update
+  ok   [13] retry cannot re-roll a server pose out from under itself
+  ok   [13] degraded mode is disclosed in the UI, not silent
+  ok   [13] client uses the shared pool, so labels cannot drift
+  ok   [13] token column declared text, matching the live DB
+  ok   [13] token comparison stays text-to-text with no bogus cast
+  ok   [13b] assignment returns a real pool pose
+  ok   [13b] re-entry to the camera step keeps the SAME pose  [Show a peace sign beside your eye]
+  ok   [13b] re-entry inserts no second row
+  ok   [13b] hygiene runs AFTER the idempotent lookup, and spares the caller's row  [findActive>latest>expireOthers>insert>findActive]
+  ok   [13b] an EXPIRED pose is re-rolled rather than re-served
+  ok   [13b] lookup happens before the expiry sweep
+  ok   [13b] first consume verifies and carries the server label
+  ok   [13b] second consume cannot re-spend the pose  [pose already used]
+  ok   [13b] a lost consume race is not a verification
+  ok   [13b] foreign token reports a mismatch, not an absence
+  ok   [13b] neither foreign nor used answers reveal whether the token exists
+  ok   [13b] an unknown token is indistinguishable from a consumed one to a stranger
+  ok   [13b] expiry marks the row and refuses the badge
+  ok   [13b] expiry is inclusive (<=), so a zero-TTL pose never verifies
+  ok   [13b] a contradicting client claim is recorded with the real label
+  ok   [13b] a client that sends no claim still verifies
+  ok   [13b] a new token expires the member's older active pose
+  ok   [13b] retry is offered a different pose  [Show a peace sign beside your eye -> Touch your cheek with your index finger]
+  ok   [13b] a member with no history still gets a pose
+  ok   [13b] pick() is always given a non-empty pool
+  ok   [13b] an absent token is answered without a DB read
+  ok   [13] only the live CHECK's three states are ever written
+  ok   [14] a plain Chrome desktop with matching headers fires nothing
+  ok   [14] the result is advisory, in the type and in the value
+  ok   [14] an ordinary browser persists the literal 'none', not an empty row
+  ok   [14] no observations at all silences every check
+  ok   [14] no server headers silences every check
+  ok   [14] a wildcard Accept-Language is read as no preference, not as a foreign one
+  ok   [14] a lone '*' is the same no-preference signal
+  ok   [14] a clock outside every US zone with a US-English-only list is a named contradiction  [tzVsAcceptLanguage]
+  ok   [14] a mixed language list silences it (traveller, expat, developer)
+  ok   [14] a US offset with the same list is not a contradiction at all
+  ok   [14] the persisted form of the contradiction carries the rule name and not the clock
+  ok   [14] the browser's own primary language must appear in the list its edge sent  [languageNotInAcceptLanguage]
+  ok   [14] region-only differences are not a contradiction (en-GB vs en-US,en)
+  ok   [14] a quoted edge header does not contradict the page's unquoted claim
+  ok   [14] page and edge disagreeing about the platform is a named contradiction  [platformContradictsUserAgent]
+  ok   [14] a desktop UA carries no platform token, so 'Windows' is unmatched rather than false
+  ok   [14] iOS reports 'iOS' to the page and 'iPhone' in the UA: same family, no signal
+  ok   [14] an Android UA claimed as Windows is caught
+  ok   [14] a Chrome-shaped UA with no Client Hints at all is the scripted-client tell  [chromeWithoutClientHints]
+  ok   [14] Safari and Firefox send no Client Hints and are never punished for that
+  ok   [14] a client that never claims to be a browser contradicts nothing, so nothing fires  [silence rather than suspicion is what keeps absence honest]
+  ok   [14] the whole fixture matrix emits no rule name outside the four declared ones  [1536 combinations, names seen: languageNotInAcceptLanguage|platformContradictsUserAgent|tzVsAcceptLanguage]
+  ok   [14] advisory:true is not conditional on anything, across every combination
+  ok   [14] the evaluator is pure: repeated calls agree, and nothing is memoised on the input
+  ok   [14] the caller's observation object is not mutated
+  ok   [14] every fired rule carries prose a reviewer can read
+  ok   [14] several contradictions at once are all named, comma-joined, and still bounded  [tzVsAcceptLanguage,languageNotInAcceptLanguage,platformContradictsUserAgent,chromeWithoutClientHints]
+  ok   [14] the member is told the two things they own and not the two that teach evasion
+  ok   [14] NEVER_COLLECTED names the fingerprinting surfaces this module will not read
+  ok   [14] the browser client touches none of the fingerprinting surfaces
+  ok   [14] the client stores nothing, so nothing persists between sessions
+  ok   [14] the client sets no header of its own — the compared values must come from the browser
+  ok   [14] the client reads exactly the four coarse facts it documents  [5 navigator reads]
+  ok   [14] the evaluator itself imports nothing (no fs, no net, no storage)  [imports in the evaluator: 0]
+  ok   [14] a client that throws is answered with silence, not with a failure
+  ok   [14] a favourable model verdict alone cannot approve: both proofs are in the condition
+  ok   [14] freshness is proven from the consumed token's state, not from a client field
+  ok   [14] the legacy hatch relaxes POSE provenance only
+  ok   [14] the operator flag is read in one place and applied in one place  [code-level uses: 1]
+  ok   [14] the hatch has no approval path of its own: the gate is a veto, not a switch
+  ok   [14] no engine branch may waive freshness — there is no 'no-freshness' grant marker at all
+  ok   [14] an unproven-pose grant is written where a reviewer can query it
+  ok   [14] the reason and the marker come from ONE variable, so the row cannot contradict itself
+  ok   [14] the hatch says what it did on the approval record
+  ok   [14] the operator's escape hatch is one env var and defaults to enforcing
+  ok   [14] the single-engine path is held for review, never approved on pose alone (FB-04)
+  ok   [14] a configured-but-refused second engine is reported, not hidden as 'single'
+  ok   [14] stage 2 is asked about the SERVER's pose, never the client's string
+  ok   [14] the observation set reaches the audit row only through persistableDetail
+  ok   [14] every attempt is recorded, clean ones included, and never gated on a hit
+  ok   [14] nothing in the decision path reads the integrity result
+  ok   [14] the integrity write cannot fail a member's verification
+  ok   [14] the event kind is a fixed string, so the audit query is stable
+  ok   [14] one LIVE challenge per (email, purpose) — a partial index, not a status-keyed unique
+  ok   [14] no unique index on human_challenges still includes status
+  ok   [14] the shipped migration is idempotent in both directions
+  ok   [14] the migration removes BOTH shapes (constraint in production, index under drizzle push)
+  ok   [14] the migration keeps history rather than deleting the member's rows
+  ok   [14] the index keeps its name, so production swaps shape and not identity
+  ok   [15] an /api/chat/media path reaches the browser unchanged
+  ok   [15] a bucket path never falls back to the production project when configuration is missing
+  ok   [15] a bucket path is prefixed with the configured isolated project URL
+  ok   [15] no Supabase client retains an inlined production URL/key fallback
+  ok   [15] a mirrored /uploads path resolves as-is, so it can only ever 404
+  ok   [15] no path yields no URL, never a guessed one
+  ok   [15] the media route authenticates before consulting any branch
+  ok   [15] the profile-photo lookup is the lazy last resort, not a per-request join  [gate=8788 lookup=9801]
+  ok   [15] the route holds no authorization logic of its own  [route must delegate to decideMediaAccess]
+  ok   [15] there is exactly one deny statement, and it is the delegated one
+  ok   [15] it is keyed on the exact path the photo row publishes
+  ok   [15] the branch mirrors RLS-1 (active + discoverable + stage)
+  ok   [15] the policy it imitates still says the same three things
+  ok   [15] denial is still an indistinguishable 404 with no reason given
+  ok   [15] served media stays uncacheable and un-sniffable
+  ok   [15] media rule: sender opens their own unlinked (legacy) blob  [allow=true reason=grant:legacy-sender]
+  ok   [15] media rule: recipient opens a linked blob  [allow=true reason=grant:participant]
+  ok   [15] media rule: sender opens a linked blob they are in  [allow=true reason=grant:participant]
+  ok   [15] media rule: stranger opens a linked blob  [allow=false reason=deny:not-participant]
+  ok   [15] media rule: stranger opens an unlinked blob  [allow=false reason=deny:no-relationship]
+  ok   [15] media rule: anonymous opens a blob its own rules would otherwise grant  [allow=false reason=deny:anonymous]
+  ok   [15] media rule: sender is REFUSED a linked blob they no longer participate in — the sender fallback is legacy-only  [allow=false reason=deny:not-participant]
+  ok   [15] media rule: eligible viewer opens a published profile photo  [allow=true reason=grant:published-profile-photo]
+  ok   [15] media rule: owner opens their own published profile photo  [allow=true reason=grant:legacy-sender]
+  ok   [15] media rule: a stranger is refused an incognito member's published photo  [allow=false reason=deny:incognito]
+  ok   [15] media rule: a member the incognito owner liked still opens the published photo  [allow=true reason=grant:published-profile-photo]
+  ok   [15] media rule: an incognito owner opens their own published photo (legacy sender fires first)  [allow=true reason=grant:legacy-sender]
+  ok   [15] media rule: a conversation participant opens an incognito member's blob (rule 1 untouched by incognito)  [allow=true reason=grant:participant]
+  ok   [15] media rule: no row to decide on  [allow=false reason=deny:missing-row]
+  ok   [15] media rule: a null sender id alone must not read as 'no relationship, allow'  [allow=false reason=deny:not-participant]
+  ok   [15] every denial names a deny: reason, every grant a grant: reason
+  ok   [15] the rule is monotone over the full fact space  [384 combinations]
+  ok   [15] the lazy lookup gate cannot skip a grant the rule would have made
+  ok   [15] no combination whatsoever grants media to an anonymous caller  [96/96 anonymous cases denied]
+  ok   [15] before the lookup, a grant needs a real relationship (minority of the space)  [grants=104/384]
+  ok   [15] deleting a photo deletes its object, addressed from the row
+  ok   [15] the request body can never name an object to delete
+  ok   [15] only bucket-relative paths are sent to storage
+  ok   [15] a failed object removal is logged, not reported as a failed delete
+  ok   [15] account deletion enqueues durable cleanup for both media buckets
+  ok   [15] the outbox captures owned paths before the rows that name the objects are dropped
+  ok   [15] enumerated paths are filtered to owned bucket shapes, never taken from the request body
+  ok   [15] a storage failure cannot turn into a successful deletion response
+  ok   [15] the unremovable-path wording is preserved verbatim
+  ok   [15] the disk mirror is gone from the onboarding store
+  ok   [15] a storage failure falls back to Postgres bytes at a served path
+  ok   [15] onboarding has one centralized Postgres fallback and no duplicate catch mirror
+  ok   [15] onboarding write failures surface and photo_count stays trigger-owned
+  ok   [15] replace-all onboarding removes old objects before deleting old rows
+  ok   [15] the removal list is filtered to bucket paths only
+  ok   [15] an upload failure is named in the log instead of swallowed
+  ok   [15] the backfill refuses media referenced from two conversations
+  ok   [15] the backfill can only link a conversation that still exists
+  ok   [15] the backfill is idempotent
+  ok   [15] the migration deletes no member data
+  ok   [15] the public bucket now has a measured mime and size bound
+  ok   [16] a non-JSON body parses to null instead of throwing  [an HTML error page must not raise SyntaxError, and an empty body is not an error]
+  ok   [16] real JSON still parses
+  ok   [16] the server's own message wins over the generic one
+  ok   [16] an unparseable 502 still yields a sentence a person can read  [The service is unreachable right now.]
+  ok   [16] no status may fall through to an empty message  [{"status":418,"message":"Something went wrong."}]
+  ok   [16] only 429 counts as a throttle (503 has no window to honour)
+  ok   [16] Retry-After wins over the local guess, and is clamped to a survivable wait  [a hostile or buggy header cannot park a member's screen for an hour]
+  ok   [16] a 429 with no header gets the measured 60s floor  [mechanism observed in Tinder's client as 429===t&&(o.all=s+6e4)]
+  ok   [16] a 5xx backs off exponentially from the base and respects the cap
+  ok   [16] a failing GET is retried to the bound, then the response is returned not thrown  [calls=3 attempts=3 sleeps=2]
+  ok   [16] a POST is never retried — a duplicate like, report or message is the worse bug  [post calls=1]
+  ok   [16] a 400 is a decision, not a hiccup: no retry  [400 calls=1]
+  ok   [16] the first success stops the loop  [calls=3]
+  ok   [16] a network error is retried and the original error still reaches the caller  [boom=2]
+  ok   [16] the retry cache-buster re-requests same-origin paths and refuses foreign ones  [a signed URL must not be rewritten and an inline preview is already in memory]
+  ok   [16] the deck photo renders through the resilient component, not a bare <img>
+  ok   [16] chat avatars render through it too
+  ok   [16] the ICE fetch no longer parses unguardedly  [an HTML 502 here used to be caught and silently downgrade every call to STUN-only]
+  ok   [16] hover and pressed are overlay layers, so label contrast cannot drift per state  [Bumble's mechanism, read off its stylesheet — not its appearance]
+  ok   [16] hover styling is capability-gated, so it cannot stick after a tap  [as Tinder's stylesheet does]
+  ok   [16] focus is explicit and motion is respected
+  ok   [16] the measured type scale lives in @theme so the utilities exist  [13/15/17px + 16px radius + 44px control floor, from bumble.7050c3776fb2414d.css]
+  ok   [16] a loading button is disabled and announced, not merely styled
+  ok   [24] the CTA visual rules never reach a legacy selector (the collision the headless pass found)  [7 visual rules checked]
+  ok   [16] the new contract owns a distinct class name, so neither system restyles the other  [behaviour is shared on purpose; the VISUAL non-overlap is pinned directly above]
+  ok   [16] the pre-existing pill system is still defined after the rename
+  ok   [16] a new src resets render state in-render, not in an effect  [an effect would paint one frame of the previous photo's state onto the new src]
+  ok   [16] a failed photo is said out loud and offers a way out
+  ok   [16] the failure state fits inside the caller's tile instead of overflowing it  [a real render clipped 'again.' mid-word; a truncated error message is still a hidden error]
+  ok   [16] compact mode drops the sentence a 44px circle cannot carry, and keeps the label
+  ok   [17] a non-participant is denied every action on every status
+  ok   [17] neither member of a severed pair can ever send again
+  ok   [17] an active participant can send
+  ok   [17] a severed pair can never be re-opened as a match, by either side
+  ok   [17] an existing active pair is not re-creatable either (no duplicate thread rows)
+  ok   [17] the actor loses the thread; the recipient keeps it read-only
+  ok   [17] the same asymmetry drives the chat list, so nothing is destroyed to be hidden
+  ok   [17] a blocked thread is hidden from the blocker too (they chose the severance)
+  ok   [17] an ended thread never nags with an unread badge, but that is display-only
+  ok   [17] both sides keep opening attachments they were party to — the report path needs the bytes
+  ok   [17] a data export is unaffected by severance (it is the member's own record)
+  ok   [17] a missing row denies everything, including 'read media'
+  ok   [17] archived stays readable and writable (it is a soft hide, not an end)
+  ok   [17] every decision carries a machine-readable reason (no silent denies in the API)
+  ok   [17] being the member who ended it never unlocks extra access
+  ok   [17] the reason vocabulary is closed, and empty/absent stays legal
+  ok   [17] an ended thread still explains itself in one sentence, and names the report path
+  ok   [17] undo may only delete the match row while the thread is empty
+  ok   [17] unmatch no longer deletes the match row  [the delete is what cascaded the conversation away]
+  ok   [17] unmatch requires an explicit confirmation and validates the reason
+  ok   [17] unmatch is idempotent and race-safe (only an active row may be severed)
+  ok   [17] blocking preserves the thread instead of cascading the evidence away  [a block is exactly when the report needs the history to survive]
+  ok   [17] chat/start cannot hand back a severed matchId
+  ok   [17] read and send are decided by two different actions on one choke point
+  ok   [17] wiping a whole conversation now needs confirmation and refuses a severed thread
+  ok   [17] a reaction is a write, so it requires an open thread
+  ok   [17] a second mutual like cannot resurrect a severed pair
+  ok   [17] undo detaches when the thread has messages, deletes only when empty
+  ok   [17] a severed match no longer grants incognito visibility
+  ok   [17] media authorisation stays participation-only and deliberately ignores status  [the read of a former conversation's bytes is the point of retaining the rows]
+  ok   [17] the migration is additive and destroys nothing
+  ok   [17] the status vocabulary is widened, not silently replaced
+  ok   [17] an unmatched row must carry provenance
+  ok   [17] the cascade foreign keys are kept on purpose (account deletion still purges)
+  ok   [17] it records the exact production project it was applied to, and carries verification queries
+  ok   [17] the schema and the migration agree on the same vocabulary
+
+[18] chat sync — the reconnect + merge + poll-policy core, every combination run
+  ok   [18] 45 phase×event combos: every result is a real phase (no undefined, no invented state)
+  ok   [18] a disposed channel is never revived by a late event
+  ok   [18] only a real SUBSCRIBED callback may claim the channel is live  [otherwise a flapping network shows 'connected' and the widened heartbeat drops messages]
+  ok   [18] 60 poll contexts: never silent while visible, online and healthy
+  ok   [18] the timer stops only when nothing could render (hidden tab or offline)
+  ok   [18] a healthy realtime path widens polling instead of replacing it
+  ok   [18] no context schedules tighter than the recovery interval
+  ok   [18] joined→heartbeat, errored→tight-but-not-storming, failure→recovery
+  ok   [18] a failure counter resets on the first good fetch
+  ok   [18] a notice fetches only when the page can use it, and never after teardown
+  ok   [18] reconnect waits are bounded, doubling from the floor
+  ok   [18] jitter is added and capped by jitterMs, and never negative (the Hinge stampede fix)
+  ok   [18] any rand() an integration could hand us stays finite and inside the bounded window  [a NaN delay is setTimeout(fn, NaN) = fire now, forever]
+  ok   [18] a nonsense attempt number cannot escape the cap either
+  ok   [18] retrying gives up at a fixed ceiling — polling is the guarantee, not the socket
+  ok   [18] the server list is authoritative: its order and its ids, duplicates dropped, echoes appended
+  ok   [18] a duplicate id from any source renders once, never twice
+  ok   [18] an un-acked echo is mine, unread, pending, and stamped with its own clock
+  ok   [18] an ack by tempId retires exactly the echo it answers
+  ok   [18] an ack by server id retires the echo it was attached to
+  ok   [18] two identical messages retire against two server rows — one-to-one, not 'any match'  [a naive .some() over server rows deletes the second 'ok' the member never got an answer for]
+  ok   [18] a refused send is never garbage-collected by the sync loop
+  ok   [18] an echo older than the TTL without an ack stops being shown (the server copy wins)
+  ok   [18] a server row for a DIFFERENT body never retires an echo
+  ok   [18] a send from the other member never retires mine
+  ok   [18] ackPending binds the stored id, markPendingFailed keeps the body and counts attempts
+  ok   [18] the outbox is bounded and keeps the newest, so a dead connection cannot grow it forever
+  ok   [18] gap detection: new rows, a shrinking thread, and a notice that produced nothing are three different answers
+  ok   [18] a signal older than the newest message we hold is stale, and unparseable dates are not
+  ok   [18] channel and filter names are derived, never hand-typed at call sites
+  ok   [18] the blind 2.5 s interval is gone, replaced by the bus + adaptive timer
+  ok   [18] the thread fetch parses tolerantly and counts a failed fetch as a failure  [scoped to load(): uploadMedia parses its own JSON, which is not this pin's business]
+  ok   [18] a refused send is surfaced and retryable instead of vanishing on the next poll
+  ok   [18] POST stores the signal AFTER the message, so a client that reacts cannot read a half-written thread
+  ok   [18] the signal is best-effort: its failure is caught and the send still succeeds
+  ok   [18] POST returns the stored id so the echo retires by identity
+  ok   [18] unmatching also signals, so the other member's open thread updates now and not on a poll
+  ok   [18] the signal table is RLS-forced with ONE read policy and no write policy
+  ok   [18] the read policy is participation-scoped and status-blind on purpose
+  ok   [18] it is added to the realtime publication only if not already there, and says what was applied
+  ok   [18] the signal carries no message text, by construction
+
+[19] every class a shipped component emits must exist in the stylesheet
+  ok   [19] no component emits a fb-cta/fb-photo class the stylesheet does not define
+  ok   [19] and no fb-cta rule ships that no component emits (drift cuts both ways)
+  ok   [19] regression: the label span carries the renamed class, not the pre-rename one  [button.tsx shipped emitting fb-btn__label while the CSS defined .fb-cta__label, so the loading dim and the label's inline-flex layout were dead rules]
+  ok   [19] the pre-existing pill system is still defined, untouched, and not reused by the kit
+
+[20] unmatch/delete confirmation: the destructive flag must cost the member a decision
+  ok   [20] the overflow menu no longer fires either destructive action itself
+  ok   [20] destructive:true exists on exactly the two paths the API demands it on  [fewer = the route refuses with 409; more = something is auto-confirming again]
+  ok   [20] unmatch is driven by the sheet's confirm, and carries the optional reason
+  ok   [20] the sheet states each decided consequence in its own words
+  ok   [20] its reason chips render from the shared list, not a copy of it
+  ok   [20] a behavioural reason offers the report path, because ending a thread is not moderation
+  ok   [20] cancel is the focused control and Escape closes it; the danger action is never the default
+  ok   [20] the sheet is a real dialog to a screen reader
+  ok   [20] and it runs on the shared Button contract, not a hand-rolled class string
+  ok   [20] the sheet traps Tab, so the page behind it cannot be activated unseen
+  ok   [20] the dialog does not hand-roll focus utilities over the app-wide :focus-visible rule
+  ok   [20] the reason is stored per ACT, so a wipe can never be confirmed with an unmatch's reason
+
+[21] the erasure path covers what the schema cannot cascade
+  ok   [21] moderation_actions is deleted by BOTH its member identifiers, because it has no FK to cascade
+  ok   [21] the sender-only chat_media blob is deleted explicitly (no FK covers match_id NULL rows)
+  ok   [21] every table the 2026-10-30 FK audit named is in the delete list
+  ok   [21] auth erasure goes LAST through a pinned service-role-only DEFINER bridge, not direct app-role auth grants
+  ok   [21] active sign-in counts use the same least-privilege auth bridge
+  ok   [21] deletion and the durable storage outbox share one transaction, with the outbox written before member rows disappear
+  ok   [21] the API never reports permanent deletion while cleanup is outstanding
+
+[22] policy refusals are permanent; transport failures are not
+  ok   [22] classifySendFailure(null) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(0) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(NaN) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(400) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(401) === "session"  [session]
+  ok   [22] classifySendFailure(403) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(404) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(409) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(413) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(422) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(429) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(431) === "permanent"  [permanent]
+  ok   [22] classifySendFailure(500) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(502) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(503) === "retryable"  [retryable]
+  ok   [22] classifySendFailure(599) === "retryable"  [retryable]
+  ok   [22] over all 500 statuses: 4xx policy refusals never offer retry, 5xx/transport always do
+  ok   [22] only 401 is given its own kind — a silent refresh can rescue it, a 403 cannot
+  ok   [22] retry is offered for exactly the retryable kinds
+  ok   [22] and the UI path uses that predicate rather than re-deriving the status code
+  ok   [22] GET tells the client whether THIS member may write, decided by decideMatchAccess
+  ok   [22] the thread facts are derived from the row the view permission already returned (no second query)
+  ok   [22] the route does not hand-roll lifecycle rules the table already owns
+  ok   [22] writability is re-read on every fetch, so a thread that ends while it is open updates
+  ok   [22] a read-only thread replaces the composer with a real component, not a field that will fail
+  ok   [22] the notice never blames the connection, because this is a decision and not a failure
+  ok   [22] the write choke point enforces the verdict BEFORE the request, not after it
+  ok   [22] the guard marks the bubble blocked and returns false — it never reports success
+  ok   [22] deliver depends on threadAccess, so the verdict cannot go stale in the closure
+  ok   [22] a policy-declined bubble stays visible WITHOUT a retry affordance
+  ok   [22] a refusal on policy grounds also closes the composer, so it cannot be tried again
+  ok   [22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked
+
+[23] media access delegates to the lifecycle table, and every rule in it is reachable
+  ok   [23] the media route asks the table for `read_media` instead of answering with a bare membership boolean
+  ok   [23] and it loads the facts the table needs (status + who severed it), not just an id
+  ok   [23] no independent membership-to-grant shortcut survives in the route (that was the second authority)
+  ok   [23] every MatchAction is either requested by a caller or explicitly excused
+  ok   [23] and every excuse is justified at the table, not only in this test
+  ok   [23] sensitivity: the same all-states predicate is false for count_unread, so it can fail  [unreadVaries=true readMediaAllHere=true]
+  ok   [23] read_media is exercised through the media route itself, not merely defined
+
+[24] design system — the shared control contract, the migration ceiling
+  ok   [24] .btn-ember takes the touch floor from the token instead of from padding
+  ok   [24] .btn-ember:focus-visible has an explicit ring, matching .fb-cta
+  ok   [24] .btn-ember:disabled is visibly inert
+  ok   [24] .btn-ghost takes the touch floor from the token instead of from padding
+  ok   [24] .btn-ghost:focus-visible has an explicit ring, matching .fb-cta
+  ok   [24] .btn-ghost:disabled is visibly inert
+  ok   [24] .magic-button takes the touch floor from the token instead of from padding
+  ok   [24] .magic-button:focus-visible has an explicit ring, matching .fb-cta
+  ok   [24] .magic-button:disabled is visibly inert
+  ok   [24] .fb-btn keeps its own 48px height — a floor raises, it does not reskin
+  ok   [24] the 40px small pill is raised to the 44px floor by shedding padding, not height
+  ok   [24] reduced motion neutralises the legacy lift/shine, which had no guard
+  ok   [24] coarse pointers get transform:none on every legacy hover rule
+  ok   [24] every Button variant resolves to a CSS rule that exists  [.fb-cta--primary .fb-cta--brand .fb-cta--secondary .fb-cta--ghost .fb-cta--danger .fb-cta--quiet .fb-cta--sm .fb-cta--md .fb-cta--lg]
+  ok   [24] no orphan .fb-cta--* class the component cannot reach  [.fb-cta--primary .fb-cta--block .fb-cta--sm .fb-cta--md .fb-cta--lg .fb-cta--secondary .fb-cta--ghost .fb-cta--danger .fb-cta--quiet .fb-cta--loading .fb-cta--brand]
+  ok   [24] brand pairs the ember gradient with a dark label (white on ember measured ~3.3:1, under AA at 13px)
+  ok   [24] IconButton requires aria-label at the type level
+  ok   [24] IconButton md is the 44px floor and xs keeps a 44px hit area while painting 28px
+  ok   [24] Chip takes the touch floor at md and buys it back as a hit area at sm
+  ok   [24] Chip must state its own pressed value (the reason-picker dialog could not)
+  ok   [24] loading and error states are announced, not merely coloured
+  ok   [24] the settings surface has no Tailwind red left outside the danger token
+  ok   [24] account deletion routes through the shared danger variant and reports progress
+  ok   [24] the raw-button scanner counts a primitive and not a migrated consumer
+  ok   [24] raw <button> count is at or below the recorded ceiling (may only shrink)  [count=178 ceiling=191 files=105]
+  ok   [24] settings-view is below its own recorded baseline  [count=19 baseline=24 ceiling=19]
+  ok   [25] profile photo refs reject arbitrary URLs and traversal (FB-03)
+  ok   [25] bucket-relative and published chat-media refs are the only accepted shapes (FB-03)
+  ok   [25] chat-media photo fetches stay on the configured app origin (FB-03)
+  ok   [25] image fetch enforces the byte cap while streaming (FB-03)
+  ok   [25] a bounded image fetch still succeeds
+  ok   [25] safeNextPath rejects scheme-relative and backslash redirects (FB-08)
+  ok   [25] conversation start requires mutual likes and checks blocks (FB-02)
+  ok   [25] message and media sends check blocks before writing (FB-02)
+  ok   [25] migration adds the age and photo-path backstops (FB-05/FB-03)
+  ok   [25] migration removes broad profile reads and guards privileged writes (FB-01)
+  ok   [25] the repository pins the production Node major (FB-20)
+  ok   [26] TURN URLs accept only turn/turns without embedded credentials
+  ok   [26] TURN TTL is bounded and defaults to five minutes
+  ok   [26] TURN REST credentials match an independently computed HMAC-SHA1 vector
+  ok   [26] missing or weak TURN configuration never invents a relay
+  ok   [26] call channels are private and refresh Realtime auth before join
+  ok   [26] ICE issuance is authenticated and scoped to a live participant session
+  ok   [26] the server, not a client topic, mints call authority
+  ok   [26] incoming rings are re-read from the server before display
+  ok   [26] call media permission comes after server session authorization
+  ok   [26] INSERT-only callers publish rings without a SELECT subscription
+  ok   [26] migration adds participant-scoped Realtime policies without altering realtime RLS ownership
+  ok   [26] call session table is service-only and cascades with member/match deletion
+  ok   [26] participants get read-only session metadata; writes stay service-only
+
+[27] account deletion is durable, owned-path scoped, and never falsely complete
+  ok   [27] owned-path validation accepts only the member folder and the legacy member-named selfie
+  ok   [27] queue tables are additive, RLS-forced, and invisible to client roles
+  ok   [27] privileged queue functions pin search_path and are not executable by clients
+  ok   [27] leases, backoff, exhaustion and operator requeue are all present
+  ok   [27] the worker uses injected Supabase server credentials and revalidates every explicit path
+  ok   [27] scheduling uses pg_cron/pg_net/Vault and a dedicated caller secret, not the service-role key
+  ok   [27] the UI keeps deletion pending until the worker proves completion
+  ok   [28] every FB-15 migration function pins search_path  [12 vs 12]
+  ok   [28] FB-15 queue/audit are RLS-forced and service-role only
+  ok   [28] no FB-15 function is granted to anon/authenticated
+  ok   [28] audit table has no image, path, URL or account-id column (metadata only)
+  ok   [28] queue rejects paths the account does not own (vsrj_path_owned)
+  ok   [28] pending reviews are held with no age-based expiry (only approved/pending/withdrawn rules exist)
+  ok   [28] scanner never lists work behind completed rows (anti-join before LIMIT)
+  ok   [28] held work is never leased (claim excludes status held)
+  ok   [28] worker never logs paths or image data (logs job id + fixed code only)
+  ok   [28] worker removes only the captured object id and never a newer object at a reused path
+  ok   [28] worker checks the cron secret through Vault-backed SQL and uses the injected server credential
+  ok   [28] scheduling uses pg_cron/pg_net/Vault with a dedicated secret, not the service-role key
+  ok   [28] FB-15 worker function is deployed with verify_jwt=false (cron-secret gated)
+  ok   [28] verification routes release superseded selfies through the durable queue before a new attempt
+  ok   [28] routes no longer null selfies with a bare update that bypasses the queue
+  ok   [28] onboarding uploads use unique, non-overwriting selfie paths
+  ok   [28] consent withdrawal: authenticated, same-origin, calls the queue function
+  ok   [28] settings offers withdraw in the verified identity row and reports queued cleanup honestly
+  ok   [28] privacy clause 10 no longer contains the conflicting 30-day pending sentence
+  ok   [28] FB-15 local regression and worker tests are wired into package.json
+
+[29] private chat broadcast and bounded fallback
+  ok   [29] REST nudge uses the member token on the private match topic and removes its channel
+  ok   [29] payload is only a content-free fetch hint and delivery has a bounded timeout
+  ok   [29] a failed accelerator propagates to the best-effort wrapper and still cleans up
+  ok   [29] browser chat refreshes auth, joins privately and rejects stale async connects
+  ok   [29] the relay can find its channel by the wire topic supabase-js actually stores
+  ok   [29] that lookup never mistakes another channel for this conversation
+  ok   [29] the relay looks channels up with that predicate, not by bare-topic equality
+  ok   [29] message, clear and sever writes schedule a server nudge after their durable mutations
+  ok   [29] a healthy or missed socket cannot hide a message for the old 45-second heartbeat
+  ok   [29] migration limits private chat receive/send to participants without altering Realtime ownership
+  ok   [30] selfies go to the private bucket, under the member's own folder, never overwriting
+  ok   [30] the accepted shapes are exactly the bucket's MIME bound
+  ok   [30] a production runtime can never fall back to inline bytes
+  ok   [30] neither verification route writes the data URL into the column any more
+  ok   [30] the upload happens once per attempt and only for an attempt that keeps the image
+  ok   [30] an unstorable selfie fails the attempt instead of landing in the database
+  ok   [30] the seal is never lit by an approval whose row was not written
+  ok   [30] superseded selfies are still released before the new attempt is stored
+  ok   [30] the identity gate reads the stored selfie back and degrades when it cannot
+  ok   [30] one selfie, one home: the columns are mutually exclusive in the schema and in SQL
+  ok   [30] a request reference must be an object inside the member's own folder
+  ok   [30] the mover's commit point re-proves the digest and the object inside the database
+  ok   [30] the move preserves history: only the two selfie columns are ever assigned
+  ok   [30] the move swaps both homes in one statement, so a row is never without one
+  ok   [30] a referenced selfie can never be swept as an orphan
+  ok   [30] retention enqueues Storage-backed request selfies under their own asset key
+  ok   [30] completion clears the reference only for the exact path proven absent
+  ok   [30] the move audit is metadata-only, RLS-forced and service-role only
+  ok   [30] the migration is fail-closed and append-only
+  ok   [30] account erasure names selfie objects referenced by verification attempts
+  ok   [30] the one-time mover is dry-run by default, refuses Production without an ack, and needs a service key
+  ok   [30] the mover never prints an image, a path or an account id
+  ok   [30] the move audit's lifetime is tied to the request row by an ON DELETE CASCADE foreign key
+  ok   [30] the cascade fix refuses to run over an audit row that already outlives its request
+  ok   [30] the cascade fix re-proves the audit is still metadata-only, service-role-only and RLS-forced
+  ok   [30] the cascade fix is fail-closed and append-only
+  ok   [31] the share card is the real asset at the declared size, wired into og AND twitter
+  ok   [31] every indexable path carries a truthful lastmod and the sitemap serves it, not build time
+  ok   [31] every indexable subpage owns its og:url and carries page-level structured data
+  ok   [31] the comparison page carries dated competitor facts and zero fabricated trust markup
+  ok   [33] every guide carries ogCard, the shared shell, a codebase-checked date and zero banned claim vocabulary
+  ok   [31] member and auth surfaces stay out of search engines while crawlers stay invited to public pages
+  ok   [32] exactly one IndexNow key file, content equals its name
+  ok   [32] robots.txt invites every major search engine bot by name
+  ok   [32] Bing Webmaster ownership meta ships verbatim on every page
+  ok   [32] the IndexNow submit script posts to the protocol endpoint off INDEXABLE_PATHS
+  ok   [34] the gate is threshold 5, region-allowlisted (NG excluded), and pure
+  ok   [34] published counts are bands, never exact numbers
+  ok   [34] QA/test emails can never inflate a public city count
+  ok   [34] route and sitemap share the one gate; misses are notFound + noindex
+  ok   [35] the metered builder yields the five standard endpoints and is off without env
+  ok   [35] the metered grant is served only after auth and a live-call check, named honestly
+  ok   [35] no credential-shaped secret exists in src/ or the harness (relay creds are env-only)
+  ok   [36] the typing indicator is driven by composer changes, not keydown
+  ok   [36] silence becomes an explicit typing-stop within 900 ms
+  ok   [36] the receiver clears on typing-stop at once, and on a message landing
+  ok   [36] the fallback sweep is 250 ms, not the old 600
+  ok   [36] a caller cancelling a ring tells the callee's ring channel at once
+  ok   [36] giving up at the ring timeout cancels the callee's ring too
+  ok   [36] end-of-call copy names the actor on both sides
+  ok   [36] the callee's ring screen handles ring-cancel and re-checks session liveness
+  ok   [36] the 45 s auto-miss stays as the last fallback, not the first response
+
+ALL PASS  (619/619 assertions, 0 failed)
+
+> check:secrets
+> node scripts/check-secrets.mjs
+
+secret scan OK — 547 tracked files scanned

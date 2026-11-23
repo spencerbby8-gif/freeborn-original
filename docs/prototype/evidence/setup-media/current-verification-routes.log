@@ -1,0 +1,101 @@
+
+> test:pose
+> node scripts/trust/pose-run.mjs
+
+built pose-e2e bundle (162 kB) + gateway double
+vision double listening on http://127.0.0.1:40013
+  main          ok   the vision double answers in the shape the product parses
+  main          ok   the member's profile photograph is fetchable over HTTP
+  main          ok   an unauthenticated check is refused before anything is written
+  main          ok   cross-origin issue is rejected and same-origin accepted (CSRF)
+  main          ok   issuing mints a single-use token bound to a pose row we wrote
+  main          ok   re-issuing supersedes the previous attempt instead of erroring (23505 regression)
+  main          ok   an honest attempt is approved, sealed, and recorded with both proofs
+  main          ok   stage 1 was asked about the pose the SERVER issued
+  main          ok   stage 2 was asked about the same server pose, not the client's string
+  main          ok   no photograph bytes or storage URL ever entered a prompt
+  main          ok   a clean browser is recorded as 'none', so absence is evidence too
+  main          ok   at most one undecided selfie is ever held for a member
+  main          ok   retention: a refused attempt never stores the face it refused
+  main        [main] ALL PASS (13/13 passed, 0 failed, 0 skipped after the first failure)
+  PASS  main         67.4s   13/13 pass, 0 fail, 0 skip
+  adversarial   ok   no token at all: recorded, reviewed, never self-served
+  adversarial   ok   a spent token cannot be redeemed a second time (the whole point of single-use)
+  adversarial   ok   a token issued to somebody else is refused with the same shape as a replay
+  adversarial   ok   a client that claims a different pose is graded against OURS and caught
+  adversarial   ok   prompt-injection through poseLabel cannot reach the engines
+  adversarial   ok   an expired pose is refused even with a fresh token
+  adversarial   ok   contradictory browser observations are recorded and change no outcome
+  adversarial   ok   a script with a Chrome UA and no Client Hints is flagged, not banned
+  adversarial   ok   an unknown field in the browser object cannot invent a rule
+  adversarial   ok   a malformed selfie is a 400 before any engine call or write
+  adversarial   ok   an over-long poseLabel is refused at the door
+  adversarial   ok   a non-JSON body is a 400, never a 500
+  adversarial   ok   a stage-2 verdict of 'not confidently positive' cannot be talked into an approval
+  adversarial   ok   an unreadable stage-2 verdict degrades honestly to review
+  adversarial   ok   a photo of a photo (no live person) is rejected and the face is discarded
+  adversarial [adversarial] ALL PASS (15/15 passed, 0 failed, 0 skipped after the first failure)
+  PASS  adversarial  221.3s   15/15 pass, 0 fail, 0 skip
+  ratelimit     ok   attempt 1 of the hourly budget is accepted
+  ratelimit     ok   attempt 2 of the hourly budget is accepted
+  ratelimit     ok   attempt 3 of the hourly budget is accepted
+  ratelimit     ok   attempt 4 of the hourly budget is accepted
+  ratelimit     ok   attempt 5 of the hourly budget is accepted
+  ratelimit     ok   attempt 6 of the hourly budget is accepted
+  ratelimit     ok   attempt 7 of the hourly budget is refused
+  ratelimit     ok   attempt 8 of the hourly budget is refused
+  ratelimit     ok   the budget spent exactly the advertised allowance and then closed
+  ratelimit     ok   the budget is per member, not global
+  ratelimit   [ratelimit] ALL PASS (10/10 passed, 0 failed, 0 skipped after the first failure)
+  PASS  ratelimit    99.3s   10/10 pass, 0 fail, 0 skip
+  legacy        ok   legacy mode: an honest attempt is approved exactly as under enforcement
+  legacy        ok   legacy mode: a pose-store outage still carries the member through, marked as such
+  legacy        ok   REGRESSION (found by a negative control): freshness is single-use INDEPENDENT of the pose control
+  legacy        ok   legacy mode: a token that never existed is refused, not approved
+  legacy        ok   legacy mode: a foreign token is refused
+  legacy        ok   the hatch is queryable: every unproven grant is one row in one column
+  legacy        ok   an unparseable or garbage body never becomes a hatch grant
+  legacy      [legacy] ALL PASS (7/7 passed, 0 failed, 0 skipped after the first failure)
+  PASS  legacy       95.4s   7/7 pass, 0 fail, 0 skip
+  single        ok   stage 1 alone is held for review even with both proofs present (FB-04)
+  single        ok   stage 1 alone cannot approve without a fresh token
+  single        ok   with no second engine configured at all, the answer says so
+  single        ok   a stage-1 transport failure parks the attempt instead of refusing the member
+  single        ok   a 200 whose completion came back empty is also our failure, not the member's
+  single        ok   an unreadable selfie is a rejection with an actionable reason
+  single        ok   two faces in the frame are refused before any identity comparison
+  single        ok   a member with no profile photo is told why, not silently reviewed
+  single      [single] ALL PASS (8/8 passed, 0 failed, 0 skipped after the first failure)
+  PASS  single       123.0s   8/8 pass, 0 fail, 0 skip
+  refused       ok   stage 1 alone is held for review even with both proofs present (FB-04)
+  refused       ok   stage 1 alone cannot approve without a fresh token
+  refused       ok   a configured second engine that refuses us is reported, not hidden as 'single'
+  refused       ok   the degradation reason never leaks a key or a URL
+  refused       ok   a stage-1 transport failure parks the attempt instead of refusing the member
+  refused       ok   a 200 whose completion came back empty is also our failure, not the member's
+  refused       ok   an unreadable selfie is a rejection with an actionable reason
+  refused       ok   two faces in the frame are refused before any identity comparison
+  refused       ok   a member with no profile photo is told why, not silently reviewed
+  refused     [refused] ALL PASS (9/9 passed, 0 failed, 0 skipped after the first failure)
+  PASS  refused      123.2s   9/9 pass, 0 fail, 0 skip
+
+POSE E2E: ALL MODES PASS — 6 mode(s): main adversarial ratelimit legacy single refused
+
+> test:engines
+> esbuild scripts/trust/engine-request.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.engine-request.build.mjs --packages=external && node scripts/trust/.engine-request.build.mjs
+
+
+  scripts/trust/.engine-request.build.mjs  11.7kb
+
+⚡ Done in 8ms
+ok 1 - unconfigured target fails closed without a network request
+ok 2 - the six-combination ladder stops after exactly three upstream attempts
+ok 3 - the omitted fallback combinations are reported explicitly
+ok 4 - upstream response excerpts never contain the configured credential
+ok 5 - a successful text result is returned
+ok 6 - a cached winning model/rung is reused without another fallback scan
+ok 7 - external cancellation is classified separately and performs no fetch
+ok 8 - a stalled provider is aborted at the per-attempt deadline
+ok 9 - synchronous transport failures return a redacted attempt instead of escaping
+ok 10 - the shared engine budget handles synchronous createPromise failures
+engine request regression tests passed: 10/10

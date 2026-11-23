@@ -42,6 +42,9 @@ const VARIANT: Record<ButtonVariant, string> = {
 const SIZE: Record<ButtonSize, string> = { sm: "fb-cta--sm", md: "fb-cta--md", lg: "fb-cta--lg" };
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  /** Owner-supplied layouts may own presentation while retaining this primitive's
+   * type, disabled/loading and accessibility behavior. Existing callers unchanged. */
+  unstyled?: boolean;
   variant?: ButtonVariant;
   size?: ButtonSize;
   /** Full-width, for the bottom-of-screen primary action on mobile. */
@@ -54,6 +57,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
+    unstyled = false,
     variant = "primary",
     size = "md",
     block = false,
@@ -74,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={[
+      className={unstyled ? className : [
         "fb-cta",
         VARIANT[variant],
         SIZE[size],
@@ -84,10 +88,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ].filter(Boolean).join(" ")}
       {...rest}
     >
-      <span className="fb-cta__label">
+      {unstyled ? children : <span className="fb-cta__label">
         {children}
         {trailing ? <span aria-hidden="true">{trailing}</span> : null}
-      </span>
+      </span>}
       {loading ? <span className="sr-only">{loadingLabel ?? "Working\u2026"}</span> : null}
     </button>
   );

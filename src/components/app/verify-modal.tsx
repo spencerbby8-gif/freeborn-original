@@ -1,8 +1,12 @@
 "use client";
 
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
+import { VerificationShield } from "@/components/prototype/verification-shield";
 import { VerifyBadge } from "@/components/verify-badge";
+import { PrototypeIcon } from "@/components/prototype/frame";
+import { useModalFocus } from "@/components/prototype/modal-focus";
 import { showToast } from "@/components/toast-host";
 import type { FaceGate, FaceGateState } from "@/lib/face-gate";
 import { POSES as SERVER_POSES, type Pose as ServerPose } from "@/lib/pose-pool";
@@ -64,6 +68,10 @@ async function authHeaders() {
  */
 export function VerifyGate() {
   const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  useEffect(()=>{openRef.current=open;},[open]);
+  useModalFocus(open);
+  useEffect(()=>{window.dispatchEvent(new CustomEvent('freeborn:verification',{detail:{open}}));return()=>{window.dispatchEvent(new CustomEvent('freeborn:verification',{detail:{open:false}}));};},[open]);
   const [step, setStep] = useState<Step>("intro");
   const [status, setStatus] = useState<VerifyStatus>("none");
   const [selfie, setSelfie] = useState<string | null>(null);
@@ -74,6 +82,7 @@ export function VerifyGate() {
   const gateRef = useRef<FaceGate | null>(null);
   const [gate, setGate] = useState<FaceGateState | null>(null);
   const [gateSkipped, setGateSkipped] = useState(false);
+  const capturedGateRef = useRef<{state:FaceGateState|null;skipped:boolean}|null>(null);
   const challengeTriesRef = useRef(0);
   const [challengeTries, setChallengeTries] = useState(0);
   /* Server-issued freshness token. Requested when the camera opens so it is ~5 min
@@ -107,12 +116,21 @@ export function VerifyGate() {
       re-issued on every retry (the route expires the previous live row), and the
       camera step never touches it. */
   const challengeInFlight = useRef(false);
+  const [challengeLoading,setChallengeLoading]=useState(true);
+  const challengeAbort=useRef<AbortController|null>(null);
+  const submitAbort=useRef<AbortController|null>(null);
+  const cameraStarting=useRef(false);
+  const [cameraBusy,setCameraBusy]=useState(false);
+  useEffect(()=>()=>{challengeAbort.current?.abort();submitAbort.current?.abort();},[]);
   const issueChallenge = useCallback(async (): Promise<void> => {
     if (challengeInFlight.current) return;
     challengeInFlight.current = true;
+    setChallengeLoading(true);setLivenessToken(null);setPoseSource("local");
+    const controller=new AbortController();challengeAbort.current=controller;
     try {
       const r = await fetch("/api/verification/challenge", {
         method: "POST",
+        signal:AbortSignal.any([controller.signal,AbortSignal.timeout(12000)]),
         headers: await authHeaders(),
       });
       if (!r.ok) return; /* keep whatever pose is on screen: if it came from a
@@ -121,6 +139,7 @@ export function VerifyGate() {
         livenessToken?: string;
         pose?: { label?: string; demo?: string };
       };
+      if(controller.signal.aborted||!openRef.current)return;
       if (typeof j.livenessToken === "string") setLivenessToken(j.livenessToken);
       if (typeof j.pose?.label === "string" && j.pose.label.length > 0) {
         setPose((prev) => ({
@@ -137,16 +156,16 @@ export function VerifyGate() {
     } catch {
       /* no challenge: the attempt degrades to unverified-freshness, not to an error */
     } finally {
-      challengeInFlight.current = false;
+      challengeInFlight.current = false;setChallengeLoading(false);
     }
   }, []);
 
   /* Other screens (Profile tab, Settings) can summon this flow. */
   useEffect(() => {
-    const open = () => setOpen(true);
+    const open = () => {setStep(status === "approved"?"approved":status === "pending"?"pending":"intro");setOpen(true);};
     window.addEventListener("freeborn:open-verify", open);
     return () => window.removeEventListener("freeborn:open-verify", open);
-  }, []);
+  }, [status]);
 
   /* Verification is an invitation, never a demand. The old repeating nag is
      gone on purpose — forced face-scanning is exactly what members revolted
@@ -224,6 +243,7 @@ export function VerifyGate() {
           video: { facingMode: "user", width: { ideal: 960 } },
           audio: false,
         });
+        if (!openRef.current) {stream.getTracks().forEach(t=>t.stop());return;}
         streamRef.current = stream;
       }
       if (videoRef.current) {
@@ -247,6 +267,7 @@ export function VerifyGate() {
    * The exact state is shown on screen — facts, not guesses.
    */
   const continueToCamera = async () => {
+    if(challengeLoading||challengeInFlight.current||cameraStarting.current)return;
     setErrorMsg(null);
     setCameraFacts(null);
 
@@ -259,6 +280,7 @@ export function VerifyGate() {
       return;
     }
 
+    cameraStarting.current=true;setCameraBusy(true);
     // Ask the browser what it actually knows about our camera permission.
     let permState = "unknown";
     try {
@@ -273,6 +295,7 @@ export function VerifyGate() {
         video: { facingMode: "user", width: { ideal: 960 } },
         audio: false,
       });
+      if(!openRef.current){stream.getTracks().forEach(t=>t.stop());return;}
       streamRef.current = stream;
       setStep("camera");
     } catch (err) {
@@ -301,7 +324,7 @@ export function VerifyGate() {
       } else {
         setErrorMsg("The camera couldn't start. Close anything else using it, then try again.");
       }
-    }
+    } finally {cameraStarting.current=false;setCameraBusy(false);}
   };
 
   useEffect(() => {
@@ -323,7 +346,7 @@ export function VerifyGate() {
       stopCamera();
     }
 
-    return stopCamera;
+    return step === "camera" ? stopCamera : undefined;
   }, [step, startCamera, stopCamera, issueChallenge]);
 
   /* On-device face gate: load MediaPipe (dynamically, so it never weighs
@@ -344,7 +367,8 @@ export function VerifyGate() {
         }
         gateRef.current = g;
       } catch {
-        /* gate unavailable — the UI falls back to AI-only review */
+        if (!cancelled) setGate({ready:false,unavailable:true,faceCount:0,faceRatio:0,centered:false,framed:false,blinked:false,challenging:false});
+        /* Explicitly unavailable is submitted as such; the server still decides. */
       }
     })();
     const iv = setInterval(() => {
@@ -408,25 +432,12 @@ export function VerifyGate() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    capturedGateRef.current = {state:gateRef.current?.state()??gate,skipped:gateSkipped};
     setSelfie(canvas.toDataURL("image/jpeg", 0.85));
     setStep("review");
   };
 
   /* --- Submit: thorough two-engine check (~10–20s), then the verdict ------- */
-
-  const [checkingProgress, setCheckingProgress] = useState(0);
-
-  useEffect(() => {
-    if (step !== "checking") return;
-    setCheckingProgress(0);
-    const started = Date.now();
-    const iv = setInterval(() => {
-      // Ease toward 94% across ~16 seconds; the verdict completes the bar.
-      const pct = Math.min(94, ((Date.now() - started) / 16_000) * 100);
-      setCheckingProgress(pct);
-    }, 150);
-    return () => clearInterval(iv);
-  }, [step]);
 
   /* Capture unlocks once the on-device gate passes (blink captured), is
      explicitly skipped, or is unavailable — the engines still review the
@@ -436,23 +447,25 @@ export function VerifyGate() {
   /** The on-device verdict that travels with the request — evidence for the
       review, never a substitute for it. */
   const livenessEvidence = () => {
-    const s = gateRef.current?.state();
-    if (!s || s.unavailable) return { gate: "unavailable", blink: false, singleFace: true };
+    const s = capturedGateRef.current?.state;
+    if (!s || s.unavailable) return { gate: "unavailable", blink: false, singleFace: false };
     if (s.blinked) return { gate: "ok", blink: true, singleFace: s.faceCount === 1 };
     return {
-      gate: gateSkipped ? "skipped" : "unavailable",
+      gate: capturedGateRef.current?.skipped ? "skipped" : "unavailable",
       blink: false,
       singleFace: s.faceCount === 1,
     };
   };
 
   const submit = async () => {
-    if (!selfie) return;
+    if (!selfie||submitAbort.current) return;
+    const controller=new AbortController();submitAbort.current=controller;
     setErrorMsg(null);
     setStep("checking");
     try {
       const res = await fetch("/api/verification/check", {
         method: "POST",
+        signal:AbortSignal.any([controller.signal,AbortSignal.timeout(125000)]),
         headers: await authHeaders(),
         body: JSON.stringify({
           selfie,
@@ -468,11 +481,11 @@ export function VerifyGate() {
           browser: browserObservations(),
         }),
       });
-      setCheckingProgress(100);
+      if(controller.signal.aborted||!openRef.current)return;
       setLivenessToken(null); /* one-shot: a retry needs a brand-new challenge */
       const json = await res.json().catch(() => ({}));
 
-      if (res.status === 429) {
+      if (!res.ok) {
         const msg = json.error ?? "Too many attempts. Take a breath and try later.";
         setErrorMsg(msg);
         setStep("error");
@@ -495,28 +508,31 @@ export function VerifyGate() {
         return;
       }
       if (res.ok && json.status === "rejected") {
+        setStatus("rejected");
         setRejectReason(json.reason ?? "The check didn't pass. Please try again.");
         setSelfie(null);
         setStep("rejected");
         showToast({ tone: "error", title: "Verification didn't pass", body: json.reason ?? "Try again with a fresh selfie." });
         return;
       }
-      // review / pending / fallback → the queue decides, we poll for it.
+      if (!["review", "pending"].includes(json.status)) throw new Error("The server did not confirm a verification result. Check your status before submitting again.");
+      // Only a confirmed review/pending response means the submission was received.
       setStatus("pending");
       setStep("pending");
       showToast({
         tone: "info",
         title: "Verification submitted",
-        body: "Your selfie is being reviewed. We'll confirm it shortly.",
+        body: "Your selfie was received for review. No decision or completion time is promised.",
       });
-    } catch {
-      setStatus("pending");
-      setStep("pending");
-    }
+    } catch (error) {
+      if(controller.signal.aborted||!openRef.current)return;
+      setLivenessToken(null);
+      setErrorMsg(error instanceof Error&&error.name==="TimeoutError"?"The check took too long to respond. No result was confirmed. Check your verification status before starting a new attempt.":error instanceof Error?error.message:"We couldn’t confirm submission. Check your verification status before trying again.");
+      setStep("error");
+    } finally {if(submitAbort.current===controller)submitAbort.current=null;}
   };
 
-  /* While pending, poll the review queue. The preview room completes the
-     check automatically after about a minute. */
+  /* Pending changes only when a real server verdict arrives. No promised completion time. */
   useEffect(() => {
     if (step !== "pending") return;
     const iv = setInterval(async () => {
@@ -525,9 +541,8 @@ export function VerifyGate() {
         if (!res.ok) return;
         const json = await res.json();
         setStatus(json.status ?? "none");
-        if (json.status === "approved") {
-          setStep("approved");
-        }
+        if (json.status === "approved") setStep("approved");
+        else if (json.status === "rejected") {setRejectReason("The review did not pass. You can try again with a fresh selfie.");setStep("rejected");}
       } catch {
         /* keep polling */
       }
@@ -536,9 +551,15 @@ export function VerifyGate() {
   }, [step]);
 
   const close = () => {
+    challengeAbort.current?.abort();submitAbort.current?.abort();submitAbort.current=null;
     stopCamera();
     dismissedAtRef.current = Date.now();
+    openRef.current = false;
+    capturedGateRef.current = null;
     setOpen(false);
+    setStep("intro");
+    setSelfie(null);
+    setLivenessToken(null);
   };
 
   const verifyStepIdx =
@@ -547,407 +568,24 @@ export function VerifyGate() {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[160] flex items-end justify-center bg-black/75 p-4 backdrop-blur-sm sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Verify your identity"
-    >
-      <div className="animate-scale-in w-full max-w-[430px] overflow-hidden rounded-[28px] border border-white/[0.09] bg-[#0c101d] shadow-[0_60px_120px_-30px_rgba(0,0,0,0.9)]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <VerifyBadge size={22} />
-            <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[var(--color-pearl)]">
-              Identity verification
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={close}
-            aria-label="Close verification"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[var(--color-mist)] transition hover:bg-white/[0.12] hover:text-[var(--color-pearl)]"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="px-6 py-6">
-          {verifyStepIdx >= 0 ? (
-            <div
-              className="mb-5 flex items-center justify-center gap-2"
-              aria-label={`Step ${verifyStepIdx + 1} of ${VERIFY_STEPS.length}`}
-            >
-              {VERIFY_STEPS.map((s, i) => (
-                <span
-                  key={s}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i === verifyStepIdx
-                      ? "w-7 bg-[var(--color-gold-500)]"
-                      : i < verifyStepIdx
-                        ? "w-2.5 bg-[var(--color-gold-500)]/45"
-                        : "w-2.5 bg-white/15"
-                  }`}
-                />
-              ))}
-            </div>
-          ) : null}
-          {step === "intro" ? (
-            <>
-              <h2 className="font-display text-[24px] font-semibold leading-tight text-[var(--color-pearl)]">
-                Verify your identity
-              </h2>
-              <p className="mt-2.5 text-[13.5px] leading-6 text-[var(--color-mist)]">
-                  Freeborn keeps the room safe with a quick live selfie check, the same
-                  method mainstream dating platforms use to keep out bots and impostors.
-                  One thing to know before you submit: if both engines cannot be reached
-                  at the moment your selfie is graded, the request is recorded and held
-                  as pending rather than guessed. Nothing is ever approved or rejected
-                  unchecked, and no seal is issued without a passing check.
-              </p>
-              <ul className="mt-5 space-y-3">
-                {[
-                  ["Live selfie only", "Your camera confirms you're a real person. No documents needed to start."],
-                  ["No templates, but the photo is kept", "No ID, no documents, and no biometric template is built from your face. The selfie itself is stored: while a request is undecided, and after approval so a new photo can be re-checked against the person who earned the seal. A rejected selfie is never stored at all. The Privacy Policy sets out the detail."],
-                  ["In-app, always", "Freeborn never verifies through links in DMs, texts, or email. Those are scams."],
-                  ["Nothing counts unchecked", "Your profile never carries the confirmation without a check passing. While the engines are unavailable a submission stays pending, and we would rather the seal be slow than the seal be wrong."],
-                ].map(([title, body]) => (
-                  <li key={title} className="flex gap-3">
-                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-teal-500)]/15 text-[var(--color-teal-300)]">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M4.5 12.5l5 5L19.5 7" />
-                      </svg>
-                    </span>
-                    <div>
-                      <p className="text-[13px] font-black text-[var(--color-pearl)]">{title}</p>
-                      <p className="mt-0.5 text-[12.5px] leading-5 text-[var(--color-mist)]">{body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("pose");
-                }}
-                className="btn-ember btn-shine relative mt-6 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
-              >
-                Start the selfie check
-              </button>
-              <button
-                type="button"
-                onClick={close}
-                className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Maybe later
-              </button>
-            </>
-          ) : null}
-
-          {step === "pose" ? (
-            <>
-              <h2 className="font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Copy this pose
-              </h2>
-              <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
-                {poseSource === "server"
-                  ? "The pose below was chosen by Freeborn, not by you. It is spent once, and only this one counts."
-                  : "This pose was chosen on your device because the server challenge was unavailable, so it is advisory only."}
-              </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-ash)]">
-                Copy this exact pose in your selfie. It&apos;s how Freeborn proves a real,
-                live person stands behind every confirmed profile.
-              </p>
-              <div className="relative mt-4 overflow-hidden rounded-2xl border border-[var(--color-gold-500)]/30">
-                <img
-                  src={pose.demo}
-                  alt={`Example pose: ${pose.label}`}
-                  className="aspect-[3/3.4] w-full object-cover"
-                />
-                <span className="absolute inset-x-3 bottom-3 rounded-xl bg-black/70 px-3.5 py-2.5 text-[13px] font-black text-white backdrop-blur-sm">
-                  {pose.label}
-                </span>
-              </div>
-              {errorMsg ? (
-                <div className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-3.5 py-2.5">
-                  <p className="text-[12.5px] font-bold leading-4 text-red-300">{errorMsg}</p>
-                  {cameraFacts ? (
-                    <p className="mt-2 border-t border-red-400/20 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-red-300/70">
-                      {cameraFacts}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void continueToCamera()}
-                className="btn-ember btn-shine relative mt-5 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
-              >
-                Continue to camera
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                    if (poseSource === "server") void issueChallenge();
-                    else sampleNewPose();
-                  }}
-                className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Show me a different pose
-              </button>
-            </>
-          ) : null}
-
-          {step === "camera" ? (
-            <>
-              <h2 className="font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Mimic the pose
-              </h2>
-              <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
-                Bright, even lighting · face fully visible · no glasses or hats. The
-                preview behaves like your phone&apos;s selfie camera, so the photo you submit
-                is captured true-to-life.
-              </p>
-              <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.07] px-3 py-2.5">
-                <img
-                  src={pose.demo}
-                  alt=""
-                  className="h-12 w-12 shrink-0 rounded-lg border border-[var(--color-gold-500)]/40 object-cover"
-                />
-                <p className="text-[12.5px] font-bold leading-4 text-[var(--color-gold-300)]">
-                  Pose to copy: {pose.label}
-                </p>
-              </div>
-              <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black">
-                {/* Mirrored like every selfie camera you've ever used — the
-                    submitted photo itself is captured true-to-life. */}
-                <video ref={videoRef} playsInline muted className="aspect-[4/5] w-full -scale-x-100 object-cover" />
-                <span className="pointer-events-none absolute inset-6 rounded-full border-2 border-dashed border-white/30" />
-              </div>
-              {/* On-device live checks — no frames leave this device */}
-              {gate ? (
-                <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2">
-                  {gate.unavailable ? (
-                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
-                      Live checks unavailable on this device
-                    </span>
-                  ) : !gate.ready ? (
-                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">Warming up live checks…</span>
-                  ) : gate.faceCount !== 1 ? (
-                    <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
-                      {gate.faceCount === 0 ? "Center your face in the frame" : "One face only. Step back a little"}
-                    </span>
-                  ) : !gate.framed ? (
-                    <span className="text-[11.5px] font-bold text-[var(--color-gold-300)]">
-                      Move closer and center your face
-                    </span>
-                  ) : gate.challenging ? (
-                    <span className="animate-pulse text-[11.5px] font-black uppercase tracking-[0.18em] text-[var(--color-ember-300)]">
-                      Blink now
-                    </span>
-                  ) : gate.blinked ? (
-                    <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-[var(--color-teal-300)]">
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
-                        <path d="M2.2 6.4l2.4 2.4 5.2-5.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                      Live blink captured
-                    </span>
-                  ) : gateSkipped ? (
-                    <span className="text-[11.5px] font-bold text-[var(--color-ash)]">
-                      Live check skipped on this device
-                    </span>
-                  ) : (
-                    <span className="text-[11.5px] font-bold text-[var(--color-sand)]">
-                      Face ready. Blink when prompted
-                    </span>
-                  )}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                onClick={capture}
-                disabled={!captureAllowed}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-              >
-                <span className="h-3.5 w-3.5 rounded-full border-2 border-white" />
-                {captureAllowed ? "Take selfie" : "Blink when prompted to take the selfie"}
-              </button>
-              {challengeTries >= 3 && gate && !gate.blinked && !gateSkipped ? (
-                <button
-                  type="button"
-                  onClick={() => setGateSkipped(true)}
-                  className="mt-2.5 w-full rounded-full py-2.5 text-[12.5px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-                >
-                  Continue without the live check
-                </button>
-              ) : null}
-            </>
-          ) : null}
-
-          {step === "review" && selfie ? (
-            <>
-              <h2 className="font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Confirm your selfie
-              </h2>
-              <p className="mt-1.5 text-[13px] leading-5 text-[var(--color-mist)]">
-                Make sure your face is clear and unobstructed before submitting.
-              </p>
-              <img
-                src={selfie}
-                alt="Your verification selfie"
-                className="mt-4 aspect-[4/5] w-full rounded-2xl border border-white/10 object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => void submit()}
-                className="mt-5 w-full rounded-full bg-[var(--gradient-ember-warm)] py-3.5 text-[14px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-[0.98]"
-              >
-                Submit for review
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelfie(null);
-                  setStep("pose");
-                }}
-                className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Retake with a new pose
-              </button>
-            </>
-          ) : null}
-
-          {step === "checking" ? (
-            <div className="py-8">
-              <div className="flex flex-col items-center">
-                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
-              </div>
-              <h2 className="mt-5 text-center font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Freeborn is verifying your identity
-              </h2>
-              <p className="mx-auto mt-2 max-w-[34ch] text-center text-[12.5px] leading-5 text-[var(--color-mist)]">
-                Your selfie is passing through two independent checks. Thorough
-                verification takes about 10 to 20 seconds. Hold tight.
-              </p>
-              <div className="mx-auto mt-5 h-2 w-full max-w-[300px] overflow-hidden rounded-full bg-white/[0.07]">
-                <div
-                  className="h-full rounded-full bg-[var(--gradient-ember-warm)] transition-[width] duration-200 ease-linear"
-                  style={{ width: `${checkingProgress}%` }}
-                />
-              </div>
-              <p className="mt-2.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-ash)]">
-                Running the checks…
-              </p>
-            </div>
-          ) : null}
-
-          {step === "rejected" ? (
-            <div className="py-4 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-red-400/30 bg-red-500/10 text-red-300">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M9 9l6 6M15 9l-6 6" />
-                </svg>
-              </span>
-              <h2 className="mt-4 font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Not quite. Let&apos;s retry
-              </h2>
-              <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                {rejectReason}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setRejectReason(null);
-                  setStep("pose");
-                }}
-                className="btn-ember btn-shine relative mt-6 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
-              >
-                Try again with a new pose
-              </button>
-              <button
-                type="button"
-                onClick={close}
-                className="mt-2.5 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Maybe later
-              </button>
-            </div>
-          ) : null}
-
-          {step === "pending" ? (
-            <div className="py-4 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[var(--color-gold-500)]/40 bg-[var(--color-gold-500)]/10">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold-300)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              </span>
-              <h2 className="mt-4 font-display text-[20px] font-semibold text-[var(--color-pearl)]">
-                Freeborn is verifying your identity
-              </h2>
-              <p className="mx-auto mt-2 max-w-[36ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                Your selfie has been submitted. The check usually takes a few minutes, so
-                keep this page open or come back shortly. You&apos;ll be confirmed the moment
-                it&apos;s done.
-              </p>
-              <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-4 py-3">
-                <span className="rec-pulse h-2.5 w-2.5 rounded-full bg-[var(--color-gold-500)]" />
-                <p className="text-[12px] font-bold text-[var(--color-sand)]">
-                  Waiting for confirmation…
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={close}
-                className="mt-4 w-full rounded-full py-3 text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Continue browsing
-              </button>
-            </div>
-          ) : null}
-
-          {step === "approved" ? (
-            <div className="py-4 text-center">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-teal-500)]/15">
-                <VerifyBadge size={34} />
-              </span>
-              <h2 className="mt-4 font-display text-[22px] font-semibold text-[var(--color-pearl)]">
-                You&apos;re verified.
-              </h2>
-              <p className="mx-auto mt-2 max-w-[34ch] text-[13px] leading-6 text-[var(--color-mist)]">
-                The teal seal now sits on your profile so other members know they&apos;re
-                talking to the real you.
-              </p>
-              <button
-                type="button"
-                onClick={close}
-                className="btn-ember btn-shine relative mt-6 w-full overflow-hidden rounded-full py-3.5 text-[14px] font-black text-white"
-              >
-                Back to the room
-              </button>
-            </div>
-          ) : null}
-
-          {step === "error" ? (
-            <div className="py-4 text-center">
-              <p className="text-[13.5px] font-bold text-red-300">{errorMsg ?? "Something went wrong."}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorMsg(null);
-                  setStep("intro");
-                }}
-                className="mt-5 w-full rounded-full border border-white/10 bg-white/[0.05] py-3 text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.09]"
-              >
-                Try again
-              </button>
-            </div>
-          ) : null}
-        </div>
+    <section className="new-verification-layer verification-flow" role="dialog" aria-modal="true" aria-label="Verify your identity">
+      <div className="verification-flow-scroll">
+        <header className="verification-flow-header"><button type="button" className="bare-icon" aria-label="Close verification" onClick={close}><PrototypeIcon name="back"/></button>{step!=="intro"&&<span>{verifyStepIdx>=0?`${VERIFY_STEPS[Math.max(0,verifyStepIdx)]} · ${verifyStepIdx+1} of 4`:'Identity verification'}</span>}</header>
+        {step === "intro" ? <>
+          <div className="verify-hero"><span className="shield-ring"><VerificationShield/></span><h1 className="display verify-head">Show you’re<br/>really you.</h1><p className="verify-sub">A private liveness check helps people connect with confidence.</p></div>
+          <div className="face-frame"><div className="face-glow"/><p className="face-hint">Center your face in the frame</p></div>
+          <ul className="check-list">{['Private by design','Recent photo required','No public biometric data'].map(t=><li key={t}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e9c37c"/><path d="M8 12l3 3 5-6" stroke="#241a10" strokeWidth="1.8" fill="none"/></svg>{t}</li>)}</ul>
+          <details className="verification-disclosure"><summary>How your selfie is used</summary><p>No ID document or biometric template is required. The selfie itself is stored while a request is undecided, and after approval so later profile photos can be re-checked against the person who earned the seal. Rejected selfies are not stored. Withdrawing consent removes the seal and queues stored copies for cleanup.</p><p>Only a passing check grants a badge. When the checks cannot reach a decision, a received submission stays pending for review. No approval or completion time is promised. Verification never happens through links sent in DMs, texts or email.</p><a href="/app/settings/legal/privacy">Read the full Privacy Policy</a></details>
+          <button type="button" className="btn-grad big" onClick={()=>setStep("pose")}>Start the selfie check</button><button type="button" className="verification-secondary" onClick={close}>Maybe later</button>
+        </> : step === "pose" ? <div className="verification-step-content"><h1 className="display">Copy this pose.</h1><p>{poseSource==='server'?'This is the pose bound to your server-issued check. Copy it when you take your selfie.':'The server challenge is unavailable. This device-selected pose is advisory only; the server still decides whether your submission can be verified.'}</p><figure className="verification-pose"><img src={pose.demo} alt={`Example pose: ${pose.label}`}/><figcaption>{pose.label}</figcaption></figure>{errorMsg&&<div role="alert" className="verification-error"><p>{errorMsg}</p>{cameraFacts&&<small>{cameraFacts}</small>}</div>}<button type="button" className="btn-grad" disabled={challengeLoading||cameraBusy} onClick={()=>void continueToCamera()}>{challengeLoading?"Preparing your pose…":cameraBusy?"Opening camera…":"Continue to camera"}</button><button type="button" className="verification-secondary" onClick={()=>{if(poseSource==='server')void issueChallenge();else sampleNewPose();}}>Show me a different pose</button><p className="verification-footnote">Your camera opens only when you choose to continue.</p></div>
+        : step === "camera" ? <div className="verification-step-content"><h1 className="display">Mimic the pose.</h1><p>Bright, even lighting. Face fully visible. No glasses or hats.</p><div className="verification-pose-reminder"><img src={pose.demo} alt=""/><span>{pose.label}</span></div><div className="verification-camera"><video ref={videoRef} playsInline muted/><span className="verification-face-guide"/></div><p className="verification-live-status" role="status">{!gate?'Preparing live checks…':gate.unavailable?'Live checks unavailable on this device. This is reported to the server, not treated as a pass.':!gate.ready?'Warming up live checks…':gate.faceCount!==1?gate.faceCount===0?'Center your face in the frame':'One face only. Step back a little':!gate.framed?'Move closer and center your face':gate.blinked?'Live blink captured':gateSkipped?'Live check skipped on this device':gate.challenging?'Blink now':'Face ready. Blink when prompted'}</p><button type="button" className="btn-grad" disabled={!captureAllowed} onClick={capture}>{captureAllowed?'Take selfie':'Blink when prompted to take the selfie'}</button>{challengeTries>=3&&gate&&!gate.blinked&&!gateSkipped&&<button type="button" className="verification-secondary" onClick={()=>setGateSkipped(true)}>Continue without the live check</button>}</div>
+        : step === "review" && selfie ? <div className="verification-step-content"><h1 className="display">A clear view of you.</h1><p>Check your selfie before submitting it for a private identity review.</p><img className="verification-selfie" src={selfie} alt="Your verification selfie"/><button type="button" className="btn-grad" onClick={()=>void submit()}>Submit for review</button><button type="button" className="verification-secondary" onClick={()=>{setSelfie(null);setStep('pose');}}>Retake with a new pose</button></div>
+        : step === "checking" ? <div className="verification-step-content verification-verdict" role="status"><FreebornLoader label="Checking your selfie"/><h1 className="display">Taking a closer look.</h1><p>Your identity check is running. Keep this screen open while we wait for the result.</p><p className="verification-footnote">No decision has been returned yet.</p></div>
+        : step === "pending" ? <div className="verification-step-content verification-verdict"><span className="shield-ring"><VerificationShield/></span><h1 className="display">In review.</h1><p role="status">Your selfie was received and is pending review. Your badge is not granted while a decision is outstanding.</p><p>No completion time is promised. You can continue browsing and check back here.</p><button type="button" className="btn-grad" onClick={close}>Continue browsing</button></div>
+        : step === "approved" ? <div className="verification-step-content verification-verdict"><VerifyBadge size={58}/><h1 className="display">You’re verified.</h1><p>Your identity check passed. The blue verification badge now appears on your profile.</p><button type="button" className="btn-grad" onClick={close}>Back to the room</button></div>
+        : step === "rejected" ? <div className="verification-step-content verification-verdict"><span className="shield-ring"><VerificationShield/></span><h1 className="display">Let’s try again.</h1><p role="status">{rejectReason}</p><button type="button" className="btn-grad" onClick={()=>{setRejectReason(null);setStep('pose');}}>Try again with a new pose</button><button type="button" className="verification-secondary" onClick={close}>Maybe later</button></div>
+        : step === "error" ? <div className="verification-step-content verification-verdict"><h1 className="display">A little interruption.</h1><p role="alert">{errorMsg??'Something went wrong. No verification result was confirmed.'}</p><button type="button" className="btn-grad" onClick={()=>{setErrorMsg(null);setStep('intro');}}>Try again</button><button type="button" className="verification-secondary" onClick={close}>Back to browsing</button></div> : null}
       </div>
-    </div>
+    </section>
   );
 }

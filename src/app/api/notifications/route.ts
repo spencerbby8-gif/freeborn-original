@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  blockedUsers,
   matches,
   messages,
   notificationPreferences,
@@ -37,8 +38,11 @@ export async function GET(request: Request) {
     href: string;
   }> = [];
 
+  const blocks=await db.select({blockerId:blockedUsers.blockerId,blockedId:blockedUsers.blockedId}).from(blockedUsers).where(or(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,member.id)));
+  const blocked=new Set(blocks.map(b=>b.blockerId===member.id?b.blockedId:b.blockerId));
   for (const m of myMatches) {
     const otherId = m.userA === member.id ? m.userB : m.userA;
+    if(m.status!=="active"||blocked.has(otherId))continue;
     const [other] = await db
       .select()
       .from(userProfiles)
@@ -86,7 +90,7 @@ export async function GET(request: Request) {
         id: `msg-${m.id}`,
         type: "message",
         title: `${name} sent you a message`,
-        body: last?.body ?? "",
+        body: "Open the conversation to read it.",
         photo: resolvePhotoUrl(photo?.storagePath ?? ""),
         at: last?.createdAt ?? m.createdAt,
         unread: true,
@@ -104,6 +108,7 @@ export async function GET(request: Request) {
     .orderBy(desc(userSwipes.createdAt))
     .limit(20);
   for (const like of incomingLikes) {
+    if(blocked.has(like.likerId))continue;
     const [liker] = await db
       .select({ id: userProfiles.id, displayName: userProfiles.displayName })
       .from(userProfiles)
@@ -141,7 +146,7 @@ export async function GET(request: Request) {
         id: `verify-${latestVerify.id}`,
         type: "verification",
         title: "You're verified",
-        body: "Your identity check passed. The teal seal is live on your profile.",
+        body: "Your identity check passed. The blue verification badge is on your profile.",
         at: latestVerify.reviewedAt ?? latestVerify.submittedAt,
         unread: false,
         href: "/app/profile",
@@ -151,7 +156,7 @@ export async function GET(request: Request) {
         id: `verify-${latestVerify.id}`,
         type: "verification",
         title: "Verification in review",
-        body: "Your selfie is being checked. It completes shortly in this preview room.",
+        body: "Your selfie is being checked. We’ll update this feed when a result is available.",
         at: latestVerify.submittedAt,
         unread: false,
         href: "/app/profile",
@@ -192,5 +197,22 @@ export async function GET(request: Request) {
     });
   }
 
-  return Response.json({ notifications: items });
+  // Clearing a feed never marks a private message read or deletes source data.
+  const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
+  return Response.json({ notifications: visible });
+}
+
+
+export async function POST(request: Request) {
+  const member = await getMember(request);
+  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  let body: unknown;
+  try { body = await request.json(); } catch { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
+  if (!body || typeof body !== "object" || !("action" in body) || body.action !== "clear") {
+    return Response.json({ error: "Unknown notification action." }, { status: 400 });
+  }
+  const now = new Date();
+  await db.insert(notificationPreferences).values({ userId: member.id, dismissedBefore: now })
+    .onConflictDoUpdate({ target: notificationPreferences.userId, set: { dismissedBefore: now, updatedAt: now } });
+  return Response.json({ ok: true });
 }

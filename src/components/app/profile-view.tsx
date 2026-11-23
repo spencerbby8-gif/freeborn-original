@@ -1,4 +1,5 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -600,7 +601,7 @@ export function ProfileView({
 
         {!profile && !failed ? (
           <div className="flex justify-center py-28">
-            <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+            <FreebornLoader/>
           </div>
         ) : failed || !profile ? (
           <div className="py-24 text-center">

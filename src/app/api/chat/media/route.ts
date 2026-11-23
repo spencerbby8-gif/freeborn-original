@@ -1,3 +1,5 @@
+import { CHAT_FILE_TYPES, CHAT_FILE_MAX, chatFileMime, validChatFileBytes } from "@/lib/chat-file";
+import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { chatMedia, matches } from "@/db/schema";
@@ -10,6 +12,7 @@ export const maxDuration = 120;
 
 /* Strict per-kind whitelists and caps — keeps the store safe and fast. */
 const RULES: Record<string, { mimes: Set<string>; maxBytes: number }> = {
+  file: { mimes: new Set(Object.values(CHAT_FILE_TYPES)), maxBytes: CHAT_FILE_MAX },
   image: {
     mimes: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]),
     maxBytes: 8 * 1024 * 1024,
@@ -78,7 +81,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "match is required." }, { status: 400 });
   }
   const [match] = await db
-    .select({ id: matches.id, userA: matches.userA, userB: matches.userB })
+    .select({ id: matches.id, userA: matches.userA, userB: matches.userB, status: matches.status, unmatchedBy: matches.unmatchedBy })
     .from(matches)
     .where(
       and(
@@ -90,12 +93,13 @@ export async function POST(request: Request) {
   if (!match) {
     return Response.json({ error: "Match not found." }, { status: 404 });
   }
+  if (!decideMatchAccess({status:match.status as MatchLifecycleStatus,isParticipant:true,isActor:match.unmatchedBy===member.id,hasMessages:false,action:"send_message"}).allow) return Response.json({error:"This conversation is read-only."},{status:403});
   const otherId = match.userA === member.id ? match.userB : match.userA;
   if (await isBlockedPair(member.id, otherId)) {
     return Response.json({ error: "This conversation isn't available." }, { status: 403 });
   }
 
-  const mime = (file.type || "").split(";")[0];
+  const mime = kind === "file" ? chatFileMime(file.name) ?? "" : (file.type || "").split(";")[0];
   if (!rule.mimes.has(mime) && !rule.mimes.has(file.type)) {
     return Response.json({ error: `Unsupported ${kind} format (${file.type || "unknown"}).` }, { status: 400 });
   }
@@ -110,6 +114,7 @@ export async function POST(request: Request) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  if (kind === "file" && !validChatFileBytes(mime, bytes)) return Response.json({error:"That document format could not be verified. Choose a PDF, UTF-8 text/CSV, or Office document."},{status:400});
   const [row] = await db
     .insert(chatMedia)
     .values({ senderId: member.id, matchId, kind, mime, data: bytes })

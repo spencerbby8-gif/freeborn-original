@@ -1,0 +1,37 @@
+PASS 393 Shared ignition loader replaces generic text and respects reduced motion
+PASS 393 All seven production onboarding steps use native reference chrome without legacy fields
+PASS 393 Onboarding identity validation, date selection and authorized real patch are wired
+PASS 393 A failed onboarding save does not advance or discard the typed bio
+PASS 393 Reference camera recovers from denied permission, captures a real fake-device frame and releases tracks
+PASS 393 Photo upload, cover reorder/removal and actual completion payload are wired
+PASS 393 Swipe right likes exactly once and shows visible feedback; swipe left passes
+PASS 393 Like and Spark buttons visibly react; refused choices keep the same card
+PASS 393 Short drag and vertical scroll do not create choices
+PASS 393 Document is staged privately, then uploaded with match authorization and explicitly sent
+PASS 393 Failed upload retains document and caption; retry sends once
+PASS 393 Image picker uploads explicitly and renders the real media bubble
+PASS 393 Hairline photo frames preserve portrait, landscape and tiny intrinsic pixels without crop or upscale
+PASS 393 Plus menu video picker stages, sends, decodes and opens the new video viewer
+PASS 393 Real MediaRecorder captures fake-device audio, previews and sends an authorized voice attachment
+PASS 393 Voice recording denial is recoverable and closing an active recording never sends
+PASS 393 Typing animation is driven by the subscribed private WebSocket and cleared by stop signal
+PASS 393 Native OTP screen uses actual signup/verifyOtp; invalid code stays an error, valid code enters setup
+PASS 1440 Shared ignition loader replaces generic text and respects reduced motion
+PASS 1440 All seven production onboarding steps use native reference chrome without legacy fields
+PASS 1440 Onboarding identity validation, date selection and authorized real patch are wired
+PASS 1440 A failed onboarding save does not advance or discard the typed bio
+PASS 1440 Reference camera recovers from denied permission, captures a real fake-device frame and releases tracks
+PASS 1440 Photo upload, cover reorder/removal and actual completion payload are wired
+PASS 1440 Swipe right likes exactly once and shows visible feedback; swipe left passes
+PASS 1440 Like and Spark buttons visibly react; refused choices keep the same card
+PASS 1440 Short drag and vertical scroll do not create choices
+PASS 1440 Document is staged privately, then uploaded with match authorization and explicitly sent
+PASS 1440 Failed upload retains document and caption; retry sends once
+PASS 1440 Image picker uploads explicitly and renders the real media bubble
+PASS 1440 Hairline photo frames preserve portrait, landscape and tiny intrinsic pixels without crop or upscale
+PASS 1440 Plus menu video picker stages, sends, decodes and opens the new video viewer
+PASS 1440 Real MediaRecorder captures fake-device audio, previews and sends an authorized voice attachment
+PASS 1440 Voice recording denial is recoverable and closing an active recording never sends
+PASS 1440 Typing animation is driven by the subscribed private WebSocket and cleared by stop signal
+PASS 1440 Native OTP screen uses actual signup/verifyOtp; invalid code stays an error, valid code enters setup
+{"checks":36,"failed":0,"captures":70,"pageErrors":0}

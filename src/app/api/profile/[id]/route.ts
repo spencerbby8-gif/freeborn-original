@@ -356,7 +356,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       wantsKids: row.wantsKids ?? "",
       drinking: row.drinking ?? "",
       smoking: row.smoking ?? "",
-      heightCm: row.heightCmProfile,
+      heightCm: row.heightCmProfile ?? row.heightCm,
       values: row.values ?? [],
       interests: row.interests ?? [],
       lifestyle: row.lifestylePreferences ?? [],

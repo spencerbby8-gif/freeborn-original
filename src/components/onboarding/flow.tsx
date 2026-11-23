@@ -10,7 +10,7 @@ import {
   type OnboardingStepName,
 } from "@/lib/onboarding-data";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
-import { ProgressRail } from "@/components/onboarding/rail";
+
 import { IdentityStep, IntentionsStep, LocationStep, WelcomeStep } from "./steps-a";
 import { AboutStep, PhotosStep, VibeStep } from "./steps-b";
 
@@ -217,7 +217,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
 
   return (
     <div className="animate-fade-in">
-      <ProgressRail stepIndex={stepIndex} />
+
       {flowError ? (
         <div
           role="alert"

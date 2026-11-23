@@ -142,6 +142,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const [row] = await db
     .select({
       mime: chatMedia.mime,
+      kind: chatMedia.kind,
       matchId: chatMedia.matchId,
       senderId: chatMedia.senderId,
       size: sql<number>`octet_length(${chatMedia.data})`,
@@ -277,7 +278,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     // Media is immutable in principle, but privacy beats the byte savings.
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
-    "Content-Disposition": "inline",
+    "Content-Disposition": row.kind === "file" ? "attachment" : "inline",
+    "Content-Security-Policy": "sandbox; default-src 'none'",
     /* Advertising ranges is half the fix: a player told that ranges work asks
        for metadata first instead of stalling on the whole file. */
     "Accept-Ranges": "bytes",

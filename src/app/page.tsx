@@ -1,14 +1,9 @@
+import "@/components/landing/landing.css";
 import { Nav } from "@/components/landing/nav";
 import { DeletionNotice } from "@/components/landing/deletion-notice";
 import { Hero } from "@/components/landing/hero";
 import { Room } from "@/components/landing/room";
-/* The manifesto and the "built on what other apps got wrong" comparison were
-   removed in the 2026-11-10 landing cut: ~3,700px of prose that restated what
-   the hero and the member cards already show, on a page that measured 23 phone
-   screens. The member-card room, marquee, FAQ and CTA stay. */
-import { Marquee } from "@/components/landing/story";
 import { HowItWorks } from "@/components/landing/how";
-import { Standard } from "@/components/landing/standard";
 import { Safety } from "@/components/landing/safety";
 import { Faq } from "@/components/landing/faq";
 import { FinalCta } from "@/components/landing/final-cta";
@@ -16,6 +11,7 @@ import { Footer } from "@/components/landing/footer";
 
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
 import { faqs } from "@/components/landing/faq";
 
 /**
@@ -53,28 +49,28 @@ const jsonLd = {
   })),
 };
 
-export default async function LandingPage() {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+async function LandingStructuredData(){
+  const nonce=(await headers()).get('x-nonce')??undefined;
+  return <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd)}}/>;
+}
+
+// Do not suspend the public content behind the app's fullscreen route loader.
+// Only nonce-dependent structured data needs to await request headers here.
+export default function LandingPage() {
   return (
-    <>
-      <script
-        type="application/ld+json"
-        nonce={nonce}
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+    <div className="landing-page">
+      <Suspense fallback={null}><LandingStructuredData/></Suspense>
       <Nav />
       <DeletionNotice />
       <main>
         <Hero />
         <Room />
-        <Marquee />
         <HowItWorks />
-        <Standard />
         <Safety />
         <Faq />
         <FinalCta />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

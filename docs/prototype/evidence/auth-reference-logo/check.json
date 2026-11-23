@@ -1,0 +1,21 @@
+{
+  "status": "pass",
+  "scope": "Local auth rendering and saved reference SVG equality; no backend acceptance",
+  "actual": {
+    "path": "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 5z",
+    "stroke": "#2a1a10",
+    "strokeWidth": "1.7",
+    "badge": [
+      34,
+      34
+    ],
+    "svg": [
+      18,
+      18
+    ],
+    "gradient": "linear-gradient(102deg, rgb(248, 231, 198) 0%, rgb(244, 207, 157) 42%, rgb(233, 169, 139) 78%, rgb(223, 147, 160) 100%)",
+    "word": "21px",
+    "customMark": false
+  },
+  "errors": []
+}

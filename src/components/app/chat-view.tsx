@@ -1,8 +1,15 @@
 "use client";
+import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
+import { createChatPreviewUrl } from "@/lib/chat-preview-url";
+import { CHAT_FILE_ACCEPT, CHAT_FILE_MAX, chatFileMime, safeChatFilename } from "@/lib/chat-file";
+import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { Button } from "@/components/ui/button";
 import { AuthedVideo } from "@/components/ui/authed-media";
+import { useModalFocus } from "@/components/prototype/modal-focus";
+import { PrototypeIcon } from "@/components/prototype/frame";
+import { MessagesHeading } from "@/components/prototype/screens";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,14 +29,15 @@ import {
   type PendingMessage,
 } from "@/lib/chat-sync";
 import { joinChatChannel, relayMessageNotice, type ChatBus } from "@/lib/chat-bus";
-import { ProfileView } from "./profile-view";
-import { PhotoLightbox } from "./photo-lightbox";
+import { MemberDetail } from "@/components/prototype/member-detail";
+import { ChatPhoto, PhotoViewer, VoiceBubble, VoiceRecorder } from "@/components/prototype/media";
 import { CallOverlay } from "./call-overlay";
-import { VoiceBubble, VoiceRecorder } from "./voice-note";
-import { CameraCapture } from "@/components/camera-capture";
+
+
 
 type MatchRow = {
   id: string;
+  ended?: boolean;
   with: {
     id: string;
     name: string;
@@ -37,6 +45,7 @@ type MatchRow = {
     photo: string;
     active?: boolean;
     lastActiveAt?: string | null;
+    verified?: boolean;
   };
   lastMessage: { body: string; mine: boolean; at: string } | null;
   unread: number;
@@ -72,24 +81,15 @@ const ICEBREAKERS = [
 
 type StagedItem = {
   id: number;
-  kind: "image" | "video";
+  kind: "image" | "video" | "file";
   dataUrl: string;
-  file?: File;
+  file: File;
   dur?: number;
+  name?: string;
+  uploadedUrl?: string;
 };
 
-/** CSP-safe data-URL to Blob. connect-src deliberately excludes data:, so
- *  attachments must never be fetched back through the network stack. */
-const dataUrlToBlob = (dataUrl: string): Blob => {
-  const [meta, base64] = dataUrl.split(",");
-  const mime = /^data:([^;,]+)/.exec(meta)?.[1] ?? "application/octet-stream";
-  const bin = atob(base64 ?? "");
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
-};
-
-const MEDIA_RE = /^\[\[(image|video|voice|call):([^\]|]+)(?:\|([\d.]+))?\]\]$/;
+const MEDIA_RE = /^\[\[(image|video|voice|call|file):([^\]|]+)(?:\|([^\]]+))?\]\]$/;
 const QUOTE_RE = /^\[\[quote:([^|]{1,60})\|(.{1,220})\]\]$/;
 const MAX_PACKET_ITEMS = 10;
 
@@ -117,6 +117,7 @@ function fmtClock(totalSeconds: number) {
 }
 
 function previewBody(body: string) {
+  if (/\[\[file:/.test(body)) return "Document";
   if (/\[\[voice:/.test(body)) return "Voice note";
   if (/\[\[video:/.test(body)) return "Video";
   if (/\[\[image:/.test(body)) return "Photo";
@@ -159,7 +160,7 @@ function seededBars(seed: string, count: number) {
 
 type Segment =
   | { type: "quote"; name: string; text: string }
-  | { type: "media"; items: { kind: string; url: string; dur?: number }[] }
+  | { type: "media"; items: { kind: string; url: string; dur?: number; name?: string }[] }
   | { type: "text"; text: string };
 
 function parseSegments(body: string): Segment[] {
@@ -173,7 +174,7 @@ function parseSegments(body: string): Segment[] {
     }
     const m = MEDIA_RE.exec(line.trim());
     if (m) {
-      const item = { kind: m[1], url: m[2], dur: m[3] ? Number(m[3]) : undefined };
+      const item = { kind: m[1], url: m[2], dur: m[1]!=="file" && m[3] ? Number(m[3]) : undefined, name: m[1]==="file" ? (()=>{try{return decodeURIComponent(m[3]||"Document");}catch{return "Document";}})() : undefined };
       const last = segs[segs.length - 1];
       if (last && last.type === "media") last.items.push(item);
       else segs.push({ type: "media", items: [item] });
@@ -193,7 +194,7 @@ function plainText(body: string) {
         : s.type === "quote"
           ? `${s.name}: ${s.text}`
           : s.items
-              .map((i) => (i.kind === "voice" ? "[Voice note]" : i.kind === "video" ? "[Video]" : "[Photo]"))
+              .map((i) => (i.kind === "file" ? "[Document]" : i.kind === "voice" ? "[Voice note]" : i.kind === "video" ? "[Video]" : "[Photo]"))
               .join(" ")
     )
     .join("\n");
@@ -241,7 +242,7 @@ function VideoTile({
       onClick={onOpen}
       onPointerDown={(e) => e.stopPropagation()}
       aria-label="Open video full size"
-      className="relative block overflow-hidden rounded-xl transition active:scale-[0.98]"
+      className="reference-video-tile"
     >
       <AuthedVideo
         ref={ref}
@@ -264,20 +265,14 @@ function VideoTile({
         }}
         className="max-h-[300px] w-full rounded-xl object-cover"
       />
-      <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
-          </svg>
-        </span>
-      </span>
-      {seconds ? (
-        <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-px text-[9px] font-black tabular-nums text-white/90">
-          {`${Math.floor(seconds / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`}
-        </span>
-      ) : null}
+      <span className="reference-video-play"><PrototypeIcon name="video"/></span><span className="reference-video-caption">Play video{seconds?` · ${Math.floor(seconds/60)}:${String(Math.round(seconds)%60).padStart(2,'0')}`:''}</span>
     </button>
   );
+}
+
+function DocumentAttachment({url,name="Document"}:{url:string;name?:string}){
+ const [busy,setBusy]=useState(false);const [error,setError]=useState(false);
+ return <div className="chat-document"><Button unstyled type="button" disabled={busy} onPointerDown={e=>e.stopPropagation()} onClick={async()=>{if(!/^\/api\/chat\/media\/[a-f0-9-]{36}$/.test(url)){setError(true);return;}setBusy(true);setError(false);try{const token=await getAccessToken();const r=await fetch(url,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!r.ok)throw Error('Download refused');const objectUrl=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=objectUrl;a.download=safeChatFilename(name);a.click();window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);}catch{setError(true);}finally{setBusy(false);}}}><PrototypeIcon name="file"/><span><b>{safeChatFilename(name)}</b><small>{busy?'Downloading…':'Download document'}</small></span><PrototypeIcon name="next"/></Button>{error&&<p role="alert">Could not download. Check your access and try again.</p>}</div>;
 }
 
 function MediaPacket({
@@ -285,7 +280,7 @@ function MediaPacket({
   onImage,
   onVideo,
 }: {
-  items: { kind: string; url: string; dur?: number }[];
+  items: { kind: string; url: string; dur?: number; name?: string }[];
   onImage: (url: string) => void;
   onVideo: (url: string) => void;
 }) {
@@ -293,25 +288,12 @@ function MediaPacket({
   const voices = items.filter((i) => i.kind === "voice");
   return (
     <div className="space-y-2">
+      {items.filter(i=>i.kind==="file").map((item,i)=><DocumentAttachment key={i} url={item.url} name={item.name}/>)}
       {visuals.length > 0 ? (
-        <div className={visuals.length > 1 ? "grid grid-cols-2 gap-1.5" : ""}>
+        <div className="reference-packet-visuals">
           {visuals.map((item, i) =>
             item.kind === "image" ? (
-              <button
-                key={i}
-                type="button"
-                onClick={() => onImage(item.url)}
-                onPointerDown={(e) => e.stopPropagation()}
-                aria-label="Open photo full size"
-                className="block overflow-hidden rounded-2xl ring-1 ring-white/10 transition active:scale-[0.98]"
-              >
-                <PhotoImage
-                  src={item.url}
-                  alt="Shared photo"
-                  className="block max-h-[300px] w-full rounded-2xl"
-                  imgClassName="max-h-[300px] w-full rounded-2xl object-cover"
-                />
-              </button>
+              <ChatPhoto key={i} url={item.url} onOpen={()=>onImage(item.url)}/>
             ) : (
               <VideoTile
                 key={i}
@@ -419,11 +401,7 @@ function MessageContent({
 
 function DayDivider({ label }: { label: string }) {
   return (
-    <div className="flex justify-center py-1.5">
-      <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-3.5 py-1 text-[10.5px] font-black uppercase tracking-[0.14em] text-[var(--color-ash)]">
-        {label}
-      </span>
-    </div>
+    <div className="reference-chat-day">{label}</div>
   );
 }
 
@@ -452,13 +430,15 @@ function Avatar({ photo, name, size = 48 }: { photo: string; name: string; size?
 
 /* ========================================================================== */
 
-function Thread({
+export function Thread({
   match,
   token,
   onBack,
   onChanged,
   onTapProfile,
+  initialDraft = "",
 }: {
+  initialDraft?: string;
   match: MatchRow;
   token: string | null;
   onBack: () => void;
@@ -466,12 +446,13 @@ function Thread({
   onTapProfile: (id: string) => void;
 }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialDraft);
   const [sending, setSending] = useState(false);
   const [call, setCall] = useState<"voice" | "video" | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [sheetFor, setSheetFor] = useState<MessageRow | null>(null);
+  useModalFocus(Boolean(sheetFor));
   const [quoteArmedId, setQuoteArmedId] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ name: string; text: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -486,16 +467,18 @@ function Thread({
   useEffect(() => {
     const measure = () => {
       const vh = window.visualViewport?.height ?? window.innerHeight;
-      /* The bottom tab bar hides while a conversation is open (and the shell's
-         bottom padding shrinks), so the chrome allowance is smaller here. */
-      const chrome = window.innerWidth >= 1024 ? 58 : 110;
-      setHeightPx(Math.max(380, Math.round(vh - chrome)));
+      const parent = bottomRef.current?.closest(".fb-thread")?.parentElement;
+      setHeightPx(Math.max(220, Math.min(parent?.clientHeight ?? vh, vh)));
     };
     measure();
+    const parent = bottomRef.current?.closest(".fb-thread")?.parentElement;
+    const observer = new ResizeObserver(measure);
+    if (parent) observer.observe(parent);
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
     window.visualViewport?.addEventListener("resize", measure);
     return () => {
+      observer.disconnect();
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
       window.visualViewport?.removeEventListener("resize", measure);
@@ -701,7 +684,7 @@ function Thread({
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
     if (!firstScroll.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
     firstScroll.current = false;
   }, [messages.length, heightPx]);
@@ -726,9 +709,10 @@ function Thread({
     setUploading(true);
     try {
       const url = await uploadMedia(blob, "voice");
-      if (!url) return; // uploadMedia already told the member why
+      if (!url) return false; // Keep the recorder preview available for retry
       await postMessage(buildBody(`[[voice:${url}|${seconds}]]`));
       setReplyTo(null);
+      return true;
     } finally {
       setUploading(false);
     }
@@ -845,16 +829,16 @@ function Thread({
   const buildBody = (content: string) => {
     if (!replyTo) return content;
     const quote = `[[quote:${replyTo.name.slice(0, 40)}|${replyTo.text.slice(0, 120)}]]`;
-    return `${quote}\n${content}`.slice(0, 2000);
+    return `${quote}\n${content}`;
   };
 
   /** Upload into the media store via multipart (no base64 bloat → voice and
       video actually go through). */
-  const uploadMedia = async (blob: Blob, kind: "image" | "video" | "voice") => {
+  const uploadMedia = async (blob: Blob, kind: "image" | "video" | "voice" | "file") => {
     try {
       const ext = kind === "voice" ? "webm" : kind === "video" ? "mp4" : "jpg";
       const form = new FormData();
-      form.append("file", blob, `upload.${ext}`);
+      form.append("file", blob, blob instanceof File ? blob.name : `upload.${ext}`);
       form.append("kind", kind);
       // Required: the server records which conversation this attachment
       // belongs to so that GET /api/chat/media/:id can verify the fetcher is
@@ -878,27 +862,15 @@ function Thread({
     }
   };
 
-  /** Live camera shot → straight into the conversation, no staging. */
-  const handleCameraShot = async (dataUrl: string) => {
-    setCameraOpen(false);
-    setUploading(true);
-    try {
-      const blob = dataUrlToBlob(dataUrl);
-      const url = await uploadMedia(blob, "image");
-      if (url) await postMessage(buildBody(`[[image:${url}]]`));
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const send = async () => {
     const clean = text.trim();
     if (!clean || sending || staged.length > 0) return;
+    const body = buildBody(clean);
+    if(body.length>2000){flash("Shorten your message or quoted reply to fit 2000 characters.");return;}
     setSending(true);
     setText("");
     setReplyTo(null);
     stopTypingNotice();
-    const body = buildBody(clean);
     /* One path owns the echo: postMessage queues it, renders it, retires it by server id and
        marks it retryable if the send is refused. Pushing a second copy here is how the same
        text could appear twice until the next fetch. */
@@ -908,59 +880,48 @@ function Thread({
 
   /* --- Staged media packet -------------------------------------------------- */
 
+  const documentRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<StagedItem[]>([]);
+  const stagedUrls=useRef(new Set<string>());const pendingProbes=useRef(new Set<()=>void>());const stagingAlive=useRef(true);
+  useEffect(()=>{const urls=stagedUrls.current,probes=pendingProbes.current;stagingAlive.current=true;return()=>{stagingAlive.current=false;for(const cancel of probes)cancel();probes.clear();for(const url of urls)URL.revokeObjectURL(url);urls.clear();};},[]);
+  useEffect(()=>{const active=new Set(staged.map(i=>i.dataUrl));for(const url of stagedUrls.current){if(!active.has(url)){URL.revokeObjectURL(url);stagedUrls.current.delete(url);}}},[staged]);
   const [uploading, setUploading] = useState(false);
   /** "+" attach menu (photo / video / live camera) + camera overlay state. */
   const [attachOpen, setAttachOpen] = useState(false);
-  const [cameraOpen, setCameraOpen] = useState(false);
+  useEffect(()=>{if(!attachOpen)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){setAttachOpen(false);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[attachOpen]);
+  const [showVoice, setShowVoice] = useState(false);
 
-  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video") => {
+
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "video" | "file") => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     for (const file of files) {
       if (staged.length >= MAX_PACKET_ITEMS) break;
-      if (file.size > 20 * 1024 * 1024) {
-        flash("That file is over 20 MB. Trim it down and try again.");
+      const max=kind==="video"?20*1024*1024:CHAT_FILE_MAX;
+      if(kind==="file"&&!chatFileMime(file.name)){flash("Choose a PDF, text, CSV or Office document.");continue;}
+      if (file.size > max) {
+        flash(`That file is over ${max/1024/1024} MB. Choose a smaller file.`);
         continue;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = String(reader.result);
-        const add = (dur?: number) =>
-          setStaged((s) =>
-            s.length >= MAX_PACKET_ITEMS
-              ? s
-              : [...s, { id: Date.now() + Math.random(), kind, dataUrl, file, dur }]
-          );
-        if (kind === "video") {
-          const probe = document.createElement("video");
-          probe.preload = "metadata";
-          let settled = false;
-          const settle = (dur?: number) => {
-            if (settled) return;
-            settled = true;
-            add(dur);
-          };
-          probe.onloadedmetadata = () => {
-            if (Number.isFinite(probe.duration) && probe.duration > 0) {
-              settle(probe.duration);
-            } else if (probe.duration === Infinity) {
-              probe.currentTime = 0.1;
-            } else {
-              settle(undefined);
-            }
-          };
-          probe.onseeked = () =>
-            settle(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined);
-          probe.onerror = () => settle(undefined);
-          probe.src = URL.createObjectURL(file);
-        } else {
-          add(undefined);
-        }
+      if(kind==="file"){setStaged(s=>s.length>=MAX_PACKET_ITEMS?s:[...s,{id:Date.now()+Math.random(),kind,dataUrl:"",file,name:safeChatFilename(file.name)}]);continue;}
+      // Object URLs are opaque local references, never DOM text/data URLs.
+      const add = (dur?: number) => {
+        if(!stagingAlive.current)return;
+        let dataUrl:string;try{dataUrl=createChatPreviewUrl(file,kind);}catch{flash(`Choose a supported ${kind} file.`);return;}stagedUrls.current.add(dataUrl);
+        setStaged(items=>{if(items.length>=MAX_PACKET_ITEMS){URL.revokeObjectURL(dataUrl);stagedUrls.current.delete(dataUrl);return items;}return [...items,{id:Date.now()+Math.random(),kind,dataUrl,file,dur}];});
       };
-      reader.readAsDataURL(file);
+      if(kind==='video'){
+        const probe=document.createElement('video');probe.preload='metadata';
+        let probeUrl:string;try{probeUrl=createChatPreviewUrl(file,kind);}catch{flash("Choose a supported video file.");continue;}let settled=false;
+        const finish=(dur?:number)=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);pendingProbes.current.delete(cancel);add(dur);};
+        const cancel=()=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);};
+        const deadline=window.setTimeout(()=>finish(),5000);pendingProbes.current.add(cancel);
+        probe.onloadedmetadata=()=>{if(Number.isFinite(probe.duration)&&probe.duration>0)finish(probe.duration);else if(probe.duration===Infinity)probe.currentTime=.1;else finish();};
+        probe.onseeked=()=>finish(Number.isFinite(probe.duration)&&probe.duration>0?probe.duration:undefined);
+        probe.onerror=()=>finish();probe.src=probeUrl;
+      }else add();
     }
   };
 
@@ -975,24 +936,27 @@ function Thread({
     if (items.length === 0) return;
     setUploading(true);
     setSending(true);
-    setText("");
-    setStaged([]);
+    stopTypingNotice();
     const markers: string[] = [];
+    let failed=false;
     for (const item of items) {
       try {
-        const blob = item.file ?? dataUrlToBlob(item.dataUrl);
-        const url = await uploadMedia(blob, item.kind);
-        if (url) markers.push(`[[${item.kind}:${url}${item.dur ? `|${item.dur.toFixed(1)}` : ""}]]`);
-      } catch {
-        flash("One attachment couldn't be read, so it was skipped.");
-      }
+        const blob = item.file;
+        const url = item.uploadedUrl ?? await uploadMedia(blob, item.kind);
+        if (!url) {failed=true;continue;}
+        // Keep uploaded ids for a retry; never upload the same successful file twice.
+        setStaged(s=>s.map(i=>i.id===item.id?{...i,uploadedUrl:url}:i));
+        const meta=item.kind==='file'?`|${encodeURIComponent(safeChatFilename(item.name||'Document'))}`:item.dur?`|${item.dur.toFixed(1)}`:'';
+        markers.push(`[[${item.kind}:${url}${meta}]]`);
+      } catch { failed=true; }
     }
-    if (markers.length) {
-      const content = [markers.join("\n"), caption].filter(Boolean).join("\n");
-      await postMessage(buildBody(content));
-    } else if (caption) {
-      await postMessage(buildBody(caption));
-    }
+    if(failed){flash("Some attachments didn’t upload. Your files and caption are kept — try Send packet again.");setUploading(false);setSending(false);return;}
+    const content = [markers.join("\n"), caption].filter(Boolean).join("\n");
+    const packetBody=buildBody(content);
+    if(packetBody.length>2000){flash("This packet is too long. Shorten the caption or send fewer attachments together. Your files are kept.");setUploading(false);setSending(false);return;}
+    await postMessage(packetBody);
+    // postMessage owns the retained failed-send bubble if delivery is refused.
+    setText(current=>current.trim()===caption?"":current);setStaged(current=>current.filter(i=>!items.some(sent=>sent.id===i.id)));
     setReplyTo(null);
     setUploading(false);
     setSending(false);
@@ -1107,8 +1071,9 @@ function Thread({
     }
     const segs = parseSegments(m.body);
     const mediaOnly = segs.every((s) => s.type === "media");
+    const hasMedia = segs.some((s) => s.type === "media");
     rows.push(
-      <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
+      <div key={m.id} className={`reference-message-row flex ${m.mine ? "justify-end" : "justify-start"}`}>
         <div className="relative flex max-w-[78%] items-center gap-2">
           {m.failed && m.blocked ? (
             <span
@@ -1150,7 +1115,7 @@ function Thread({
               transition: "transform 160ms ease",
             }}
             onContextMenu={(e) => e.preventDefault()}
-            className={`fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
+            className={`fb-bubble ${hasMedia?"reference-has-media":""} ${mediaOnly?"reference-media-only":""} ${m.mine?"out":"in"} fb-no-callout relative touch-pan-y select-none rounded-[20px] text-[14px] leading-6 ${
               mediaOnly ? "p-2" : "px-4 py-2.5"
             } ${
               m.mine
@@ -1173,7 +1138,7 @@ function Thread({
             ) : null}
             <MessageContent body={m.body} onImage={setLightboxUrl} onVideo={setVideoUrl} />
             <span
-              className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+              className={`chat-receipt sr-only ${
                 m.mine ? "text-white/70" : "text-[var(--color-ash)]"
               }`}
             >
@@ -1227,98 +1192,18 @@ function Thread({
   }
 
   return (
-    <div className="flex w-full max-w-full min-h-[380px] flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
-      <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to conversations"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--color-mist)] transition hover:text-[var(--color-pearl)]"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={() => onTapProfile(match.with.id)}
-          aria-label={`View ${match.with.name}'s profile`}
-          className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-85"
-        >
-          <span className="relative shrink-0 rounded-full ring-2 ring-white/10">
-            <Avatar photo={match.with.photo} name={match.with.name} size={46} />
-            {match.with.active ? (
-              <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[#2fbf71] ring-2 ring-[#0a0d18]" />
-            ) : null}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate font-display text-[16.5px] font-bold tracking-tight">{match.with.name}</p>
-            <p className="flex items-center gap-1.5 truncate text-[12px] text-[var(--color-mist)]">
-              {peerTyping ? (
-                /* The live typing indicator: three staggered dots, driven by the
-                   other member's actual keystrokes over the thread channel. */
-                <span
-                  className="flex items-center gap-1.5 rounded-full border border-[var(--color-gold-500)]/35 bg-[var(--color-gold-500)]/10 px-2.5 py-0.5 font-bold text-[var(--color-gold-300)]"
-                  aria-label={`${match.with.name} is typing`}
-                >
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]" />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
-                    style={{ animationDelay: "0.12s" }}
-                  />
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--color-gold-300)]"
-                    style={{ animationDelay: "0.24s" }}
-                  />
-                  typing…
-                </span>
-              ) : match.with.active ? (
-                <span className="flex items-center gap-1.5 rounded-full border border-[#2fbf71]/30 bg-[#2fbf71]/10 px-2 py-0.5 font-bold text-[#5fd394]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2fbf71]" />
-                  Active now
-                </span>
-              ) : (
-                match.with.city || "Freeborn member"
-              )}
-            </p>
-          </div>
-        </button>
-
-        {/* Call controls — top right */}
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCall("voice")}
-            aria-label={`Voice call ${match.with.name}`}
-            title="Voice call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCall("video")}
-            aria-label={`Video call ${match.with.name}`}
-            title="Video call"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-teal-500)]/30 bg-[var(--color-teal-500)]/10 text-[var(--color-teal-300)] transition hover:bg-[var(--color-teal-500)]/20 active:scale-95"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="6" width="13" height="12" rx="2.5" />
-              <path d="M16 10.5l5-3v9l-5-3" />
-            </svg>
-          </button>
-        </div>
-      </div>
+    <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
+      <ChatHeader name={match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
+        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={()=>setCall("voice")} aria-label={`Voice call ${match.with.name}`}>Voice call</button><button type="button" onClick={()=>setCall("video")} aria-label={`Video call ${match.with.name}`}>Video call</button><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
+      </ChatHeader>
 
       {toast ? (
-        <div className="animate-scale-in mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-2 text-center text-[12px] font-bold text-[var(--color-sand)]">
+        <div role="status" className="reference-chat-notice animate-scale-in mt-3 rounded-xl border border-white/[0.08] bg-white/[0.05] px-3.5 py-2 text-center text-[12px] font-bold text-[var(--color-sand)]">
           {toast}
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overflow-x-hidden py-5">{rows.length > 0 ? rows : (
+      <div ref={scrollRef} className="fb-thread-feed reference-chat-feed">{rows.length > 0 ? rows : (
         <div className="pt-8 text-center">
           <p className="text-sm text-[var(--color-mist)]">The conversation is open. Say hello.</p>
           <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
@@ -1338,10 +1223,12 @@ function Thread({
           </div>
         </div>
       )}
-        <div ref={bottomRef} />
+        {peerTyping&&<div className="reference-typing" role="status" aria-label={`${match.with.name} is typing`}><i/><i/><i/></div>}
+        <div ref={bottomRef} className="reference-chat-bottom"/>
       </div>
 
       {/* Hidden file pickers */}
+      <input ref={documentRef} type="file" accept={CHAT_FILE_ACCEPT} multiple className="hidden" aria-label="Choose documents" onChange={e=>onFilePicked(e,"file")}/>
       <input
         ref={fileRef}
         type="file"
@@ -1359,80 +1246,7 @@ function Thread({
         onChange={(e) => onFilePicked(e, "video")}
       />
 
-      {/* Staged media packet */}
-      {staged.length > 0 ? (
-        <div className="mb-2 rounded-2xl border border-[var(--color-gold-500)]/30 bg-[var(--color-gold-500)]/[0.06] p-2.5">
-          <div className="flex items-center justify-between px-1 pb-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--color-sand)]">
-              Packet · {staged.length} {staged.length === 1 ? "item" : "items"}, sent together
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void sendPacket()}
-                disabled={sending || uploading}
-                className="rounded-full bg-[var(--gradient-ember-warm)] px-3.5 py-1.5 text-[11px] font-black text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
-              >
-                Send packet
-              </button>
-              <button
-                type="button"
-                onClick={() => setStaged([])}
-                className="text-[11px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-          <div className="flex gap-2.5 overflow-x-auto pb-1">
-            {staged.map((item, i) => (
-              <div key={item.id} className="relative shrink-0">
-                {item.kind === "image" ? (
-                  <img
-                    src={item.dataUrl}
-                    alt={`Staged photo ${i + 1}`}
-                    className="h-[84px] w-[84px] rounded-2xl border border-white/15 object-cover ring-1 ring-white/20"
-                  />
-                ) : (
-                  <div className="relative">
-                    <video
-                      src={item.dataUrl}
-                      muted
-                      playsInline
-                      className="h-[84px] w-[84px] rounded-2xl border border-white/15 bg-black object-cover ring-1 ring-white/20"
-                    />
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                          <path d="M8 5.4v13.2c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 000-2L9.8 4.4c-.8-.5-1.8.1-1.8 1z" />
-                        </svg>
-                      </span>
-                    </span>
-                    <span className="absolute bottom-1 left-1 rounded-md bg-black/70 px-1.5 py-px text-[8.5px] font-black uppercase tracking-wider text-white/90">
-                      Video
-                    </span>
-                    {item.dur ? (
-                      <span className="absolute bottom-1 right-1 rounded-md bg-black/70 px-1.5 py-px text-[8.5px] font-black tabular-nums text-white/90">
-                        {`${Math.floor(item.dur / 60)}:${String(Math.round(item.dur) % 60).padStart(2, "0")}`}
-                      </span>
-                    ) : null}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setStaged((s) => s.filter((x) => x.id !== item.id))}
-                  aria-label="Remove attachment"
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/85 text-white ring-1 ring-white/25 transition hover:bg-black"
-                >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {staged.length>0&&<section className="reference-attachment-draft" aria-label="Attachment preview"><header><span className="coral-label">Ready to share · {staged.length}</span><button type="button" onClick={()=>setStaged([])} disabled={uploading}>Clear</button></header><div className="reference-attachment-strip">{staged.map((item,i)=><figure key={item.id}>{item.kind==='file'?<div className="reference-document-preview"><PrototypeIcon name="file"/><span>{item.name}</span></div>:item.kind==='image'?<img src={item.dataUrl} alt={`Staged photo ${i+1}`}/>:<video src={item.dataUrl} muted playsInline/>}<button type="button" aria-label="Remove attachment" disabled={uploading} onClick={()=>setStaged(list=>list.filter(v=>v.id!==item.id))}><PrototypeIcon name="close"/></button></figure>)}</div><p>Add a caption below, then send when you’re ready.</p></section>}
 
       {/* Reply / quote preview */}
       {replyTo ? (
@@ -1464,15 +1278,16 @@ function Thread({
 
       {/* Composer — voice recording overlays it Telegram-style */}
       {threadAccess && !threadAccess.canSend ? null : (
-      <div className="relative flex w-full max-w-full items-center gap-2 border-t border-white/[0.06] pt-4">
+      <div className="fb-composer reference-chat-composer">
         <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setAttachOpen((o) => !o)}
             disabled={uploading}
-            aria-label="Attach photos, videos or a live picture"
+            aria-label="Attach photos, videos or documents"
             aria-expanded={attachOpen}
             title="Attach"
+            style={{position:"relative",zIndex:attachOpen?56:undefined}}
             className={`flex h-11 w-11 items-center justify-center rounded-full border transition active:scale-95 disabled:opacity-40 ${
               attachOpen
                 ? "border-[var(--color-gold-500)]/60 bg-[var(--color-gold-500)]/10 text-[var(--color-gold-300)]"
@@ -1486,51 +1301,7 @@ function Thread({
           {attachOpen ? (
             <>
               <div className="fixed inset-0 z-[55]" onClick={() => setAttachOpen(false)} />
-              <div className="animate-scale-in absolute bottom-14 left-0 z-[56] w-[232px] overflow-hidden rounded-2xl border border-white/[0.09] bg-[#10141f] shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAttachOpen(false);
-                    fileRef.current?.click();
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="3" y="5" width="18" height="14" rx="2.5" />
-                    <circle cx="9" cy="10" r="1.6" />
-                    <path d="M21 16l-4.5-4.5L9 18" />
-                  </svg>
-                  Photo from gallery
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAttachOpen(false);
-                    videoRef.current?.click();
-                  }}
-                  className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="3" y="6" width="13" height="12" rx="2.5" />
-                    <path d="M16 10.5l5-3v9l-5-3" />
-                  </svg>
-                  Video from gallery
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAttachOpen(false);
-                    setCameraOpen(true);
-                  }}
-                  className="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left text-[13px] font-bold text-[var(--color-gold-300)] transition hover:bg-white/[0.05]"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M4 8.2h3l1.6-2.4h6.8L17 8.2h3a1.5 1.5 0 011.5 1.5v8.6A1.5 1.5 0 0120 19.8H4a1.5 1.5 0 01-1.5-1.5V9.7A1.5 1.5 0 014 8.2z" />
-                    <circle cx="12" cy="13.6" r="3.4" />
-                  </svg>
-                  Take a live picture
-                </button>
-              </div>
+              <div className="reference-attachment-menu" role="menu" aria-label="Share in conversation">{[{label:'Photo from gallery',icon:'photo',ref:fileRef},{label:'Video from gallery',icon:'video',ref:videoRef},{label:'Share a document',icon:'file',ref:documentRef}].map(item=><button type="button" role="menuitem" key={item.label} onClick={()=>{setAttachOpen(false);item.ref.current?.click();}}><PrototypeIcon name={item.icon as 'photo'|'video'|'file'}/><span>{item.label}</span><PrototypeIcon name="next"/></button>)}</div>
             </>
           ) : null}
         </div>
@@ -1566,7 +1337,8 @@ function Thread({
               else void send();
             }
           }}
-          placeholder={staged.length > 0 ? "Add a caption to the packet\u2026" : `Message ${match.with.name}\u2026`}
+          aria-label="Message"
+          placeholder={staged.length > 0 ? "Add a caption to the packet\u2026" : "Write something thoughtful..."}
           maxLength={1800}
           autoComplete="off"
           enterKeyHint="send"
@@ -1574,11 +1346,7 @@ function Thread({
           className="max-h-[160px] min-h-[48px] min-w-0 flex-1 resize-none overflow-y-auto rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-[14px] leading-5 text-[var(--color-pearl)] outline-none transition placeholder:text-[var(--color-ash)] focus:border-[var(--color-gold-500)]"
         />
 
-        <VoiceRecorder
-          onSend={(dataUrl, seconds) => void sendVoice(dataUrl, seconds)}
-          onError={flash}
-          disabled={uploading}
-        />
+        <button type="button" className="reference-mic-button bare-icon" aria-label="Record a voice note" disabled={uploading||sending} onClick={()=>setShowVoice(true)}><PrototypeIcon name="mic"/></button>
 
         <button
           type="button"
@@ -1588,13 +1356,7 @@ function Thread({
           title={staged.length > 0 ? "Send packet" : "Send message"}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white shadow-[var(--shadow-primary-btn)] transition active:scale-95 disabled:opacity-40"
         >
-          {staged.length > 0 ? (
-            <span className="text-[13px] font-black">{staged.length}</span>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-            </svg>
-          )}
+          <ChatSendIcon/>
         </button>
       </div>
       )}
@@ -1609,7 +1371,7 @@ function Thread({
             return (
               <div className="fixed inset-0 z-[145]" onClick={() => setPickerFor(null)}>
                 <div
-                  className="fb-pop-in fixed flex items-center gap-1 rounded-full border border-white/[0.1] bg-[#10141f] px-2 py-1.5 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.9)]"
+                  className="reference-reactions"
                   style={{ left, top }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -1652,99 +1414,18 @@ function Thread({
           })()
         : null}
 
-      {/* Long-press action sheet */}
-      {sheetFor ? (
-        <div
-          className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
-          onClick={() => setSheetFor(null)}
-        >
-          <div
-            className="animate-scale-in w-full max-w-[360px] overflow-hidden rounded-3xl border border-white/[0.09] bg-[#0c101d] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="border-b border-white/[0.06] px-5 py-3.5">
-              <p className="line-clamp-2 text-[12.5px] leading-5 text-[var(--color-mist)]">
-                {plainText(sheetFor.body).slice(0, 120) || "Media message"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void copyMessage(sheetFor)}
-              className="flex w-full items-center gap-3 px-5 py-3.5 text-left text-[14px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="9" y="9" width="11" height="11" rx="2" />
-                <path d="M5 15V5a2 2 0 012-2h10" />
-              </svg>
-              Copy text
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setReplyTo({
-                  name: sheetFor.mine ? "You" : match.with.name,
-                  text: plainText(sheetFor.body).slice(0, 140) || previewBody(sheetFor.body),
-                });
-                setSheetFor(null);
-              }}
-              className="flex w-full items-center gap-3 px-5 py-3.5 text-left text-[14px] font-bold text-[var(--color-pearl)] transition hover:bg-white/[0.05]"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M9 17l5-5-5-5" transform="rotate(180 12 12)" />
-                <path d="M4 12h12" />
-              </svg>
-              Reply with quote
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheetFor(null)}
-              className="w-full border-t border-white/[0.06] px-5 py-3.5 text-center text-[13px] font-bold text-[var(--color-ash)] transition hover:text-[var(--color-pearl)]"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {sheetFor&&<div className="new-sheet-shade reference-message-shade" onClick={()=>setSheetFor(null)}><div className="new-sheet reference-message-sheet" role="dialog" aria-modal="true" aria-label="Message actions" onClick={e=>e.stopPropagation()}><span className="coral-label">In this conversation</span><p>{plainText(sheetFor.body).slice(0,120)||'Shared attachment'}</p><button type="button" onClick={()=>void copyMessage(sheetFor)}>Copy text</button><button type="button" onClick={()=>{setReplyTo({name:sheetFor.mine?'You':match.with.name,text:plainText(sheetFor.body).slice(0,140)||previewBody(sheetFor.body)});setSheetFor(null);}}>Reply with quote</button><button type="button" className="btn-ghost wide" onClick={()=>setSheetFor(null)}>Cancel</button></div></div>}
 
       {lightboxUrl ? (
-        <PhotoLightbox
+        <PhotoViewer
           photos={[lightboxUrl]}
           name={match.with.name}
           onClose={() => setLightboxUrl(null)}
         />
       ) : null}
 
-      {/* Full-size video viewer with a real close button */}
-      {videoUrl ? (
-        <div className="fixed inset-0 z-[190] flex flex-col bg-black">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <button
-              type="button"
-              onClick={() => setVideoUrl(null)}
-              aria-label="Close video"
-              className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-[12px] font-black uppercase tracking-wider text-white transition hover:bg-white/[0.12]"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              Close
-            </button>
-            <p className="text-[12px] font-bold uppercase tracking-wider text-white/60">
-              Video from {match.with.name}
-            </p>
-          </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center p-4">
-            <AuthedVideo src={videoUrl} controls autoPlay playsInline className="max-h-full max-w-full rounded-xl" />
-          </div>
-        </div>
-      ) : null}
-
-      {cameraOpen ? (
-        <CameraCapture
-          onCapture={(dataUrl) => void handleCameraShot(dataUrl)}
-          onClose={() => setCameraOpen(false)}
-        />
-      ) : null}
+      {videoUrl&&<div className="reference-photo-viewer" role="dialog" aria-modal="true" aria-label="Shared video"><header><button className="bare-icon" type="button" aria-label="Close video" onClick={()=>setVideoUrl(null)}><PrototypeIcon name="back"/></button><span>Shared video<small>{match.with.name}</small></span></header><div className="reference-photo-stage"><AuthedVideo src={videoUrl} controls autoPlay playsInline className="reference-video-full"/></div></div>}
+      {showVoice&&<VoiceRecorder onSend={sendVoice} onClose={()=>setShowVoice(false)}/>}
 
       {call ? (
         <CallOverlay
@@ -1772,6 +1453,12 @@ type RequestLists = {
 };
 
 export function ChatView() {
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const listener = (e: Event) => setSearch(String((e as CustomEvent).detail ?? ""));
+    window.addEventListener("freeborn:chat-search", listener);
+    return () => window.removeEventListener("freeborn:chat-search", listener);
+  }, []);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMatch, setOpenMatch] = useState<MatchRow | null>(null);
@@ -1857,13 +1544,13 @@ export function ChatView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <span className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+        <FreebornLoader/>
       </div>
     );
   }
 
   const profileOverlay = openProfileId ? (
-    <ProfileView profileId={openProfileId} onClose={() => setOpenProfileId(null)} />
+    <MemberDetail profileId={openProfileId} onClose={() => setOpenProfileId(null)} />
   ) : null;
 
   if (openMatch) {
@@ -1882,11 +1569,12 @@ export function ChatView() {
   }
 
   return (
-    <div className="mx-auto max-w-[680px]">
-      <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Chat</h1>
-      <p className="mt-1.5 text-sm text-[var(--color-mist)]">
-        Your matches and conversations, values already on the table.
-      </p>
+    <div className="fb-messages">
+      <MessagesHeading />
+      <div className="story-row" aria-label="Conversation profiles">
+        <a className="story-item" href="/app/profile/edit#photos" title="Edit your profile photos; stories are not available yet"><span className="story-add">+</span><span>Your story</span></a>
+        {matches.filter(m=>!m.ended).map(m=><Button unstyled className="story-item" key={m.id} onClick={()=>setOpenProfileId(m.with.id)}><span className="story-ring"><Avatar photo={m.with.photo} name={m.with.name} size={48}/></span><span>{m.with.name}</span></Button>)}
+      </div>
 
       {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
         <div className="mt-8">
@@ -1960,17 +1648,17 @@ export function ChatView() {
           </a>
         </div>
       ) : (
-        <div className="mt-6 space-y-2.5">
-          {matches.map((m) => (
+        <div className="thread-list">
+          {matches.filter((m) => !search.trim() || `${m.with.name} ${m.lastMessage?.body ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).map((m) => (
             <div
               key={m.id}
               role="button"
               tabIndex={0}
               onClick={() => setOpenMatch(m)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") setOpenMatch(m);
+                if (e.key === "Enter" || e.key === " ") {e.preventDefault();setOpenMatch(m);}
               }}
-              className="flex w-full cursor-pointer items-center gap-4 rounded-[22px] border border-white/[0.07] bg-white/[0.025] p-4 text-left transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              className={`thread-row ${m.unread>0?"unread":""}`}
             >
               <button
                 type="button"

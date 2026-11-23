@@ -12,10 +12,9 @@ const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
 
 check(manifest.schemaVersion === 1, "unsupported clean-start manifest schema");
-// 52 as of db/migrations/2026-11-16-message-requests.sql (message requests, owner
-// addendum 2026-11-15). Move this pin only together with a manifest step; the pin
+// 54 with additive notification dismissal and document attachments. Move this pin only together with a manifest step; the pin
 // exists to catch silent drift.
-check(manifest.steps.length === 52, `expected 52 replay steps, found ${manifest.steps.length}`);
+check(manifest.steps.length === 54, `expected 54 replay steps, found ${manifest.steps.length}`);
 check(new Set(manifest.steps.map((step) => step.version)).size === manifest.steps.length, "duplicate replay versions");
 check(new Set(manifest.steps.map((step) => step.name)).size === manifest.steps.length, "duplicate replay names");
 check(new Set(manifest.steps.map((step) => step.path)).size === manifest.steps.length, "duplicate replay paths");

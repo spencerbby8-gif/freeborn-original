@@ -1,0 +1,34 @@
+
+> test:experience-db
+> node scripts/prototype/discovery-local-db.mjs
+
+ok 1 - Actual SQL returns only eligible candidates, not self
+ok 2 - Actual SQL + filter: gender=woman
+ok 3 - Actual SQL + filter: language=Igbo
+ok 4 - Actual SQL + filter: interests=Music
+ok 5 - Actual SQL + filter: occupation=Teacher
+ok 6 - Actual SQL + filter: education=Bachelor
+ok 7 - Actual SQL + filter: verified=1
+ok 8 - Actual SQL + filter: ageMin=60
+ok 9 - Actual SQL + filter: intent=friendship
+ok 10 - Actual SQL + filter: distance=40
+ok 11 - Discover audience is enforced from actual stored privacy
+ok 12 - Message-request audience refuses an ineligible sender before writing
+ok 13 - Hidden distance and presence are absent from returned JSON
+ok 14 - Active-only cannot expose hidden activity
+ok 15 - Stored discovery pause removes card
+ok 16 - Stored incognito excludes stranger
+ok 17 - Explicit defaults clear stored restrictions
+ok 18 - Message audience continues to apply inside an existing match
+ok 19 - Notifications use actual match and unread-message rows
+ok 20 - Clear notifications persists dismissal without marking messages read
+ok 21 - Message alert switch changes actual feed
+ok 22 - Unmatch refuses missing explicit destructive confirmation
+ok 23 - Unmatch updates lifecycle and retains evidence
+ok 24 - Block writes actual row and excludes discovery in both directions
+ok 25 - Blocked incoming like cannot reappear through notifications
+ok 26 - Unblock removes only the authenticated owner block
+ok 27 - Report is persisted despite controlled moderation-engine outage
+ok 28 - A report alone does not suspend the subject
+ok 29 - Self-report is refused before report insert
+PASS 29 actual production-handler / local PostgreSQL checks; fixture auth, suppressed-ID lookup, moderation-engine outage and realtime delivery substituted. Transaction rolled back. No hosted RLS acceptance.

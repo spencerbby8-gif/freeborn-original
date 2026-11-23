@@ -25,7 +25,17 @@
     "test:preview-deletion-verify": "esbuild scripts/trust/preview-auth-deletion-verify.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-auth-deletion-verify.build.mjs --packages=external && node scripts/trust/.preview-auth-deletion-verify.build.mjs",
     "test:prepare-local": "node scripts/trust/prepare-local-db.mjs",
     "test:preview-deletion-drain": "esbuild scripts/trust/preview-deletion-drain.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=scripts/trust/.preview-deletion-drain.build.mjs --packages=external && node scripts/trust/.preview-deletion-drain.build.mjs",
-    "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs"
+    "test:profile-trigger": "node scripts/trust/profile-write-trigger-local.mjs",
+    "test:prototype-api": "node scripts/prototype/api-contracts.mjs",
+    "test:prototype-ui": "node scripts/prototype/ui-acceptance.cjs",
+    "test:chat-verification": "node scripts/prototype/chat-verification.cjs",
+    "test:setup-interactions": "node scripts/prototype/setup-interactions.cjs",
+    "test:chat-media": "node scripts/prototype/chat-media-contracts.mjs",
+    "test:discovery-privacy": "node scripts/prototype/discovery-privacy-contracts.mjs",
+    "test:experience-db": "node scripts/prototype/discovery-local-db.mjs",
+    "test:landing": "node scripts/prototype/landing-acceptance.cjs",
+    "test:filter-storage": "node scripts/prototype/filter-storage-contracts.mjs",
+    "test:landing-a11y": "node scripts/prototype/landing-a11y.cjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",
@@ -46,6 +56,7 @@
     "@types/pg": "8.18.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "axe-core": "4.11.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",

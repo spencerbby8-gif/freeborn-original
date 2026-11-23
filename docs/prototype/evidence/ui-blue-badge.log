@@ -1,0 +1,344 @@
+
+> test:prototype-ui
+> node scripts/prototype/ui-acceptance.cjs
+
+{
+  "scope": "Local UI tests with intercepted fixture APIs. Not hosted/backend acceptance.",
+  "screens": [
+    {
+      "name": "discover",
+      "path": "/app",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Discover · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "likes",
+      "path": "/app/likes",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Likes · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "messages",
+      "path": "/app/chat",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Chat · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "my-profile",
+      "path": "/app/profile",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Profile · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "settings",
+      "path": "/app/settings",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Settings · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "preferences",
+      "path": "/app/preferences",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Discovery Preferences · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "privacy",
+      "path": "/app/privacy",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Privacy & Safety · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "premium",
+      "path": "/app/premium",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Subscription · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "matches",
+      "path": "/app/matches",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Matches · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "notifications",
+      "path": "/app/notifications",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Alerts · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "verification",
+      "path": "/app/verification",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Verification · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "welcome",
+      "path": "/auth",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Join Freeborn · Secure Sign In · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "onboarding",
+      "path": "/onboarding",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "title": "Build your profile · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "profile-detail",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "fixture": true
+    },
+    {
+      "name": "chat",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "fixture": true
+    },
+    {
+      "name": "discover",
+      "path": "/app",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Discover · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "likes",
+      "path": "/app/likes",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Likes · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "messages",
+      "path": "/app/chat",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Chat · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "my-profile",
+      "path": "/app/profile",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Profile · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "settings",
+      "path": "/app/settings",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Settings · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "preferences",
+      "path": "/app/preferences",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Discovery Preferences · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "privacy",
+      "path": "/app/privacy",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Privacy & Safety · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "premium",
+      "path": "/app/premium",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Subscription · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "matches",
+      "path": "/app/matches",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Matches · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "notifications",
+      "path": "/app/notifications",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Alerts · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "verification",
+      "path": "/app/verification",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Verification · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "welcome",
+      "path": "/auth",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Join Freeborn · Secure Sign In · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "onboarding",
+      "path": "/onboarding",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "title": "Build your profile · Freeborn",
+      "phone": 1
+    },
+    {
+      "name": "profile-detail",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "fixture": true
+    },
+    {
+      "name": "chat",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "fixture": true
+    }
+  ],
+  "checks": [
+    {
+      "name": "Verification badge uses exact reference blue and white SVG fills",
+      "status": "passed"
+    },
+    {
+      "name": "Notification clear is wired to the authenticated API (fixture)",
+      "status": "passed"
+    },
+    {
+      "name": "Message search filters API results (fixture)",
+      "status": "passed"
+    },
+    {
+      "name": "Preferences reload through the API (fixture)",
+      "status": "passed"
+    },
+    {
+      "name": "Privacy switch sends authenticated API mutation",
+      "status": "passed"
+    },
+    {
+      "name": "Premium does not fabricate a subscription",
+      "status": "passed"
+    },
+    {
+      "name": "Say hello sends the expected authenticated API request (fixture)",
+      "status": "passed"
+    },
+    {
+      "name": "Password reveal and recovery/provider access are retained",
+      "status": "passed"
+    },
+    {
+      "name": "Retained account, support, blocked-member and photo-editor surfaces load",
+      "status": "passed"
+    },
+    {
+      "name": "HTTP failure is displayed, not reported as a save",
+      "status": "passed"
+    }
+  ],
+  "errors": []
+}

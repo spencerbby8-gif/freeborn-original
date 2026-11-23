@@ -9,6 +9,8 @@ export type HomeFilters = {
   lifestyle: string[]; // match any
   interests: string[]; // match any
   intents: string[]; // match any
+  occupations: string[];
+  educations: string[];
   religions: string[];
   marital: string[];
   kids: string[];
@@ -36,6 +38,8 @@ export const DEFAULT_FILTERS: HomeFilters = {
   lifestyle: [],
   interests: [],
   intents: [],
+  occupations: [],
+  educations: [],
   religions: [],
   marital: [],
   kids: [],
@@ -61,6 +65,7 @@ export type RoomFacets = {
   openToMixers: number;
   activeToday: number;
   gender: FacetCount;
+  occupation: FacetCount;
   religion: FacetCount;
   marital: FacetCount;
   kids: FacetCount;
@@ -77,30 +82,26 @@ export type RoomFacets = {
 export const FILTERS_KEY = "freeborn.filters";
 export const FILTERS_EVENT = "freeborn-filters-changed";
 
+// Search choices may reveal health, religion or orientation. Keep the live
+// panel in memory, never write that object to localStorage/sessionStorage.
+// Standing account preferences remain persisted by the authenticated settings API.
+let liveFilters: HomeFilters | null = null;
+function removeLegacyFilters(){
+  if(typeof window==='undefined')return;
+  try{window.localStorage.removeItem(FILTERS_KEY);}catch{/* storage can be disabled */}
+}
 export function loadFilters(): HomeFilters {
-  try {
-    const raw = localStorage.getItem(FILTERS_KEY);
-    if (!raw) return { ...DEFAULT_FILTERS };
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_FILTERS, ...parsed };
-  } catch {
-    return { ...DEFAULT_FILTERS };
-  }
+  removeLegacyFilters();
+  return structuredClone(liveFilters ?? DEFAULT_FILTERS);
 }
-
-/** True when the member has explicitly saved panel filters on this device.
- *  Standing preferences (Settings → Discovery) seed the panel only when no
- *  saved filters exist, so the panel always displays the effective values. */
 export function hasSavedFilters(): boolean {
-  try {
-    return localStorage.getItem(FILTERS_KEY) !== null;
-  } catch {
-    return false;
-  }
+  removeLegacyFilters();
+  return liveFilters !== null;
 }
-
 export function saveFilters(filters: HomeFilters) {
-  localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+  if(typeof window==='undefined')return;
+  removeLegacyFilters();
+  liveFilters = structuredClone(filters);
   window.dispatchEvent(new Event(FILTERS_EVENT));
 }
 
@@ -116,6 +117,8 @@ export function hasActiveFilters(f: HomeFilters): boolean {
     f.lifestyle.length > 0 ||
     f.interests.length > 0 ||
     f.intents.length > 0 ||
+    f.occupations.length > 0 ||
+    f.educations.length > 0 ||
     f.religions.length > 0 ||
     f.marital.length > 0 ||
     f.kids.length > 0 ||
@@ -135,15 +138,19 @@ export function buildProfileParams(
   origin: { lat: number; lng: number } | null
 ): URLSearchParams {
   const params = new URLSearchParams();
-  if (f.vax !== "any") params.set("vax", f.vax);
-  if (f.verifiedOnly) params.set("verified", "1");
+  params.set("vax", f.vax);
+  params.set("verified", f.verifiedOnly ? "1" : "0");
+  params.set("ageMin", String(f.ageMin));
+  params.set("ageMax", String(f.ageMax));
+  params.set("gender", f.genders.join(","));
+  params.set("intent", f.intents.join(","));
+  params.set("distance", String(f.distance));
   if (f.onlineOnly) params.set("online", "1");
-  if (f.ageMin > 18) params.set("ageMin", String(f.ageMin));
-  if (f.ageMax < 99) params.set("ageMax", String(f.ageMax));
-  if (f.genders.length) params.set("gender", f.genders.join(","));
   if (f.lifestyle.length) params.set("lifestyle", f.lifestyle.join(","));
   if (f.interests.length) params.set("interests", f.interests.join(","));
-  if (f.intents.length) params.set("intent", f.intents.join(","));
+
+  if (f.occupations.length) params.set("occupation", f.occupations.join(","));
+  if (f.educations.length) params.set("education", f.educations.join(","));
   if (f.religions.length) params.set("religion", f.religions.join(","));
   if (f.marital.length) params.set("marital", f.marital.join(","));
   if (f.kids.length) params.set("kids", f.kids.join(","));

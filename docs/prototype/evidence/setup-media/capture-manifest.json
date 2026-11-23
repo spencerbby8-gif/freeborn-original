@@ -1,0 +1,772 @@
+[
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/button-like.png",
+    "reviewCapture": "interactions/1440x1000/button-like.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/button-spark.png",
+    "reviewCapture": "interactions/1440x1000/button-spark.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/document-delivered.png",
+    "reviewCapture": "interactions/1440x1000/document-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/document-staged.png",
+    "reviewCapture": "interactions/1440x1000/document-staged.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/email-otp-error.png",
+    "reviewCapture": "interactions/1440x1000/email-otp-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/email-otp.png",
+    "reviewCapture": "interactions/1440x1000/email-otp.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/image-delivered.png",
+    "reviewCapture": "interactions/1440x1000/image-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-1-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-1-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-1.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-1.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-2-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-2-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-2.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-2.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-3-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-3-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-3.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-3.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-4-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-4-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-4.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-4.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-5-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-5-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-5.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-5.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-6-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-6-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-6.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-6.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-7-bottom.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-7-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-7-populated.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-7-populated.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/onboarding-7.png",
+    "reviewCapture": "interactions/1440x1000/onboarding-7.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/shared-loader.png",
+    "reviewCapture": "interactions/1440x1000/shared-loader.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/swipe-like.png",
+    "reviewCapture": "interactions/1440x1000/swipe-like.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/typing-live.png",
+    "reviewCapture": "interactions/1440x1000/typing-live.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/voice-delivered.png",
+    "reviewCapture": "interactions/1440x1000/voice-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/1440x1000/voice-preview.png",
+    "reviewCapture": "interactions/1440x1000/voice-preview.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/button-like.png",
+    "reviewCapture": "interactions/393x852/button-like.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/button-spark.png",
+    "reviewCapture": "interactions/393x852/button-spark.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/document-delivered.png",
+    "reviewCapture": "interactions/393x852/document-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/document-staged.png",
+    "reviewCapture": "interactions/393x852/document-staged.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/email-otp-error.png",
+    "reviewCapture": "interactions/393x852/email-otp-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/email-otp.png",
+    "reviewCapture": "interactions/393x852/email-otp.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/image-delivered.png",
+    "reviewCapture": "interactions/393x852/image-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-1-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-1-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-1.png",
+    "reviewCapture": "interactions/393x852/onboarding-1.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-2-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-2-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-2.png",
+    "reviewCapture": "interactions/393x852/onboarding-2.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-3-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-3-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-3.png",
+    "reviewCapture": "interactions/393x852/onboarding-3.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-4-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-4-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-4.png",
+    "reviewCapture": "interactions/393x852/onboarding-4.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-5-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-5-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-5.png",
+    "reviewCapture": "interactions/393x852/onboarding-5.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-6-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-6-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-6.png",
+    "reviewCapture": "interactions/393x852/onboarding-6.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-7-bottom.png",
+    "reviewCapture": "interactions/393x852/onboarding-7-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-7-populated.png",
+    "reviewCapture": "interactions/393x852/onboarding-7-populated.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/onboarding-7.png",
+    "reviewCapture": "interactions/393x852/onboarding-7.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/shared-loader.png",
+    "reviewCapture": "interactions/393x852/shared-loader.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/swipe-like.png",
+    "reviewCapture": "interactions/393x852/swipe-like.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/typing-live.png",
+    "reviewCapture": "interactions/393x852/typing-live.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/voice-delivered.png",
+    "reviewCapture": "interactions/393x852/voice-delivered.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-interactions/393x852/voice-preview.png",
+    "reviewCapture": "interactions/393x852/voice-preview.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/chat-reference-content.png",
+    "reviewCapture": "chat-verification/1440x1000/chat-reference-content.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/chat-refused.png",
+    "reviewCapture": "chat-verification/1440x1000/chat-refused.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/login-verification.png",
+    "reviewCapture": "chat-verification/1440x1000/login-verification.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-approved.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-approved.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-camera-denied.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-camera-denied.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-camera.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-camera.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-checking.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-checking.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-pose-preparing.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-pose-preparing.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-pose.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-pose.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-rejected.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-rejected.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-review.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-review.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-selfie-review.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-selfie-review.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-service-error.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-service-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-transport-error.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-transport-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/1440x1000/verification-unknown.png",
+    "reviewCapture": "chat-verification/1440x1000/verification-unknown.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/chat-reference-content.png",
+    "reviewCapture": "chat-verification/393x852/chat-reference-content.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/chat-refused.png",
+    "reviewCapture": "chat-verification/393x852/chat-refused.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/login-verification.png",
+    "reviewCapture": "chat-verification/393x852/login-verification.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-approved.png",
+    "reviewCapture": "chat-verification/393x852/verification-approved.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-camera-denied.png",
+    "reviewCapture": "chat-verification/393x852/verification-camera-denied.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-camera.png",
+    "reviewCapture": "chat-verification/393x852/verification-camera.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-checking.png",
+    "reviewCapture": "chat-verification/393x852/verification-checking.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-pose-preparing.png",
+    "reviewCapture": "chat-verification/393x852/verification-pose-preparing.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-pose.png",
+    "reviewCapture": "chat-verification/393x852/verification-pose.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-rejected.png",
+    "reviewCapture": "chat-verification/393x852/verification-rejected.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-review.png",
+    "reviewCapture": "chat-verification/393x852/verification-review.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-selfie-review.png",
+    "reviewCapture": "chat-verification/393x852/verification-selfie-review.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-service-error.png",
+    "reviewCapture": "chat-verification/393x852/verification-service-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-transport-error.png",
+    "reviewCapture": "chat-verification/393x852/verification-transport-error.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-chat-verification/393x852/verification-unknown.png",
+    "reviewCapture": "chat-verification/393x852/verification-unknown.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/account.png",
+    "reviewCapture": "all-screens/1440x1000/account.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/activity.png",
+    "reviewCapture": "all-screens/1440x1000/activity.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/appeal.png",
+    "reviewCapture": "all-screens/1440x1000/appeal.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/audience.png",
+    "reviewCapture": "all-screens/1440x1000/audience.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/chat.png",
+    "reviewCapture": "all-screens/1440x1000/chat.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/consent.png",
+    "reviewCapture": "all-screens/1440x1000/consent.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/device.png",
+    "reviewCapture": "all-screens/1440x1000/device.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/discover-empty.png",
+    "reviewCapture": "all-screens/1440x1000/discover-empty.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/discover.png",
+    "reviewCapture": "all-screens/1440x1000/discover.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/editor.png",
+    "reviewCapture": "all-screens/1440x1000/editor.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/filters.png",
+    "reviewCapture": "all-screens/1440x1000/filters.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/landing-new-cards.png",
+    "reviewCapture": "all-screens/1440x1000/landing-new-cards.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/landing.png",
+    "reviewCapture": "all-screens/1440x1000/landing.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/legal-cookies.png",
+    "reviewCapture": "all-screens/1440x1000/legal-cookies.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/legal-privacy.png",
+    "reviewCapture": "all-screens/1440x1000/legal-privacy.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/legal-terms.png",
+    "reviewCapture": "all-screens/1440x1000/legal-terms.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/likes.png",
+    "reviewCapture": "all-screens/1440x1000/likes.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/matches.png",
+    "reviewCapture": "all-screens/1440x1000/matches.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/messages-bottom.png",
+    "reviewCapture": "all-screens/1440x1000/messages-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/messages.png",
+    "reviewCapture": "all-screens/1440x1000/messages.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/my-profile-bottom.png",
+    "reviewCapture": "all-screens/1440x1000/my-profile-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/my-profile.png",
+    "reviewCapture": "all-screens/1440x1000/my-profile.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/notifications.png",
+    "reviewCapture": "all-screens/1440x1000/notifications.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/onboarding.png",
+    "reviewCapture": "all-screens/1440x1000/onboarding.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/preferences.png",
+    "reviewCapture": "all-screens/1440x1000/preferences.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/premium.png",
+    "reviewCapture": "all-screens/1440x1000/premium.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/privacy.png",
+    "reviewCapture": "all-screens/1440x1000/privacy.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/profile-detail.png",
+    "reviewCapture": "all-screens/1440x1000/profile-detail.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/safety.png",
+    "reviewCapture": "all-screens/1440x1000/safety.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/settings.png",
+    "reviewCapture": "all-screens/1440x1000/settings.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/support.png",
+    "reviewCapture": "all-screens/1440x1000/support.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/verification.png",
+    "reviewCapture": "all-screens/1440x1000/verification.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/1440x1000/welcome.png",
+    "reviewCapture": "all-screens/1440x1000/welcome.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/account.png",
+    "reviewCapture": "all-screens/393x852/account.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/activity.png",
+    "reviewCapture": "all-screens/393x852/activity.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/appeal.png",
+    "reviewCapture": "all-screens/393x852/appeal.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/audience.png",
+    "reviewCapture": "all-screens/393x852/audience.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/auth-sign-in.png",
+    "reviewCapture": "all-screens/393x852/auth-sign-in.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/auth-sign-up.png",
+    "reviewCapture": "all-screens/393x852/auth-sign-up.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/chat.png",
+    "reviewCapture": "all-screens/393x852/chat.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/consent.png",
+    "reviewCapture": "all-screens/393x852/consent.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/device.png",
+    "reviewCapture": "all-screens/393x852/device.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/discover-after-spark.png",
+    "reviewCapture": "all-screens/393x852/discover-after-spark.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/discover-empty.png",
+    "reviewCapture": "all-screens/393x852/discover-empty.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/discover.png",
+    "reviewCapture": "all-screens/393x852/discover.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/draft-chat.png",
+    "reviewCapture": "all-screens/393x852/draft-chat.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/editor.png",
+    "reviewCapture": "all-screens/393x852/editor.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/filters.png",
+    "reviewCapture": "all-screens/393x852/filters.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/landing-new-cards.png",
+    "reviewCapture": "all-screens/393x852/landing-new-cards.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/landing.png",
+    "reviewCapture": "all-screens/393x852/landing.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/legal-cookies.png",
+    "reviewCapture": "all-screens/393x852/legal-cookies.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/legal-privacy.png",
+    "reviewCapture": "all-screens/393x852/legal-privacy.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/legal-terms.png",
+    "reviewCapture": "all-screens/393x852/legal-terms.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/likes.png",
+    "reviewCapture": "all-screens/393x852/likes.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/matches.png",
+    "reviewCapture": "all-screens/393x852/matches.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/messages-bottom.png",
+    "reviewCapture": "all-screens/393x852/messages-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/messages.png",
+    "reviewCapture": "all-screens/393x852/messages.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/my-profile-bottom.png",
+    "reviewCapture": "all-screens/393x852/my-profile-bottom.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/my-profile.png",
+    "reviewCapture": "all-screens/393x852/my-profile.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/notifications.png",
+    "reviewCapture": "all-screens/393x852/notifications.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/onboarding.png",
+    "reviewCapture": "all-screens/393x852/onboarding.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/preferences.png",
+    "reviewCapture": "all-screens/393x852/preferences.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/premium.png",
+    "reviewCapture": "all-screens/393x852/premium.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/privacy.png",
+    "reviewCapture": "all-screens/393x852/privacy.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/profile-detail.png",
+    "reviewCapture": "all-screens/393x852/profile-detail.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/safety.png",
+    "reviewCapture": "all-screens/393x852/safety.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/settings.png",
+    "reviewCapture": "all-screens/393x852/settings.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/support.png",
+    "reviewCapture": "all-screens/393x852/support.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/verification.png",
+    "reviewCapture": "all-screens/393x852/verification.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  },
+  {
+    "source": "/home/user/freeborn-audit/current-all-screens/393x852/welcome.png",
+    "reviewCapture": "all-screens/393x852/welcome.webp",
+    "encoding": "WebP quality85; original PNG compared separately"
+  }
+]

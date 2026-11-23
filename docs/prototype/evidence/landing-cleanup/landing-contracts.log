@@ -1,0 +1,69 @@
+
+> test:prototype-api
+> node scripts/prototype/api-contracts.mjs
+
+ok 1 - settings read rejects an unauthenticated member
+ok 2 - settings write rejects an unauthenticated member
+ok 3 - notification read rejects an unauthenticated member
+ok 4 - notification clear rejects an unauthenticated member
+ok 5 - unauthenticated handlers performed no writes
+ok 6 - settings returns actual profile interests and saved discovery intents
+ok 7 - settings read failure is not converted into writable defaults
+ok 8 - non-array interests are rejected before write
+ok 9 - blank interests are rejected before write
+ok 10 - overlong interests are rejected before write
+ok 11 - too many interests are rejected before write
+ok 12 - interests are trimmed and deduplicated on the authenticated owner
+ok 13 - unsupported discovery intention is rejected
+ok 14 - discovery intentions deduplicate and cannot choose another owner
+ok 15 - failed persistence returns a failure, never a save confirmation
+ok 16 - notification malformed JSON is rejected
+ok 17 - unknown notification action cannot write
+ok 18 - clear uses the authenticated owner, never the body owner
+ok 19 - clear cutoff is a server timestamp, not client-supplied time
+ok 20 - clear only updates dismissal and preferences bookkeeping, not source messages
+ok 21 - new feed keeps the existing welcome notification
+ok 22 - dismissed feed does not recreate the synthetic welcome notification
+ok 23 - clear excludes the cutoff boundary but keeps newer real events
+ok 24 - Privacy persistence maps flags to the authenticated owner only
+ok 25 - Audience controls persist recognized values
+ok 26 - Expanded language, religion and work fields use the actual edit-profile handler
+ok 27 - New onboarding choices actually map to saved profile columns
+ok 28 - Onboarding persistence failure is thrown rather than advancing
+PASS 28 local API contract assertions (substituted adapters; no remote database or RLS claim).
+
+> check:migrations
+> node scripts/db/check-migrations.mjs
+
+{
+  "status": "pass",
+  "replaySteps": 54,
+  "recoveredLegacy": 11,
+  "excludedScheduling": [
+    "supabase/migrations/20261102040100_fb14_cleanup_scheduling.sql",
+    "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
+  ],
+  "expectedCatalog": {
+    "steps": 54,
+    "publicTables": 44,
+    "publicColumns": 449,
+    "publicIndexes": 130,
+    "publicChecks": 82
+  }
+}
+{
+  "status": "pass",
+  "scope": "Static member-route import reachability, not end-to-end button coverage",
+  "entryCount": 26,
+  "sourceCount": 87,
+  "bannedLegacyViews": [
+    "src/components/app/voice-note.tsx",
+    "src/components/app/photo-lightbox.tsx",
+    "src/components/app/profile-view.tsx",
+    "src/components/app/settings-view.tsx",
+    "src/components/app/filter-panel.tsx",
+    "src/components/app/likes-view.tsx",
+    "src/components/app/home-deck.tsx"
+  ],
+  "reachedLegacyViews": []
+}

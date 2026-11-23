@@ -1,0 +1,75 @@
+
+> test:chat-media
+> node scripts/prototype/chat-media-contracts.mjs
+
+ok 1 - PDF upload reaches real handler and records authenticated sender, match, kind and bytes
+ok 2 - HTML executable is rejected without persistence
+ok 3 - forged PDF is rejected without persistence
+ok 4 - forged Office is rejected without persistence
+ok 5 - empty document is rejected without persistence
+ok 6 - oversize document is rejected without persistence
+ok 7 - binary text is rejected without persistence
+ok 8 - missing match is rejected without persistence
+ok 9 - blocked recipient cannot receive uploads
+ok 10 - unmatched conversation is upload-read-only
+ok 11 - nonparticipant/missing match cannot upload
+ok 12 - unsigned user cannot upload
+ok 13 - cross-origin browser upload is refused
+ok 14 - allowed pdf type remains explicit
+ok 15 - allowed txt type remains explicit
+ok 16 - allowed csv type remains explicit
+ok 17 - allowed docx type remains explicit
+ok 18 - allowed xlsx type remains explicit
+ok 19 - allowed pptx type remains explicit
+ok 20 - download filename cannot contain slash or marker/control injection
+ok 21 - UTF-8 plain text accepted
+ok 22 - Office ZIP signature accepted without executing contents
+ok 23 - two live media views share one authenticated fetch
+ok 24 - closing one media view does not revoke a shared URL
+ok 25 - a retired in-flight URL is revoked, never installed into a new generation
+ok 26 - the new media URL is revoked exactly once when its last view closes
+PASS 26 local media contract assertions; no hosted RLS/database acceptance.
+
+> test:discovery-privacy
+> node scripts/prototype/discovery-privacy-contracts.mjs
+
+ok 1 - Anonymous discovery is refused
+ok 2 - Unfiltered fixture has exactly two real-shape results
+ok 3 - Actual handler applies gender=woman
+ok 4 - Actual handler applies interests=Music
+ok 5 - Actual handler applies intent=long_term
+ok 6 - Actual handler applies religion=Muslim
+ok 7 - Actual handler applies language=Igbo
+ok 8 - Actual handler applies occupation=Teacher
+ok 9 - Actual handler applies education=Master%27s%20degree
+ok 10 - Actual handler applies verified=1
+ok 11 - Actual handler applies vax=vaccinated
+ok 12 - Actual handler applies lifestyle=Active%20lifestyle
+ok 13 - Incompatible age range excludes rather than fabricates
+ok 14 - Incoming block hides candidate
+ok 15 - Outgoing block hides candidate
+ok 16 - Swiped candidate does not silently recycle
+ok 17 - Paused profile is excluded
+ok 18 - Incognito stranger is excluded
+ok 19 - Verified audience refuses unverified viewer
+ok 20 - Distance hidden in JSON, not merely in CSS
+ok 21 - Saved location enforces distance without browser GPS
+ok 22 - Anywhere explicitly overrides saved distance cap
+ok 23 - Missing origin never silently ignores a distance cap
+ok 24 - Hidden active status is null and cannot be selected with active-only
+ok 25 - Explicit Everyone/Any/off clear restrictive saved defaults
+ok 26 - Query builder encodes cleared and default choices explicitly
+ok 27 - Combined lifestyle/values selection matches declared profile values
+PASS 27 production discovery/filter/privacy logic checks with substituted adapters. No hosted RLS or SQL acceptance claim.
+PASS filter privacy: legacy data removed, zero browser-storage writes, live choices retained, clone isolation and effective query verified.
+
+> check:env
+> node scripts/check-env-isolation.mjs
+
+{
+  "status": "pass",
+  "productionProjectPinnedInTemplate": false,
+  "concretePreviewPinnedInTemplate": false,
+  "unverifiedRemoteTls": false,
+  "runtimeModel": "least-privilege"
+}

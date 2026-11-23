@@ -1,0 +1,2 @@
+/** Shield/check copied from the supplied verification screen (not the member badge). */
+export function VerificationShield(){return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l6.8 2.8v4.9c0 4.4-2.9 8-6.8 9.8-3.9-1.8-6.8-5.4-6.8-9.8V5.8L12 3z" stroke="#e9c37c" strokeWidth="1.5" strokeLinejoin="round"/><path d="M9.6 12l1.8 1.8 3-3" stroke="#e9c37c" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;}
