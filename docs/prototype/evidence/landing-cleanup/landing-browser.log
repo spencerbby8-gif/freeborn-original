@@ -1,0 +1,65 @@
+PASS 320 No horizontal overflow or off-screen text
+PASS 320 One heading and main, real section anchors, working auth destinations
+PASS 320 Hero, header, image and CTA do not collide
+PASS 320 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 320 FAQ works and structured answers exactly match the visible FAQ
+PASS 320 Mobile navigation opens, escapes with focus return and anchors clear the header
+PASS 360 No horizontal overflow or off-screen text
+PASS 360 One heading and main, real section anchors, working auth destinations
+PASS 360 Hero, header, image and CTA do not collide
+PASS 360 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 360 FAQ works and structured answers exactly match the visible FAQ
+PASS 360 Mobile navigation opens, escapes with focus return and anchors clear the header
+PASS 393 No horizontal overflow or off-screen text
+PASS 393 One heading and main, real section anchors, working auth destinations
+PASS 393 Hero, header, image and CTA do not collide
+PASS 393 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 393 FAQ works and structured answers exactly match the visible FAQ
+PASS 393 Mobile navigation opens, escapes with focus return and anchors clear the header
+PASS 768 No horizontal overflow or off-screen text
+PASS 768 One heading and main, real section anchors, working auth destinations
+PASS 768 Hero, header, image and CTA do not collide
+PASS 768 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 768 FAQ works and structured answers exactly match the visible FAQ
+PASS 768 Mobile navigation opens, escapes with focus return and anchors clear the header
+PASS 1024 No horizontal overflow or off-screen text
+PASS 1024 One heading and main, real section anchors, working auth destinations
+PASS 1024 Hero, header, image and CTA do not collide
+PASS 1024 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 1024 FAQ works and structured answers exactly match the visible FAQ
+PASS 1440 No horizontal overflow or off-screen text
+PASS 1440 One heading and main, real section anchors, working auth destinations
+PASS 1440 Hero, header, image and CTA do not collide
+PASS 1440 Samples disclose artwork; no clipped profiles or pretend controls
+PASS 1440 FAQ works and structured answers exactly match the visible FAQ
+{
+  "checks": 35,
+  "failed": 0,
+  "errors": 0,
+  "screens": [
+    {
+      "width": 320,
+      "height": 5003
+    },
+    {
+      "width": 360,
+      "height": 4910
+    },
+    {
+      "width": 393,
+      "height": 4960
+    },
+    {
+      "width": 768,
+      "height": 4253
+    },
+    {
+      "width": 1024,
+      "height": 4090
+    },
+    {
+      "width": 1440,
+      "height": 4174
+    }
+  ]
+}

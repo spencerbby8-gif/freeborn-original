@@ -31,7 +31,7 @@ import {
   needsPublishedProfilePhotoLookup,
   type MediaAccessFacts,
 } from "@/lib/media-access";
-import { createHash } from "node:crypto";
+import { createHash, randomInt, randomBytes } from "node:crypto";
 import {
   decideMatchAccess,
   isUnmatchReason,
@@ -203,9 +203,9 @@ const expect = 50 + 8 /* age cap */ - 6 /* unverified */ - 6 /* unconfirmed emai
 ok("per-factor caps hold: huge age alone = 50+8-6-6", onlyAge.score === expect, `score=${onlyAge.score} expected=${expect}`);
 let escaped = 0;
 for (let i = 0; i < 20000; i++) {
-  const r = (n: number) => Math.floor(Math.random() * n);
+  const r = (n: number) => randomInt(n);
   const f = computeTrustScore(sig({
-    verified: r(2) === 0, emailConfirmed: r(2) === 0, accountAgeDays: Math.random() * 1e6,
+    verified: r(2) === 0, emailConfirmed: r(2) === 0, accountAgeDays: randomInt(1e6),
     verificationAttempts: r(50), verificationSuccesses: r(50), verificationFailures: r(50),
     mismatchHistoryCount: r(50), duplicatePhotoHits: r(50), sharedDeviceAccounts: r(50),
     gpsSpoofSuspects7d: r(50), automatedTrafficBlocks7d: r(50), scamFlags7d: r(50),
@@ -388,7 +388,7 @@ await rm("/tmp/ph", { recursive: true, force: true });
   const vs = hamming64(d, "ffffffffffffffff")!;
   ok("distance over random pairs stays in 0..64 and matches bit-popcount", (() => {
     for (let i = 0; i < 4000; i++) {
-      const r = () => Array.from({ length: 16 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+      const r = () => randomBytes(8).toString("hex");
       const x = r(), y = r(), got = hamming64(x, y)!;
       let want = 0;
       for (let k = 0; k < 16; k++) {
@@ -426,7 +426,7 @@ ok("the issue payload carries a solver budget and a re-request rule",
   issueSrc.includes("solverBudget") && issueSrc.includes("onExhausted"));
 let powSolved = 0, powTried = 0, powWorst = 0;
 for (let k = 0; k < 25; k++) {
-  const nn = Array.from({ length: 32 }, () => "0123456789abcdef"[(Math.random() * 16) | 0]).join("");
+  const nn = randomBytes(16).toString("hex");
   const t1 = Date.now();
   powTried++;
   for (let n = 0; n < BUDGET; n++) {
@@ -1590,7 +1590,7 @@ ok("[16] the retry cache-buster re-requests same-origin paths and refuses foreig
          `\f` for `.fb-btn` and `\b` for `.btn-ghost` — a form-feed and a word boundary — which
          matched nearly every selector and failed the pin for the wrong reason. Escape the dot, then
          require a real class boundary so `.fb-btn--sm` is not counted as `.fb-btn`. */
-      const esc = cls.replace(/\./g, "\\.");
+      const esc = cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return new RegExp(`(^|[\\s,>+~])${esc}(?![-\\w])`).test(sel);
     };
     const ctaVisualRules = (() => {
@@ -2963,7 +2963,7 @@ console.log("\n[29] private chat broadcast and bounded fallback");
     layoutNow.includes('"msvalidate.01"') && layoutNow.includes("21AFBB7C27303E2A2F4F26CC3D69B50F"));
   const submit = src("scripts/seo/indexnow-submit.mjs");
   ok("[32] the IndexNow submit script posts to the protocol endpoint off INDEXABLE_PATHS",
-    submit.includes("https://api.indexnow.org/indexnow") &&
+    [...submit.matchAll(/fetch\(\s*["']([^"']+)["']/g)].some(m => { const u=new URL(m[1]);return u.protocol==='https:'&&u.hostname==='api.indexnow.org'&&u.pathname==='/indexnow'&&!u.port&&!u.username&&!u.password; }) &&
     submit.includes("INDEXABLE_PATHS") && submit.includes("keyLocation"));
 }
 

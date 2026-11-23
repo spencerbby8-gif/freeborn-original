@@ -82,30 +82,26 @@ export type RoomFacets = {
 export const FILTERS_KEY = "freeborn.filters";
 export const FILTERS_EVENT = "freeborn-filters-changed";
 
+// Search choices may reveal health, religion or orientation. Keep the live
+// panel in memory, never write that object to localStorage/sessionStorage.
+// Standing account preferences remain persisted by the authenticated settings API.
+let liveFilters: HomeFilters | null = null;
+function removeLegacyFilters(){
+  if(typeof window==='undefined')return;
+  try{window.localStorage.removeItem(FILTERS_KEY);}catch{/* storage can be disabled */}
+}
 export function loadFilters(): HomeFilters {
-  try {
-    const raw = localStorage.getItem(FILTERS_KEY);
-    if (!raw) return { ...DEFAULT_FILTERS };
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_FILTERS, ...parsed };
-  } catch {
-    return { ...DEFAULT_FILTERS };
-  }
+  removeLegacyFilters();
+  return structuredClone(liveFilters ?? DEFAULT_FILTERS);
 }
-
-/** True when the member has explicitly saved panel filters on this device.
- *  Standing preferences (Settings → Discovery) seed the panel only when no
- *  saved filters exist, so the panel always displays the effective values. */
 export function hasSavedFilters(): boolean {
-  try {
-    return localStorage.getItem(FILTERS_KEY) !== null;
-  } catch {
-    return false;
-  }
+  removeLegacyFilters();
+  return liveFilters !== null;
 }
-
 export function saveFilters(filters: HomeFilters) {
-  localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
+  if(typeof window==='undefined')return;
+  removeLegacyFilters();
+  liveFilters = structuredClone(filters);
   window.dispatchEvent(new Event(FILTERS_EVENT));
 }
 

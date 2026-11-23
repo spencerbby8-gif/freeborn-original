@@ -157,8 +157,8 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <code key="k4" className="font-mono text-[12.5px] text-pearl">freeborn.filters</code>,
-              "Your discovery filters: age range, distance, genders shown, intentions, verified-only.",
-              "So your settings are already applied when you open the deck.",
+              "Legacy discovery filters. This key is removed when discovery opens; additional search choices now stay in page memory only.",
+              "Standing discovery preferences are saved to your account, not in this browser-storage key.",
             ],
             [
               <code key="k5" className="font-mono text-[12.5px] text-pearl">fb-notif-asked</code>,

@@ -22,7 +22,7 @@ export function Footer() {
               <p className="text-[10px] uppercase tracking-[0.32em] text-sand">Product</p>
               <ul className="mt-5 space-y-3 text-[14px] text-sand">
                 <li><a className="transition-colors hover:text-pearl" href="#how">How it works</a></li>
-                <li><a className="transition-colors hover:text-pearl" href="#standard">The standard</a></li>
+                <li><a className="transition-colors hover:text-pearl" href="#why-freeborn">Why Freeborn</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="#safety">Safety & privacy</a></li>
               </ul>
             </div>
@@ -49,10 +49,10 @@ export function Footer() {
 
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t hairline pt-7 sm:flex-row sm:items-center">
           <p className="text-[12px] tracking-wide text-ash">
-            © {new Date().getFullYear()} {OPERATOR_NAME}. {SITE_NAME} is operated by {OPERATOR_NAME}. Built with intention, and no invented numbers.
+            © {new Date().getFullYear()} {OPERATOR_NAME}. {SITE_NAME} is operated by {OPERATOR_NAME}.
           </p>
           <p className="text-[12px] tracking-wide text-ash">
-            Values-aligned · Private by default · 18+
+            For adults 18+
           </p>
         </div>
       </div>

@@ -1,0 +1,207 @@
+{
+  "scope": "Local public production build, no authenticated data",
+  "checks": [
+    {
+      "width": 320,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 320,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 320,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 320,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 320,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 320,
+      "name": "Mobile navigation opens, escapes with focus return and anchors clear the header",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 360,
+      "name": "Mobile navigation opens, escapes with focus return and anchors clear the header",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "Mobile navigation opens, escapes with focus return and anchors clear the header",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 768,
+      "name": "Mobile navigation opens, escapes with focus return and anchors clear the header",
+      "ok": true
+    },
+    {
+      "width": 1024,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 1024,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 1024,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 1024,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 1024,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 1440,
+      "name": "No horizontal overflow or off-screen text",
+      "ok": true
+    },
+    {
+      "width": 1440,
+      "name": "One heading and main, real section anchors, working auth destinations",
+      "ok": true
+    },
+    {
+      "width": 1440,
+      "name": "Hero, header, image and CTA do not collide",
+      "ok": true
+    },
+    {
+      "width": 1440,
+      "name": "Samples disclose artwork; no clipped profiles or pretend controls",
+      "ok": true
+    },
+    {
+      "width": 1440,
+      "name": "FAQ works and structured answers exactly match the visible FAQ",
+      "ok": true
+    },
+    {
+      "width": 393,
+      "name": "Core landing and signup link remain visible without JavaScript",
+      "ok": true
+    }
+  ],
+  "errors": [],
+  "screens": [
+    {
+      "width": 320,
+      "height": 5003
+    },
+    {
+      "width": 360,
+      "height": 4910
+    },
+    {
+      "width": 393,
+      "height": 4960
+    },
+    {
+      "width": 768,
+      "height": 4253
+    },
+    {
+      "width": 1024,
+      "height": 4090
+    },
+    {
+      "width": 1440,
+      "height": 4174
+    }
+  ]
+}

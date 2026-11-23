@@ -82,21 +82,10 @@ type StagedItem = {
   id: number;
   kind: "image" | "video" | "file";
   dataUrl: string;
-  file?: File;
+  file: File;
   dur?: number;
   name?: string;
   uploadedUrl?: string;
-};
-
-/** CSP-safe data-URL to Blob. connect-src deliberately excludes data:, so
- *  attachments must never be fetched back through the network stack. */
-const dataUrlToBlob = (dataUrl: string): Blob => {
-  const [meta, base64] = dataUrl.split(",");
-  const mime = /^data:([^;,]+)/.exec(meta)?.[1] ?? "application/octet-stream";
-  const bin = atob(base64 ?? "");
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
 };
 
 const MEDIA_RE = /^\[\[(image|video|voice|call|file):([^\]|]+)(?:\|([^\]]+))?\]\]$/;
@@ -894,6 +883,9 @@ export function Thread({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLInputElement | null>(null);
   const [staged, setStaged] = useState<StagedItem[]>([]);
+  const stagedUrls=useRef(new Set<string>());const pendingProbes=useRef(new Set<()=>void>());const stagingAlive=useRef(true);
+  useEffect(()=>{const urls=stagedUrls.current,probes=pendingProbes.current;stagingAlive.current=true;return()=>{stagingAlive.current=false;for(const cancel of probes)cancel();probes.clear();for(const url of urls)URL.revokeObjectURL(url);urls.clear();};},[]);
+  useEffect(()=>{const active=new Set(staged.map(i=>i.dataUrl));for(const url of stagedUrls.current){if(!active.has(url)){URL.revokeObjectURL(url);stagedUrls.current.delete(url);}}},[staged]);
   const [uploading, setUploading] = useState(false);
   /** "+" attach menu (photo / video / live camera) + camera overlay state. */
   const [attachOpen, setAttachOpen] = useState(false);
@@ -913,45 +905,22 @@ export function Thread({
         continue;
       }
       if(kind==="file"){setStaged(s=>s.length>=MAX_PACKET_ITEMS?s:[...s,{id:Date.now()+Math.random(),kind,dataUrl:"",file,name:safeChatFilename(file.name)}]);continue;}
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = String(reader.result);
-        const add = (dur?: number) =>
-          setStaged((s) =>
-            s.length >= MAX_PACKET_ITEMS
-              ? s
-              : [...s, { id: Date.now() + Math.random(), kind, dataUrl, file, dur }]
-          );
-        if (kind === "video") {
-          const probe = document.createElement("video");
-          probe.preload = "metadata";
-          const probeUrl=URL.createObjectURL(file);
-          const deadline=window.setTimeout(()=>settle(undefined),5000);
-          let settled = false;
-          const settle = (dur?: number) => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(deadline);URL.revokeObjectURL(probeUrl);
-            add(dur);
-          };
-          probe.onloadedmetadata = () => {
-            if (Number.isFinite(probe.duration) && probe.duration > 0) {
-              settle(probe.duration);
-            } else if (probe.duration === Infinity) {
-              probe.currentTime = 0.1;
-            } else {
-              settle(undefined);
-            }
-          };
-          probe.onseeked = () =>
-            settle(Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : undefined);
-          probe.onerror = () => settle(undefined);
-          probe.src = probeUrl;
-        } else {
-          add(undefined);
-        }
+      // Object URLs are opaque local references, never DOM text/data URLs.
+      const add = (dur?: number) => {
+        if(!stagingAlive.current)return;
+        const dataUrl=URL.createObjectURL(file);stagedUrls.current.add(dataUrl);
+        setStaged(items=>{if(items.length>=MAX_PACKET_ITEMS){URL.revokeObjectURL(dataUrl);stagedUrls.current.delete(dataUrl);return items;}return [...items,{id:Date.now()+Math.random(),kind,dataUrl,file,dur}];});
       };
-      reader.readAsDataURL(file);
+      if(kind==='video'){
+        const probe=document.createElement('video');probe.preload='metadata';
+        const probeUrl=URL.createObjectURL(file);let settled=false;
+        const finish=(dur?:number)=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);pendingProbes.current.delete(cancel);add(dur);};
+        const cancel=()=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);};
+        const deadline=window.setTimeout(()=>finish(),5000);pendingProbes.current.add(cancel);
+        probe.onloadedmetadata=()=>{if(Number.isFinite(probe.duration)&&probe.duration>0)finish(probe.duration);else if(probe.duration===Infinity)probe.currentTime=.1;else finish();};
+        probe.onseeked=()=>finish(Number.isFinite(probe.duration)&&probe.duration>0?probe.duration:undefined);
+        probe.onerror=()=>finish();probe.src=probeUrl;
+      }else add();
     }
   };
 
@@ -971,7 +940,7 @@ export function Thread({
     let failed=false;
     for (const item of items) {
       try {
-        const blob = item.file ?? dataUrlToBlob(item.dataUrl);
+        const blob = item.file;
         const url = item.uploadedUrl ?? await uploadMedia(blob, item.kind);
         if (!url) {failed=true;continue;}
         // Keep uploaded ids for a retry; never upload the same successful file twice.
