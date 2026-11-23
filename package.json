@@ -35,7 +35,9 @@
     "test:experience-db": "node scripts/prototype/discovery-local-db.mjs",
     "test:landing": "node scripts/prototype/landing-acceptance.cjs",
     "test:filter-storage": "node scripts/prototype/filter-storage-contracts.mjs",
-    "test:landing-a11y": "node scripts/prototype/landing-a11y.cjs"
+    "test:landing-a11y": "node scripts/prototype/landing-a11y.cjs",
+    "test:discovery-presentation": "node scripts/prototype/discovery-presentation-contracts.mjs",
+    "test:discovery-settings": "node scripts/prototype/discovery-settings.cjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

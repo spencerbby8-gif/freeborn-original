@@ -243,7 +243,7 @@ export function CallListener() {
     <>
       {/* Incoming call — full screen, impossible to miss */}
       {incoming ? (
-        <div className="fixed inset-0 z-[220] flex flex-col items-center justify-between bg-[#070a14]/98 px-6 py-12 backdrop-blur-md">
+        <div className="reference-call reference-call-incoming" role="dialog" aria-modal="true" aria-label="Incoming Freeborn call">
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--color-gold-300)]">
             Incoming {incoming.kind === "video" ? "video" : "voice"} call
           </p>
@@ -255,7 +255,7 @@ export function CallListener() {
                 {(incoming.from.name || "?").charAt(0)}
               </span>
             )}
-            <p className="font-display text-3xl font-semibold text-[var(--color-pearl)]">
+            <p className="reference-call-name">
               {incoming.from.name || "Freeborn member"}
             </p>
             <p className="text-[13px] text-[var(--color-mist)]">is calling you on Freeborn…</p>

@@ -46,5 +46,15 @@ try{await client.query('begin');await client.query('update user_profiles set dis
  await check('Report is persisted despite controlled moderation-engine outage',async()=>{const r=await R.reports.POST(req('/api/reports',{profileId:a,reason:'harassment',details:'Fixture evidence. No live member data.'},'POST'));assert.equal(r.status,200);assert.equal((await r.json()).triage,'pending');const {rows}=await client.query('select reason,details,triage from reports where reporter_id=$1 and subject_id=$2',[viewer,a]);assert.equal(rows.length,1);assert.equal(rows[0].reason,'harassment');assert.equal(rows[0].triage,'pending');});
  await check('A report alone does not suspend the subject',async()=>assert.equal((await client.query('select profile_status from user_profiles where id=$1',[a])).rows[0].profile_status,'active'));
  await check('Self-report is refused before report insert',async()=>assert.equal((await R.reports.POST(req('/api/reports',{profileId:viewer,reason:'other'},'POST'))).status,400));
+ await check('Everyone clears saved restrictions without overriding stored audience privacy',async()=>{
+  await client.query("update discovery_preferences set photos_required=true,show_genders=ARRAY['woman'],distance_km=5,verified_only=true,relationship_intents=ARRAY['friendship'] where user_id=$1",[viewer]);
+  const q='photos=0&gender=&distance=500&verified=0&intent=&vax=any&ageMin=18&ageMax=99';assert.deepEqual(ids(await deck(q)),[a,b].sort());
+  await client.query("update user_profiles set discover_privacy='verified' where id=$1",[a]);await client.query('update user_profiles set is_verified=false where id=$1',[viewer]);assert.deepEqual(ids(await deck(q)),[b]);
+  await client.query('update user_profiles set is_verified=true where id=$1',[viewer]);assert.deepEqual(ids(await deck(q)),[a,b].sort());
+ });
+ await check('Badge inputs follow actual stored self-report and verification withdrawal',async()=>{
+  await client.query("update user_profiles set vaccination_status='unvaccinated',is_verified=true where id=$1",[a]);let p=(await deck('photos=0&gender=&distance=500&verified=0&intent=')).profiles.find(p=>p.id===a);assert.equal(p.vaccinationStatus,'unvaccinated');assert.equal(p.verified,true);
+  await client.query("update user_profiles set is_verified=false where id=$1",[a]);p=(await deck('photos=0&gender=&distance=500&verified=0&intent=')).profiles.find(p=>p.id===a);assert.equal(p.verified,false);
+ });
  console.log(`PASS ${count} actual production-handler / local PostgreSQL checks; fixture auth, suppressed-ID lookup, moderation-engine outage and realtime delivery substituted. Transaction rolled back. No hosted RLS acceptance.`);
 }finally{await client.query('rollback');await client.end();delete globalThis.__localExperience;}

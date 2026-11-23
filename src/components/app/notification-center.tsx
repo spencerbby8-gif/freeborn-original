@@ -33,7 +33,7 @@ type Alert = {
 
 type Banner = Alert & { key: number };
 
-export function NotificationCenter({ pathname }: { pathname?: string }) {
+export function NotificationCenter({ pathname, suppressPrompts=false }: { pathname?: string; suppressPrompts?:boolean }) {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [askOpen, setAskOpen] = useState(false);
   /* A call screen beats a permission prompt: the ask card sits at z-[310] over
@@ -199,7 +199,7 @@ export function NotificationCenter({ pathname }: { pathname?: string }) {
   return (
     <>
       {/* Permission ask — once, polite, dismissible */}
-      {askOpen && !callUiUp && !verificationUp && !threadUp ? (
+      {askOpen && !suppressPrompts && !callUiUp && !verificationUp && !threadUp ? (
         <div className="member-notification-ask" role="region" aria-label="Optional notifications">
           <div className="member-notification-card">
             <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold-500)]/15 text-[var(--color-gold-300)]">

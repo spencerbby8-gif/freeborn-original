@@ -95,7 +95,7 @@ jobs:
         run: npm run test:chat-media
 
       - name: Discovery and filter-storage privacy contracts (blocking)
-        run: npm run test:discovery-privacy && npm run test:filter-storage
+        run: npm run test:discovery-privacy && npm run test:filter-storage && npm run test:discovery-presentation
 
       - name: Engine request controls (blocking)
         run: npm run test:engines

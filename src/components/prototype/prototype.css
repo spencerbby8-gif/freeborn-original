@@ -1122,3 +1122,63 @@
 .fb-prototype .reference-chat .fb-bubble.reference-has-media{padding:0;border:0;background:transparent;max-width:100%}
 .fb-prototype .reference-chat .fb-bubble.reference-has-media>p{padding:7px 11px;border:1px solid #f4efe712;border-radius:12px;background:#24253d;color:#ece8dd;max-width:260px}
 .fb-prototype .reference-chat .fb-bubble.out.reference-has-media>p{background:#f5d6b3;color:#2a1a10;border-color:#e6bd9255}
+
+/* Post-merge discovery/settings correction: saved reference arrangement. */
+.fb-prototype .scroll.discover-scroll{background:var(--screen);padding:20px 18px 14px}
+.fb-prototype .disc-head{padding:0;min-height:30px}
+.fb-prototype .disc-head .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;display:block;max-width:calc(100% - 48px);line-height:1.6}
+.fb-prototype .disc-headline{margin:8px 0 20px;font-size:36px}
+.fb-prototype .intent-chips{margin:0 0 10px;gap:8px;flex-wrap:wrap}
+.fb-prototype .intent-chips .chip{max-width:100%;white-space:normal;font-size:10px;padding:8px 12px;box-shadow:none;background:#62424e;border-color:transparent}
+.fb-prototype .intent-chips .chip-flame{background:transparent;border-color:var(--line);padding:8px}
+.fb-prototype .discovery-location-row{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;margin-bottom:17px}
+.fb-prototype .discovery-location-row>span{font-size:9px;color:var(--muted)}
+.fb-prototype .discovery-location-button{font-size:11px;color:var(--gold);text-decoration:underline;text-underline-offset:3px;padding:3px 0;background:none;border:0;cursor:pointer}
+.fb-prototype .deck{min-height:470px}
+.fb-prototype .deck:has(.profile-card)::before,.fb-prototype .deck:has(.profile-card)::after{display:none}
+.fb-prototype .profile-card{bottom:77px;border:1px solid rgba(244,239,231,.18);border-radius:26px;overflow:visible;box-shadow:0 12px 28px #0003;background:var(--card)}
+.fb-prototype .profile-card .card-portrait,.fb-prototype .profile-card .card-portrait img{border-radius:25px;object-position:50% 25%;transform:none}
+.fb-prototype .profile-card .card-shade{border-radius:25px;background:linear-gradient(180deg,#10111c10 20%,#10111c05 40%,#10111cbd 70%,#10111cf5 100%)}
+.fb-prototype .profile-card .card-body{bottom:0;padding:16px;text-align:left}
+.fb-prototype .profile-card .card-name{font-size:33px}
+.fb-prototype .profile-card .card-bio{font-size:11px;line-height:1.6;margin-top:10px}
+.fb-prototype .profile-card .card-tags span{padding:5px 9px;background:#252633b3}
+.fb-prototype .profile-card .action-row.discover-actions{bottom:-77px;height:77px;padding:12px 20px;gap:22px}
+.fb-prototype .profile-card .say-hello{padding:16px 20px;background:linear-gradient(110deg,#f3dfb5,#e6c382 55%,#c98b9f);box-shadow:0 8px 25px #d7a27233;font-size:13px}
+.fb-prototype .profile-card .circle-btn{background:#232337;border:0}
+.fb-prototype .profile-card .discovery-choice{inset:auto;top:115px;left:20px;width:auto;height:auto;z-index:5}
+.fb-prototype .profile-card .discovery-choice:empty{display:none}
+.fb-prototype .profile-card .unvaccinated-marker{position:absolute;top:51px;left:14px;z-index:8;max-width:calc(100% - 28px)}
+.fb-prototype .unvaccinated-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #a7d2b7;background:#19372fee;color:#e0f6e5;border-radius:9px;padding:5px 9px;font-size:10px;font-weight:650;cursor:pointer;box-shadow:0 2px 10px #0003}
+.fb-prototype .unvaccinated-badge svg{width:21px;height:21px;fill:none;stroke:#bfe4c2;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.fb-prototype .unvaccinated-tip{position:relative;margin-top:8px;width:255px;max-width:100%;padding:12px;border:1px solid #658d79;border-radius:12px;background:#172c28;color:#eff6ef;font-size:11px;line-height:1.5;box-shadow:0 8px 24px #0006}
+.fb-prototype .unvaccinated-tip:before{content:"";position:absolute;top:-5px;left:20px;width:8px;height:8px;transform:rotate(45deg);background:#172c28;border-top:1px solid #658d79;border-left:1px solid #658d79}
+.fb-prototype .unvaccinated-tip p{margin:4px 0 8px}
+.fb-prototype .unvaccinated-tip button{background:transparent;border:0;color:#d6eab8;font-weight:700;text-decoration:underline;cursor:pointer;padding:2px 0}
+.fb-prototype .reference-thread-empty,.fb-prototype .reference-thread-error{margin:24px 18px;padding:22px 16px;text-align:center;background:#232336;border:1px solid var(--line);border-radius:20px}
+.fb-prototype .reference-thread-empty>div{display:flex;flex-direction:column;align-items:stretch}
+.fb-prototype .reference-thread-empty button{background:#303044;border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;font-size:12px;font-weight:500}
+/* Shared new call surface for outgoing voice/video and incoming ringing. Media transport unchanged. */
+.reference-call{position:fixed;inset:0;z-index:220;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(ellipse at 50% 32%,#333047 0%,#1e1e30 42%,#151521 100%);color:#f4efe7;font-family:var(--font-inter),sans-serif;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.reference-call-head{display:flex;align-items:center;justify-content:space-between;padding:26px 24px;gap:12px;border-bottom:1px solid #ffffff0b}
+.reference-call-head p:first-child{color:#e9c37c;font-size:10px;letter-spacing:.2em;font-weight:600}
+.reference-call-stage{position:relative;display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:24px;overflow:hidden;padding:24px}
+.reference-call .reference-call-name{font-family:var(--font-fraunces),Georgia,serif;font-size:clamp(28px,6vw,40px);font-weight:400;color:#f4efe7;text-align:center}
+.reference-call-status{color:#c3bfcc;font-size:13px;line-height:1.6;text-align:center;max-width:290px}
+.reference-call-stage>div:first-of-type>span,.reference-call-incoming>div>span{background:#343147;border:1px solid #e9c37c66}
+.reference-call-stage>div:first-of-type>.rounded-full,.reference-call-incoming .rounded-full{border-color:#e9c37c66}
+.reference-call-controls{display:flex;justify-content:center;align-items:center;gap:16px;padding:24px 16px 38px}
+.reference-call-controls button{background:#ffffff0b;border:1px solid #ffffff20;box-shadow:none}
+.reference-call-controls button[aria-label="End call"],.reference-call button[aria-label="Decline call"]{background:#a84759;border-color:#d37c8b;color:#fff;box-shadow:none}
+.reference-call-controls button[aria-label="Unmute microphone"],.reference-call-controls button[aria-label="Turn camera on"],.reference-call-controls button[aria-label="Turn speaker on"]{background:#58404e;color:#ffe0e4;border-color:#b87584}
+.reference-call button[aria-label="Answer call"]{background:linear-gradient(110deg,#ead7ae,#d3ab71);color:#2e2426;box-shadow:none}
+.reference-call-incoming{align-items:center;justify-content:space-between;padding:calc(42px + env(safe-area-inset-top)) 24px calc(50px + env(safe-area-inset-bottom))}
+.reference-call-incoming>p{color:#e9c37c}
+.reference-call button:focus-visible{outline:2px solid #e9c37c;outline-offset:5px}
+@media(min-width:1000px){.reference-call{inset:24px auto 24px 50%;width:min(900px,94vw);transform:translateX(-50%);border:1px solid #ffffff20;border-radius:28px}}
+@media(prefers-reduced-motion:reduce){.reference-call *{animation:none!important;transition:none!important}}
+
+.reference-call .reference-call-retry{border:1px solid #e9c37c66;background:linear-gradient(110deg,#eeddbb,#d4b27e);color:#2f2730;font-size:13px;font-weight:650;padding:12px 26px;border-radius:24px;margin-top:8px}
+.fb-prototype .reference-thread-empty>h2{font-family:var(--serif);font-size:25px;margin-bottom:10px;font-weight:400}
+.fb-prototype .reference-thread-empty>p{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:16px}
+.fb-prototype .reference-thread-empty .reference-openers{display:flex;flex-direction:column;gap:8px}

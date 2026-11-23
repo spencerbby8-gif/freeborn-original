@@ -675,12 +675,12 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
   const finished = state === "ended" || state === "declined" || state === "busy" || state === "no-answer" || state === "failed";
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#070a14]/98 backdrop-blur-md">
+    <div className="reference-call" data-call-kind={kind} data-call-state={state} role="dialog" aria-modal="true" aria-label={`Freeborn ${kind} call with ${peer.name}`}>
       {/* Remote audio — the ONLY output. Local mic is never played back. */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-6">
+      <div className="reference-call-head">
         <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--color-mist)]">
           {state === "live" ? peer.name : kind === "video" ? "Freeborn video call" : "Freeborn voice call"}
         </p>
@@ -692,7 +692,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
       </div>
 
       {/* Stage */}
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden px-6">
+      <div className="reference-call-stage">
         {/* Remote video stays MOUNTED for the whole call — the remote stream
             arrives during negotiation, so the element must already exist or
             the other person's video gets dropped (that was the bug). */}
@@ -727,7 +727,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
               {peer.name.charAt(0)}
             </span>
           )}
-          <p className="font-display text-2xl font-semibold text-[var(--color-pearl)]">{peer.name}</p>
+          <h1 className="reference-call-name">{peer.name}</h1><p className="reference-call-status" role="status">{detail}</p>
           {state === "live" ? (
             <p className="rounded-full border border-[var(--color-teal-500)]/40 bg-[var(--color-teal-500)]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--color-teal-300)]">
               Live · {fmt}
@@ -737,7 +737,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
             <button
               type="button"
               onClick={role === "caller" ? callAgain : onClose}
-              className="btn-ember btn-shine relative mt-2 overflow-hidden rounded-full px-7 py-3 text-[13px] font-black text-white"
+              className="reference-call-retry"
             >
               {role === "caller" ? "Call again" : "Close"}
             </button>
@@ -772,7 +772,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-4 pb-10">
+      <div className="reference-call-controls">
         <button
           type="button"
           onClick={toggleSpeaker}

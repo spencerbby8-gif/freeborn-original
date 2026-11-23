@@ -4,7 +4,7 @@ import {build} from 'esbuild';
 const S={user:{id:'viewer'},queue:[]};globalThis.__discovery=S;
 const mocks={
  '@/lib/app-auth':'export async function getMember(){return globalThis.__discovery.user}',
- '@/lib/identity-resolve':'export async function suppressedUserIds(){return []}',
+ '@/lib/identity-resolve':'export async function suppressedUserIds(){if(globalThis.__discovery.suppressionError)throw Error("Suppression unavailable");return globalThis.__discovery.suppressed??[]}',
  '@/db':`export const db={select(){const q={from(){return q},where(){return q},orderBy(){return q},limit(){return q},groupBy(){return q},then(ok,bad){if(!globalThis.__discovery.queue.length)throw Error('Unexpected DB read');return Promise.resolve(globalThis.__discovery.queue.shift()).then(ok,bad)}};return q}}`,
 };
 const built=await build({stdin:{contents:`export * as profiles from './src/app/api/profiles/route';export * as filters from './src/components/app/filters';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,write:false,format:'esm',platform:'node',plugins:[{name:'fixture',setup(b){b.onResolve({filter:/^@\/(?:db|lib\/(?:app-auth|identity-resolve))$/},a=>({path:a.path,namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:mocks[a.path],loader:'js'}));}}]});
@@ -35,4 +35,9 @@ await check('Hidden active status is null and cannot be selected with active-onl
 await check('Explicit Everyone/Any/off clear restrictive saved defaults',async()=>{const r=await get('gender=&intent=&vax=any&verified=0',{prefs:{showGenders:['woman'],relationshipIntents:['long_term'],vaccinationPreference:'vaccinated',verifiedOnly:true,distanceKm:500,photosRequired:true}});assert.deepEqual(ids(r),['a','b']);});
 await check('Query builder encodes cleared and default choices explicitly',async()=>{const q=filters.buildProfileParams({...filters.DEFAULT_FILTERS},null);for(const [key,val]of Object.entries({gender:'',intent:'',vax:'any',verified:'0',distance:'500',ageMin:'18',ageMax:'99'}))assert.equal(q.get(key),val);});
 await check('Combined lifestyle/values selection matches declared profile values',async()=>{const r=await get('lifestyle=Kindness');assert.equal(r.profiles.length,2);});
+await check('Everyone with all optional restrictions cleared includes both genders and no-photo members',async()=>{const r=await get('gender=&intent=&vax=any&verified=0&photos=0&distance=500&ageMin=18&ageMax=99',{rows:[A,B,{...A,id:'c',displayName:'No photo'}],prefs:{photosRequired:true,distanceKm:5,showGenders:['woman'],relationshipIntents:['friendship'],verifiedOnly:true}});assert.deepEqual(ids(r),['a','b','c']);});
+await check('Everyone cannot override a restricted audience',async()=>{const r=await get('gender=&verified=0&photos=0&distance=500',{viewerVerified:false,rows:[{...A,discoverPrivacy:'verified'},B]});assert.deepEqual(ids(r),['b']);});
+await check('Unknown audience rule fails closed',async()=>assert.deepEqual(ids(await get('',{rows:[{...A,discoverPrivacy:'unknown'},B]})),['b']));
+await check('Candidate chips and health declaration are actually returned from stored profile fields',async()=>{const r=await get();const p=r.profiles.find(p=>p.id==='b');assert.deepEqual(p.relationshipGoals,['friendship']);assert.equal(p.vaccinationStatus,'unvaccinated');assert.equal(p.verified,true);});
+await check('Suppression lookup failure cannot return an unfiltered deck',async()=>{S.suppressionError=true;try{await assert.rejects(()=>get(),/Suppression unavailable/);}finally{S.suppressionError=false;}});
 console.log(`PASS ${n} production discovery/filter/privacy logic checks with substituted adapters. No hosted RLS or SQL acceptance claim.`);delete globalThis.__discovery;

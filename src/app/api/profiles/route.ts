@@ -192,7 +192,7 @@ export async function GET(request: Request) {
      none, so the exclusion is applied here, at the only place the deck is built.
      Existing conversations and profile links keep working, by design: suppression
      removes reach, not access. */
-  const suppressed = await suppressedUserIds().catch(() => [] as string[]);
+  const suppressed = await suppressedUserIds();
 
   const rows = await db
     .select()
@@ -389,6 +389,7 @@ export async function GET(request: Request) {
     if (viewerId && row.id === viewerId) continue;
     if (hiddenIds.has(row.id)) continue;
     const dp = (row as { discoverPrivacy?: string }).discoverPrivacy ?? "everyone";
+    if (!["everyone", "verified", "unvaccinated"].includes(dp)) continue;
     if (dp === "verified" && !viewerVerified) continue;
     if (dp === "unvaccinated" && viewerVax !== "unvaccinated") continue;
     const priv = privByUser.get(row.id);

@@ -1,0 +1,11 @@
+import {build} from 'esbuild';import assert from 'node:assert/strict';
+const b=await build({entryPoints:['src/lib/discovery-presentation.ts'],bundle:true,write:false,format:'esm',platform:'node'});
+const {discoveryHeading,profileChips,hasUnvaccinatedBadge}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+let n=0;const check=(name,fn)=>{fn();console.log(`ok ${++n} - ${name}`)};
+for(const [h,word]of [[0,'Tonight'],[4,'Tonight'],[5,'Morning'],[11,'Morning'],[12,'Afternoon'],[16,'Afternoon'],[17,'Tonight'],[23,'Tonight']])check(`Device hour ${h} uses ${word}`,()=>assert.equal(discoveryHeading('Warri',true,new Date(2026,10,21,h)),`${word} in Warri`));
+check('No GPS city never invents candidate city',()=>assert.equal(discoveryHeading(null,true),'Date like you mean it'));
+check('Worldwide discovery uses generic heading even with GPS',()=>assert.equal(discoveryHeading('Warri',false),'Date like you mean it'));
+check('Profile chips reflect the displayed member, not viewer filters',()=>{assert.deepEqual(profileChips({relationshipGoals:['friendship'],lifestyle:['Natural living'],interests:['Reading']}),['Friendship','Natural living','Reading']);assert.deepEqual(profileChips({relationshipGoals:['long_term'],values:['Health autonomy'],interests:['Hiking']}),['Long-term','Health autonomy','Hiking']);});
+check('No invented chips for empty optional profile fields',()=>assert.deepEqual(profileChips({}),[]));
+for(const verified of[false,true])for(const vaccinationStatus of['vaccinated','unvaccinated','prefer_not_to_say',undefined])check(`Badge gating ${verified}/${vaccinationStatus}`,()=>assert.equal(hasUnvaccinatedBadge({verified,vaccinationStatus}),verified&&vaccinationStatus==='unvaccinated'));
+console.log(`PASS ${n} device-clock, member-chip and truthful badge contracts.`);

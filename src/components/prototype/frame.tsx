@@ -6,7 +6,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { DEFAULT_PREFS, loadPrefs, PREFS_EVENT } from "@/lib/device-prefs";
-import "./prototype.css";
+
 
 export type IconName = "mic" | "video" | "file" | "back" | "next" | "heart" | "flame" | "discover" | "messages" | "profile" | "shield" | "lock" | "bell" | "filters" | "card" | "help" | "info" | "crown" | "close" | "eye" | "photo" | "edit" | "plus" | "search" | "more" | "coffee" | "globe" | "star";
 const paths: Record<IconName, ReactNode> = {

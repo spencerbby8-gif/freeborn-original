@@ -130,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <PrototypeFrame hideTabs={hideTabs || filtersOpen} unread={unread}>{children}{filtersOpen&&<DiscoveryFilters onClose={()=>setFiltersOpen(false)}/>}<VerifyGate/><CallListener/><NotificationCenter pathname={pathname}/></PrototypeFrame>
+      <PrototypeFrame hideTabs={hideTabs || filtersOpen} unread={unread}>{children}{filtersOpen&&<DiscoveryFilters onClose={()=>setFiltersOpen(false)}/>}<VerifyGate/><CallListener/><NotificationCenter pathname={pathname} suppressPrompts={filtersOpen}/></PrototypeFrame>
     </>
   );
 }

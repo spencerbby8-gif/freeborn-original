@@ -5,6 +5,8 @@ import { Fraunces, Inter } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
 import { absolute, CONTACT_EMAIL, OG_IMAGE, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
+// Load member design before any route paints, not after chat hydration.
+import "@/components/prototype/prototype.css";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
