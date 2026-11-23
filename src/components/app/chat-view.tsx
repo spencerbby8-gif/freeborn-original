@@ -1,6 +1,7 @@
 "use client";
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
+import { createChatPreviewUrl } from "@/lib/chat-preview-url";
 import { CHAT_FILE_ACCEPT, CHAT_FILE_MAX, chatFileMime, safeChatFilename } from "@/lib/chat-file";
 import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
@@ -908,12 +909,12 @@ export function Thread({
       // Object URLs are opaque local references, never DOM text/data URLs.
       const add = (dur?: number) => {
         if(!stagingAlive.current)return;
-        const dataUrl=URL.createObjectURL(file);stagedUrls.current.add(dataUrl);
+        let dataUrl:string;try{dataUrl=createChatPreviewUrl(file,kind);}catch{flash(`Choose a supported ${kind} file.`);return;}stagedUrls.current.add(dataUrl);
         setStaged(items=>{if(items.length>=MAX_PACKET_ITEMS){URL.revokeObjectURL(dataUrl);stagedUrls.current.delete(dataUrl);return items;}return [...items,{id:Date.now()+Math.random(),kind,dataUrl,file,dur}];});
       };
       if(kind==='video'){
         const probe=document.createElement('video');probe.preload='metadata';
-        const probeUrl=URL.createObjectURL(file);let settled=false;
+        let probeUrl:string;try{probeUrl=createChatPreviewUrl(file,kind);}catch{flash("Choose a supported video file.");continue;}let settled=false;
         const finish=(dur?:number)=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);pendingProbes.current.delete(cancel);add(dur);};
         const cancel=()=>{if(settled)return;settled=true;clearTimeout(deadline);probe.removeAttribute('src');probe.load();URL.revokeObjectURL(probeUrl);};
         const deadline=window.setTimeout(()=>finish(),5000);pendingProbes.current.add(cancel);

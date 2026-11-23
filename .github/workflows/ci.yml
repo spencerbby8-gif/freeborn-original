@@ -91,6 +91,9 @@ jobs:
       - name: Prototype API contracts — substituted adapters (blocking)
         run: npm run test:prototype-api
 
+      - name: Media preview and attachment contracts (blocking)
+        run: npm run test:chat-media
+
       - name: Discovery and filter-storage privacy contracts (blocking)
         run: npm run test:discovery-privacy && npm run test:filter-storage
 
