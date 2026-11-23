@@ -59,7 +59,7 @@ const failures = [
   },
   {
     problem: "Fear the app is tracking or exposing your status",
-    fix: "Your vaccination stance is shown only as a badge you control. Your email, birth date, and exact location are never public.",
+    fix: "Your optional vaccination status is self-reported and can be used in filters. No health badge is issued. Your email, birth date, and exact location are never public.",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />
@@ -101,8 +101,8 @@ export function WhyFreeborn() {
           </h2>
           <p className="mt-6 text-[16px] leading-[1.8] text-mist">
             Freeborn is for vaccinated and unvaccinated people alike—with the familiar tools to browse,
-            match, and connect. An optional unvaccinated badge helps people who share that choice
-            find one another. Here are the product features we actually ship.
+            match, and connect. Optional, self-reported vaccination preferences help people
+            find compatible connections; they are not medically verified and earn no health badge. Here are the product features we actually ship.
           </p>
         </Reveal>
 

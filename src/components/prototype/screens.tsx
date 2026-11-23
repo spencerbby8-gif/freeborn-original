@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationLink } from "@/components/app/notification-counts";
 import { draftChatHref } from "@/lib/conversation-opener";
 import { memberTapFeedback } from "@/lib/device-prefs";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ export function DiscoverScreen(){
   }
   function sayHello(){if(current&&!busy)router.push(draftChatHref(current.id));}
   async function reset(){setBusy(true);setError(null);try{await memberRequest('/api/likes',{action:'reset-passes'});await resource.reload();setIndex(0);}catch(e){setError(e instanceof Error?e.message:'Could not reset the deck.');}finally{setBusy(false);}}
-  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll" ref={scrollRef}><div className="disc-head"><span className="eyebrow">{discoveryHeading(location.fix?.city??null,Boolean(location.fix)&&Boolean(location.now)&&filterState.distance<500,location.now??new Date(0))}</span><Link href="/app/notifications" className="disc-heart" aria-label="Notifications"><PrototypeIcon name="heart"/></Link></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
+  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll" ref={scrollRef}><div className="disc-head"><span className="eyebrow">{discoveryHeading(location.fix?.city??null,Boolean(location.fix)&&Boolean(location.now)&&filterState.distance<500,location.now??new Date(0))}</span><NotificationLink/></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
     <div className="intent-chips" aria-label="Current member’s profile details">{profileChips(current).map((label,i)=><span key={`${current?.id}-${i}`} className={`chip ${i===0?'chip-rose':'chip-rose-dim'}`}>{label}</span>)}<Button unstyled className="chip chip-flame" aria-label="Discovery filters" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}><PrototypeIcon name="filters"/></Button></div>
     <div className="discovery-location-row"><Button unstyled className="discovery-location-button" onClick={()=>{saveFilters({...filterState,distance:filterState.distance<500?filterState.distance:40});location.request();}} disabled={location.busy}>{location.busy?'Finding your area…':location.fix?'Refresh my location':'Find people in my area'}</Button><span>Optional GPS · city lookup · device local time</span></div><ScreenError message={location.error}/>
     <ScreenError message={error??resource.error??resource.data?.error??null} retry={resource.error?()=>void resource.reload():undefined}/>{notice&&<p className="discover-feedback" role="status">{notice}</p>}

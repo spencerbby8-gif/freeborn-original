@@ -105,7 +105,7 @@ export const OPERATOR_COUNTRY = "Nigeria";
 export const CONTACT_EMAIL = "support@freeborndating.com";
 
 /** Legal document version. Bump on every substantive edit; shown on each page. */
-export const LEGAL_VERSION = "1.2";
+export const LEGAL_VERSION = "1.3";
 export const LEGAL_EFFECTIVE_DATE = "21 November 2026";
 
 /** Minimum membership age. Mirrors MIN_AGE in `src/lib/age.ts`. */
@@ -143,11 +143,11 @@ export function absolute(path: string = "/"): string {
  * sitemap-vs-noindex contradiction happened. Keep the two in step.
  */
 export const INDEXABLE_PATHS = [
-  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-15" },
+  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-21" },
   { path: "/safety", priority: 0.8, changeFrequency: "monthly" as const, lastModified: "2026-11-14" },
-  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
-  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
-  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-10-19" },
+  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
+  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
+  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
   /* B16: the honest comparison page. Monthly because its competitor figures are
      dated snapshots that must be re-verified whenever the page changes. */
   { path: "/alternatives", priority: 0.7, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },

@@ -7,5 +7,5 @@ check('No GPS city never invents candidate city',()=>assert.equal(discoveryHeadi
 check('Worldwide discovery uses generic heading even with GPS',()=>assert.equal(discoveryHeading('Warri',false),'Date like you mean it'));
 check('Profile chips reflect the displayed member, not viewer filters',()=>{assert.deepEqual(profileChips({relationshipGoals:['friendship'],lifestyle:['Natural living'],interests:['Reading']}),['Friendship','Natural living','Reading']);assert.deepEqual(profileChips({relationshipGoals:['long_term'],values:['Health autonomy'],interests:['Hiking']}),['Long-term','Health autonomy','Hiking']);});
 check('No invented chips for empty optional profile fields',()=>assert.deepEqual(profileChips({}),[]));
-for(const verified of[false,true])for(const vaccinationStatus of['vaccinated','unvaccinated','prefer_not_to_say',undefined])check(`Badge gating ${verified}/${vaccinationStatus}`,()=>assert.equal(hasUnvaccinatedBadge({verified,vaccinationStatus}),verified&&vaccinationStatus==='unvaccinated'));
+for(const verified of[false,true])for(const vaccinationStatus of['vaccinated','unvaccinated','prefer_not_to_say',undefined])check(`Badge gating ${verified}/${vaccinationStatus}`,()=>assert.equal(hasUnvaccinatedBadge({verified,vaccinationStatus}),false));
 console.log(`PASS ${n} device-clock, member-chip and truthful badge contracts.`);

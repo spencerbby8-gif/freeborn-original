@@ -636,9 +636,7 @@ function ProfileInner() {
                 <span className="fb-chip fb-chip-gold shrink-0">{prettyText(profile.relationshipGoals[0])}</span>
               ) : null}
               <span className="fb-chip shrink-0 !border-white/15 !bg-white/10 !text-white/90 backdrop-blur-sm tabular-nums">{profile.photos.length}/6 photos</span>
-              {profile.vaccinationStatus === "unvaccinated" ? (
-                <span className="fb-chip shrink-0 !border-[var(--color-gold-500)]/45 !bg-[#070a12]/70 !text-[var(--color-gold-300)] backdrop-blur-sm">Unvaccinated</span>
-              ) : null}
+
             </div>
           </div>
         </div>
@@ -1163,7 +1161,7 @@ function ProfileInner() {
                 { label: "Drinking", value: profile.drinking, field: "drinking" },
                 { label: "Smoking", value: profile.smoking, field: "smoking" },
                 { label: "Height", value: profile.heightCmProfile ? `${profile.heightCmProfile} cm` : "", field: "heightCmProfile" },
-                { label: "Vaccination", value: VAX_LABELS[profile.vaccinationStatus], field: "vaccinationStatus" },
+                { label: "Vaccination · self-reported", value: VAX_LABELS[profile.vaccinationStatus], field: "vaccinationStatus" },
               ]
                 .filter((f) => f.value)
                 .map((f) => (
@@ -1336,7 +1334,8 @@ function ProfileInner() {
               <SelectField id="edit-wantsKids" label="Want kids?" value={draft.wantsKids ?? ""} options={WANTS_KIDS} onChange={(v) => set({ wantsKids: v })} />
               <SelectField id="edit-drinking" label="Drinking" value={draft.drinking ?? ""} options={FREQUENCY} onChange={(v) => set({ drinking: v })} />
               <SelectField id="edit-smoking" label="Smoking" value={draft.smoking ?? ""} options={FREQUENCY} onChange={(v) => set({ smoking: v })} />
-              <SelectField id="edit-vaccinationStatus" label="Vaccination stance" value={draft.vaccinationStatus ?? ""} options={VAX} labels={VAX_LABELS} onChange={(v) => set({ vaccinationStatus: v })} />
+              <p className="text-sm text-mist">Vaccination declarations are optional and self-reported, not medically verified. Saving this field confirms your COVID-19 vaccine declaration; it does not earn a health badge.</p>
+              <SelectField id="edit-vaccinationStatus" label="COVID-19 vaccination · self-reported" value={draft.vaccinationStatus ?? ""} options={VAX} labels={VAX_LABELS} onChange={(v) => set({ vaccinationStatus: v })} />
             </div>
           </div>
 

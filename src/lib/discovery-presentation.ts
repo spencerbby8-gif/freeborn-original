@@ -14,5 +14,8 @@ export function profileChips(profile?: { relationshipGoals?: string[]; lifestyle
     profile.lifestyle?.[0] ?? profile.values?.[0], profile.interests?.[0]].filter((v): v is string => Boolean(v));
 }
 export function hasUnvaccinatedBadge(profile: {verified: boolean; vaccinationStatus?: string}) {
-  return profile.verified && profile.vaccinationStatus === "unvaccinated";
+  // No accepted evidence standard exists. Identity approval and self-report
+  // must NEVER grant a health badge. Preserve classification/filtering only.
+  void profile;
+  return false;
 }

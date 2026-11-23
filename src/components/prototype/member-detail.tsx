@@ -55,7 +55,7 @@ export function MemberDetail({profileId,onClose,ownPreview=false,asOthers=false}
   {label:'Smoking',value:p.smoking,icon:'info'},
   {label:'Gender',value:p.gender,icon:'profile'},
   {label:'Location',value:[p.city,p.region].filter(Boolean).join(', '),icon:'discover'},
-  {label:'Health choice',value:p.vaccinationStatus&&p.vaccinationStatus!=='prefer_not_to_say'?p.vaccinationStatus:null,icon:'shield'},
+  {label:'Vaccination · self-reported',value:p.vaccinationStatus&&p.vaccinationStatus!=='prefer_not_to_say'?p.vaccinationStatus:null,icon:'shield'},
   {label:'Open to meeting',value:p.mixerCity,icon:'discover'},
   {label:'Distance',value:p.distanceKm!=null?formatDistance(p.distanceKm,units):null,icon:'discover'},
   {label:'Member since',value:p.memberSince?new Date(p.memberSince).toLocaleDateString(undefined,{month:'long',year:'numeric'}):null,icon:'info'},

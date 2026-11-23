@@ -86,9 +86,9 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             items={[
               <>We sell nothing. There are no advertisers, no data brokers, no advertising cookies and no third-party analytics on this site.</>,
               <>Your face photograph used for identity verification is <strong className="text-pearl">stored</strong>, not discarded after the check. Clause 7 explains precisely what is kept and for how long.</>,
-              <>Your verification image is sent to two external AI providers so two independent models can compare it to your profile photos. Neither provider has signed a data processing agreement with us. That is disclosed in clause 8 rather than glossed over.</>,
+              <>Identity verification uses configured external AI providers for pose and selfie-to-profile comparison. Neither provider has signed a data processing agreement with us. That is disclosed in clause 8 rather than glossed over.</>,
               <>Your exact coordinates are stored so distance can be calculated. Only an approximate distance is shown, in your chosen units, unless you hide it.</>,
-              <>You can export everything at Settings, and delete everything at Settings. Deletion reaches the authentication system too, not just the profile table.</>,
+              <>Settings provides a scoped JSON data export and account deletion. The export is not a complete archive: it omits verification images and media binaries, and lists photo storage paths. Deletion includes authentication but may leave cleanup pending; see clause 11.</>,
               <>{SITE_NAME} is for adults. Membership requires you to be {18} or older.</>,
             ]}
           />
@@ -117,7 +117,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <strong key="k3" className="text-pearl">Health and belief data</strong>,
-              "Vaccination status, wellness and lifestyle rhythm, and the health-autonomy orientation you express in your bio and prompts.",
+              "Self-reported vaccination status (new declarations refer to COVID-19 vaccines; older entries may predate that clarification), wellness and lifestyle rhythm, and the health-autonomy orientation you express in your bio and prompts.",
               "So members can find people whose approach to health is compatible with their own, without having to raise it as a confrontation in a first message.",
               "Explicit consent, see clause 4",
             ],
@@ -135,7 +135,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <strong key="k6" className="text-pearl">Activity</strong>,
-              "Likes, passes, superlikes, matches, messages, reactions, who you blocked, reports you filed, appeals you made, and your notification preferences.",
+              "Likes, passes, superlikes, matches, messages, reactions, who you blocked, reports you filed, appeals you made, and your notification preferences. Account-scoped notification event receipts are stored in this browser; they do not synchronize feed-read state across devices or mark private messages read.",
               "To run matching and chat, to let you undo a swipe, and to enforce the community standard.",
               "Contract, plus legitimate interests for abuse prevention",
             ],
@@ -169,7 +169,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
 
       <Clause n="4" title="Health data and your face: explicit consent">
         <p>
-          Vaccination status, health-related lifestyle information and a facial image
+          Self-reported vaccination status, health-related lifestyle information and a facial image
           used for identification are classified as special category data under
           Article 9 of the UK and EU GDPR, and receive equivalent protection under
           other laws including the Nigerian Data Protection Act 2023 and, in
@@ -263,10 +263,10 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
         </p>
         <ClauseList
           items={[
-            <>When you submit, the selfie is stored in our database and in a private storage bucket that is not publicly readable and not publicly listable.</>,
-            <>It is transmitted to two external AI providers so two independent models can compare it against your profile photographs. See clause 8.</>,
+            <>Pending or approved submissions may retain a selfie reference or inline fallback in the database and an image in a private storage bucket. Rejected submissions are not intended to retain the image; failed cleanup can require retry.</>,
+            <>Configured checks can transmit the selfie and profile photographs to external AI providers for pose and identity comparison. Missing providers can leave a request pending; this is not proof that two checks completed. See clause 8.</>,
             <>If you are <strong className="text-pearl">approved</strong>, the image is retained while your account exists. This is not hoarding: when you later upload a new face photograph, the system re-reads your approved selfie to confirm the new photo is still the same person, and revokes the seal if a running check cannot confirm it; if the check is unavailable, verification is left untouched. Without retention that check is impossible.</>,
-            <>If you are <strong className="text-pearl">rejected</strong>, the image is never written to the database at all. The verdict and the reason are kept so you can be told what failed. The face is not kept, because nothing ever reads it again: an appeal does not use it, and a retry is a fresh attempt with a fresh photograph.</>,
+            <>If you are <strong className="text-pearl">rejected</strong>, the decision keeps the verdict and reason, not an inline selfie. Storage cleanup is attempted; failed cleanup may require retry. A new attempt uses a fresh photograph.</>,
             <>If a request is <strong className="text-pearl">left undecided</strong>, its image is held, because it cannot be assessed without being seen. We hold at most one undecided selfie per member at any time. Starting a new attempt releases the photograph attached to the previous one and keeps only its verdict and reason.</>,
             <>If you <strong className="text-pearl">delete your account</strong>, the selfie goes with it, including the copy in the storage bucket.</>,
             <>If you <strong className="text-pearl">withdraw consent</strong> without deleting your account, the selfie is deleted and your seal is removed.</>,
@@ -286,9 +286,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
               retention is bounded to one undecided image per member. */}
         <p>
           We do not build biometric templates, embeddings or face vectors, and we do
-          not run a face recognition database across members. The comparison is a
-          one-to-one check between your selfie and your own photographs, performed at
-          the moment you verify.
+          not run a face recognition database across members. Identity image comparisons use your selfie and your own profile photographs during verification or later photo-change checks. This is separate from image-reuse and account-linkage abuse checks.
         </p>
       </Clause>
 
@@ -315,7 +313,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <strong key="k12" className="text-pearl">Antigravity relay</strong>,
-              "Your verification selfie and your profile photographs, for stage 1 identity comparison. This is not a commercial vendor: it is a relay we built ourselves, which forwards requests to Google's free consumer AI tier through a personal Google account token, and it runs on a separate hosting account from this website.",
+              "Your submitted verification images for the configured first-stage pose and liveness assessment. This is not a commercial vendor: it is a relay we built ourselves, which forwards requests to Google's free consumer AI tier through a personal Google account token, and it runs on a separate hosting account from this website.",
               "United States, plus Google's own infrastructure",
               <span key="k13" className="text-[#e0a08a]"><strong>None, and the upstream terms forbid this use.</strong> Detailed below.</span>,
             ],
@@ -338,10 +336,10 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
               <span key="k18" className="text-[#e0a08a]"><strong>None.</strong> Free client-side API, no agreement, no published retention.</span>,
             ],
             [
-              <strong key="k19" className="text-pearl">metered.ca open relay</strong>,
-              "Call traffic metadata while no private relay is configured: that a call occurred, its duration, and both participants&rsquo; IP addresses. Media itself is encrypted end to end and the relay cannot read it.",
-              "Canada / distributed",
-              "Free community service, no agreement.",
+              <strong key="k19" className="text-pearl">Configured call connectivity providers</strong>,
+              "When configured as the TURN relay, connection metadata including participant IP addresses. WebRTC encrypts media in transit; this is not a claim that every call uses this relay or that peers cannot record.",
+              "Depends on the configured provider; STUN services include Google and Nextcloud, and TURN may use Cloudflare, Metered or an operator-managed relay.",
+              "Deployment-dependent. Operator must confirm the actual provider, region and agreement before making a stronger claim.",
             ],
             [
               <strong key="k20" className="text-pearl">Cloudflare Turnstile</strong>,
@@ -429,7 +427,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
             ["Reports, appeals, warnings, suspensions", "Life of the account", "Needed to act on patterns rather than single accusations."],
             ["Security events", "Life of the account", "Evidence for abuse decisions and for your appeal."],
             ["Sessions", "Until revoked, expired or the account is deleted", "So you can see and revoke your own logged-in devices."],
-            ["Deleted account", "Removed at the point of deletion, see clause 11", "No shadow copy is retained."],
+            ["Deleted account", "Deletion workflow; cleanup may remain pending, see clause 11", "Operational cleanup can remain pending. Provider backups and retention are subject to provider controls; immediate erasure from every backup is not promised."],
           ]}
         />
         <p>
@@ -448,10 +446,10 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
         </p>
         <ClauseList
           items={[
-            <><strong className="text-pearl">Access and export.</strong> Settings has a data export. It produces a scoped copy of your own data. Nothing is gated behind an email request or an identity interrogation.</>,
+            <><strong className="text-pearl">Access and export.</strong> Settings has a scoped JSON export of supported profile, preference, activity and verification metadata. It does not include verification selfies or media binaries and is not an exhaustive archive of all operational records. Contact us for an access request covering omitted personal data.</>,
             <><strong className="text-pearl">Correction.</strong> Most optional profile fields can be edited in your profile. Restricted identity details, including date of birth, may require support; email us if you cannot correct a field.</>,
             <><strong className="text-pearl">Deletion.</strong> Settings → Account → Delete account. Deletion requests removal of your profile, photographs, messages, chat media, matches, likes, reports, security events, sessions, verification records and selfies, and it removes your authentication account, refresh tokens and identities from the auth system. It cannot be undone. The app distinguishes completed deletion from pending cleanup; storage or provider cleanup can take longer and failed work may need retry.</>,
-            <><strong className="text-pearl">Withdraw consent.</strong> Turn off verification or clear your health fields in Settings at any time.</>,
+            <><strong className="text-pearl">Withdraw consent.</strong> Use Settings → Verification data &amp; withdrawal to withdraw verification consent. Edit your profile and choose “Prefer not to say” to clear your vaccination declaration.</>,
             <><strong className="text-pearl">Object and restrict.</strong> Email us. We will stop the processing you object to unless we can show a compelling legitimate ground, which we will explain to you in writing rather than assert.</>,
             <><strong className="text-pearl">Complain.</strong> To your local regulator. In the UK that is the Information Commissioner&rsquo;s Office. In the EU, your national authority. In Nigeria, the Nigeria Data Protection Commission. In California, the CPPA. You do not need our permission and we will not ask you to explain why.</>,
           ]}
@@ -476,7 +474,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
           >
             {CONTACT_EMAIL}
           </a>
-          . We answer within 30 days and normally much faster. We will ask you to
+          . We aim to answer within 30 days; applicable law may require a different deadline. We will ask you to
           confirm you are signed in to the account concerned, because verifying who is
           asking is the entire point of not handing your data to a stranger.
         </p>
@@ -547,7 +545,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
           first published on 19 October 2026.
         </p>
         <p>
-          Version 1.2 clarifies dating profile fields, chat media and recording consent, approximate distance, incognito exceptions, notification dismissal, deterministic discovery ranking and asynchronous deletion. It removes an obsolete provider-outage assertion rather than claiming current hosted availability. Clearing notifications dismisses feed entries, not private messages; opening a conversation can mark its messages read. Typing indicators are short-lived activity notices, not message content. Chats are access-controlled but are not represented as end-to-end encrypted. Earlier version 1.1 changed who this policy names and where you write to us: the operator is
+          Version 1.3 suspends health badges, scopes new vaccination declarations to COVID-19, explains browser-local feed receipts, and corrects export, review and deletion limitations. Version 1.2 clarifies dating profile fields, chat media and recording consent, approximate distance, incognito exceptions, notification dismissal, deterministic discovery ranking and asynchronous deletion. It removes an obsolete provider-outage assertion rather than claiming current hosted availability. Clearing notifications dismisses feed entries, not private messages; opening a conversation can mark its messages read. Typing indicators are short-lived activity notices, not message content. Chats are access-controlled but are not represented as end-to-end encrypted. Earlier version 1.1 changed who this policy names and where you write to us: the operator is
           identified by its trading name, {OPERATOR_NAME}, and contact moves from a
           personal inbox to {CONTACT_EMAIL}. That earlier operator/contact update did not change collection or retention.
         </p>

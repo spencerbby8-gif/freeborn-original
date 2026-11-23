@@ -199,7 +199,7 @@ export async function GET(request: Request) {
 
   // Clearing a feed never marks a private message read or deletes source data.
   const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
-  return Response.json({ notifications: visible });
+  return Response.json({ notifications: visible, memberId: member.id });
 }
 
 

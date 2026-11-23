@@ -37,6 +37,8 @@
     "test:filter-storage": "node scripts/prototype/filter-storage-contracts.mjs",
     "test:landing-a11y": "node scripts/prototype/landing-a11y.cjs",
     "test:discovery-presentation": "node scripts/prototype/discovery-presentation-contracts.mjs",
+    "test:notification-receipts": "node scripts/prototype/notification-receipts-contracts.mjs",
+    "check:crawl-health": "node scripts/seo/crawl-health.mjs",
     "test:discovery-settings": "node scripts/prototype/discovery-settings.cjs"
   },
   "dependencies": {

@@ -95,8 +95,8 @@ export async function requestNotifyPermission(): Promise<boolean> {
 export function pushBrowserNotification(title: string, body: string, url?: string) {
   try {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    const n = new Notification(title, { body, icon: "/images/verify/pose-5.jpg" });
-    if (url) n.onclick = () => window.focus() ?? window.location.assign(url);
+    const n = new Notification(title, { body, icon: "/icons/icon-192.png" });
+    if (url?.startsWith("/app") && !url.startsWith("//")) n.onclick = () => { window.focus(); window.location.assign(url); };
   } catch {
     /* some mobile browsers block the constructor — banner still shows */
   }

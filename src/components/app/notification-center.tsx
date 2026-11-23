@@ -16,10 +16,10 @@ import { PhotoImage } from "@/components/ui/photo-image";
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
+import { loadFeedReceipts, saveFeedReceipts, reconcileFeed, type FeedReceipts } from "@/lib/notification-receipts";
 import { isCallUiActive, subscribeCallUiActive } from "@/lib/call-ui-state";
 
 const POLL_MS = 8_000;
-const SEEN_KEY = "fb-seen-alerts";
 const ASKED_KEY = "fb-notif-asked";
 
 type Alert = {
@@ -29,6 +29,8 @@ type Alert = {
   body: string;
   photo?: string;
   href: string;
+  at?: string;
+  unread?: boolean;
 };
 
 type Banner = Alert & { key: number };
@@ -45,7 +47,8 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
   const [threadUp,setThreadUp]=useState(false);
   useEffect(()=>{const verification=(e:Event)=>setVerificationUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));const thread=(e:Event)=>setThreadUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));window.addEventListener('freeborn:verification',verification);window.addEventListener('freeborn:chat-thread',thread);return()=>{window.removeEventListener('freeborn:verification',verification);window.removeEventListener('freeborn:chat-thread',thread);};},[]);
   const seq = useRef(0);
-  const seenRef = useRef<Set<string>>(new Set());
+  const receiptRef = useRef<FeedReceipts>({delivered:[],read:[]});
+  const accountRef = useRef<string | null>(null);
   const firstRun = useRef(true);
   const pathnameRef = useRef<string | undefined>(pathname);
 
@@ -57,10 +60,11 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
   useEffect(() => {
     const detail = {
       alerts: pathname?.startsWith("/app/notifications") ? 0 : undefined,
-      chat: pathname?.startsWith("/app/chat") ? 0 : undefined,
+      // Chat counts are server-owned message read state, not tab-visit state.
       likes: pathname?.startsWith("/app/likes") ? 0 : undefined,
     };
     window.dispatchEvent(new CustomEvent("freeborn:viewing", { detail }));
+    window.dispatchEvent(new Event("freeborn:feed-refresh"));
   }, [pathname]);
 
   /* Unlock sound + ask for browser notifications on the FIRST real gesture
@@ -120,7 +124,11 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
       setTimeout(() => setBanners((b) => b.filter((x) => x.key !== key)), 6_500);
     };
 
+    let inFlight = false;
     const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
       const token = await getAccessToken().catch(() => null);
       if (!token || cancelled) return;
       try {
@@ -129,6 +137,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
           fetch("/api/chat/matches", { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
+        if (cancelled) return;
         let chatUnread = 0;
         if (matchesRes.ok) {
           const mj = await matchesRes.json();
@@ -137,48 +146,36 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
 
         if (alertsRes.ok) {
           const json = await alertsRes.json();
+          if (cancelled) return;
           const items = (json.notifications ?? []) as Alert[];
-          const first = firstRun.current;
-          const fresh = first ? [] : items.filter((i) => i.type !== "tip" && !seenRef.current.has(i.id));
-
-          // Count fresh likes BEFORE marking anything seen, or the dot
-          // would always read zero.
-          const newLikes = fresh.filter((i) => i.type === "like").length;
-
-          if (first) {
-            // Fresh mount (happens on every tab switch): history is NOT new —
-            // mark it seen silently and report ZERO unread. This is what
-            // stopped the dots from "coming back" after being cleared.
-            items.forEach((i) => seenRef.current.add(i.id));
-            firstRun.current = false;
-          } else if (fresh.length > 0) {
-            fresh.slice(0, 3).forEach((a) => {
-              seenRef.current.add(a.id);
-              fire(a);
-            });
+          // Scope durable browser receipts to the authenticated API identity.
+          // Mounting or polling must not silently turn unseen history into read.
+          const accountId = typeof json.memberId === "string" ? json.memberId : null;
+          if (accountId !== accountRef.current) {
+            accountRef.current = accountId;
+            receiptRef.current = accountId ? loadFeedReceipts(accountId) : {delivered:[],read:[]};
+            firstRun.current = true;
           }
-
-          try {
-            window.localStorage.setItem(SEEN_KEY, String(seenRef.current.size));
-          } catch {
-            /* ignore */
-          }
-
-          /* Accurate dots — the tab you're standing in always reads zero. */
           const p = pathnameRef.current ?? "";
-          window.dispatchEvent(
-            new CustomEvent("freeborn:unread", {
-              detail: {
-                alerts: p.startsWith("/app/notifications") ? 0 : fresh.length,
-                chat: p.startsWith("/app/chat") ? 0 : chatUnread,
-                likes: p.startsWith("/app/likes") ? 0 : newLikes,
-              },
-            })
-          );
+          const state = reconcileFeed(items, receiptRef.current, p, firstRun.current);
+          receiptRef.current = state.receipts;
+          firstRun.current = false;
+          if (accountId) saveFeedReceipts(accountId, state.receipts);
+          state.fresh.slice(0, 3).forEach(item => {
+            const alert = item as Alert;
+            // Do not interrupt the feed the member is already reading.
+            if (!p.startsWith("/app/notifications")) fire(alert);
+          });
+          window.dispatchEvent(new CustomEvent("freeborn:unread", { detail: {
+            alerts: state.alerts,
+            chat: chatUnread,
+            likes: state.likes,
+          }}));
         }
       } catch {
         /* offline — next tick retries */
       }
+      } finally { inFlight = false; }
     };
 
     void tick();
@@ -189,10 +186,12 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
       if (!document.hidden) void tick();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("freeborn:feed-refresh", onVisible);
     return () => {
       cancelled = true;
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("freeborn:feed-refresh", onVisible);
     };
   }, []);
 
@@ -209,9 +208,9 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
               </svg>
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Never miss a match</p>
+              <p className="text-[13.5px] font-black text-[var(--color-pearl)]">Alerts while Freeborn is open</p>
               <p className="mt-0.5 text-[12px] leading-4 text-[var(--color-mist)]">
-                Choose whether to receive browser alerts and sounds for new matches, likes and messages.
+                Choose browser alerts and sounds while Freeborn is open. Closed-app push is not available.
               </p>
               <div className="mt-2.5 flex gap-2">
                 <button
@@ -250,7 +249,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
       ) : null}
 
       {/* Alert banners */}
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4">
+      <div aria-live="polite" aria-relevant="additions" className="pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4">
         {!verificationUp && banners.map((b) => (
           <button
             key={b.key}

@@ -261,10 +261,10 @@ async function handleGet(request: Request) {
       note: !e1vision.ok && !e2vision.ok
         ? "Neither engine has working vision, so identity verification cannot complete. Every attempt and its gateway error is listed above."
         : !e2vision.ok
-          ? "Engine 2 vision is unavailable, so verification stage 2 degrades to single-engine. Reported honestly, never faked."
+          ? "Engine 2 vision is unavailable. The required identity checks cannot complete; do not treat a single-engine result as approval."
           : !e1vision.ok
-            ? "Engine 1 vision is unavailable, so verification stage 1 degrades to single-engine."
-            : "Both stages have vision. Dual-engine verification is active.",
+            ? "Engine 1 vision is unavailable. The required identity checks cannot complete; no approval is established."
+            : "Both synthetic vision probes passed. This does not certify a real member identity check.",
     },
   });
 }
