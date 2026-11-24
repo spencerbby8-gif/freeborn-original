@@ -2926,7 +2926,7 @@ console.log("\n[29] private chat broadcast and bounded fallback");
   const alt = src("src/app/alternatives/page.tsx");
   ok("[31] the comparison page carries dated competitor facts and zero fabricated trust markup",
     /const reviewed=['"]\d{4}-\d{2}-\d{2}['"]/.test(alt) && !/aggregateRating|ratingValue|reviewCount/.test(alt) &&
-    alt.includes("GuidePage") && alt.includes("faqs={faqs}") && alt.includes("https://www.unjected.com/") && !/numberOfUsers|award|sameAs/.test(alt));
+    alt.includes("GuidePage") && alt.includes("faqs={faqs}") && /const unjected=['"]([^'"]+)['"]/.exec(alt)?.[1] === "https://www.unjected.com/" && !/numberOfUsers|award|sameAs/.test(alt));
   const guideFiles = ["guides/page.tsx", "guides/meet-without-apps/page.tsx", "guides/long-distance/page.tsx", "guides/scam-spotting/page.tsx"].map((g) => src(`src/app/${g}`));
   const shell = src("src/components/guides/guide-page.tsx");
   const banned = /\bvaccin|\bdetox|\b5g\b|shedding|\bmiracle|\bcure[sd]?\b/i;

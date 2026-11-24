@@ -41,7 +41,8 @@
     "check:crawl-health": "node scripts/seo/crawl-health.mjs",
     "test:discovery-settings": "node scripts/prototype/discovery-settings.cjs",
     "test:member-auth": "node scripts/prototype/member-auth-regressions.mjs",
-    "test:auth-onboarding": "node scripts/prototype/auth-onboarding.cjs"
+    "test:auth-onboarding": "node scripts/prototype/auth-onboarding.cjs",
+    "test:evidence-safety": "node scripts/seo/public-evidence-contracts.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",

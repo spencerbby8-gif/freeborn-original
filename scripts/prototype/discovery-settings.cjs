@@ -1,5 +1,6 @@
 // Local-only API/WebSocket fixtures; never hosted email, RLS or physical-device acceptance.
 const {chromium}=require('playwright');
+const {hasFixtureOrigin}=require('./fixture-preflight.cjs');
 const fs=require('node:fs/promises');
 const base=process.env.FREEBORN_UI_BASE_URL||'http://127.0.0.1:3000';
 const output=process.env.FREEBORN_UI_OUTPUT||'scripts/prototype/.shots/discovery-settings';
@@ -18,7 +19,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
  const html=await authResponse.text();
  const chunks=[...new Set([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(m=>m[1]).filter(path=>path.startsWith('/_next/')))];
  const sources=await Promise.all(chunks.map(async path=>{const response=await fetch(base+path);if(!response.ok)throw Error('Fixture preflight: script unavailable');return response.text()}));
- if(!sources.some(source=>source.includes('https://fixture.supabase.co'))||!sources.some(source=>source.includes('fixture-publishable-key')))throw Error('Fixture preflight: rebuild a separate local fixture app with NEXT_PUBLIC_SUPABASE_URL=https://fixture.supabase.co and NEXT_PUBLIC_SUPABASE_ANON_KEY=fixture-publishable-key. Do not weaken application auth. See docs/prototype/IMPLEMENTATION.md.');
+ if(!hasFixtureOrigin(sources)||!sources.some(source=>source.includes('fixture-publishable-key')))throw Error('Fixture preflight: rebuild a separate local fixture app with NEXT_PUBLIC_SUPABASE_URL=https://fixture.supabase.co and NEXT_PUBLIC_SUPABASE_ANON_KEY=fixture-publishable-key. Do not weaken application auth. See docs/prototype/IMPLEMENTATION.md.');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
  const results={scope:'Local intercepted APIs + fake microphone + loopback WebSocket. No hosted delivery, inbox, biometric or RLS acceptance.',checks:[],captures:[],errors:[]};
  for(const viewport of [{width:393,height:852},{width:1440,height:1000}].filter(v=>!process.env.FREEBORN_UI_VIEWPORT||v.width===Number(process.env.FREEBORN_UI_VIEWPORT))){

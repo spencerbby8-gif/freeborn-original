@@ -53,3 +53,7 @@ For browser checks, build a **separate checkout** with `NEXT_PUBLIC_SUPABASE_URL
 3. Verify separate PR #91 repair delivery and hosted checks; its dependency fix is kept outside this product branch.
 4. Any merge or production promotion needs approval.
 5. SEO indexing/ranking/signup evidence remains outstanding; none of these fixes proves SEO outcomes.
+
+## Delivery-gate follow-up
+
+The first hosted PR #92 scan reported five CodeQL alerts in evidence/test scripts: four incomplete URL substring checks and one chained entity-decoding check. The follow-up replaces them with complete quoted URL parsing/exact extracted-link comparisons and single-pass entity decoding. The scanner is not suppressed or reconfigured. A new 21-check evidence-safety suite exercises lookalike hosts, embedded URLs, credentials, unexpected paths/ports and nested entities, and is wired into CI. Final hosted outcomes must be read for the updated head SHA, not the earlier scan.

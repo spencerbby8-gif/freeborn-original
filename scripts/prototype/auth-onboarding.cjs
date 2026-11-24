@@ -1,5 +1,6 @@
 // Browser interaction regression only: intercepted fixture auth/APIs, not hosted signup acceptance.
 const {chromium}=require('playwright');
+const {hasFixtureOrigin}=require('./fixture-preflight.cjs');
 const fs=require('node:fs/promises');
 const base=process.env.FREEBORN_UI_BASE_URL||'http://127.0.0.1:3003';
 const output=process.env.FREEBORN_UI_OUTPUT||'scripts/prototype/.shots/auth-onboarding';
@@ -13,7 +14,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
  const html=await (await fetch(base+'/auth')).text();
  const paths=[...new Set([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(m=>m[1]).filter(p=>p.startsWith('/_next/')))];
  const sources=await Promise.all(paths.map(async p=>(await fetch(base+p)).text()));
- if(!sources.some(s=>s.includes('https://fixture.supabase.co')))throw Error('Build an isolated fixture app; never run fake sessions against real auth.');
+ if(!hasFixtureOrigin(sources))throw Error('Build an isolated fixture app; never run fake sessions against real auth.');
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const results={scope:'Local browser with intercepted fixture auth/APIs. No hosted signup, inbox, RLS or physical-device claim.',checks:[],captures:[],errors:[]};
  for(const viewport of [{width:393,height:852},{width:1440,height:1000}]){

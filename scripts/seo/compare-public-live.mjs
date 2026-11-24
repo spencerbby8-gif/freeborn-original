@@ -4,6 +4,7 @@
  */
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+import {normalizePublicText as text} from './public-text.mjs';
 const output=process.argv.find(v=>v.startsWith('--output='))?.slice(9);
 if(!output)throw Error('An output file is required');
 const live='https://freeborndating.com',local='http://127.0.0.1:3002';
@@ -11,7 +12,6 @@ const source=readFileSync(new URL('../../src/lib/site.ts',import.meta.url),'utf8
 const block=/export const INDEXABLE_PATHS = \[([\s\S]*?)\];/.exec(source)?.[1];
 if(!block)throw Error('Cannot identify public allowlist');
 const paths=[...block.matchAll(/path: "([^"]+)"/g)].map(v=>v[1]);
-const text=value=>value.replace(/<[^>]*>/g,' ').replace(/&#x27;|&#39;/g,"'").replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/\s+/g,' ').trim();
 function attr(html,tag,key,value,wanted){const tags=html.match(new RegExp(`<${tag}\\b[^>]*>`,'gi'))||[];return tags.find(t=>new RegExp(`\\b${key}=["']${value}["']`,'i').test(t))?.match(new RegExp(`\\b${wanted}=["']([^"']*)["']`,'i'))?.[1]??null}
 async function inspect(origin,path){
  try{
