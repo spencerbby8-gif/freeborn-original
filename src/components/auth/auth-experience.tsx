@@ -11,6 +11,7 @@ import { PasswordStrength } from "./password-strength";
 import { GoogleGlyph } from "@/components/icons";
 import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supabase/browser";
 import { getAuthErrorMessage } from "@/lib/auth/messages";
+import { signupOutcome, EXISTING_ACCOUNT_MESSAGE } from "@/lib/auth/signup-outcome";
 import { getBaseUrl } from "@/lib/auth/url";
 import { showToast } from "@/components/toast-host";
 import { TurnstileGate, turnstileEnabled } from "./turnstile";
@@ -313,8 +314,21 @@ export function AuthExperience({
             ...(captchaToken ? { captchaToken } : {}),
           },
         });
+        const outcome = signupOutcome(data, error);
+        if (outcome === "existing-account") {
+          setCodeStep(null);
+          setCode("");
+          setCodeError(null);
+          setValues((current) => ({ ...current, password: "" }));
+          changeMode("sign-in");
+          setErrors({ email: EXISTING_ACCOUNT_MESSAGE });
+          showToast({ tone: "error", title: "Account already exists", body: EXISTING_ACCOUNT_MESSAGE });
+          setPending(null);
+          return;
+        }
         if (error) throw error;
-        if (data.session) {
+        if (outcome === "unavailable") throw new Error("We couldn’t confirm that a new account was created. Please try again, or sign in if you already have an account.");
+        if (outcome === "signed-in") {
           showToast({ tone: "success", title: "Account created", body: "Welcome to Freeborn. Let's build your profile." });
           await enterAfterAuth();
           return;

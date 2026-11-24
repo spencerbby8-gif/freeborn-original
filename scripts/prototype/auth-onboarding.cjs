@@ -8,7 +8,7 @@ if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('Loca
 const id='f5166a7e-1480-40a5-a770-146fb8cfd007',peer='f5166a7e-1480-40a5-a770-146fb8cfd008';
 const user={id,email:'fixture@example.test',aud:'authenticated',role:'authenticated',app_metadata:{},user_metadata:{}};
 function session(){return {access_token:Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture',refresh_token:'fixture',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,user};}
-const deck={id:peer,name:'Aria',age:27,city:'Brooklyn',occupation:'Designer',headline:'A curious mind and a kind heart.',traits:['Hiking'],photo:'/images/prototype/welcome.jpg',photos:['/images/prototype/welcome.jpg'],verified:true,presence:'today',distanceKm:10,isNew:true};
+const deck={id:peer,name:'Aria',age:27,city:'Brooklyn',occupation:'Designer',headline:'A curious mind and a kind heart.',traits:['Hiking'],photo:'/images/prototype/welcome.jpg',photos:['/images/prototype/welcome.jpg'],verified:true,presence:'today',distanceKm:10,isNew:true,relationshipGoals:['life_partner'],values:['Health autonomy'],lifestyle:['Natural living'],interests:['Hiking']};
 const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'Brooklyn',region:'New York',relationship_goals:['long_term'],values:['Health autonomy'],bio:'I love long walks, thoughtful conversations and good coffee.',interests:['Hiking','Coffee','Reading'],lifestyle_preferences:['Natural living'],photos:[]};
 (async()=>{
  const html=await (await fetch(base+'/auth')).text();
@@ -20,12 +20,12 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
  for(const viewport of [{width:393,height:852},{width:1440,height:1000}]){
   const ctx=await browser.newContext({viewport,reducedMotion:'reduce'});
   await ctx.addInitScript(s=>{localStorage.setItem('sb-fixture-auth-token',JSON.stringify(s));sessionStorage.setItem('fb-security-checked',String(Date.now()));},session());
-  let profileStatus=200,deckMode='members',step='welcome',stepDraft=structuredClone(draft),verifyInvalid=true;
+  let profileStatus=200,deckMode='members',step='welcome',stepDraft=structuredClone(draft),verifyInvalid=true,signupMode='new';
   const writes=[];
   await ctx.routeWebSocket('wss://fixture.supabase.co/**',ws=>{ws.onMessage(()=>{});});
   await ctx.route('https://fixture.supabase.co/**',async r=>{
    const req=r.request(),p=new URL(req.url()).pathname;let data=user,status=200;
-   if(req.method()==='POST'){if(p.endsWith('/signup'))data={user,session:null};else if(p.endsWith('/verify')){if(verifyInvalid){status=403;data={msg:'Token has expired or is invalid',error_code:'otp_expired'};}else data={...session(),user};}else data={};}
+   if(req.method()==='POST'){if(p.endsWith('/signup')){if(signupMode==='duplicate-error'){status=422;data={code:'user_already_exists',msg:'User already registered'};}else data={user:{...user,identities:signupMode==='duplicate-obfuscated'?[]:[{id:'fixture-email-identity',provider:'email',user_id:user.id}]},session:null};}else if(p.endsWith('/verify')){if(verifyInvalid){status=403;data={msg:'Token has expired or is invalid',error_code:'otp_expired'};}else data={...session(),user};}else data={};}
    await r.fulfill({status,json:data,headers:{'access-control-allow-origin':'*'}});
   });
   await ctx.route(base+'/api/**',async r=>{
@@ -76,6 +76,27 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
   });
   await check('Own-profile eye sends bearer authentication and displays the current profile',async()=>{
    profileStatus=200;let detailAuth=false;page.on('request',r=>{if(new URL(r.url()).pathname==='/api/profile/'+id)detailAuth=!!r.headers().authorization;});await page.goto(base+'/app/profile',{waitUntil:'networkidle'});await page.getByRole('button',{name:'View profile',exact:true}).click();await page.locator('.fb-detail-overlay .pd-name').filter({hasText:'Taylor'}).waitFor();if(!detailAuth)throw Error('Profile preview omitted bearer');await capture('own-profile-preview');
+  });
+  await check('Filter tip points to the flame beside profile values, not notifications; dismissal persists for the session',async()=>{
+   await page.goto(base+'/app',{waitUntil:'networkidle'});await page.evaluate(()=>sessionStorage.removeItem('fb-discovery-filter-tip-v1'));await page.reload({waitUntil:'networkidle'});
+   const tip=page.getByRole('note',{name:'Filter button tip'});await tip.waitFor();
+   const filter=page.locator('.intent-chips').getByRole('button',{name:'Discovery filters',exact:true});
+   if(await page.locator('.intent-chips .chip-rose,.intent-chips .chip-rose-dim').count()!==3)throw Error('Tip not beside member values/lifestyle chips');
+   if(await page.getByRole('navigation',{name:'Main navigation'}).getByRole('link').count()!==4)throw Error('Four-tab navigation changed');
+   const desc=await filter.getAttribute('aria-describedby');if(!desc||await tip.locator('[id]').getAttribute('id')!==desc)throw Error('Tip not attached to filter');
+   if(await page.locator('.disc-head [aria-describedby]').count())throw Error('Tip attached to notifications');
+   const bounds=await tip.boundingBox();if(bounds.x<0||bounds.x+bounds.width>viewport.width)throw Error('Tip overflows viewport');
+   await capture('filter-tip');await page.getByRole('button',{name:'Dismiss filter tip'}).click();await page.reload({waitUntil:'networkidle'});if(await tip.count())throw Error('Dismissal not retained');
+   await filter.click();await page.getByRole('dialog',{name:'Discovery filters',exact:true}).waitFor();await page.getByRole('button',{name:'Close filters',exact:true}).click();
+  });
+  for(const duplicate of ['duplicate-obfuscated','duplicate-error'])await check('Existing signup '+duplicate+' directs to log in without OTP or onboarding',async()=>{
+   signupMode=duplicate;await page.evaluate(()=>localStorage.clear());await page.goto(base+'/auth?mode=sign-up',{waitUntil:'networkidle'});
+   await page.getByLabel('Email address',{exact:true}).fill('existing@example.test');await page.locator('input[name=password]').fill('Fixture-Password-2026!');
+   const previous=writes.length;await page.getByRole('button',{name:'Continue',exact:true}).click();
+   await page.locator('form').getByText('An account already exists for this email. Log in instead, or reset your password.',{exact:true}).waitFor();
+   if(await page.getByRole('region',{name:'Verify your email'}).count()||new URL(page.url()).pathname!=='/auth')throw Error('Duplicate entered verification/onboarding');
+   if(await page.getByLabel('Email address',{exact:true}).inputValue()!=='existing@example.test'||await page.locator('input[name=password]').inputValue()!=='')throw Error('Email/password transition unsafe');
+   if(writes.slice(previous).some(w=>w.p==='/api/onboarding'))throw Error('Duplicate wrote onboarding');await capture(duplicate+'-log-in');signupMode='new';
   });
   await check('Email-code Continue spans its form and is centered; invalid then valid OTP works',async()=>{
    await page.evaluate(()=>localStorage.clear());await page.goto(base+'/auth?mode=sign-up',{waitUntil:'networkidle'});await page.getByLabel('Email address',{exact:true}).fill('fixture@example.test');await page.locator('input[name=password]').fill('Fixture-Password-2026!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('region',{name:'Verify your email'}).waitFor();

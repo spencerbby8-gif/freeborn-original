@@ -117,6 +117,9 @@ jobs:
       - name: Prepare disposable application schema
         run: npm run test:prepare-local
 
+      - name: Member runtime regressions — real handlers, local SQL, fixture auth
+        run: npm run test:member-runtime
+
       - name: FB-14 deletion regression (blocking)
         run: npm run test:deletion-local
 

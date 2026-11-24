@@ -112,7 +112,8 @@ export const metadata: Metadata = {
  *
  * `Organization` tells search engines who operates the service, which matters for
  * E-E-A-T on a platform asking people to trust it with health and identity data.
- * `WebSite` makes the domain eligible for sitelinks searchbox treatment.
+ * `WebSite` describes the site identity. Google retired the sitelinks search
+ * box in 2024; this is not a promise of that feature or of rankings.
  *
  * Every value here is verifiable and none of it is inflated: no `aggregateRating`,
  * no `numberOfUsers`, no `award`, no `sameAs` pointing at social profiles that do

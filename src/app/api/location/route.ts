@@ -1,3 +1,4 @@
+import { withMemberApiErrors } from "@/lib/member-api-errors";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { securityEvents, userPrivateLocations } from "@/db/schema";
@@ -26,7 +27,7 @@ function distKm(lat1: number, lon1: number, lat2: number, lon2: number) {
  * The web can't read Android's mock-location flag, so physics + IP
  * cross-verification is the strongest honest defense a browser allows.
  */
-export async function POST(request: Request) {
+async function saveLocation(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
       latitude: lat,
       longitude: lng,
       accuracyM: accuracy,
-      source: "browser",
+      source: "gps",
     })
     .onConflictDoUpdate({
       target: userPrivateLocations.userId,
@@ -158,10 +159,12 @@ export async function POST(request: Request) {
         latitude: lat,
         longitude: lng,
         accuracyM: accuracy,
-        source: "browser",
+        source: "gps",
         updatedAt: new Date(),
       },
     });
 
   return Response.json({ ok: true });
 }
+
+export const POST = withMemberApiErrors(saveLocation, "location-save");

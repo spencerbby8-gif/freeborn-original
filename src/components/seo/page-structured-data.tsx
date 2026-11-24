@@ -2,7 +2,8 @@ import { absolute, SITE_NAME } from "@/lib/site";
 
 /**
  * Page-level structured data for an indexable public page: a `WebPage` entity
- * plus the `BreadcrumbList` that earns breadcrumb treatment in search results.
+ * plus a `BreadcrumbList` describing the page hierarchy. Search appearance is
+ * selected by the search engine; adding this markup does not guarantee it.
  *
  * WHY THIS EXISTS (B13, 2026-11-15). The crawler-facing HTML of the platforms
  * that dominate search wraps every content page in page-level entities and a

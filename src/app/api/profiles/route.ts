@@ -1,3 +1,4 @@
+import { withMemberApiErrors } from "@/lib/member-api-errors";
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { blockedUsers, discoveryPreferences, eventInterests, matches, profilePhotos, userPrivateLocations, userPrivateSettings, userProfiles, userSwipes } from "@/db/schema";
@@ -35,7 +36,7 @@ const list = (v: string | null) =>
    window does not mean. The badge on a card uses the tighter tiers below. */
 const ONLINE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export async function GET(request: Request) {
+async function readDiscovery(request: Request) {
   /* B6. This endpoint returns real members' names, ages, cities, occupations
      and photographs. Authentication used to be OPTIONAL here: the Bearer token
      was read only to personalise the deck, so an anonymous caller fell through
@@ -559,3 +560,5 @@ export async function GET(request: Request) {
 
   return Response.json({ profiles: out, facets });
 }
+
+export const GET = withMemberApiErrors(readDiscovery, "discovery-read");
