@@ -2,7 +2,7 @@
 
 ## Delivery boundary
 
-This is a source/local-validation change. It has not been merged, promoted to production, or validated with a real hosted signup. Opening a GitHub PR and updating Dependabot PR #91 require authenticated GitHub access. A compare URL is not a created PR.
+This document records source/local validation. GitHub delivery and hosted-check status must be checked against the associated PR and its exact head SHA, not inferred from these local results. No merge, production promotion, or real hosted-signup acceptance is certified here. A compare URL is not a created PR.
 
 ## Diagnosis
 
@@ -48,8 +48,8 @@ For browser checks, build a **separate checkout** with `NEXT_PUBLIC_SUPABASE_URL
 
 ## Still required
 
-1. Authenticated feature-branch push and creation of the actual review PR.
+1. Verify the feature-branch push and actual review PR against the latest delivery receipt.
 2. Review/deploy preview, then a consenting member's real email-code signup, onboarding, discovery, own-profile preview and refresh/re-entry verification. Inspect privacy-preserving server errors if failures remain.
-3. Separate PR #91 repair delivery and hosted check reruns; its dependency fix is kept outside this product branch.
+3. Verify separate PR #91 repair delivery and hosted checks; its dependency fix is kept outside this product branch.
 4. Any merge or production promotion needs approval.
 5. SEO indexing/ranking/signup evidence remains outstanding; none of these fixes proves SEO outcomes.
