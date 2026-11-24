@@ -24,4 +24,4 @@ This intentionally narrows the dependency update rather than pretending that del
 - Trust harness: 624/624.
 - Runtime dependency audit: zero vulnerabilities.
 
-These are local results, not hosted GitHub/Vercel/Netlify checks. Netlify's original individual check logs were not fetched; their exact failure causes are not claimed. This patch has not been pushed to the Dependabot branch and PR #91 has not been rerun, merged or deployed by this change.
+These are local results, not hosted GitHub/Vercel/Netlify checks. Netlify's original individual check logs were not fetched; their exact failure causes are not claimed. Push and hosted-check outcomes must be verified against the exact latest PR #91 head SHA and delivery receipt. This local review does not certify a merge or production deployment.
