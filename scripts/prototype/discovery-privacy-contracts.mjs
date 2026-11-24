@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 const S={user:{id:'viewer'},queue:[]};globalThis.__discovery=S;
 const mocks={
- '@/lib/app-auth':'export async function getMember(){return globalThis.__discovery.user}',
+ '@/lib/app-auth':'export async function getMember(){if(globalThis.__discovery.memberError)throw Error("DB unavailable");return globalThis.__discovery.user}',
  '@/lib/identity-resolve':'export async function suppressedUserIds(){if(globalThis.__discovery.suppressionError)throw Error("Suppression unavailable");return globalThis.__discovery.suppressed??[]}',
  '@/db':`export const db={select(){const q={from(){return q},where(){return q},orderBy(){return q},limit(){return q},groupBy(){return q},then(ok,bad){if(!globalThis.__discovery.queue.length)throw Error('Unexpected DB read');return Promise.resolve(globalThis.__discovery.queue.shift()).then(ok,bad)}};return q}}`,
 };
-const built=await build({stdin:{contents:`export * as profiles from './src/app/api/profiles/route';export * as filters from './src/components/app/filters';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,write:false,format:'esm',platform:'node',plugins:[{name:'fixture',setup(b){b.onResolve({filter:/^@\/(?:db|lib\/(?:app-auth|identity-resolve))$/},a=>({path:a.path,namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:mocks[a.path],loader:'js'}));}}]});
-const {profiles,filters}=await import('data:text/javascript;base64,'+Buffer.from(built.outputFiles[0].text).toString('base64'));
+const built=await build({stdin:{contents:`export * as profiles from './src/app/api/profiles/route';export * as detail from './src/app/api/profile/[id]/route';export * as filters from './src/components/app/filters';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,write:false,format:'esm',platform:'node',plugins:[{name:'fixture',setup(b){b.onResolve({filter:/^@\/(?:db|lib\/(?:app-auth|identity-resolve))$/},a=>({path:a.path,namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:mocks[a.path],loader:'js'}));}}]});
+const {profiles,detail,filters}=await import('data:text/javascript;base64,'+Buffer.from(built.outputFiles[0].text).toString('base64'));
 const now=new Date();const A={id:'a',displayName:'Ada',firstName:'Ada',birthDate:'1998-01-02',createdAt:now,lastActiveAt:now,gender:'woman',occupation:'Teacher',educationLevel:"Bachelor's degree",religion:'Christian',language:'English',city:'City',vaccinationStatus:'vaccinated',isVerified:false,values:['Kindness'],interests:['Hiking'],lifestylePreferences:['Active lifestyle'],relationshipGoals:['long_term'],maritalStatus:'Never married',hasKids:'No kids',wantsKids:'Want kids',drinking:'Socially',smoking:'Never',promptAnswers:[],bio:'A profile'};
 const B={...A,id:'b',displayName:'Bea',occupation:'Engineer',educationLevel:"Master's degree",gender:'man',religion:'Muslim',language:'Igbo',vaccinationStatus:'unvaccinated',isVerified:true,interests:['Music'],relationshipGoals:['friendship']};
 async function get(params='',o={}){
@@ -17,6 +17,8 @@ async function get(params='',o={}){
 }
 let n=0;async function check(name,fn){await fn();console.log('ok '+(++n)+' - '+name)}
 const ids=r=>r.profiles.map(p=>p.id).sort();
+await check('Member resolver outage is 503, never signed-out or an empty deck',async()=>{S.memberError=true;try{const r=await profiles.GET(new Request('http://local.test/api/profiles'));assert.equal(r.status,503);const body=await r.json();assert.ok(body.error);assert.equal(body.profiles,undefined);assert.ok(!body.error.includes('DB unavailable'));}finally{S.memberError=false;}});
+await check('Own-profile resolver outage is 503, never a false 401',async()=>{S.memberError=true;try{const r=await detail.GET(new Request('http://local.test/api/profile/11111111-1111-4111-8111-111111111111'),{params:Promise.resolve({id:'11111111-1111-4111-8111-111111111111'})});assert.equal(r.status,503);}finally{S.memberError=false;}});
 S.user=null;await check('Anonymous discovery is refused',async()=>assert.equal((await get()).status,401));S.user={id:'viewer'};
 await check('Unfiltered fixture has exactly two real-shape results',async()=>assert.deepEqual(ids(await get()),['a','b']));
 for(const [query,id] of [['gender=woman','a'],['interests=Music','b'],['intent=long_term','a'],['religion=Muslim','b'],['language=Igbo','b'],['occupation=Teacher','a'],['education=Master%27s%20degree','b'],['verified=1','b'],['vax=vaccinated','a'],['lifestyle=Active%20lifestyle','a']])await check('Actual handler applies '+query,async()=>{const result=ids(await get(query));assert.ok(result.includes(id));if(!query.startsWith('lifestyle'))assert.equal(result.length,1);});

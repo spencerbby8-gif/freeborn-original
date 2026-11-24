@@ -18,7 +18,11 @@ export async function getMember(request: Request): Promise<Member | null> {
   const supabase = await createSupabaseClientForApi(request);
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+  if (error && (!error.status || error.status >= 500 || error.status === 429)) {
+    throw new Error("Member authentication is temporarily unavailable.");
+  }
   if (!user?.email) return null;
 
   const member: Member = {
@@ -29,10 +33,13 @@ export async function getMember(request: Request): Promise<Member | null> {
       user.email.split("@")[0].replace(/[._-]+/g, " "),
   };
 
+  // A recreated auth account can reuse an email held by a legacy mirror ID.
+  // Ignore mirror uniqueness conflicts; never reassign that ID or its data.
+  // Profile creation remains keyed by the verified Supabase UUID and fails closed.
   await db
     .insert(accounts)
     .values({ id: member.id, email: member.email })
-    .onConflictDoNothing({ target: accounts.id });
+    .onConflictDoNothing();
   await db
     .insert(userProfiles)
     .values({ id: member.id, email: member.email, discoverable: false })

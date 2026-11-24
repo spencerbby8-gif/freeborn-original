@@ -984,7 +984,7 @@
 .fb-prototype .email-code-input{color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:18px;font-family:var(--sans);font-size:26px;text-align:center;letter-spacing:.25em;padding:18px 12px;min-width:0;width:100%;outline:none}
 .fb-prototype .email-code-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(233,195,124,.08)}
 .fb-prototype .email-code-input[aria-invalid=true]{border-color:#eb938f}
-.fb-prototype .email-code-form .btn-grad{margin:8px 0 0;display:flex;align-items:center;justify-content:center;gap:10px}
+.fb-prototype .email-code-form .btn-grad.big.wide{width:100%;align-self:stretch;text-align:center;margin:8px 0 0;display:flex;align-items:center;justify-content:center;gap:10px}
 .fb-prototype .email-code-form .fineprint{margin:0}
 .fb-prototype .email-code-resend,.fb-prototype .email-code-change{min-height:36px;font-size:11px;color:var(--gold)}
 .fb-prototype .email-code-resend:disabled{color:var(--faint)}

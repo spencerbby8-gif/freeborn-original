@@ -36,9 +36,6 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
   const goToStep = (index: number) => {
     const target = Math.max(0, Math.min(index, TOTAL_STEPS - 1));
     setStepIndex(target);
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "auto" });
-    }
   };
 
   const handleBack = () => goToStep(stepIndex - 1);

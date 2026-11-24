@@ -88,6 +88,11 @@ jobs:
       - name: Trust harness (blocking)
         run: npm run test:harness
 
+      - name: Member auth recreated-email regression — local PostgreSQL
+        run: npm run test:member-auth
+        env:
+          FREEBORN_AUTH_TEST_DB_URL: postgresql://postgres:postgres@127.0.0.1:5432/app_db
+
       - name: Prototype API contracts — substituted adapters (blocking)
         run: npm run test:prototype-api
 

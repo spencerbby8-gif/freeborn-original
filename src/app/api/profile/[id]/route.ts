@@ -52,7 +52,13 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
      the full profile of someone who was hidden, snoozed, incognito, or who had
      blocked them. Authentication is now required, and the owner's settings are
      enforced below. */
-  const viewer = await getMember(request).catch(() => null);
+  let viewer;
+  try {
+    viewer = await getMember(request);
+  } catch {
+    console.error("[member-profile] Member lookup unavailable");
+    return Response.json({ error: "We couldn’t load profiles right now. Please try again." }, { status: 503 });
+  }
   if (!viewer) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, useState, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 type Chrome = {label:string;error?:string;hint?:string;optional?:boolean;counter?:{value:number;max:number}};
 function Header({label,optional,counter,id}:Chrome & {id:string}) {return <div className="setup-field-head"><label htmlFor={id}>{label}</label><span>{counter ? `${counter.value}/${counter.max}` : optional ? "Optional" : ""}</span></div>;}
@@ -18,8 +18,12 @@ type SelectProps={label?:string;hideLabel?:boolean;value:string;onChange:(value:
 export function SelectMenu({label,hideLabel,value,onChange,options,placeholder="Select…",error,hint,optional}:SelectProps){
  const id=useId();return <div className="setup-field">{label&&!hideLabel&&<Header id={id} label={label} optional={optional}/>}<div className="setup-select"><select id={id} aria-label={hideLabel||!label ? placeholder : undefined} value={value} onChange={e=>onChange(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={`${id}-hint`} className="setup-input"><option value="" disabled>{placeholder}</option>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select><span aria-hidden="true">⌄</span></div>{(hint||error)&&<Foot id={id} error={error} hint={hint}/>}</div>;
 }
+/** Explicit native picker: options open without a typing keyboard; custom answers stay optional. */
 export function ComboField({label,value,onChange,options,placeholder="Select or type…",optional,hint}:{label:string;value:string;onChange:(value:string)=>void;options:readonly string[];placeholder?:string;optional?:boolean;hint?:string}){
- const id=useId();return <div className="setup-field"><Header id={id} label={label} optional={optional}/><input id={id} list={`${id}-options`} className="setup-input" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} aria-describedby={`${id}-hint`}/><datalist id={`${id}-options`}>{options.map(o=><option key={o} value={o}/>)}</datalist><Foot id={id} hint={hint}/></div>;
+ const id=useId();
+ const [custom,setCustom]=useState(Boolean(value&&!options.includes(value)));
+ const customKey="__custom__";
+ return <div className="setup-field"><Header id={id} label={label} optional={optional}/><div className="setup-select"><select id={id} className="setup-input" value={custom?customKey:value} onChange={e=>{const next=e.target.value;setCustom(next===customKey);if(next!==customKey)onChange(next);else if(options.includes(value))onChange("");}} aria-describedby={`${id}-hint`}><option value="">{optional?"Not shared — choose an option":placeholder}</option>{options.map(o=><option key={o} value={o}>{o}</option>)}<option value={customKey}>Write my own…</option></select><span aria-hidden="true">⌄</span></div>{custom&&<input className="setup-input" aria-label={`${label} — your own answer`} value={value} maxLength={100} onChange={e=>onChange(e.target.value)} placeholder={`Your ${label.toLowerCase()}`} aria-describedby={`${id}-hint`}/>}<Foot id={id} hint={hint}/></div>;
 }
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 export function DateOfBirthField({label="Date of birth",value,onChange,error,hint}:{label?:string;value:string;onChange:(value:string)=>void;error?:string;hint?:string}){

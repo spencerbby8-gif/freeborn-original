@@ -50,7 +50,13 @@ export async function GET(request: Request) {
      Privacy Policy clause 5 promises it is not. For a dating service used by
      people who are publicly identifiable by their health views, an open
      directory of faces and cities is a safety failure, not a technicality. */
-  const viewer = await getMember(request).catch(() => null);
+  let viewer;
+  try {
+    viewer = await getMember(request);
+  } catch {
+    console.error("[member-profile] Member lookup unavailable");
+    return Response.json({ error: "We couldn’t load profiles right now. Please try again." }, { status: 503 });
+  }
   if (!viewer) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }

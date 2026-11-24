@@ -238,7 +238,7 @@ async function storePhotoBytesInDatabase(userId: string, dataUrl: string): Promi
   await db
     .insert(accounts)
     .values({ id: userId, email: `${userId}@mirror.local` })
-    .onConflictDoNothing({ target: accounts.id });
+    .onConflictDoNothing();
   await db
     .insert(localUserProfiles)
     .values({ id: userId, email: `${userId}@mirror.local`, discoverable: false })
@@ -504,7 +504,7 @@ export async function ensureLocalMirrorProfile(userId: string, email: string) {
   await db
     .insert(accounts)
     .values({ id: userId, email })
-    .onConflictDoNothing({ target: accounts.id });
+    .onConflictDoNothing();
   await db
     .insert(localUserProfiles)
     .values({ id: userId, email, discoverable: false })
