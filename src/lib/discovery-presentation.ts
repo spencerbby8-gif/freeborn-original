@@ -2,7 +2,7 @@
 export function discoveryHeading(city: string | null, nearby: boolean, now = new Date()): string {
   if (!nearby || !city?.trim()) return "Date like you mean it";
   const hour = now.getHours();
-  const period = hour >= 5 && hour < 12 ? "Morning" : hour >= 12 && hour < 17 ? "Afternoon" : "Tonight";
+  const period = hour >= 5 && hour < 12 ? "Morning" : hour >= 12 && hour < 17 ? "Afternoon" : hour >= 17 && hour < 21 ? "Evening" : "Tonight";
   return `${period} in ${city.trim()}`;
 }
 export const intentLabels: Record<string, string> = {

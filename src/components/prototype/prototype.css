@@ -1123,31 +1123,44 @@
 .fb-prototype .reference-chat .fb-bubble.reference-has-media>p{padding:7px 11px;border:1px solid #f4efe712;border-radius:12px;background:#24253d;color:#ece8dd;max-width:260px}
 .fb-prototype .reference-chat .fb-bubble.out.reference-has-media>p{background:#f5d6b3;color:#2a1a10;border-color:#e6bd9255}
 
-/* Post-merge discovery/settings correction: saved reference arrangement. */
-.fb-prototype .scroll.discover-scroll{background:var(--screen);padding:20px 18px 14px}
-.fb-prototype .disc-head{padding:0;min-height:30px}
-.fb-prototype .disc-head .eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;display:block;max-width:calc(100% - 48px);line-height:1.6}
-.fb-prototype .disc-headline{margin:8px 0 20px;font-size:36px}
-.fb-prototype .intent-chips{margin:0 0 10px;gap:8px;flex-wrap:wrap}
-.fb-prototype .intent-chips .chip{max-width:100%;white-space:normal;font-size:10px;padding:8px 12px;box-shadow:none;background:#62424e;border-color:transparent}
-.fb-prototype .intent-chips .chip-flame{background:transparent;border-color:var(--line);padding:8px}
-.fb-prototype .discovery-location-row{display:flex;flex-wrap:wrap;align-items:center;gap:3px 10px;margin-bottom:17px}
-.fb-prototype .discovery-location-row>span{font-size:9px;color:var(--muted)}
-.fb-prototype .discovery-location-button{font-size:11px;color:var(--gold);text-decoration:underline;text-underline-offset:3px;padding:3px 0;background:none;border:0;cursor:pointer}
-.fb-prototype .deck{min-height:470px}
-.fb-prototype .deck:has(.profile-card)::before,.fb-prototype .deck:has(.profile-card)::after{display:none}
-.fb-prototype .profile-card{bottom:77px;border:1px solid rgba(244,239,231,.18);border-radius:26px;overflow:visible;box-shadow:0 12px 28px #0003;background:var(--card)}
-.fb-prototype .profile-card .card-portrait,.fb-prototype .profile-card .card-portrait img{border-radius:25px;object-position:50% 25%;transform:none}
-.fb-prototype .profile-card .card-shade{border-radius:25px;background:linear-gradient(180deg,#10111c10 20%,#10111c05 40%,#10111cbd 70%,#10111cf5 100%)}
-.fb-prototype .profile-card .card-body{bottom:0;padding:16px;text-align:left}
-.fb-prototype .profile-card .card-name{font-size:33px}
-.fb-prototype .profile-card .card-bio{font-size:11px;line-height:1.6;margin-top:10px}
-.fb-prototype .profile-card .card-tags span{padding:5px 9px;background:#252633b3}
-.fb-prototype .profile-card .action-row.discover-actions{bottom:-77px;height:77px;padding:12px 20px;gap:22px}
-.fb-prototype .profile-card .say-hello{padding:16px 20px;background:linear-gradient(110deg,#f3dfb5,#e6c382 55%,#c98b9f);box-shadow:0 8px 25px #d7a27233;font-size:13px}
-.fb-prototype .profile-card .circle-btn{background:#232337;border:0}
-.fb-prototype .profile-card .discovery-choice{inset:auto;top:115px;left:20px;width:auto;height:auto;z-index:5}
-.fb-prototype .profile-card .discovery-choice:empty{display:none}
+/* Discovery reference restoration: scoped to Discover, never the four-tab navigation.
+   The reference has layered cards and ALL three actions inside the portrait card. */
+.fb-prototype .scroll.discover-scroll{background:radial-gradient(ellipse at 44% 42%,#16192b 0%,#0c101e 82%);padding:23px 19px 16px;font-family:var(--sans)}
+.fb-prototype .discover-scroll .disc-head{position:relative;padding:0 9px;min-height:24px;flex-shrink:0}
+.fb-prototype .discover-scroll .disc-head .eyebrow{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;line-height:1.6;max-width:calc(100% - 46px);white-space:normal;color:#b9b7c5}
+.fb-prototype .discover-scroll .discovery-location-button{background:none;border:0;padding:0;text-align:left;color:inherit;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit}
+.fb-prototype .discover-scroll .discovery-location-button:focus-visible{outline:2px solid var(--gold);outline-offset:5px;border-radius:3px}
+.fb-prototype .discover-scroll .disc-heart{position:absolute;right:8px;top:1px;width:42px;height:42px;background:#202332b3;border:1px solid #d8c0c01c}
+.fb-prototype .discover-scroll .disc-headline{font-family:var(--serif);font-size:36px;line-height:1.09;font-weight:400;letter-spacing:-.015em;margin:3px 9px 22px;flex-shrink:0}
+.fb-prototype .discover-scroll .intent-chips{margin:0 9px 28px;gap:5px;flex-wrap:nowrap;flex-shrink:0}
+.fb-prototype .discover-scroll .intent-chips .chip{min-width:0;max-width:100%;font-size:9px;line-height:1.3;padding:9px 11px;border:1px solid #bc8d8d44;box-shadow:inset 0 1px 9px #efa79a16;white-space:normal;text-align:center;border-radius:999px;color:#fff1e9}
+.fb-prototype .discover-scroll .intent-chips .chip-rose{background:linear-gradient(130deg,#9b5362,#aa6e66)}
+.fb-prototype .discover-scroll .intent-chips .chip-rose-dim{background:linear-gradient(120deg,#70414e,#79534b)}
+.fb-prototype .discover-scroll .intent-chips .chip-flame{flex-shrink:0;margin-left:auto;min-width:40px;min-height:36px;padding:8px 10px;background:linear-gradient(120deg,#655840,#443e35);border-color:#c8aa6c33;color:#f7e6cb}
+.fb-prototype .discover-scroll .intent-chips .chip-flame svg{width:16px;height:16px}
+.fb-prototype .discover-scroll .deck{flex:1 0 540px;min-height:540px;isolation:isolate}
+.fb-prototype .discover-scroll .deck:has(.profile-card)::before,.fb-prototype .discover-scroll .deck:has(.profile-card)::after{display:block;content:"";position:absolute;left:8px;right:8px;top:-7px;height:60px;border-radius:27px;background:linear-gradient(120deg,#453748,#161a2b);border:1px solid #aa7f8c66;z-index:-1}
+.fb-prototype .discover-scroll .deck:has(.profile-card)::after{left:16px;right:16px;top:-13px;opacity:.65;z-index:-2}
+.fb-prototype .discover-scroll .profile-card{inset:0;border-radius:27px;overflow:hidden;border:1px solid #c67f7b99;box-shadow:0 0 28px #d3877115,0 20px 35px #0006;background:#070b15}
+.fb-prototype .discover-scroll .profile-card .card-portrait{border-radius:0;overflow:hidden}
+.fb-prototype .discover-scroll .profile-card .card-portrait img{border-radius:0;object-fit:cover;object-position:50% 65%;transform:scale(1.16);transform-origin:50% 65%}
+.fb-prototype .discover-scroll .profile-card .card-shade{border-radius:0;background:linear-gradient(180deg,#0b0d1b33 0%,transparent 22%,transparent 37%,#080b1599 54%,#070b15f7 78%,#070b15 100%);pointer-events:none}
+.fb-prototype .discover-scroll .profile-card .new-here{top:23px;left:16px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px;font-weight:500;letter-spacing:.24em;color:#f5e8e9}
+.fb-prototype .discover-scroll .profile-card .card-like{top:17px;right:12px;width:43px;height:43px;background:#19192677;border:1px solid #f2d6d719}
+.fb-prototype .discover-scroll .profile-card .card-body{bottom:100px;padding:12px 15px 0;width:100%;text-align:left;color:#f4efe7;background:none;border:0}
+.fb-prototype .discover-scroll .profile-card .card-name{font-family:var(--serif);font-size:35px;line-height:1.2;font-weight:400;gap:9px}
+.fb-prototype .discover-scroll .profile-card .card-sub{font-size:11px;line-height:1.5;margin-top:5px;color:#e6e2df}
+.fb-prototype .discover-scroll .profile-card .card-meta{font-size:11px;margin-top:8px;color:#cecbd0}
+.fb-prototype .discover-scroll .profile-card .card-tags{gap:7px;margin-top:12px}
+.fb-prototype .discover-scroll .profile-card .card-tags span{font-size:10px;line-height:1.3;padding:7px 11px;background:linear-gradient(120deg,#33302bce,#212322bb);border-color:#d5c7a91a;color:#f0ece2}
+.fb-prototype .discover-scroll .profile-card .card-bio{font-size:12px;line-height:1.8;margin-top:13px;color:#cfccd0;-webkit-line-clamp:3}
+.fb-prototype .discover-scroll .profile-card .action-row.discover-actions{position:absolute;bottom:0;left:0;right:0;height:91px;padding:12px 20px 20px;gap:16px}
+.fb-prototype .discover-scroll .profile-card .say-hello{flex:1;max-width:185px;min-height:58px;padding:16px 15px;background:linear-gradient(110deg,#fff5ee,#fae6b1);box-shadow:0 10px 30px #d5527040;color:#231a19;font-family:var(--sans);font-size:13px;font-weight:600;gap:9px}
+.fb-prototype .discover-scroll .profile-card .circle-btn{flex:0 0 52px;width:52px;height:52px;border:1px solid #e1d5d51c;background:linear-gradient(135deg,#1c202c,#10141d);color:#f4efe7}
+.fb-prototype .discover-scroll .profile-card .circle-btn:last-child{color:#e9c37c}
+.fb-prototype .discover-scroll .profile-card .discovery-choice{inset:auto;top:74px;left:20px;width:auto;height:auto;z-index:5}
+.fb-prototype .discover-scroll .profile-card .discovery-choice:empty{display:none}
+@media(max-width:360px){.fb-prototype .scroll.discover-scroll{padding-left:14px;padding-right:14px}.fb-prototype .discover-scroll .disc-headline{font-size:32px}.fb-prototype .discover-scroll .intent-chips .chip{padding:8px;font-size:8px}.fb-prototype .discover-scroll .profile-card .action-row.discover-actions{padding-left:14px;padding-right:14px;gap:10px}}
 .fb-prototype .profile-card .unvaccinated-marker{position:absolute;top:51px;left:14px;z-index:8;max-width:calc(100% - 28px)}
 .fb-prototype .unvaccinated-badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #a7d2b7;background:#19372fee;color:#e0f6e5;border-radius:9px;padding:5px 9px;font-size:10px;font-weight:650;cursor:pointer;box-shadow:0 2px 10px #0003}
 .fb-prototype .unvaccinated-badge svg{width:21px;height:21px;fill:none;stroke:#bfe4c2;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
