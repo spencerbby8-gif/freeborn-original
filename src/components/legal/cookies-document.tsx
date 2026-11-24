@@ -69,8 +69,8 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
           <ClauseList
             items={[
               <><strong className="text-pearl">Cookies:</strong> authentication cookies set by our auth provider so your session survives a page reload. Nothing else.</>,
-              <><strong className="text-pearl">localStorage:</strong> five keys holding your own preferences, plus the session copy the browser client uses.</>,
-              <><strong className="text-pearl">sessionStorage:</strong> two keys that vanish when you close the tab.</>,
+              <><strong className="text-pearl">localStorage:</strong> preferences, notification receipts and invitation flags, plus the session copy the browser client uses.</>,
+              <><strong className="text-pearl">sessionStorage:</strong> security-check and return-navigation values that vanish when you close the tab; older code also used a location key.</>,
               <><strong className="text-pearl">A service worker:</strong> registered so the site is installable. It caches nothing.</>,
               <><strong className="text-pearl">No advertising cookies. No third-party analytics. No tracking pixels. No ad networks.</strong></>,
             ]}
@@ -152,8 +152,8 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
           rows={[
             [
               <code key="k3" className="font-mono text-[12.5px] text-pearl">freeborn.preferences</code>,
-              "Your notification preferences.",
-              "So the alerts you turned off stay off.",
+              "Your device preferences, including sound, animation and haptic choices.",
+              "So your device presentation and sound choices persist.",
             ],
             [
               <code key="k4" className="font-mono text-[12.5px] text-pearl">freeborn.filters</code>,
@@ -166,9 +166,9 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
               "So you are asked once and never nagged again.",
             ],
             [
-              <code key="k6" className="font-mono text-[12.5px] text-pearl">fb-seen-alerts</code>,
-              "How many alerts you have already seen.",
-              "So the unread indicator is accurate.",
+              <code key="k6" className="font-mono text-[12.5px] text-pearl">freeborn.feed-receipts.v1.[account]</code>,
+              "Event identities delivered or acknowledged for this account on this browser (up to 2,000 per receipt set).",
+              "So feed counters survive polling and reload. These are browser-local, not cross-device message read receipts. Legacy fb-seen-alerts values are no longer used.",
             ],
             [
               <code key="k7" className="font-mono text-[12.5px] text-pearl">fb-verify-invite-shown</code>,
@@ -195,16 +195,18 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
             ],
             [
               <code key="k10" className="font-mono text-[12.5px] text-pearl">freeborn.origin</code>,
-              "Your location fix for the current session.",
-              "So distances keep working without re-requesting GPS on every screen.",
+              "Legacy location fix. Current reference-native discovery keeps its optional GPS fix in page memory rather than writing this key.",
+              "Retained legacy components may still read or write this key; clearing site data removes old copies.",
             ],
           ]}
         />
         <p>
-          Neither survives the tab. Neither is a tracking identifier and neither is
+          These session values do not survive the tab. They are not cross-site tracking identifiers and are not
           readable by another site.
         </p>
       </Clause>
+
+      <p className="text-sm text-mist">The member interface also uses sessionStorage keys freeborn.member-route and freeborn.editor-return for in-app return navigation. They hold paths, not message content. Browser notifications require permission and an open running page; this service worker does not implement closed-app Web Push or offline content caching.</p>
 
       <Clause n="5" title="The service worker">
         <p>

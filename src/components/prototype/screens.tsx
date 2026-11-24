@@ -1,19 +1,22 @@
 "use client";
 
+import { NotificationLink } from "@/components/app/notification-counts";
 import { draftChatHref } from "@/lib/conversation-opener";
 import { memberTapFeedback } from "@/lib/device-prefs";
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PhotoImage } from "@/components/ui/photo-image";
 import { VerificationShield } from "@/components/prototype/verification-shield";
 import { VerifyBadge } from "@/components/verify-badge";
 
+import { discoveryHeading, profileChips } from "@/lib/discovery-presentation";
+import { useDiscoveryLocation } from "./discovery-location";
 import { DiscoveryCard } from "./discovery-card";
 import { MemberDetail } from "./member-detail";
-import { buildProfileParams, hasSavedFilters, loadFilters, DEFAULT_FILTERS, FILTERS_EVENT, type HomeFilters } from "@/components/app/filters";
+import { buildProfileParams, hasSavedFilters, loadFilters, saveFilters, DEFAULT_FILTERS, FILTERS_EVENT, type HomeFilters } from "@/components/app/filters";
 import { openVerifyFlow } from "@/components/app/verify-modal";
 import { Back, MenuRow, PrototypeIcon } from "./frame";
 import { memberRequest, useMemberResource, type DeckProfile, type MemberProfile, type Match } from "./data";
@@ -26,12 +29,14 @@ function Verified({yes}:{yes:boolean}) {return yes?<span className="verified"><V
 function Empty({title,body}:{title:string;body:string}) {return <div className="empty-state"><h3>{title}</h3><p>{body}</p></div>;}
 
 export function DiscoverScreen(){
-  const [query,setQuery]=useState("");
-  const [filterState,setFilterState]=useState<HomeFilters>({...DEFAULT_FILTERS});
+  const location=useDiscoveryLocation();
   const standing=useMemberResource<import("./data").Settings>("/api/settings");
-  const intent=filterState.intents[0]??standing.data?.discovery.relationshipIntents[0];
-  const intentLabel=intent?({long_term:"Long-term",life_partner:"Life partner",friendship:"Friendship",still_exploring:"Exploring"}[intent]??intent):"Your intentions";
-  useEffect(()=>{const update=()=>{setFilterState(loadFilters());let origin:{lat:number;lng:number}|null=null;try{const raw=sessionStorage.getItem('freeborn.origin');if(raw){const value=JSON.parse(raw);if(Number.isFinite(value.lat)&&Number.isFinite(value.lng))origin=value;}}catch{}const params=hasSavedFilters()?buildProfileParams(loadFilters(),origin):new URLSearchParams();if(origin){params.set("lat",String(origin.lat));params.set("lng",String(origin.lng));}setQuery(`?${params.toString()}`);setIndex(0);};queueMicrotask(update);window.addEventListener(FILTERS_EVENT,update);return()=>window.removeEventListener(FILTERS_EVENT,update);},[]);
+  const [sessionFilters,setSessionFilters]=useState<HomeFilters|null>(null);
+  const filterState=sessionFilters??(standing.data?{...DEFAULT_FILTERS,ageMin:standing.data.discovery.ageMin,ageMax:standing.data.discovery.ageMax,distance:standing.data.discovery.distanceKm,genders:standing.data.discovery.showGenders,intents:standing.data.discovery.relationshipIntents,verifiedOnly:standing.data.discovery.verifiedOnly}:DEFAULT_FILTERS);
+  useEffect(()=>{const update=()=>{setSessionFilters(hasSavedFilters()?loadFilters():null);setIndex(0);};queueMicrotask(update);window.addEventListener(FILTERS_EVENT,update);return()=>window.removeEventListener(FILTERS_EVENT,update);},[]);
+  const lat=location.fix?.lat,lng=location.fix?.lng;
+  const query=useMemo(()=>{const params=sessionFilters?buildProfileParams(sessionFilters,lat!=null&&lng!=null?{lat,lng}:null):new URLSearchParams();if(lat!=null&&lng!=null){params.set("lat",String(lat));params.set("lng",String(lng));}return `?${params.toString()}`;},[sessionFilters,lat,lng]);
+  useEffect(()=>{queueMicrotask(()=>setIndex(0));},[query]);
   const router=useRouter();const resource=useMemberResource<{profiles:DeckProfile[];locationRequired?:boolean;error?:string}>(`/api/profiles${query}`);
   const [index,setIndex]=useState(0);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [notice,setNotice]=useState<string|null>(null);const [detail,setDetail]=useState<string|null>(null);
   const current=resource.data?.profiles[index];
@@ -44,10 +49,11 @@ export function DiscoverScreen(){
   }
   function sayHello(){if(current&&!busy)router.push(draftChatHref(current.id));}
   async function reset(){setBusy(true);setError(null);try{await memberRequest('/api/likes',{action:'reset-passes'});await resource.reload();setIndex(0);}catch(e){setError(e instanceof Error?e.message:'Could not reset the deck.');}finally{setBusy(false);}}
-  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll" ref={scrollRef}><div className="disc-head"><span className="eyebrow">{current?.city?`TONIGHT IN ${current.city.toLocaleUpperCase()}`:'MEET WITH INTENTION'}</span><Link href="/app/notifications" className="disc-heart" aria-label="Notifications"><PrototypeIcon name="heart"/></Link></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
-    <div className="intent-chips"><Link href="/app/preferences" className="chip chip-rose">{intentLabel}</Link><Button unstyled className="chip chip-rose-dim" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}>{filterState.lifestyle[0]??"Lifestyle"}</Button><Button unstyled className="chip chip-rose-dim" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}>{filterState.interests[0]??"Interests"}</Button><Button unstyled className="chip chip-flame" aria-label="Discovery filters" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}><PrototypeIcon name="flame"/></Button></div>
+  return <section className="screen active" aria-label="Discover"><div className="scroll discover-scroll" ref={scrollRef}><div className="disc-head"><span className="eyebrow">{discoveryHeading(location.fix?.city??null,Boolean(location.fix)&&Boolean(location.now)&&filterState.distance<500,location.now??new Date(0))}</span><NotificationLink/></div><h1 className="display disc-headline">Someone you’ll<br/>remember.</h1>
+    <div className="intent-chips" aria-label="Current member’s profile details">{profileChips(current).map((label,i)=><span key={`${current?.id}-${i}`} className={`chip ${i===0?'chip-rose':'chip-rose-dim'}`}>{label}</span>)}<Button unstyled className="chip chip-flame" aria-label="Discovery filters" onClick={()=>window.dispatchEvent(new Event('freeborn:open-filters'))}><PrototypeIcon name="filters"/></Button></div>
+    <div className="discovery-location-row"><Button unstyled className="discovery-location-button" onClick={()=>{saveFilters({...filterState,distance:filterState.distance<500?filterState.distance:40});location.request();}} disabled={location.busy}>{location.busy?'Finding your area…':location.fix?'Refresh my location':'Find people in my area'}</Button><span>Optional GPS · city lookup · device local time</span></div><ScreenError message={location.error}/>
     <ScreenError message={error??resource.error??resource.data?.error??null} retry={resource.error?()=>void resource.reload():undefined}/>{notice&&<p className="discover-feedback" role="status">{notice}</p>}
-    <div className="deck">{resource.loading?<Loading/>:current?<DiscoveryCard key={current.id} profile={current} busy={busy} onOpen={()=>setDetail(current.id)} onChoice={swipe} onHello={sayHello}/>:<div className="deck-empty"><PrototypeIcon name="discover"/><h3>{resource.data?.locationRequired?"Add a location to search nearby.":"You’ve met everyone for now."}</h3><p>{resource.data?.locationRequired?"Set your location or choose Anywhere in discovery filters.":<>A little pause can lead to something good.<br/>Try again soon, or widen your world.</>}</p><div className="empty-actions"><Button unstyled className="btn-grad sm" onClick={()=>void reset()} disabled={busy}>Reset deck</Button><Link href="/app/preferences" className="btn-ghost">Widen preferences</Link></div></div>}</div>
+    <div className="deck">{resource.loading?<Loading/>:resource.error||resource.data?.error?null:current?<DiscoveryCard key={current.id} profile={current} busy={busy} onOpen={()=>setDetail(current.id)} onChoice={swipe} onHello={sayHello}/>:<div className="deck-empty"><PrototypeIcon name="discover"/><h3>{resource.data?.locationRequired?"Add a location to search nearby.":"You’ve met everyone for now."}</h3><p>{resource.data?.locationRequired?"Set your location or choose Anywhere in discovery filters.":<>A little pause can lead to something good.<br/>Try again soon, or widen your world.</>}</p><div className="empty-actions"><Button unstyled className="btn-grad sm" onClick={()=>void reset()} disabled={busy}>Reset deck</Button><Link href="/app/preferences" className="btn-ghost">Widen preferences</Link></div></div>}</div>
 
   </div>{detail&&<MemberDetail profileId={detail} onClose={()=>setDetail(null)}/>}</section>;
 }

@@ -85,7 +85,7 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
         <ClauseList
           items={[
             <>You must be at least {MIN_AGE} years old. There is no exception and no parental consent route, because this is a dating service.</>,
-            <>You must provide your real date of birth. We validate it on the server and the database enforces it, so an understated age will be caught.</>,
+            <>You must provide your real date of birth. We validate the date format and minimum age on the server and in the database. Those checks cannot establish that a supplied date is true.</>,
             <>You must not have been removed from {SITE_NAME} previously and be evading that removal.</>,
             <>You must not use the service to promote a business, solicit money, recruit, or advertise. {SITE_NAME} is for people meeting people.</>,
             <>You must be legally capable of entering a contract in your jurisdiction.</>,
@@ -152,11 +152,12 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
           items={[
             <>It is not a medical service, a clinic, a pharmacy or a source of medical advice. See clause 9.</>,
             <>It is not a guarantee of any outcome. We match people; we cannot make a relationship work and we do not promise that anyone will.</>,
-            <>It is not a vetting service. Verification confirms a live person stands behind a profile. It does not certify character, intentions, criminal history, health status or honesty.</>,
+            <>It is not a vetting service. Verification records an automated selfie-to-profile approval, which can be wrong. It does not certify character, intentions, criminal history, health status or honesty.</>,
             <>It is not a purity test. Members hold a wide range of views on health and medicine. Sharing a value is not a requirement of membership, and no member is entitled to interrogate another about medical decisions.</>,
             <>It is not a place to conduct commerce. Soliciting clients, selling products, fundraising or recruiting are all grounds for removal.</>,
           ]}
         />
+        <p>Vaccination status is an optional member declaration, not medical verification. New declarations refer to COVID-19 vaccines; older declarations may predate that clarification. Self-report and face verification do not earn an unvaccinated badge. No health badge is currently issued, and a missing record or an identity check is not proof of never having been vaccinated.</p>
         <Callout label="About the verified seal">
           <p>
             The blue verification badge means the configured identity checks returned an approval for a submitted selfie and profile photographs at a recorded time. It is not an identity-document check, background check, character reference, proof of health status or safety guarantee. Detection may be unavailable on a device, and automated checks can be wrong. A pending submission never grants a badge.
@@ -295,7 +296,7 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
         <p>
           The identity verification and moderation systems described in clause 8 use
           AI models. They make mistakes. They are deliberately set to escalate rather
-          than decide when uncertain, and a human reviews anything doubtful, but no
+          than decide when uncertain, and unresolved cases may require operator review. Review is not automatic or guaranteed within a fixed time, and no
           automated system is infallible and we do not represent that ours is.
         </p>
       </Clause>
@@ -311,7 +312,7 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
             <>Meet in public first. Tell someone where you are going.</>,
             <>Do not send money to anyone you met here, for any reason, however urgent or sympathetic the reason sounds. Romance fraud follows a recognisable script and urgency is part of it.</>,
             <>Keep the conversation on {SITE_NAME} until you genuinely trust the person. Moving to another platform early removes the record that protects you.</>,
-            <>A verified seal confirms a live person matched their photographs at one moment. It tells you nothing about their intentions.</>,
+            <>A verified seal records an automated selfie-to-profile approval at one moment; it can be wrong. It tells you nothing about their intentions.</>,
             <>Trust discomfort. You can block or report at any time and you never owe anyone an explanation.</>,
           ]}
         />
@@ -444,7 +445,7 @@ export function TermsDocument({member=false}:{member?:boolean}={}) {
           Version {LEGAL_VERSION}. Effective {LEGAL_EFFECTIVE_DATE}. Version 1.0 was
           effective 19 October 2026; 1.1 names the operator by its trading name,{" "}
           {OPERATOR_NAME}, and moves the contact address to this domain. It changes no
-          obligation on either side. Questions:{" "}
+          obligation on either side. Version 1.3 clarifies self-reported vaccination status, suspends health badges and corrects age-check and review limitations. Questions:{" "}
           <a className="font-semibold text-gold-soft underline decoration-gold-soft/40 underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>
             {CONTACT_EMAIL}
           </a>

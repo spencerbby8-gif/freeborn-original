@@ -446,6 +446,7 @@ export function Thread({
   onTapProfile: (id: string) => void;
 }) {
   const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [initialMessages,setInitialMessages]=useState<"loading"|"ready"|"error">("loading");
   const [text, setText] = useState(initialDraft);
   const [sending, setSending] = useState(false);
   const [call, setCall] = useState<"voice" | "video" | null>(null);
@@ -562,8 +563,10 @@ export function Thread({
       : null;
     if (!res || !res.ok || !json || !Array.isArray(json.messages)) {
       syncRef.current.failures += 1;
+      setInitialMessages(previous=>previous==="ready"?previous:"error");
       return false;
     }
+    setInitialMessages("ready");
     const real = json.messages;
     // The thread's writability can change while it is open (the other member ends it, a moderator
     // blocks it), so it is re-read on every fetch rather than remembered from mount time.
@@ -1194,7 +1197,7 @@ export function Thread({
   return (
     <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
       <ChatHeader name={match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
-        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={()=>setCall("voice")} aria-label={`Voice call ${match.with.name}`}>Voice call</button><button type="button" onClick={()=>setCall("video")} aria-label={`Video call ${match.with.name}`}>Video call</button><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
+        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={e=>{e.currentTarget.closest("details")?.removeAttribute("open");setCall("voice");}} aria-label={`Voice call ${match.with.name}`}>Voice call</button><button type="button" onClick={e=>{e.currentTarget.closest("details")?.removeAttribute("open");setCall("video");}} aria-label={`Video call ${match.with.name}`}>Video call</button><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
       </ChatHeader>
 
       {toast ? (
@@ -1203,24 +1206,11 @@ export function Thread({
         </div>
       ) : null}
 
-      <div ref={scrollRef} className="fb-thread-feed reference-chat-feed">{rows.length > 0 ? rows : (
-        <div className="pt-8 text-center">
-          <p className="text-sm text-[var(--color-mist)]">The conversation is open. Say hello.</p>
-          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--color-ash)]">
-            Try an opener
-          </p>
-          <div className="mx-auto mt-2.5 flex max-w-[440px] flex-wrap justify-center gap-2">
-            {ICEBREAKERS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setText(s)}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--color-sand)] transition hover:border-[var(--color-gold-500)]/50 hover:text-[var(--color-pearl)]"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+      <div ref={scrollRef} className="fb-thread-feed reference-chat-feed">{initialMessages==="loading"&&rows.length===0?<FreebornLoader/>:initialMessages==="error"&&rows.length===0?<div className="reference-thread-error" role="alert"><p>Could not load this conversation.</p><Button unstyled type="button" className="btn-ghost" onClick={()=>void load()}>Try again</Button></div>:rows.length > 0 ? rows : (
+        <div className="reference-thread-empty">
+          <h2 className="display">Start with something real.</h2>
+          <p>Your conversation is open. Choose a thought below or write your own.</p>
+          <div className="reference-openers">{ICEBREAKERS.map(s=><Button unstyled key={s} type="button" onClick={()=>setText(s)}>{s}</Button>)}</div>
         </div>
       )}
         {peerTyping&&<div className="reference-typing" role="status" aria-label={`${match.with.name} is typing`}><i/><i/><i/></div>}
@@ -1452,7 +1442,7 @@ type RequestLists = {
   outgoing: Array<{ id: string; to: { id: string; name: string; photo: string }; createdAt: string }>;
 };
 
-export function ChatView() {
+export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
   const [search, setSearch] = useState("");
   useEffect(() => {
     const listener = (e: Event) => setSearch(String((e as CustomEvent).detail ?? ""));
@@ -1461,7 +1451,9 @@ export function ChatView() {
   }, []);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openMatch, setOpenMatch] = useState<MatchRow | null>(null);
+  const [selectedMatch, setOpenMatch] = useState<MatchRow | null>(null);
+  const [dismissedDeepLink,setDismissedDeepLink]=useState(false);
+  const openMatch=selectedMatch??(!dismissedDeepLink&&initialMatchId?matches.find(m=>m.id===initialMatchId)??null:null);
   const [openProfileId, setOpenProfileId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   /* Message requests (owner addendum 2026-11-15): pending asks in both
@@ -1529,18 +1521,6 @@ export function ChatView() {
     void load();
   };
 
-  useEffect(() => {
-    if (loading) return;
-    const param = new URLSearchParams(window.location.search).get("match");
-    if (!param) return;
-    const found = matches.find((m) => m.id === param);
-    if (found) {
-      queueMicrotask(() => setOpenMatch(found));
-    } else {
-      queueMicrotask(() => void load());
-    }
-  }, [loading, matches, load]);
-
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -1557,9 +1537,10 @@ export function ChatView() {
     return (
       <>
         <Thread
+          key={openMatch.id}
           match={openMatch}
           token={token}
-          onBack={() => setOpenMatch(null)}
+          onBack={() => {setDismissedDeepLink(true);setOpenMatch(null);window.history.replaceState(null,"","/app/chat");}}
           onChanged={() => void load()}
           onTapProfile={(id) => setOpenProfileId(id)}
         />

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-23T15:20:55.381942+00:00",
+  "sourceFingerprint": "0d68e4b7282db00e7f226ccd8199403abe98f4d965b89b600f105603fe0eaf7d",
+  "state": "blocked",
+  "released": false,
+  "networkCalls": 0,
+  "blocks": [
+    "Measurement baseline: real owner-supplied exports/aggregate data not available (synthetic and no-data reports are not evidence)",
+    "Owner approval and external evidence: missing"
+  ],
+  "localEvidence": {
+    "quality": {
+      "checks": 10,
+      "ok": true,
+      "sourceFingerprint": "0d68e4b7282db00e7f226ccd8199403abe98f4d965b89b600f105603fe0eaf7d"
+    },
+    "editorialBrowser": {
+      "checks": 219,
+      "ok": true,
+      "sourceFingerprint": "0d68e4b7282db00e7f226ccd8199403abe98f4d965b89b600f105603fe0eaf7d"
+    },
+    "growthContracts": {
+      "checks": 67,
+      "ok": true,
+      "sourceFingerprint": "0d68e4b7282db00e7f226ccd8199403abe98f4d965b89b600f105603fe0eaf7d"
+    }
+  },
+  "operatorAttestationsIndependentlyVerified": false,
+  "inspectionUrls": [
+    "https://freeborndating.com/",
+    "https://freeborndating.com/alternatives",
+    "https://freeborndating.com/cookies",
+    "https://freeborndating.com/free-dating",
+    "https://freeborndating.com/guides",
+    "https://freeborndating.com/guides/dating-privacy-checklist",
+    "https://freeborndating.com/guides/dating-verification-explained",
+    "https://freeborndating.com/guides/intentional-dating-profile",
+    "https://freeborndating.com/guides/long-distance",
+    "https://freeborndating.com/guides/meet-without-apps",
+    "https://freeborndating.com/guides/relationship-values-questions",
+    "https://freeborndating.com/guides/scam-spotting",
+    "https://freeborndating.com/guides/shared-values-dating",
+    "https://freeborndating.com/privacy",
+    "https://freeborndating.com/safety",
+    "https://freeborndating.com/terms"
+  ],
+  "notificationPlan": {
+    "paths": [],
+    "sent": false,
+    "meaning": "Candidate changed public URLs only; must be checked against actual approved release before sending. Receipt is not indexing/ranking evidence. Google is not an IndexNow participant."
+  },
+  "limits": [
+    "This is artifact/readiness validation, not deployment, CI identity verification, a signature or legal/provider certification.",
+    "Operator attestations and imported exports require human review; content can be fabricated outside this tool.",
+    "No permission to publish, send notifications, post outreach or mutate production is created by this report."
+  ]
+}

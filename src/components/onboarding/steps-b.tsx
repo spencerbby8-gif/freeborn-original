@@ -77,8 +77,8 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
   };
 
   const vaxOptions = [
-    { value: "unvaccinated", label: "Unvaccinated", caption: "I identify as unvaccinated." },
-    { value: "vaccinated", label: "Vaccinated", caption: "I identify as vaccinated." },
+    { value: "unvaccinated", label: "Unvaccinated", caption: "I have not received a COVID-19 vaccine." },
+    { value: "vaccinated", label: "Vaccinated", caption: "I have received a COVID-19 vaccine." },
     { value: "prefer_not_to_say", label: "Prefer not to say", caption: "I'd rather keep this private." },
   ];
 
@@ -135,7 +135,7 @@ export function AboutStep({ stepIndex, totalSteps, draft, onBack, onSave, pendin
       <ComboField label="Faith & beliefs" value={religion} onChange={setReligion} options={religionOptions} optional hint="Optional. Only share what you want on your profile."/>
       </div>
 
-      <fieldset className="setup-chip-group"><legend className="setup-label">Vaccination stance <span>Optional</span></legend><p className="setup-field-hint">Choose a profile badge, or keep this private.</p><div className="option-list">{vaxOptions.map(o=><button key={o.value} type="button" className={`option-card ${vaccinationStatus===o.value?'selected':''}`} onClick={()=>setVaccinationStatus(o.value)} aria-pressed={vaccinationStatus===o.value}><span className="option-text"><b>{o.label}</b><small>{o.caption}</small></span><CheckIcon className="option-check" size={20}/></button>)}</div></fieldset>
+      <fieldset className="setup-chip-group"><legend className="setup-label">COVID-19 vaccination <span>Optional</span></legend><p className="setup-field-hint">Self-reported for profile details and filters, not medically verified. No health badge is issued. You can keep this private.</p><div className="option-list">{vaxOptions.map(o=><button key={o.value} type="button" className={`option-card ${vaccinationStatus===o.value?'selected':''}`} onClick={()=>setVaccinationStatus(o.value)} aria-pressed={vaccinationStatus===o.value}><span className="option-text"><b>{o.label}</b><small>{o.caption}</small></span><CheckIcon className="option-check" size={20}/></button>)}</div></fieldset>
     </StepShell>
   );
 }

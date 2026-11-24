@@ -1,0 +1,574 @@
+{
+  "scope": "Local intercepted APIs + fake microphone + loopback WebSocket. No hosted delivery, inbox, biometric or RLS acceptance.",
+  "checks": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Worldwide discovery has an honest generic heading and a woman reference card",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "No health badge even after identity approval; member chips change with the swipe",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Reset/everybody clears saved photo, gender, verified and distance restrictions",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Verified-only is an authenticated persisted filter, not a decorative toggle",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Settings keeps one Help entry and surfaces verification withdrawal",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Every settings sub-screen has new reference chrome and stays within screen width",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Notification preferences save real toggles and do not advertise an unwired activity engine",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Deep link never paints the message list or legacy empty-chat controls during delayed history",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "New voice call UI preserves session, microphone and end controls",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "New video call UI preserves session, microphone and end controls",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Incoming call uses the same new surface and preserves decline action",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "Notification history stays visibly unread across polling and remount; new events show banners",
+      "ok": false,
+      "error": "locator.click: Timeout 9000ms exceeded.\nCall log:\n  - waiting for getByRole('link', { name: 'Notifications', exact: true })\n    - locator resolved to <a class=\"disc-heart\" href=\"/app/notifications\" aria-label=\"Notifications\">…</a>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <button type=\"button\" class=\"fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md\">…</button> from <div aria-live=\"polite\" aria-relevant=\"additions\" class=\"pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4\">…</div> subtree intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <button type=\"button\" class=\"fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md\">…</button> from <div aria-live=\"polite\" aria-relevant=\"additions\" class=\"pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4\">…</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    11 × waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <button type=\"button\" class=\"fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md\">…</button> from <div aria-live=\"polite\" aria-relevant=\"additions\" class=\"pointer-events-none fixed inset-x-0 top-3 z-[300] flex flex-col items-center gap-2 px-4\">…</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n    - waiting for element to be visible, enabled and stable\n    - element is visible, enabled and stable\n    - scrolling into view if needed\n"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "GPS consent uses viewer city and device time; denial leaves generic headline",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Worldwide discovery has an honest generic heading and a woman reference card",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "No health badge even after identity approval; member chips change with the swipe",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Reset/everybody clears saved photo, gender, verified and distance restrictions",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Verified-only is an authenticated persisted filter, not a decorative toggle",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Settings keeps one Help entry and surfaces verification withdrawal",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Every settings sub-screen has new reference chrome and stays within screen width",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Notification preferences save real toggles and do not advertise an unwired activity engine",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Deep link never paints the message list or legacy empty-chat controls during delayed history",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "New voice call UI preserves session, microphone and end controls",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "New video call UI preserves session, microphone and end controls",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Incoming call uses the same new surface and preserves decline action",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "Notification history stays visibly unread across polling and remount; new events show banners",
+      "ok": true
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "GPS consent uses viewer city and device time; denial leaves generic headline",
+      "ok": true
+    }
+  ],
+  "captures": [
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "discover-woman"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "discover-man"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "about"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "privacy"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "safety"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "withdrawal-confirmation"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-account"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-notifications"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-preferences"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-audience"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-device"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-support"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-appeal"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-terms"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "settings-policy"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "notification-settings"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "chat-loading"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "chat-empty"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "voice-call"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "video-call"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "incoming-video-call"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "notification-banner-unread"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "discovery-gps-morning"
+    },
+    {
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "name": "discovery-gps-night"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "discover-woman"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "discover-man"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "about"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "privacy"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "safety"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "withdrawal-confirmation"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-account"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-notifications"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-preferences"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-audience"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-device"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-support"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-appeal"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-terms"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "settings-policy"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "notification-settings"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "chat-loading"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "chat-empty"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "voice-call"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "video-call"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "incoming-video-call"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "notification-banner-unread"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "notifications-acknowledged"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "discovery-gps-morning"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "name": "discovery-gps-night"
+    }
+  ],
+  "errors": []
+}

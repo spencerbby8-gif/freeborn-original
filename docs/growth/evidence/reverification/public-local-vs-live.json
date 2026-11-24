@@ -1,0 +1,608 @@
+{
+  "observedAt": "2026-11-23T15:19:41.143Z",
+  "localOrigin": "http://127.0.0.1:3002",
+  "liveOrigin": "https://freeborndating.com",
+  "methods": [
+    "GET"
+  ],
+  "authenticated": false,
+  "mutations": 0,
+  "results": [
+    {
+      "path": "/",
+      "local": {
+        "status": 200,
+        "title": "Freeborn · Intentional Dating & Shared Values",
+        "h1": [
+          "Someone who gets your world."
+        ],
+        "canonical": "https://freeborndating.com",
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect using shared values and optional self-reported preferences.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "98d0d404385b68a3e138f05add9e70e3387592cd9e5c1e9500928f86a6b080ca"
+      },
+      "live": {
+        "status": 200,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "Someone who gets your world."
+        ],
+        "canonical": "https://freeborndating.com",
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "98d0d404385b68a3e138f05add9e70e3387592cd9e5c1e9500928f86a6b080ca"
+      },
+      "verdict": "same_normalized_article_or_main"
+    },
+    {
+      "path": "/free-dating",
+      "local": {
+        "status": 200,
+        "title": "Free dating with matching and messaging | Freeborn",
+        "h1": [
+          "Free to match. Free to talk."
+        ],
+        "canonical": "https://freeborndating.com/free-dating",
+        "description": "See what is included on Freeborn without a paid plan: profiles, discovery, likes, matching and chat. Understand mutual interest, privacy and messaging limits before joining.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "c9ac5408198e214265da70e687c8f577aba9259e1d65980c30b2d6203d983233"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "44e5bd0dc51803e5acf56aa41fe30b81b7f33953ee91062e5ae765683cbfcca0"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/safety",
+      "local": {
+        "status": 200,
+        "title": "Safety & trust · Freeborn",
+        "h1": [
+          "A real room. Verified, moderated, and yours to control."
+        ],
+        "canonical": "https://freeborndating.com/safety",
+        "description": "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "45c661c3328caf9ee936969a6812edc585f3d513ca1175d935abb2a56e79a4c3"
+      },
+      "live": {
+        "status": 200,
+        "title": "Safety & trust · Freeborn",
+        "h1": [
+          "A real room. Verified, moderated, and yours to control."
+        ],
+        "canonical": "https://freeborndating.com/safety",
+        "description": "How Freeborn keeps the room real: pose-mimic verification, dual-model moderation, privacy by default, and the controls you hold.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "45c661c3328caf9ee936969a6812edc585f3d513ca1175d935abb2a56e79a4c3"
+      },
+      "verdict": "same_normalized_article_or_main"
+    },
+    {
+      "path": "/privacy",
+      "local": {
+        "status": 200,
+        "title": "Privacy Policy · Freeborn",
+        "h1": [
+          "What we collect, and exactly why."
+        ],
+        "canonical": "https://freeborndating.com/privacy",
+        "description": "What Freeborn collects, why it collects it, who it shares it with, how long it keeps it, and how to get it deleted. Written to describe the system that actually ships.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "8db5a8b495206c0fa8ad28f7f0ab66de071008bc171bfa780d8de1816657d4f2"
+      },
+      "live": {
+        "status": 200,
+        "title": "Privacy Policy · Freeborn",
+        "h1": [
+          "What we collect, and exactly why."
+        ],
+        "canonical": "https://freeborndating.com/privacy",
+        "description": "What Freeborn collects, why it collects it, who it shares it with, how long it keeps it, and how to get it deleted. Written to describe the system that actually ships.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "e771c802037fdc0250ef123a8767afca2a3bc714a680b30263252aa36c2b7f5f"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/terms",
+      "local": {
+        "status": 200,
+        "title": "Terms of Service · Freeborn",
+        "h1": [
+          "The agreement, in plain language."
+        ],
+        "canonical": "https://freeborndating.com/terms",
+        "description": "The agreement between you and Freeborn: eligibility, your account, the community standard, verification and moderation, your content, liability, and how either side ends it.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "623afb89d3cc34a340e4db07f1f0a10be7b07f937c788d25312abc3a524b17dc"
+      },
+      "live": {
+        "status": 200,
+        "title": "Terms of Service · Freeborn",
+        "h1": [
+          "The agreement, in plain language."
+        ],
+        "canonical": "https://freeborndating.com/terms",
+        "description": "The agreement between you and Freeborn: eligibility, your account, the community standard, verification and moderation, your content, liability, and how either side ends it.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "977a528b5e0e77408cde4aa89e5e3259e22c84e9dc3f1595ac90256812381be1"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/cookies",
+      "local": {
+        "status": 200,
+        "title": "Cookie Policy · Freeborn",
+        "h1": [
+          "Every cookie, named and explained."
+        ],
+        "canonical": "https://freeborndating.com/cookies",
+        "description": "Every cookie, every localStorage key and every sessionStorage key Freeborn uses, what each one does, how long it lasts, and how to remove it. No advertising cookies exist.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "cea291deba618c177bbef0d3726e1f24fbbf27dcdc2fd49312a87e43207c5923"
+      },
+      "live": {
+        "status": 200,
+        "title": "Cookie Policy · Freeborn",
+        "h1": [
+          "Every cookie, named and explained."
+        ],
+        "canonical": "https://freeborndating.com/cookies",
+        "description": "Every cookie, every localStorage key and every sessionStorage key Freeborn uses, what each one does, how long it lasts, and how to remove it. No advertising cookies exist.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "9fd3f0fd7f124a1aa3a2874ee9ae3bc057e34462e2526a01fe4e966ddffdd46d"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/alternatives",
+      "local": {
+        "status": 200,
+        "title": "Considering an Unjected alternative? Compare what matters | Freeborn",
+        "h1": [
+          "Considering an Unjected alternative? Compare what matters"
+        ],
+        "canonical": "https://freeborndating.com/alternatives",
+        "description": "Compare current Freeborn access with first-party information from Unjected and Tinder. Check browser access, messaging, limitations and privacy without relying on stale ratings.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "dd07decbaadf36cd34bd1856c0c69890147604f1c1d124eb75dd99f63d55b3e6"
+      },
+      "live": {
+        "status": 200,
+        "title": "Unjected alternative on the open web · Freeborn",
+        "h1": [
+          "An Unjected alternative that lives on the open web"
+        ],
+        "canonical": "https://freeborndating.com/alternatives",
+        "description": "Unjected holds 2.4 stars on the US App Store. Freeborn runs the same idea — values-aligned dating for health autonomy — on the open web: no install, no store gatekeeper, no paywalled basics.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "a0955f2c2f077a8c09f13c103eabc063258066cd676f35c94457ead7fa9cc9c0"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/guides",
+      "local": {
+        "status": 200,
+        "title": "Practical dating guides: values, privacy and conversations | Freeborn",
+        "h1": [
+          "Useful questions. Clearer choices."
+        ],
+        "canonical": "https://freeborndating.com/guides",
+        "description": "Practical guides to browser dating, shared values, profile writing, long-distance communication, privacy, verification and romance-scam response. No promised matches or outcomes.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "a864a03ac00d63f770ba5d56427342b1b05df71169134b246532588c4823af04"
+      },
+      "live": {
+        "status": 200,
+        "title": "Guides — honest dating advice from the platform that ships it · Freeborn",
+        "h1": [
+          "Honest guides for dating with your values intact"
+        ],
+        "canonical": "https://freeborndating.com/guides",
+        "description": "Practical guides on meeting like-minded singles without app-store apps, making long-distance dating work with real browser calls, and spotting romance scams — every Freeborn claim checked against the shipping codebase.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "908d345de9b1fa9f1be8e26277d1362f5a12ce502286a35031e4205c0acc74f3"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/guides/relationship-values-questions",
+      "local": {
+        "status": 200,
+        "title": "Relationship values questions: build a conversation, not a score · Freeborn",
+        "h1": [
+          "Relationship values questions"
+        ],
+        "canonical": "https://freeborndating.com/guides/relationship-values-questions",
+        "description": "Choose the relationship values that matter to you and get thoughtful questions to discuss. Free, no sign-up, no compatibility score and no answers collected.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "27c702a0a6198d6101a5f69191f6dc9e7bbb0352b15966e77afaba40bbc259d3"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "14fb6f01399bbe1b01535f420531d7237bd80a3c261f13bb695fbfde68d197d7"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/guides/meet-without-apps",
+      "local": {
+        "status": 200,
+        "title": "Dating in your browser: no app-store download required | Freeborn",
+        "h1": [
+          "Dating in your browser: no app-store download required"
+        ],
+        "canonical": "https://freeborndating.com/guides/meet-without-apps",
+        "description": "A practical guide to online dating without downloading another app: account access, browser permissions, privacy, troubleshooting and the difference from meeting offline.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "f2dddb03f11ac5aaa3078cc9da7fcd6532f213dcb2a922ee9082effbd6ac7c41"
+      },
+      "live": {
+        "status": 200,
+        "title": "Meeting like-minded singles without app-store apps · Freeborn",
+        "h1": [
+          "Meeting like-minded singles without app-store apps"
+        ],
+        "canonical": "https://freeborndating.com/guides/meet-without-apps",
+        "description": "What to demand from any dating platform — published policies, verifiable humans, free core communication — and how Freeborn answers each point in its shipping code.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "420c4a3baf195a7d781801f74c094ed1ee6c95b002fe7543ea0547b76570e3e5"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/guides/long-distance",
+      "local": {
+        "status": 200,
+        "title": "Long-distance dating: communication, boundaries and a practical plan | Freeborn",
+        "h1": [
+          "Long-distance dating: communication, boundaries and a practical plan"
+        ],
+        "canonical": "https://freeborndating.com/guides/long-distance",
+        "description": "Agree on communication expectations, plan low-pressure conversations and think through visits, privacy and distance without relying on tools to guarantee a relationship.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "6ce12cb60feacf0392ddffe3d333fb7e0c7eefe2a214a5f5881e2424b67c5580"
+      },
+      "live": {
+        "status": 200,
+        "title": "Long-distance dating that feels close: the tools that matter · Freeborn",
+        "h1": [
+          "Long-distance dating that feels close: the tools that matter"
+        ],
+        "canonical": "https://freeborndating.com/guides/long-distance",
+        "description": "Photos, voice notes, typing presence and browser-based voice and video calls — the shipped Freeborn features that carry a long-distance match, plus their honest limits.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "54b86592de68b1718dd3147e6dcf3d3264c0daf4121be0df9e951313b04638ed"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/guides/scam-spotting",
+      "local": {
+        "status": 200,
+        "title": "Romance-scam warning signs: money, pressure and what to do | Freeborn",
+        "h1": [
+          "Romance-scam warning signs: money, pressure and what to do"
+        ],
+        "canonical": "https://freeborndating.com/guides/scam-spotting",
+        "description": "Recognize money requests, investment pitches and pressure in online dating. Take practical protective steps, report concerns and understand why verification cannot guarantee safety.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "535a36b21f1608a4dad7a5d487b57b8d0880780951e6ee4742923f3cfa228e34"
+      },
+      "live": {
+        "status": 200,
+        "title": "Romance-scam red flags, and what Freeborn's guard watches · Freeborn",
+        "h1": [
+          "Romance-scam red flags, and what Freeborn's guard watches"
+        ],
+        "canonical": "https://freeborndating.com/guides/scam-spotting",
+        "description": "The payment-pressure patterns Freeborn&#x27;s message guard scores for, what pose-mimic verification does and does not stop, and how member reports reach the moderation queue.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "b8c9dc47b650a70e17efc08a45224d64f317983b7f7022147722c20913ec9d47"
+      },
+      "verdict": "live_content_differs"
+    },
+    {
+      "path": "/guides/shared-values-dating",
+      "local": {
+        "status": 200,
+        "title": "How to meet people who share your values | Freeborn",
+        "h1": [
+          "How to meet people who share your values"
+        ],
+        "canonical": "https://freeborndating.com/guides/shared-values-dating",
+        "description": "Turn broad values into everyday examples, choose appropriate places to meet people and discuss differences without interrogating someone or oversharing.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "81e730e951394d7adccc0e7ca500121b386caa5f0f91c76a4d50de2351190fef"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "10267a80e3000153deeee199cc1f6d75f917aad6aa201a600d87a4c5a28eb595"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/guides/intentional-dating-profile",
+      "local": {
+        "status": 200,
+        "title": "Intentional dating profile examples you can adapt | Freeborn",
+        "h1": [
+          "Intentional dating profile examples you can adapt"
+        ],
+        "canonical": "https://freeborndating.com/guides/intentional-dating-profile",
+        "description": "Original fictional dating bio examples, a practical writing structure and a privacy check. Communicate your interests and intentions without promising results or copying real members.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "9f22203e12a5dbca846e3bb7a6a76fafdc6d18dca7759a300f66d74da2efe550"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "4655557124440a4da79ea8384dd5f1d83f40a5c19734452546cbd5fa28589b75"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/guides/dating-privacy-checklist",
+      "local": {
+        "status": 200,
+        "title": "Online dating privacy checklist: before you share | Freeborn",
+        "h1": [
+          "Online dating privacy checklist: before you share"
+        ],
+        "canonical": "https://freeborndating.com/guides/dating-privacy-checklist",
+        "description": "Practical checks for dating photos, profile details, messages and shared devices. Understand contact controls and the limits of deletion without exposing private information.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "1785ac63a37ddd8caa4af713269f570c19233f3b3b35299c03ce74355403a4e9"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "1d33feb2050a05840b46fb643bbfd4c4854e2333b5a64c22e82c7e196dcafc38"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/guides/dating-verification-explained",
+      "local": {
+        "status": 200,
+        "title": "What does verified mean on a dating profile? | Freeborn",
+        "h1": [
+          "What does verified mean on a dating profile?"
+        ],
+        "canonical": "https://freeborndating.com/guides/dating-verification-explained",
+        "description": "Understand email, photo and identity checks, what a verification badge cannot establish, and why self-reported health details are not medical verification.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "799679373d47be94cef10f2edf5ff224f242f0e674fab0aa3653df0058b75e06"
+      },
+      "live": {
+        "status": 404,
+        "title": "Freeborn · Dating for Medical Freedom & Natural Health",
+        "h1": [
+          "404"
+        ],
+        "canonical": null,
+        "description": "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+        "robots": "index, follow, max-image-preview:large",
+        "xRobotsTag": null,
+        "contentType": "text/html; charset=utf-8",
+        "semanticArticleSha256": "77e8e619b3c37bc3579e5711887a2329d084397cba2957262e9a7c3e2a8c6a57"
+      },
+      "verdict": "not_live_at_checked_url"
+    },
+    {
+      "path": "/robots.txt",
+      "local": {
+        "status": 200,
+        "title": "",
+        "h1": [],
+        "canonical": null,
+        "description": null,
+        "robots": null,
+        "xRobotsTag": null,
+        "contentType": "text/plain",
+        "semanticArticleSha256": "49d52d0debde9234ee85ed4f0177cb0f09689fc8386114bf8936b2050342a506",
+        "privacyExclusions": [
+          {
+            "path": "/app",
+            "present": true
+          },
+          {
+            "path": "/api/",
+            "present": true
+          },
+          {
+            "path": "/discover",
+            "present": true
+          }
+        ]
+      },
+      "live": {
+        "status": 200,
+        "title": "",
+        "h1": [],
+        "canonical": null,
+        "description": null,
+        "robots": null,
+        "xRobotsTag": null,
+        "contentType": "text/plain; charset=utf-8",
+        "semanticArticleSha256": "49d52d0debde9234ee85ed4f0177cb0f09689fc8386114bf8936b2050342a506",
+        "privacyExclusions": [
+          {
+            "path": "/app",
+            "present": true
+          },
+          {
+            "path": "/api/",
+            "present": true
+          },
+          {
+            "path": "/discover",
+            "present": true
+          }
+        ]
+      },
+      "verdict": "same_normalized_article_or_main"
+    },
+    {
+      "path": "/sitemap.xml",
+      "local": {
+        "status": 200,
+        "title": "",
+        "h1": [],
+        "canonical": null,
+        "description": null,
+        "robots": null,
+        "xRobotsTag": null,
+        "contentType": "application/xml",
+        "semanticArticleSha256": "3fb0510597104ab9a0879ee877b562e6cf318db266665421abf4e0ba75dcdf80",
+        "sitemapLocations": [
+          "https://freeborndating.com",
+          "https://freeborndating.com/free-dating",
+          "https://freeborndating.com/safety",
+          "https://freeborndating.com/privacy",
+          "https://freeborndating.com/terms",
+          "https://freeborndating.com/cookies",
+          "https://freeborndating.com/alternatives",
+          "https://freeborndating.com/guides",
+          "https://freeborndating.com/guides/relationship-values-questions",
+          "https://freeborndating.com/guides/meet-without-apps",
+          "https://freeborndating.com/guides/long-distance",
+          "https://freeborndating.com/guides/scam-spotting",
+          "https://freeborndating.com/guides/shared-values-dating",
+          "https://freeborndating.com/guides/intentional-dating-profile",
+          "https://freeborndating.com/guides/dating-privacy-checklist",
+          "https://freeborndating.com/guides/dating-verification-explained"
+        ]
+      },
+      "live": {
+        "status": 200,
+        "title": "",
+        "h1": [],
+        "canonical": null,
+        "description": null,
+        "robots": null,
+        "xRobotsTag": null,
+        "contentType": "application/xml",
+        "semanticArticleSha256": "9087775d5194f9433c98c9193f620bdccbd459e0e343d77d6ede787f4889fd0c",
+        "sitemapLocations": [
+          "https://freeborndating.com",
+          "https://freeborndating.com/safety",
+          "https://freeborndating.com/privacy",
+          "https://freeborndating.com/terms",
+          "https://freeborndating.com/cookies",
+          "https://freeborndating.com/alternatives",
+          "https://freeborndating.com/guides",
+          "https://freeborndating.com/guides/meet-without-apps",
+          "https://freeborndating.com/guides/long-distance",
+          "https://freeborndating.com/guides/scam-spotting"
+        ]
+      },
+      "verdict": "live_content_differs"
+    }
+  ],
+  "summary": {
+    "same_normalized_article_or_main": 3,
+    "not_live_at_checked_url": 6,
+    "live_content_differs": 9
+  },
+  "scope": "Read-only anonymous public HTTP comparison, not deployment identity, account/signup/provider functionality, Search Console ownership, index coverage, rankings, traffic or growth. Differences are recorded, not relabeled as a release."
+}

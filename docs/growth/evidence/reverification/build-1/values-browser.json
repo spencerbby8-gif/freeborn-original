@@ -1,0 +1,33 @@
+{
+  "checks": 26,
+  "results": [
+    "mobile title/canonical",
+    "mobile one h1 and 12 accessible checkboxes",
+    "mobile empty copy disabled",
+    "mobile select five / others disabled / unselect works",
+    "mobile explicit clipboard action creates plain questions only",
+    "mobile primary action has a visible contrasting background",
+    "mobile automated accessibility scan has no violations",
+    "mobile clipboard failure is handled",
+    "mobile no selection persistence in storage / URL",
+    "mobile keyboard checkbox toggles",
+    "mobile clear resets tool",
+    "mobile no horizontal overflow",
+    "desktop title/canonical",
+    "desktop one h1 and 12 accessible checkboxes",
+    "desktop empty copy disabled",
+    "desktop select five / others disabled / unselect works",
+    "desktop explicit clipboard action creates plain questions only",
+    "desktop primary action has a visible contrasting background",
+    "desktop automated accessibility scan has no violations",
+    "desktop clipboard failure is handled",
+    "desktop no selection persistence in storage / URL",
+    "desktop keyboard checkbox toggles",
+    "desktop clear resets tool",
+    "desktop no horizontal overflow",
+    "no-JavaScript full editorial questions remain readable",
+    "no browser page errors"
+  ],
+  "pageErrors": [],
+  "scope": "Local production build; clipboard success/failure mocked, not OS clipboard certification."
+}

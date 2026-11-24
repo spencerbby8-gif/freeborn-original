@@ -23,7 +23,10 @@ export function Footer() {
               <ul className="mt-5 space-y-3 text-[14px] text-sand">
                 <li><a className="transition-colors hover:text-pearl" href="#how">How it works</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="#why-freeborn">Why Freeborn</a></li>
+                <li><a className="transition-colors hover:text-pearl" href="/free-dating">Free matching &amp; messaging</a></li>
+                <li><a className="transition-colors hover:text-pearl" href="/alternatives">Compare dating options</a></li>
                 <li><a className="transition-colors hover:text-pearl" href="#safety">Safety & privacy</a></li>
+                <li><a className="transition-colors hover:text-pearl" href="/guides/relationship-values-questions">Relationship values questions</a></li>
               </ul>
             </div>
             <div>

@@ -1,0 +1,97 @@
+{
+  "ok": true,
+  "checks": 10,
+  "failures": [],
+  "sourceFingerprint": "0d68e4b7282db00e7f226ccd8199403abe98f4d965b89b600f105603fe0eaf7d",
+  "observedAt": "2026-11-23T15:19:06.283377+00:00",
+  "steps": [
+    {
+      "name": "lint",
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "harness",
+      "command": [
+        "npm",
+        "run",
+        "test:harness"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "discovery-privacy",
+      "command": [
+        "npm",
+        "run",
+        "test:discovery-privacy"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "values-contracts",
+      "command": [
+        "node",
+        "scripts/seo/values-conversation-contracts.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "free-dating-contracts",
+      "command": [
+        "node",
+        "scripts/seo/free-dating-contracts.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "submission-contracts",
+      "command": [
+        "node",
+        "scripts/seo/submission-contracts.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "secrets",
+      "command": [
+        "npm",
+        "run",
+        "check:secrets"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "diff",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "scope": "Fixed local command exit results, not a hosted CI or production certification."
+}

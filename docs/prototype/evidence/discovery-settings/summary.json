@@ -1,0 +1,41 @@
+{
+  "scope": "Local production build; API/session/GPS/WebSocket fixtures and fake microphone/camera. SQL regression uses disposable local PostgreSQL transaction and substituted auth. No hosted RLS, production deployment, real-device location or end-to-end call acceptance.",
+  "base": "bba01dc (merge of PR90)",
+  "branch": "feat/discovery-settings-polish",
+  "results": {
+    "browser": {
+      "checks": 22,
+      "failures": 0,
+      "browserErrors": 0
+    },
+    "media": {
+      "checks": 38,
+      "failures": 0,
+      "browserErrors": 0
+    },
+    "compat": {
+      "checks": 44,
+      "failures": 0,
+      "browserErrors": 0
+    },
+    "landing": {
+      "checks": 35,
+      "failures": 0,
+      "browserErrors": 0
+    }
+  },
+  "contracts": {
+    "trustHarness": 624,
+    "discoveryPrivacy": 32,
+    "presentation": 20,
+    "localPostgres": 31,
+    "apiContracts": 28,
+    "mediaContracts": 37,
+    "filterStorage": "passed",
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "envIsolation": "passed",
+    "migrationImmutability": "passed"
+  }
+}

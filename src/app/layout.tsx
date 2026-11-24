@@ -5,6 +5,8 @@ import { Fraunces, Inter } from "next/font/google";
 import { ToastHost } from "@/components/toast-host";
 import { absolute, CONTACT_EMAIL, OG_IMAGE, OPERATOR_NAME, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
+// Load member design before any route paints, not after chat hydration.
+import "@/components/prototype/prototype.css";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -26,11 +28,11 @@ export const metadata: Metadata = {
      It now derives from the single canonical constant in @/lib/site. */
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Freeborn · Dating for Medical Freedom & Natural Health",
+    default: "Freeborn · Intentional Dating & Shared Values",
     template: `%s · Freeborn`,
   },
   description:
-    "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect, with an optional badge to help unvaccinated members find one another.",
+    "Freeborn is a dating app for unvaccinated and vaccinated people alike. Browse, match, and connect using shared values and optional self-reported preferences.",
   applicationName: SITE_NAME,
   keywords: [
     "medical freedom dating",
@@ -55,7 +57,7 @@ export const metadata: Metadata = {
      pages declare none, which is the correct instruction for them. The indexable
      set is INDEXABLE_PATHS in @/lib/site, and it matches sitemap.ts exactly. */
   openGraph: {
-    title: "Freeborn · Dating for Medical Freedom & Natural Health",
+    title: "Freeborn · Intentional Dating & Shared Values",
     description:
       "Values-aligned dating for health autonomy, natural living, and lasting love. Full profiles, clear intentions, privacy by default.",
     siteName: SITE_NAME,
@@ -170,6 +172,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             a crawler that lands on any page finds the full URL inventory without
             having been told about robots.txt first. */}
         <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+        <link rel="icon" type="image/svg+xml" href="/icons/flame.svg" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

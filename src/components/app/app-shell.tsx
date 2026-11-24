@@ -8,6 +8,7 @@ import { PrototypeFrame } from "@/components/prototype/frame";
 import { DiscoveryFilters } from "@/components/prototype/filters";
 import { VerifyGate } from "./verify-modal";
 import { CallListener } from "./call-listener";
+import { NotificationCountsContext } from "./notification-counts";
 import { NotificationCenter } from "./notification-center";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -130,7 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <PrototypeFrame hideTabs={hideTabs || filtersOpen} unread={unread}>{children}{filtersOpen&&<DiscoveryFilters onClose={()=>setFiltersOpen(false)}/>}<VerifyGate/><CallListener/><NotificationCenter pathname={pathname}/></PrototypeFrame>
+      <NotificationCountsContext.Provider value={unread}><PrototypeFrame hideTabs={hideTabs || filtersOpen} unread={unread}>{children}{filtersOpen&&<DiscoveryFilters onClose={()=>setFiltersOpen(false)}/>}<VerifyGate/><CallListener/><NotificationCenter pathname={pathname} suppressPrompts={filtersOpen}/></PrototypeFrame></NotificationCountsContext.Provider>
     </>
   );
 }

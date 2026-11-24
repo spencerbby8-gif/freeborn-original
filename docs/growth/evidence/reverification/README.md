@@ -1,0 +1,3 @@
+# Evidence copies
+
+These are actual outputs from the reverification run. The three member-UI results files retain the wrong-configuration failure, real mobile obstruction failure, and final corrected fixture pass separately. Committed text-log copies normalize terminal carriage returns/trailing whitespace only; original raw logs and all screenshots remain in the downloadable session audit pack. No test outcomes are changed. Public comparisons use anonymous GET requests, not console data or production accounts. Source identity excludes documentation, so evidence can be copied here without creating a self-referential hash.

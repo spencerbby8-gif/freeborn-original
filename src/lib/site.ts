@@ -105,7 +105,7 @@ export const OPERATOR_COUNTRY = "Nigeria";
 export const CONTACT_EMAIL = "support@freeborndating.com";
 
 /** Legal document version. Bump on every substantive edit; shown on each page. */
-export const LEGAL_VERSION = "1.2";
+export const LEGAL_VERSION = "1.3";
 export const LEGAL_EFFECTIVE_DATE = "21 November 2026";
 
 /** Minimum membership age. Mirrors MIN_AGE in `src/lib/age.ts`. */
@@ -143,20 +143,24 @@ export function absolute(path: string = "/"): string {
  * sitemap-vs-noindex contradiction happened. Keep the two in step.
  */
 export const INDEXABLE_PATHS = [
-  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-15" },
+  { path: "/", priority: 1, changeFrequency: "weekly" as const, lastModified: "2026-11-21" },
+  { path: "/free-dating", priority: 0.8, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
   { path: "/safety", priority: 0.8, changeFrequency: "monthly" as const, lastModified: "2026-11-14" },
-  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
-  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-14" },
-  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-10-19" },
-  /* B16: the honest comparison page. Monthly because its competitor figures are
-     dated snapshots that must be re-verified whenever the page changes. */
-  { path: "/alternatives", priority: 0.7, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
-  /* B17: the honest guides cluster. Monthly like /alternatives — the "checked
-     against the codebase on" stamps must be re-verified whenever copy changes. */
-  { path: "/guides", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
-  { path: "/guides/meet-without-apps", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
-  { path: "/guides/long-distance", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
-  { path: "/guides/scam-spotting", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-16" },
+  { path: "/privacy", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
+  { path: "/terms", priority: 0.4, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
+  { path: "/cookies", priority: 0.2, changeFrequency: "yearly" as const, lastModified: "2026-11-21" },
+  /* Comparison facts are dated and attributed; recheck sources when edited. */
+  { path: "/alternatives", priority: 0.7, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  /* Public editorial pages: lastModified reflects actual copy edits, not builds. */
+  { path: "/guides", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/relationship-values-questions", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/meet-without-apps", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/long-distance", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/scam-spotting", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/shared-values-dating", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/intentional-dating-profile", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/dating-privacy-checklist", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
+  { path: "/guides/dating-verification-explained", priority: 0.6, changeFrequency: "monthly" as const, lastModified: "2026-11-21" },
 ];
 
 /**

@@ -50,7 +50,13 @@ export async function GET(request: Request) {
      Privacy Policy clause 5 promises it is not. For a dating service used by
      people who are publicly identifiable by their health views, an open
      directory of faces and cities is a safety failure, not a technicality. */
-  const viewer = await getMember(request).catch(() => null);
+  let viewer;
+  try {
+    viewer = await getMember(request);
+  } catch {
+    console.error("[member-profile] Member lookup unavailable");
+    return Response.json({ error: "We couldn’t load profiles right now. Please try again." }, { status: 503 });
+  }
   if (!viewer) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
@@ -192,7 +198,7 @@ export async function GET(request: Request) {
      none, so the exclusion is applied here, at the only place the deck is built.
      Existing conversations and profile links keep working, by design: suppression
      removes reach, not access. */
-  const suppressed = await suppressedUserIds().catch(() => [] as string[]);
+  const suppressed = await suppressedUserIds();
 
   const rows = await db
     .select()
@@ -389,6 +395,7 @@ export async function GET(request: Request) {
     if (viewerId && row.id === viewerId) continue;
     if (hiddenIds.has(row.id)) continue;
     const dp = (row as { discoverPrivacy?: string }).discoverPrivacy ?? "everyone";
+    if (!["everyone", "verified", "unvaccinated"].includes(dp)) continue;
     if (dp === "verified" && !viewerVerified) continue;
     if (dp === "unvaccinated" && viewerVax !== "unvaccinated") continue;
     const priv = privByUser.get(row.id);

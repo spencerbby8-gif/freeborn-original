@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "kind": "no_data",
+  "observedAt": "2026-11-23T15:20:55.297888+00:00",
+  "networkCalls": 0,
+  "search": [
+    {
+      "engine": "google",
+      "status": "unavailable",
+      "aggregates": null
+    },
+    {
+      "engine": "bing",
+      "status": "unavailable",
+      "aggregates": null
+    }
+  ],
+  "completions": {
+    "status": "unavailable",
+    "aggregates": null
+  },
+  "readyToClaimGrowth": false,
+  "note": "No data means unknown, not zero. Import validates format; it does not authenticate exports, prove console ownership, collect events or establish causal growth."
+}

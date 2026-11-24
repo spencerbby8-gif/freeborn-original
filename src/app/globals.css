@@ -691,6 +691,12 @@ select:focus {
 .fb-toast-in {
   animation: fb-toast-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+/* Keep transient alerts below the mobile header: the notification-history
+   control must remain tappable while a new alert is displayed. */
+.member-alert-stack { top: calc(88px + env(safe-area-inset-top, 0px)); }
+@media (min-width: 768px) {
+  .member-alert-stack { top: 12px; }
+}
 
 /* Reaction picker pop */
 @keyframes fb-pop-in {
