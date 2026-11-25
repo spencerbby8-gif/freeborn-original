@@ -2189,9 +2189,9 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
   ok("[22] GET tells the client whether THIS member may write, decided by decideMatchAccess",
     /thread: \(\(\) => \{/.test(get) && threadBlock.includes('action: "send_message"') &&
       /decideMatchAccess\(\{[\s\S]*?\}\);/.test(threadBlock));
-  ok("[22] the thread facts are derived from the row the view permission already returned (no second query)",
-    /status: match\.status as MatchLifecycleStatus/.test(threadBlock) &&
-      /isActor: match\.unmatchedBy === member\.id/.test(threadBlock));
+  ok("[22] thread write facts use the match row and independently recheck bilateral blocks",
+    /status: effectiveStatus/.test(threadBlock) && /isActor: match\.unmatchedBy === member\.id/.test(threadBlock) &&
+      /from\(blockedUsers\)/.test(get) && /blocks\.some\(block=>block\.blockerId===member\.id\)/.test(get));
   ok("[22] the route does not hand-roll lifecycle rules the table already owns",
     !/status === "unmatched"/.test(threadBlock) && !/status !== "active"/.test(threadBlock));
 

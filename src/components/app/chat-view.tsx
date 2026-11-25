@@ -4,6 +4,7 @@ import { ConversationManager, type LocalConversationPreferences } from "./conver
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { createChatPreviewUrl } from "@/lib/chat-preview-url";
+import { holdActiveChat } from "@/lib/active-chat";
 import { CHAT_FILE_ACCEPT, CHAT_FILE_MAX, chatFileMime, safeChatFilename } from "@/lib/chat-file";
 import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
@@ -449,6 +450,8 @@ export function Thread({
   onChanged: () => void;
   onTapProfile: (id: string) => void;
 }) {
+  // Covers both ChatView and the profile/draft path, which render this Thread.
+  useEffect(() => holdActiveChat(match.id), [match.id]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [initialMessages,setInitialMessages]=useState<"loading"|"ready"|"error">("loading");
   const [text, setText] = useState(initialDraft);

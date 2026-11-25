@@ -40,13 +40,16 @@ async function readNotifications(request: Request) {
     href: string;
     profileId?: string;
     profileName?: string;
+    matchId?: string;
+    eventId?: string;
+    unreadIds?: string[];
   }> = [];
 
   const blocks=await db.select({blockerId:blockedUsers.blockerId,blockedId:blockedUsers.blockedId}).from(blockedUsers).where(or(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,member.id)));
   const blocked=new Set(blocks.map(b=>b.blockerId===member.id?b.blockedId:b.blockerId));
   for (const m of myMatches) {
     const otherId = m.userA === member.id ? m.userB : m.userA;
-    if(m.status!=="active"||blocked.has(otherId))continue;
+    if((m.status!=="active"&&m.status!=="archived")||blocked.has(otherId))continue;
     const [other] = await db
       .select()
       .from(userProfiles)
@@ -65,7 +68,7 @@ async function readNotifications(request: Request) {
       id: `match-${m.id}`,
       type: "match",
       title: `New match: ${name}`,
-      body: "You liked each other. The conversation is open. Say hello.",
+      body: "You’re connected. The conversation is open. Say hello.",
       photo: resolvePhotoUrl(photo?.storagePath ?? ""),
       at: m.createdAt,
       unread: false,
@@ -84,19 +87,25 @@ async function readNotifications(request: Request) {
       );
 
     if (unread > 0) {
-      const [last] = await db
-        .select({ body: messages.body, createdAt: messages.createdAt })
+      const pending = await db
+        .select({ id: messages.id, createdAt: messages.createdAt })
         .from(messages)
-        .where(and(eq(messages.matchId, m.id), eq(messages.senderId, otherId)))
-        .orderBy(desc(messages.createdAt))
-        .limit(1);
+        .where(and(eq(messages.matchId, m.id), eq(messages.senderId, otherId), sql`${messages.readAt} is null`))
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(500);
+      // A concurrent read can clear the last unread message between queries.
+      const last = pending[0];
+      if (!last) continue;
       items.push({
         id: `msg-${m.id}`,
         type: "message",
+        matchId: m.id,
+        eventId: `${last.id}:${unread}`,
+        unreadIds: pending.map(message => message.id),
         title: `${name} sent you a message`,
         body: "Open the conversation to read it.",
         photo: resolvePhotoUrl(photo?.storagePath ?? ""),
-        at: last?.createdAt ?? m.createdAt,
+        at: last.createdAt,
         unread: true,
         href,
       });

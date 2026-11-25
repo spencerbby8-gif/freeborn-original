@@ -55,6 +55,18 @@ export async function GET(request: Request) {
       { status: 403 }
     );
   const match = viewed;
+  const otherId = match.userA === member.id ? match.userB : match.userA;
+  // Legacy archived rows retain their status while blocked. Apply the block
+  // independently so a direct URL cannot show the blocker an open thread or
+  // tell the other participant that sending is permitted. The non-blocker
+  // may still read their existing history for reporting, as for blocked rows.
+  const blocks = await db.select({blockerId:blockedUsers.blockerId}).from(blockedUsers).where(or(
+    and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+    and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+  ));
+  if(blocks.some(block=>block.blockerId===member.id))
+    return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true},{status:403});
+  const effectiveStatus = blocks.length ? "blocked" : match.status as MatchLifecycleStatus;
 
   await db
     .update(messages)
@@ -77,7 +89,6 @@ export async function GET(request: Request) {
      receipts off, your own messages report read=false — the read event is
      still recorded (their unread badge works), it is simply not shown to
      you. Their messages report your own read state normally. */
-  const otherId = match.userA === member.id ? match.userB : match.userA;
   const [otherPriv] = await db
     .select({ readReceipts: userPrivateSettings.readReceipts })
     .from(userPrivateSettings)
@@ -124,7 +135,7 @@ export async function GET(request: Request) {
        decideMatchAccess the POST path uses, so there is one table, not two. */
     thread: (() => {
       const send = decideMatchAccess({
-        status: match.status as MatchLifecycleStatus,
+        status: effectiveStatus,
         isParticipant: true,
         isActor: match.unmatchedBy === member.id,
         hasMessages: rows.length > 0,
@@ -132,9 +143,9 @@ export async function GET(request: Request) {
       });
       return {
         canSend: send.allow,
-        status: match.status,
+        status: effectiveStatus,
         reason: send.allow ? null : send.reason,
-        notice: send.allow ? null : severedMessage(match.status as MatchLifecycleStatus),
+        notice: send.allow ? null : severedMessage(effectiveStatus),
       };
     })(),
     messages: rows.map((m) => ({
