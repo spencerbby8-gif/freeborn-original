@@ -1,0 +1,27 @@
+name: Bing read-only diagnostics
+on:
+  schedule:
+    - cron: '19 9 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bing:
+    if: github.ref == 'refs/heads/main' && vars.BING_MONITOR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read Bing reports; warn through failed workflow on actionable gaps
+        env:
+          BING_WEBMASTER_API_KEY: ${{ secrets.BING_WEBMASTER_API_KEY }}
+        run: python3 scripts/seo/bing-monitor.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bing-diagnostics-${{ github.run_id }}
+          path: bing-monitor-report.json
+          retention-days: 30

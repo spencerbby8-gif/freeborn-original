@@ -1,0 +1,34 @@
+name: Search automation safeguards
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/seo/**'
+      - 'src/lib/site.ts'
+      - 'public/*.txt'
+      - '.github/workflows/search-*.yml'
+      - '.github/workflows/bing-diagnostics.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/seo/**'
+      - 'src/lib/site.ts'
+      - 'public/*.txt'
+      - '.github/workflows/search-*.yml'
+      - '.github/workflows/bing-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safeguards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile search automation
+        run: python3 -m py_compile scripts/seo/search-notify.py scripts/seo/bing-monitor.py scripts/seo/test_search_automation.py
+      - name: Test safeguards without credentials or external requests
+        run: python3 -m unittest discover -s scripts/seo -p test_search_automation.py -v
