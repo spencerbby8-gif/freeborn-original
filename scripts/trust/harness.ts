@@ -2203,7 +2203,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
     /data-readonly-thread=""/.test(notice) && /This conversation is read-only\./.test(notice) &&
       /\{threadAccess && !threadAccess\.canSend \? <ReadOnlyThreadNotice/.test(cv.replace(/\n\s*/g, " ")) === false &&
       /<ReadOnlyThreadNotice notice=\{threadAccess\.notice\} \/>/.test(cv) &&
-      /\{threadAccess && !threadAccess\.canSend \? null : \(/.test(cv));
+      /\{!threadAccess \|\| !threadAccess\.canSend \? null : \(/.test(cv));
   // The component's own doc comment contains the word "connection" (it explains why the copy
   // must not). Judging prose would fail on a correct file — strip comments first, always.
   const noticeCode = notice.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -2213,7 +2213,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
      comment. And `threadAccess` must be a dependency of `deliver`, or the closure reads a verdict
      from mount time and the gate silently stops working the moment the thread ends. */
   const deliverBody = cv.slice(cv.indexOf("const deliver = useCallback("), cv.indexOf("const retrySend"));
-  const guardAt = deliverBody.indexOf("if (threadAccess && !threadAccess.canSend) {");
+  const guardAt = deliverBody.indexOf("if (!typingAllowedRef.current || (threadAccess && !threadAccess.canSend)) {");
   const postAt = deliverBody.indexOf('method: "POST"');
   /* ORDER, not presence — a guard written after the fetch is a comment. Slice to `retrySend`
      because other POSTs exist earlier in this file, and a file-wide indexOf found the wrong one. */
@@ -2228,7 +2228,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
     /m\.failed && m\.blocked \?[\s\S]{0,900}?Not delivered[\s\S]{0,120}?\) : m\.failed \? \(/.test(cv) &&
       !/blocked[\s\S]{0,400}retrySend/.test(cv));
   ok("[22] a refusal on policy grounds also closes the composer, so it cannot be tried again",
-    /if \(!retryable\) setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
+    /if \(!retryable\) \{[\s\S]{0,300}?typingAllowedRef\.current = false;[\s\S]{0,300}?setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
   ok("[22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked",
     /\{ \.\.\.m, failed: false, blocked: false \}/.test(cv));
 }

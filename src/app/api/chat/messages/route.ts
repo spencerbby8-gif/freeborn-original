@@ -49,10 +49,10 @@ export async function GET(request: Request) {
   if (!isUuid(matchId)) return Response.json({ error: "A valid match is required." }, { status: 400 });
 
   const viewed = await ownsMatch(matchId, member.id, "view_conversation");
-  if (!viewed) return Response.json({ error: "Match not found." }, { status: 404 });
+  if (!viewed) return Response.json({ error: "Match not found.", code: "thread_unavailable" }, { status: 404 });
   if ("denied" in viewed)
     return Response.json(
-      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true },
+      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true, code: "thread_unavailable" },
       { status: 403 }
     );
   const otherId = viewed.userA === member.id ? viewed.userB : viewed.userA;
@@ -61,9 +61,9 @@ export async function GET(request: Request) {
   // and receipt update with relationship boundaries, then re-check inside it.
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
   const [match]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
-  if(!match || (match.userA!==member.id && match.userB!==member.id))return Response.json({error:"Match not found."},{status:404});
+  if(!match || (match.userA!==member.id && match.userB!==member.id))return Response.json({error:"Match not found.",code:"thread_unavailable"},{status:404});
   const access=decideMatchAccess({status:match.status as MatchLifecycleStatus,isParticipant:true,isActor:match.unmatchedBy===member.id,hasMessages:false,action:"view_conversation"});
-  if(!access.allow)return Response.json({error:"This conversation isn't available. Unmatching removes it from the member who ended it.",ended:true},{status:403});
+  if(!access.allow)return Response.json({error:"This conversation isn't available. Unmatching removes it from the member who ended it.",ended:true,code:"thread_unavailable"},{status:403});
   // Legacy archived rows retain their status while blocked. Apply the block
   // independently so a direct URL cannot show the blocker an open thread or
   // tell the other participant that sending is permitted. The non-blocker
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
   ));
   if(blocks.some(block=>block.blockerId===member.id))
-    return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true},{status:403});
+    return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true,code:"thread_unavailable"},{status:403});
   const effectiveStatus = blocks.length ? "blocked" : match.status as MatchLifecycleStatus;
 
   await tx
