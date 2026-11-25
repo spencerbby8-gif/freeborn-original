@@ -443,7 +443,7 @@ function BlockedList() {
       });
       if (res.ok) {
         setBlocked((prev) => prev.filter((b) => b.id !== id));
-        showToast({ tone: "success", title: "Member unblocked", body: "They can see you in the room again." });
+        showToast({ tone: "success", title: "Member unblocked", body: "Your block was removed. Any available previous conversation can return to Messages." });
       } else {
         showToast({ tone: "error", title: "Couldn't unblock", body: "Try again in a moment." });
       }

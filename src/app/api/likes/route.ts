@@ -84,7 +84,7 @@ async function readLikes(request: Request) {
     if (!card) continue;
     const [userA, userB] = [member.id, row.likerId].sort();
     const [match] = await db
-      .select({ id: matches.id })
+      .select({ id: matches.id, status: matches.status })
       .from(matches)
       .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
       .limit(1);
@@ -92,8 +92,8 @@ async function readLikes(request: Request) {
       ...card,
       superlike: row.action === "superlike",
       likedAt: row.createdAt,
-      matched: Boolean(match),
-      matchId: match?.id ?? null,
+      matched: Boolean(match && (match.status === "active" || match.status === "archived")),
+      matchId: match && (match.status === "active" || match.status === "archived") ? match.id : null,
     });
   }
 

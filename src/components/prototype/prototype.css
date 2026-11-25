@@ -1314,7 +1314,7 @@
 @media(max-width:360px){.fb-prototype .reference-chat-head{padding-left:8px;padding-right:8px;gap:4px}.fb-prototype .reference-chat-head .chat-avatar-img{width:34px;height:34px;flex-basis:34px}.fb-prototype .reference-chat-person{gap:7px}.fb-prototype .chat-direct-calls .bare-icon{width:32px}.fb-prototype .story-section-head h1{font-size:30px}}
 @media(prefers-reduced-motion:reduce){.fb-prototype .member-story-overlay *{scroll-behavior:auto;animation:none;transition:none}}
 /* Browser-walkthrough corrections: full-bleed overlays and usable primary actions. */
-.fb-prototype .fb-messages>.member-story-overlay,.fb-prototype .fb-messages>.new-sheet-shade{margin-left:0;margin-right:0}
+.fb-prototype .fb-messages>div.member-story-overlay,.fb-prototype .fb-messages>div.new-sheet-shade{margin-left:0;margin-right:0}
 .fb-prototype .story-compose .btn-grad.wide,.fb-prototype .story-privacy .btn-grad.wide,.fb-prototype .story-expired .btn-grad{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;padding:14px 20px;border-radius:999px;font-size:14px;font-weight:700;text-align:center}
 .fb-prototype .notification-matches-intro{margin-left:18px;margin-right:18px}
 .fb-prototype .notification-match-list{margin-left:18px;margin-right:18px;margin-bottom:24px}

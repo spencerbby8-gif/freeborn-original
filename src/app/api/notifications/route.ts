@@ -109,8 +109,10 @@ async function readNotifications(request: Request) {
     .where(and(eq(userSwipes.likedId, member.id), inArray(userSwipes.action, ["like", "superlike"])))
     .orderBy(desc(userSwipes.createdAt))
     .limit(20);
+  const existingPairs = new Set(myMatches.map(m => m.userA === member.id ? m.userB : m.userA));
   for (const like of incomingLikes) {
-    if(blocked.has(like.likerId))continue;
+    // An existing or ended match is not a fresh like-back invitation.
+    if(blocked.has(like.likerId) || existingPairs.has(like.likerId))continue;
     const [liker] = await db
       .select({ id: userProfiles.id, displayName: userProfiles.displayName })
       .from(userProfiles)

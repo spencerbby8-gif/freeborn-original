@@ -368,7 +368,7 @@ export function ProfileView({
         body: JSON.stringify({ profileId: profile.id }),
       });
       if (res.ok) {
-        showToast({ tone: "success", title: "Member blocked", body: `${profile.name} can no longer see you or contact you.` });
+        showToast({ tone: "success", title: "Member blocked", body: `${profile.name} can no longer contact you. Manage blocked members in Settings → Privacy & Safety.` });
         setMenuOpen(false);
         onClose();
       } else {

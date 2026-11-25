@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { draftChatHref } from "@/lib/conversation-opener";
 import { useRouter } from "next/navigation";
 import { memberTapFeedback } from "@/lib/device-prefs";
+import { showToast } from "@/components/toast-host";
 import { Button } from "@/components/ui/button";
 import { PhotoViewer } from "./media";
 import { PhotoImage } from "@/components/ui/photo-image";
@@ -39,7 +40,7 @@ export function MemberDetail({profileId,onClose,ownPreview=false,asOthers=false}
  useEffect(()=>{const esc=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy){if(photoIndex!==null)return;if(action)setAction(null);else if(menu)setMenu(false);else if(end)setEnd(null);else onClose();}};window.addEventListener('keydown',esc);return()=>window.removeEventListener('keydown',esc);},[onClose,action,menu,end,busy,photoIndex]);
  async function choice(value:'like'|'pass'|'superlike'){memberTapFeedback();setBusy(true);setError(null);try{const r=await memberRequest<{matched?:boolean}>('/api/likes',{profileId,choice:value});if(value==='pass')onClose();else setNotice(r.matched?'It’s mutual — you can now chat.':value==='superlike'?'Spark sent.':'Added to your likes.');}catch(e){setError(e instanceof Error?e.message:'Could not save your choice.');}finally{setBusy(false);}}
  function hello(){router.push(draftChatHref(profileId));}
- async function safety(){setBusy(true);setError(null);try{if(action==='report'){await memberRequest('/api/reports',{profileId,reason});setNotice('Report received for review. Thank you for telling us.');setAction(null);}else if(action==='block'){await memberRequest('/api/blocks',{profileId});onClose();}}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.');}finally{setBusy(false);}}
+ async function safety(){setBusy(true);setError(null);try{if(action==='report'){await memberRequest('/api/reports',{profileId,reason});setNotice('Report received for review. Thank you for telling us.');setAction(null);}else if(action==='block'){await memberRequest('/api/blocks',{profileId});showToast({tone:'success',title:'Member blocked',body:'Manage blocked members in Settings → Privacy & Safety.'});window.dispatchEvent(new CustomEvent('freeborn:member-blocked',{detail:{profileId}}));window.dispatchEvent(new Event('freeborn:feed-refresh'));onClose();}}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.');}finally{setBusy(false);}}
  async function endConversation(why:UnmatchReason|null){if(!end||!match)return;setBusy(true);setError(null);try{if(end==='unmatch'){await memberRequest('/api/chat/unmatch',{with:profileId,...(why?{reason:why}:{}),destructive:true});onClose();}else{await memberRequest(`/api/chat/messages?match=${encodeURIComponent(match.id)}`,{destructive:true},undefined,'DELETE');setNotice('Every message in this conversation was deleted.');}setEnd(null);setMenu(false);}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.');}finally{setBusy(false);}}
  const tiles=p?([
   {label:'Lifestyle',value:p.lifestyle?.map(prettyText).join(', '),icon:'profile'},

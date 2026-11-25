@@ -1498,6 +1498,17 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
     queueMicrotask(() => void load());
   }, [load]);
 
+  // Closing a blocked member's profile must also close their open thread.
+  useEffect(() => {
+    const blocked = (event: Event) => {
+      const id = (event as CustomEvent<{profileId?: string}>).detail?.profileId;
+      if (id && openMatch?.with.id === id) { setOpenMatch(null); setDismissedDeepLink(true); }
+      void load();
+    };
+    window.addEventListener("freeborn:member-blocked", blocked);
+    return () => window.removeEventListener("freeborn:member-blocked", blocked);
+  }, [load, openMatch?.with.id]);
+
   /* Tell the app shell when a conversation is open, so the bottom tab bar
      hides — and returns when you go back to the message list. */
   useEffect(() => {

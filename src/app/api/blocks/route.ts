@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { blockedUsers, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -72,27 +72,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "A valid member is required." }, { status: 400 });
   }
 
-  await db
-    .insert(blockedUsers)
-    .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
-    .onConflictDoNothing();
-
-  /* Sever the match; keep the conversation.
-     This used to `delete(matches)` twice, which cascaded the messages away — on a BLOCK,
-     where the report and the evidence are the entire point. Moderation needs the thread to
-     outlive the blocker's view of it, and the blocked member must not be able to undo that by
-     deleting their own account's visibility either: the rows stay, and only the reporter's
-     account deletion (or a moderation decision) may purge them. */
-  await db
-    .update(matches)
-    .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
-    .where(
-      and(
+  // Serialize both directions of block/unblock for this pair. The block row and
+  // the preserved match transition must commit together or not at all.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);
+    await tx.insert(blockedUsers)
+      .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
+      .onConflictDoNothing();
+    // Preserve the original row, messages and media as safety evidence.
+    await tx.update(matches)
+      .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
+      .where(and(
         or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
         or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
         eq(matches.status, "active")
-      )
-    );
+      ));
+  });
 
   return Response.json({ ok: true });
 }
@@ -115,9 +110,28 @@ export async function DELETE(request: Request) {
   const { profileId } = (body ?? {}) as { profileId?: string };
   if (!profileId) return Response.json({ error: "A valid member is required." }, { status: 400 });
 
-  await db
-    .delete(blockedUsers)
-    .where(and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)));
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);
+    const removed = await tx.delete(blockedUsers)
+      .where(and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)))
+      .returning({ id: blockedUsers.id });
+    if (!removed.length) return;
+    const [remaining] = await tx.select({ id: blockedUsers.id }).from(blockedUsers)
+      .where(or(
+        and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)),
+        and(eq(blockedUsers.blockerId, profileId), eq(blockedUsers.blockedId, member.id))
+      )).limit(1);
+    if (remaining) return;
+    // Restore only a formerly blocked match, never an explicit unmatch. No
+    // history is reconstructed: we reuse the original match ID and records.
+    await tx.update(matches)
+      .set({ status: "active", unmatchedBy: null, unmatchedAt: null })
+      .where(and(
+        or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
+        or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
+        eq(matches.status, "blocked")
+      ));
+  });
 
   return Response.json({ ok: true });
 }
