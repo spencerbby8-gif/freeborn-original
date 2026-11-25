@@ -102,6 +102,9 @@ jobs:
       - name: Discovery and filter-storage privacy contracts (blocking)
         run: npm run test:discovery-privacy && npm run test:filter-storage && npm run test:discovery-presentation && npm run test:notification-receipts && node scripts/seo/submission-contracts.mjs
 
+      - name: Bing metadata descriptions and parser negative controls (blocking)
+        run: npm run test:bing-metadata
+
       - name: Evidence URL and decoding negative controls (blocking)
         run: npm run test:evidence-safety
 

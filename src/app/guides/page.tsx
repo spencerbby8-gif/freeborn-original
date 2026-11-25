@@ -1,3 +1,4 @@
+import { EDITORIAL_DESCRIPTIONS } from "@/lib/editorial-descriptions";
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Wordmark } from '@/components/wordmark';
@@ -6,7 +7,7 @@ import { PageStructuredData } from '@/components/seo/page-structured-data';
 import { datingGuides, GUIDE_REVIEW_DATE } from '@/lib/dating-guides';
 import styles from '@/components/guides/editorial.module.css';
 const title='Practical dating guides: values, privacy and conversations';
-const description='Practical guides to browser dating, shared values, profile writing, long-distance communication, privacy, verification and romance-scam response. No promised matches or outcomes.';
+const description=EDITORIAL_DESCRIPTIONS['/guides'];
 export const metadata:Metadata={title:{absolute:title+' | Freeborn'},description,alternates:{canonical:'/guides'},openGraph:ogCard('/guides',title,description)};
 // Permanent guide URLs stay connected through the editorial registry.
 const resources=[

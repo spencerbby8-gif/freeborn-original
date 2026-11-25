@@ -1,3 +1,4 @@
+import { EDITORIAL_DESCRIPTIONS } from "@/lib/editorial-descriptions";
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ogCard } from '@/lib/site';
@@ -6,7 +7,7 @@ import styles from '@/components/guides/editorial.module.css';
 
 const path='/alternatives';
 const title='Considering an Unjected alternative? Compare what matters';
-const description='Compare current Freeborn access with first-party information from Unjected and Tinder. Check browser access, messaging, limitations and privacy without relying on stale ratings.';
+const description=EDITORIAL_DESCRIPTIONS['/alternatives'];
 export const metadata:Metadata={title:{absolute:title+' | Freeborn'},description,alternates:{canonical:path},openGraph:ogCard(path,title,description)};
 const reviewed='2026-11-21';
 const unjected='https://www.unjected.com/';

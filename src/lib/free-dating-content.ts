@@ -1,10 +1,11 @@
+import { EDITORIAL_DESCRIPTIONS } from "@/lib/editorial-descriptions";
 /** Public copy, not a billing configuration or a claim of production/provider health.
  * Evidence and release limits: docs/growth/FREE-DATING-CLAIM-LEDGER.md.
  * Keep present-tense access distinct from the planned, unavailable membership UI.
  */
 export const FREE_DATING_PATH = '/free-dating';
 export const FREE_DATING_TITLE = 'Free dating with matching and messaging | Freeborn';
-export const FREE_DATING_DESCRIPTION = 'See what is included on Freeborn without a paid plan: profiles, discovery, likes, matching and chat. Understand mutual interest, privacy and messaging limits before joining.';
+export const FREE_DATING_DESCRIPTION = EDITORIAL_DESCRIPTIONS['/free-dating'];
 export const freeDatingFeatures = [
   {id:'profile',name:'Create your profile',access:'Included',detail:'Introduce yourself with photos, interests and relationship goals.',boundary:'For adults 18+. Account and onboarding requirements still apply.'},
   {id:'discovery',name:'Discover people',access:'Included',detail:'Explore profiles and choose what matters to you.',boundary:'Results depend on available profiles, your preferences and other members’ visibility choices. People nearby are not guaranteed.'},
