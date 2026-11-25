@@ -1331,3 +1331,18 @@
 .fb-prototype .welcome-directions a{color:#f3caa9;text-decoration:underline;text-underline-offset:3px}
 .fb-prototype .welcome-action{display:flex;justify-content:center;align-items:center;width:100%;min-height:48px;padding:14px 20px;margin-top:16px;font-size:14px;text-align:center}
 .fb-prototype .welcome-action:disabled{opacity:.5;cursor:not-allowed}
+/* Private story-rail controls: the separate options button is the accessible
+   alternative to a long press and remains reachable by keyboard. */
+.fb-prototype .story-rail-person{position:relative;flex:0 0 64px;min-width:0}
+.fb-prototype .story-rail-person .story-item{width:64px}
+.fb-prototype .story-person-options{display:block;margin:0 auto;min-width:44px;min-height:44px;color:#e9c37c;font-size:21px;line-height:1;border-radius:10px}
+.fb-prototype .story-person-options:focus-visible{outline:2px solid #f0d59a;outline-offset:2px}
+.fb-prototype .story-feed-notice{margin:2px 18px 10px;font-size:12px;color:#a7e1ba}
+.fb-prototype .story-actions{padding:25px 20px 35px}
+.fb-prototype .story-actions p{line-height:1.6}
+.fb-prototype .story-actions .btn-grad.wide{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border-radius:999px;font-weight:700}
+.fb-prototype .story-action-cancel{display:block;margin:14px auto;min-height:44px;padding:0 20px;color:#e9c37c}
+.fb-prototype .story-hidden-manager{margin-top:32px;padding-top:20px;border-top:1px solid #484052}
+.fb-prototype .story-hidden-manager h2{font-size:18px;color:#f4efe7}
+.fb-prototype .story-hidden-person{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid #40394c;padding:6px 0;min-height:52px;font-size:13px}
+.fb-prototype .story-hidden-person button{min-height:44px;padding:0 12px;color:#e9c37c;text-decoration:underline}

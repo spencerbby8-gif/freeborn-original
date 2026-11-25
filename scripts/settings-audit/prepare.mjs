@@ -10,8 +10,8 @@ try{
  create table if not exists auth.refresh_tokens(id bigint generated always as identity primary key,user_id text,revoked boolean);
  create table if not exists auth.identities(id uuid primary key default gen_random_uuid(),user_id uuid);`);
  // Replace generated feature mirrors with their actual additive migrations + triggers.
- await c.query('drop table support_replies,member_email_outbox,member_email_preferences,member_notices,story_quotes,story_views,member_stories,story_upload_receipts,story_preferences,conversation_preferences cascade');
+ await c.query('drop table hidden_story_authors,support_replies,member_email_outbox,member_email_preferences,member_notices,story_quotes,story_views,member_stories,story_upload_receipts,story_preferences,conversation_preferences cascade');
  await c.query('alter table call_sessions drop column ended_by,drop column end_reason');
- for(const name of ['20261102040000_fb14_durable_account_deletion.sql','20261102080000_fb14_auth_erasure_bridge.sql','20261121230000_member_stories_calls_chat.sql','20261122000000_member_notification_delivery.sql'])await c.query(await fs.readFile('supabase/migrations/'+name,'utf8'));
+ for(const name of ['20261102040000_fb14_durable_account_deletion.sql','20261102080000_fb14_auth_erasure_bridge.sql','20261121230000_member_stories_calls_chat.sql','20261122000000_member_notification_delivery.sql','20261122010000_hidden_story_authors.sql'])await c.query(await fs.readFile('supabase/migrations/'+name,'utf8'));
  console.log('PASS local fixture baseline + actual feature SQL; Auth/Storage remain local mirrors, NOT hosted proof.');
 }finally{await c.end();}
