@@ -40,11 +40,12 @@ Migration static manifest: **56 steps; 54 tables, 517 columns, 147 indexes, 95 c
 2. [Email lifecycle and counts](EMAIL-LIFECYCLE.md) — normal initial total: **1 email with Google OAuth; 2 with email/password plus Confirm email**, conditional on configuration and successful delivery. Eight member-facing application event families plus support forwarding; nine Auth template types.
 3. [Setup and real acceptance](SETUP-AND-ACCEPTANCE.md) — provider/domain/scheduler/webhook/Auth setup, exact disposable local reproduction, remaining release checks and rollback constraints.
 4. [Git handover](GIT-HANDOVER.md) — authentication blocker and transfer boundary.
-5. [Evidence index](LOCAL-EVIDENCE-INDEX.json) — scenario results and SHA-256 manifest for local artifacts. Full synthetic screenshots/results/logs live in `/home/user/freeborn-audit/{settings-audit,member-experience,core-readiness}/`; not a hosted walkthrough.
+5. [Saved-plan re-verification](PLAN-REVERIFICATION.md) — completed versus partly tested versus future work.
+6. [Evidence index](LOCAL-EVIDENCE-INDEX.json) — scenario results and SHA-256 manifest for local artifacts. Full synthetic screenshots/results/logs live in `/home/user/freeborn-audit/{settings-audit,member-experience,core-readiness}/`; not a hosted walkthrough.
 
 ## Still blocked / not claimed
 
-- GitHub push: no usable authentication; dry-run failed before transfer. No PR created or merge performed.
+- GitHub transfer/CI: consult the current GitHub branch and check results; local evidence cannot itself prove a successful push or remotely passing CI. No merge is authorized.
 - Existing isolated test URL/access and two controlled inboxes absent; no actual Google/email signup or confirmation walkthrough.
 - Resend sender, DKIM/alignment, API/signing credentials, Auth SMTP/templates and scheduler are not configured by this work. Actual support inbox receipt and real welcome/activity delivery are unproved.
 - Hosted full clean replay, hosted RLS/realtime, provider verification behavior and two-physical-device calls remain required.

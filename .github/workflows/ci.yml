@@ -2,7 +2,7 @@ name: CI — typecheck / lint / secret scan / build
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/member-stories-calls-chat]
   pull_request:
     branches: [main]
   workflow_dispatch:

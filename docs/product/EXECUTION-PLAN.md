@@ -4,7 +4,7 @@
 Preserve the entire preceding product proposal exactly. Prioritize getting Freeborn working and completed before any further search submissions. Move toward Common Ground → Real Plans after checking the existing systems and resolving core blockers.
 
 ## Canonical vision
-The verbatim proposal is saved separately as `freeborn-product-vision-exact.md`. Do not silently rewrite that original. Future revisions belong in separate documents.
+The verbatim proposal is saved verbatim as `docs/product/COMMON-GROUND-REAL-PLANS-EXACT.md`. Do not silently rewrite that original. Future revisions belong in separate documents.
 
 ## First gate: core product readiness
 Record PASS / FAIL / NOT TESTED with evidence for:
