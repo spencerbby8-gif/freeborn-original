@@ -21,6 +21,10 @@ export async function POST(request:Request){
   const {rows:[quota]}=await tx.execute<{n:number}>(sql`select count(*)::int n from public.support_requests where account_id=${member.id}::uuid and created_at>now()-interval '1 hour'`);
   if(quota.n>=10)return null;
   const {rows:[ticket]}=await tx.execute<{id:string}>(sql`insert into public.support_requests(account_id,message,email) values(${member.id}::uuid,${message.trim()},${typeof email==='string'&&email.trim()?email.trim():member.email}) returning id`);
+  // Never claim an email was queued if the database trigger/schema is missing or broken.
+  // Keep the ticket and its two outbox events in the same transaction; any failure rolls back.
+  const {rows:[queued]}=await tx.execute<{n:number}>(sql`select count(*)::int as n from public.member_email_outbox where source_id=${ticket.id}::uuid and kind in ('support_ticket','support_ack')`);
+  if(queued.n!==2)throw new Error('Support outbox events were not created');
   return ticket;
  });
  if(!result)return Response.json({error:'Too many requests. Please try again in an hour.'},{status:429,headers:{'Retry-After':'3600'}});
