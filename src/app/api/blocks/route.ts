@@ -1,9 +1,10 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -68,17 +69,31 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
   const { profileId, reason } = (body ?? {}) as { profileId?: string; reason?: string };
-  if (!profileId || profileId === member.id) {
+  if (!isUuid(profileId) || profileId === member.id) {
     return Response.json({ error: "A valid member is required." }, { status: 400 });
+  }
+
+  if (reason !== undefined && (typeof reason !== "string" || reason.length > 500)) {
+    return Response.json({ error: "Invalid block reason." }, { status: 400 });
   }
 
   // Serialize both directions of block/unblock for this pair. The block row and
   // the preserved match transition must commit together or not at all.
-  await db.transaction(async (tx) => {
+  const found = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);
+    // Hold the target profile through insertion to avoid an FK failure if an
+    // account is deleted at the same time as this request.
+    const [other] = await tx.select({id:userProfiles.id}).from(userProfiles).where(eq(userProfiles.id,profileId)).for('key share');
+    if (!other) return false;
     await tx.insert(blockedUsers)
       .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
       .onConflictDoNothing();
+    // A pending invitation is not an existing conversation. Retire it so an
+    // old request cannot silently reappear after either member unblocks.
+    await tx.update(messageRequests).set({status:"declined",respondedAt:new Date()}).where(and(
+      or(and(eq(messageRequests.fromId,member.id),eq(messageRequests.toId,profileId)),and(eq(messageRequests.fromId,profileId),eq(messageRequests.toId,member.id))),
+      eq(messageRequests.status,"pending")
+    ));
     // Preserve the original row, messages and media as safety evidence.
     await tx.update(matches)
       .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
@@ -87,8 +102,9 @@ export async function POST(request: Request) {
         or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
         eq(matches.status, "active")
       ));
+    return true;
   });
-
+  if (!found) return Response.json({ error: "Member not found." }, { status: 404 });
   return Response.json({ ok: true });
 }
 
@@ -108,7 +124,7 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
   const { profileId } = (body ?? {}) as { profileId?: string };
-  if (!profileId) return Response.json({ error: "A valid member is required." }, { status: 400 });
+  if (!isUuid(profileId) || profileId === member.id) return Response.json({ error: "A valid member is required." }, { status: 400 });
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);

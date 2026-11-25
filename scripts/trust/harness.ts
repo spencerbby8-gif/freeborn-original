@@ -1746,8 +1746,8 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     "the delete is what cascaded the conversation away");
   ok("[17] unmatch requires an explicit confirmation and validates the reason",
     /destructive !== true/.test(unmatchSrc) && /isUnmatchReason/.test(unmatchSrc));
-  ok("[17] unmatch is idempotent and race-safe (only an active row may be severed)",
-    /eq\(matches\.status, "active"\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc));
+  ok("[17] unmatch is idempotent and terminal for active, archived and blocked matches",
+    /inArray\(matches\.status, \["active", "archived", "blocked"\]\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc) && /pg_advisory_xact_lock/.test(unmatchSrc));
 
   const blockSrc = src("src/app/api/blocks/route.ts");
   ok("[17] blocking preserves the thread instead of cascading the evidence away",
@@ -1766,8 +1766,8 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     /needsConfirmation: true/.test(msgSrc) && /kept for the member who did not end it/.test(msgSrc));
 
   const reactSrc = src("src/app/api/chat/reactions/route.ts");
-  ok("[17] a reaction is a write, so it requires an open thread",
-    /eq\(matches\.status, "active"\)/.test(reactSrc));
+  ok("[17] a reaction requires an active or archived unblocked thread",
+    /inArray\(matches\.status,\["active","archived"\]\)/.test(reactSrc) && /from\(blockedUsers\)/.test(reactSrc) && /pg_advisory_xact_lock/.test(reactSrc));
 
   const likeSrc = src("src/app/api/likes/route.ts");
   ok("[17] a second mutual like cannot resurrect a severed pair",
@@ -1983,7 +1983,7 @@ console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, ever
   ok("[18] the signal is best-effort: its failure is caught and the send still succeeds",
     /try \{[\s\S]{0,400}chatSignals[\s\S]{0,200}catch \{/.test(msgRoute));
   ok("[18] POST returns the stored id so the echo retires by identity",
-    /returning\(\{ id: messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
+    /insert\(messages\)[\s\S]{0,250}returning\(\{\s*id:\s*messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
   ok("[18] unmatching also signals, so the other member's open thread updates now and not on a poll",
     /kind: "severed"/.test(src("src/app/api/chat/unmatch/route.ts")));
   const sig = readFileSync(new URL("../../db/migrations/2026-10-30-chat-signals.sql", import.meta.url), "utf8");

@@ -1,9 +1,11 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { isBlockedPair } from "@/lib/conversation-access";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +100,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
 
   let body: unknown;
   try {
@@ -106,116 +110,50 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
   const { to } = (body ?? {}) as { to?: string };
-  if (!to) return Response.json({ error: "'to' is required." }, { status: 400 });
+  if (!isUuid(to)) return Response.json({ error: "A valid member is required." }, { status: 400 });
   if (to === member.id) return Response.json({ error: "You can't message yourself." }, { status: 400 });
 
-  const [other] = await db
-    .select({ id: userProfiles.id, messagePrivacy: userProfiles.messagePrivacy, displayName: userProfiles.displayName })
-    .from(userProfiles)
-    .where(eq(userProfiles.id, to))
-    .limit(1);
-  if (!other) return Response.json({ error: "Profile not found." }, { status: 404 });
-
-  if (await isBlockedPair(member.id, to)) {
-    return Response.json({ error: "This conversation isn't available." }, { status: 403 });
-  }
-
-  /* A live conversation outranks a request: open the thread, don't queue paper. */
-  const [userA, userB] = [member.id, to].sort() as [string, string];
-  const [match] = await db
-    .select({ id: matches.id, status: matches.status })
-    .from(matches)
-    .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
-    .limit(1);
-  if (match && match.status === "active") {
-    return Response.json({ matchId: match.id }, { headers: { "Cache-Control": "private, no-store" } });
-  }
-  if (match) {
-    return Response.json(
-      {
-        error:
-          "This conversation has ended. Unmatching is permanent in Freeborn: neither of you can send again.",
-      },
-      { status: 409 },
-    );
-  }
-
-  /* Their privacy rule, enforced here exactly as /api/chat/start enforces it. */
-  const mp = other.messagePrivacy ?? "everyone";
-  if (mp !== "everyone") {
-    const [me] = await db
-      .select({
-        isVerified: userProfiles.isVerified,
-        vaccinationStatus: userProfiles.vaccinationStatus,
-      })
-      .from(userProfiles)
-      .where(eq(userProfiles.id, member.id))
-      .limit(1);
-    const allowed =
-      mp === "verified" ? me?.isVerified === true : me?.vaccinationStatus === "unvaccinated";
-    if (!allowed) {
-      const name = other.displayName ?? "This member";
-      return Response.json(
-        {
-          error:
-            mp === "verified"
-              ? `${name} only accepts messages from verified members.`
-              : `${name} only accepts messages from unvaccinated members.`,
-          restricted: true,
-        },
-        { status: 403 },
-      );
+  const [userA,userB]=[member.id,to].sort();
+  const outcome=await db.transaction(async tx=>{
+    // Order request creation, matching, blocking and acceptance on the pair.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${to}::text) || ':' || greatest(${member.id}::text, ${to}::text), 0))`);
+    const [block]=await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,to)),
+      and(eq(blockedUsers.blockerId,to),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if(block)return {error:'blocked' as const};
+    const [other]=await tx.select({id:userProfiles.id,privacy:userProfiles.messagePrivacy,name:userProfiles.displayName}).from(userProfiles).where(eq(userProfiles.id,to)).for('share');
+    if(!other)return {error:'missing' as const};
+    const [match]=await tx.select({id:matches.id,status:matches.status}).from(matches).where(and(eq(matches.userA,userA),eq(matches.userB,userB))).limit(1);
+    if(match && (match.status==='active'||match.status==='archived'))return {matchId:match.id};
+    if(match)return {error:'ended' as const};
+    const mp=other.privacy??'everyone';
+    if(mp!=='everyone'){
+      const [me]=await tx.select({verified:userProfiles.isVerified,vaccination:userProfiles.vaccinationStatus}).from(userProfiles).where(eq(userProfiles.id,member.id)).for('share');
+      if(!(mp==='verified'?me?.verified===true:me?.vaccination==='unvaccinated'))return {error:'restricted' as const,privacy:mp,name:other.name??'This member'};
     }
-  }
-
-  const [mine] = await db
-    .select()
-    .from(messageRequests)
-    .where(and(eq(messageRequests.fromId, member.id), eq(messageRequests.toId, to)))
-    .limit(1);
-  if (mine?.status === "pending") {
-    return Response.json(
-      { requestId: mine.id, status: "pending" },
-      { headers: { "Cache-Control": "private, no-store" } },
-    );
-  }
-  const [theirs] = await db
-    .select()
-    .from(messageRequests)
-    .where(and(eq(messageRequests.fromId, to), eq(messageRequests.toId, member.id)))
-    .limit(1);
-  if (theirs?.status === "pending") {
-    return Response.json(
-      { incomingId: theirs.id },
-      { headers: { "Cache-Control": "private, no-store" } },
-    );
-  }
-
-  if (rateLimited(member.id, 25, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many message requests. Please wait a while." }, { status: 429 });
-  }
-
-  if (mine) {
-    /* A declined request may be renewed once the dust settles: same pair row,
-       back to pending. Only the server writes this path, and RLS keeps the
-       sender out of 'accepted' either way. */
-    const [renewed] = await db
-      .update(messageRequests)
-      .set({ status: "pending", createdAt: new Date(), respondedAt: null })
-      .where(eq(messageRequests.id, mine.id))
-      .returning();
-    return Response.json(
-      { requestId: renewed.id, status: "pending" },
-      { headers: { "Cache-Control": "private, no-store" } },
-    );
-  }
-
-  const [created] = await db
-    .insert(messageRequests)
-    .values({ fromId: member.id, toId: to, status: "pending" })
-    .returning();
-  return Response.json(
-    { requestId: created.id, status: "pending" },
-    { status: 201, headers: { "Cache-Control": "private, no-store" } },
-  );
+    const [mine]=await tx.select().from(messageRequests).where(and(eq(messageRequests.fromId,member.id),eq(messageRequests.toId,to))).for('update');
+    if(mine?.status==='pending')return {requestId:mine.id,status:'pending' as const};
+    const [theirs]=await tx.select().from(messageRequests).where(and(eq(messageRequests.fromId,to),eq(messageRequests.toId,member.id))).for('update');
+    if(theirs?.status==='pending')return {incomingId:theirs.id};
+    if(rateLimited(member.id,25,60*60*1000))return {error:'rate' as const};
+    if(mine){
+      if(mine.status!=='declined')return {error:'ended' as const};
+      const [renewed]=await tx.update(messageRequests).set({status:'pending',createdAt:new Date(),respondedAt:null}).where(and(eq(messageRequests.id,mine.id),eq(messageRequests.status,'declined'))).returning({id:messageRequests.id});
+      if(!renewed)return {error:'ended' as const};
+      return {requestId:renewed.id,status:'pending' as const};
+    }
+    const [created]=await tx.insert(messageRequests).values({fromId:member.id,toId:to,status:'pending'})
+      .onConflictDoNothing({target:[messageRequests.fromId,messageRequests.toId]}).returning({id:messageRequests.id});
+    if(!created)return {error:'changed' as const};
+    return {requestId:created.id,status:'pending' as const,created:true as const};
+  });
+  const headers={'Cache-Control':'private, no-store'};
+  if(outcome.error==='blocked')return Response.json({error:"This conversation isn't available."},{status:403,headers});
+  if(outcome.error==='missing')return Response.json({error:'Profile not found.'},{status:404,headers});
+  if(outcome.error==='ended')return Response.json({error:'This conversation has ended. Unmatching is permanent in Freeborn: neither of you can send again.'},{status:409,headers});
+  if(outcome.error==='changed')return Response.json({error:'The request changed. Please try again.'},{status:409,headers});
+  if(outcome.error==='rate')return Response.json({error:'Too many message requests. Please wait a while.'},{status:429,headers});
+  if(outcome.error==='restricted')return Response.json({error:outcome.privacy==='verified'?`${outcome.name} only accepts messages from verified members.`:`${outcome.name} only accepts messages from unvaccinated members.`,restricted:true},{status:403,headers});
+  return Response.json(outcome,{status:'created' in outcome?201:200,headers});
 }

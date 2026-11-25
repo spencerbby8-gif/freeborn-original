@@ -80,7 +80,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if(!current || current.status!=='pending')return {error:'answered' as const};
       const [existing] = await tx.select({ id: matches.id, status: matches.status }).from(matches)
         .where(and(eq(matches.userA, userA), eq(matches.userB, userB))).limit(1);
-      if (existing && existing.status !== "active") return { error: "severed" as const };
+      if (existing && existing.status !== "active" && existing.status !== "archived") return { error: "severed" as const };
       let matchId = existing?.id;
       if (!matchId) {
         const [created] = await tx.insert(matches).values({ userA, userB, initiatedBy: row.fromId, lastMessageAt: new Date() })
@@ -88,7 +88,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         if(created)matchId=created.id;
         else {
           const [winner]=await tx.select({id:matches.id,status:matches.status}).from(matches).where(and(eq(matches.userA,userA),eq(matches.userB,userB))).limit(1);
-          if(!winner||winner.status!=='active')return {error:'severed' as const};
+          if(!winner||(winner.status!=='active'&&winner.status!=='archived'))return {error:'severed' as const};
           matchId=winner.id;
         }
       }

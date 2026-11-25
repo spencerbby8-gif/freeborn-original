@@ -8,6 +8,7 @@ import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isBlockedPair } from "@/lib/conversation-access";
 import { scheduleChatNotice } from "@/lib/chat-notify";
+import { isUuid } from "@/lib/uuid";
 
 async function ownsMatch(
   matchId: string,
@@ -356,7 +357,7 @@ export async function DELETE(request: Request) {
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");
-  if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
+  if (!isUuid(matchId)) return Response.json({ error: "A valid match is required." }, { status: 400 });
 
   const target = await ownsMatch(matchId, member.id, "send_message");
   if (!target) return Response.json({ error: "Match not found." }, { status: 404 });
@@ -382,7 +383,25 @@ export async function DELETE(request: Request) {
       { status: 409 }
     );
 
-  const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
+  // Deleting history is irreversible for both participants. Coordinate with
+  // block, unmatch and send so a stale pre-check cannot erase retained evidence.
+  const otherId = target.userA === member.id ? target.userB : target.userA;
+  const outcome = await db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [live] = await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if (!live || (live.userA !== member.id && live.userB !== member.id)) return { missing: true as const };
+    const access = decideMatchAccess({status:live.status as MatchLifecycleStatus,isParticipant:true,isActor:live.unmatchedBy===member.id,hasMessages:false,action:'send_message'});
+    if (!access.allow) return { denied: true as const };
+    const [blocked] = await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+      and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if (blocked) return { denied: true as const };
+    const removed = await tx.delete(messages).where(eq(messages.matchId,matchId)).returning({id:messages.id});
+    return { deleted: removed.length };
+  });
+  if ('missing' in outcome) return Response.json({error:'Match not found.'},{status:404});
+  if ('denied' in outcome) return Response.json({error:"This conversation isn't available; its history is retained."},{status:409});
   // The other member's open thread has to learn this happened. Same optional-signal contract
   // as the send path: if the insert fails, their poll still refetches and finds an empty
   // conversation — the signal buys immediacy, never correctness. `cleared` is in the table's
@@ -393,5 +412,5 @@ export async function DELETE(request: Request) {
     console.warn("[chat] cleared signal skipped:", (err as Error).message);
   }
   scheduleChatNotice(request, matchId, "cleared");
-  return Response.json({ ok: true, deleted: removed.length });
+  return Response.json({ ok: true, deleted: outcome.deleted });
 }
