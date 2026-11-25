@@ -1,3 +1,4 @@
+import { EDITORIAL_DESCRIPTIONS } from "@/lib/editorial-descriptions";
 import type { Metadata } from "next";
 import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/components/legal-shell";
 import { CONTACT_EMAIL, LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, OPERATOR_FORM, OPERATOR_FORM_ARTICLE, OPERATOR_NAME, SITE_NAME, ogCard } from "@/lib/site";
@@ -7,13 +8,13 @@ import { PageStructuredData } from "@/components/seo/page-structured-data";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "What Freeborn collects, why it collects it, who it shares it with, how long it keeps it, and how to get it deleted. Written to describe the system that actually ships.",
+    EDITORIAL_DESCRIPTIONS['/privacy'],
   alternates: { canonical: "/privacy" },
   /* Without a per-page og:url every shared /privacy link would carry the layout's
      og:url (the homepage) — the same attribution bug the canonical fix removed,
      one tag over. og:title/og:description are set explicitly too, so the card
      matches the page a person actually lands on. */
-  openGraph: ogCard("/privacy", "Privacy Policy · Freeborn", "What Freeborn collects, why it collects it, who it shares it with, how long it keeps it, and how to get it deleted. Written to describe the system that actually ships."),
+  openGraph: ogCard("/privacy", "Privacy Policy · Freeborn", EDITORIAL_DESCRIPTIONS['/privacy']),
 };
 
 /**
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
 export function PrivacyDocument({member=false}:{member?:boolean}={}) {
   return (
     <>
-      {!member&&<PageStructuredData path="/privacy" name="Privacy Policy" description="What Freeborn collects, why it collects it, who it shares it with, how long it keeps it, and how to get it deleted. Written to describe the system that actually ships." />}
+      {!member&&<PageStructuredData path="/privacy" name="Privacy Policy" description={EDITORIAL_DESCRIPTIONS['/privacy']} />}
       <LegalShell member={member}
       eyebrow="Privacy Policy"
       title={

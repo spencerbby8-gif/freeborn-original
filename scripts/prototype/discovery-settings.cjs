@@ -37,7 +37,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
   });
   await ctx.route('https://fixture.supabase.co/**',async r=>{
    const req=r.request(),p=new URL(req.url()).pathname;if(p.endsWith('/broadcast'))return r.fulfill({status:202,json:{}});let data=user,status=200;
-   if(req.method()==='POST'){const body=req.postDataJSON();authWrites.push({p,body});if(p.endsWith('/signup'))data={user,session:null};else if(p.endsWith('/verify')){if(verifyInvalid){status=403;data={msg:'Token has expired or is invalid',error_code:'otp_expired'};}else data={...session(),user};}else data={};}
+   if(req.method()==='POST'){const body=req.postDataJSON();authWrites.push({p,body});if(p.endsWith('/signup'))data={user:{...user,identities:[{id:'fixture-email-identity',provider:'email',user_id:user.id}]},session:null};else if(p.endsWith('/verify')){if(verifyInvalid){status=403;data={msg:'Token has expired or is invalid',error_code:'otp_expired'};}else data={...session(),user};}else data={};}
    await r.fulfill({status,json:data,headers:{'access-control-allow-origin':'*'}});
   });
   await ctx.route(base+'/api/**',async r=>{

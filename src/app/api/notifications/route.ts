@@ -1,3 +1,4 @@
+import { withMemberApiErrors } from "@/lib/member-api-errors";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -17,7 +18,7 @@ import { resolvePhotoUrl } from "@/lib/photo-url";
  * Alerts for the signed-in member: matches, unread messages (deep-linking
  * straight into the right conversation), and verification status updates.
  */
-export async function GET(request: Request) {
+async function readNotifications(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
@@ -203,7 +204,7 @@ export async function GET(request: Request) {
 }
 
 
-export async function POST(request: Request) {
+async function clearNotifications(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
   let body: unknown;
@@ -216,3 +217,7 @@ export async function POST(request: Request) {
     .onConflictDoUpdate({ target: notificationPreferences.userId, set: { dismissedBefore: now, updatedAt: now } });
   return Response.json({ ok: true });
 }
+
+export const GET = withMemberApiErrors(readNotifications, "notifications-read");
+
+export const POST = withMemberApiErrors(clearNotifications, "notifications-clear");

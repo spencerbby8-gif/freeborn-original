@@ -1,3 +1,4 @@
+import { EDITORIAL_DESCRIPTIONS } from "@/lib/editorial-descriptions";
 import type { Metadata } from "next";
 import { Callout, Clause, ClauseList, LegalShell, LegalTable } from "@/components/legal-shell";
 import { CONTACT_EMAIL, LEGAL_EFFECTIVE_DATE, LEGAL_VERSION, SITE_NAME, ogCard } from "@/lib/site";
@@ -7,13 +8,13 @@ import { PageStructuredData } from "@/components/seo/page-structured-data";
 export const metadata: Metadata = {
   title: "Cookie Policy",
   description:
-    "Every cookie, every localStorage key and every sessionStorage key Freeborn uses, what each one does, how long it lasts, and how to remove it. No advertising cookies exist.",
+    EDITORIAL_DESCRIPTIONS['/cookies'],
   alternates: { canonical: "/cookies" },
   /* Without a per-page og:url every shared /cookies link would carry the layout's
      og:url (the homepage) — the same attribution bug the canonical fix removed,
      one tag over. og:title/og:description are set explicitly too, so the card
      matches the page a person actually lands on. */
-  openGraph: ogCard("/cookies", "Cookie Policy · Freeborn", "Every cookie, every localStorage key and every sessionStorage key Freeborn uses, what each one does, how long it lasts, and how to remove it. No advertising cookies exist."),
+  openGraph: ogCard("/cookies", "Cookie Policy · Freeborn", EDITORIAL_DESCRIPTIONS['/cookies']),
 };
 
 /**
@@ -44,7 +45,7 @@ export const metadata: Metadata = {
 export function CookiesDocument({member=false}:{member?:boolean}={}) {
   return (
     <>
-      {!member&&<PageStructuredData path="/cookies" name="Cookie Policy" description="Every cookie, every localStorage key and every sessionStorage key Freeborn uses, what each one does, how long it lasts, and how to remove it. No advertising cookies exist." />}
+      {!member&&<PageStructuredData path="/cookies" name="Cookie Policy" description={EDITORIAL_DESCRIPTIONS['/cookies']} />}
       <LegalShell member={member}
       eyebrow="Cookie Policy"
       title={

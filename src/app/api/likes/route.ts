@@ -1,3 +1,4 @@
+import { withMemberApiErrors } from "@/lib/member-api-errors";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ageFromBirthDate } from "@/lib/age";
@@ -42,7 +43,7 @@ async function profileCard(id: string) {
  *  - likedYou: profiles that liked THIS member (the #1 demanded feature the
  *              competitors never built), each flagged with match state.
  */
-export async function GET(request: Request) {
+async function readLikes(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
   const crossOrigin = rejectCrossOrigin(request);
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
  * Also accepts { action: "reset-passes" } to bring passed profiles back
  * on purpose — recycling is never silent.
  */
-export async function POST(request: Request) {
+async function recordChoice(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Sign in to record likes." }, { status: 401 });
 
@@ -272,3 +273,7 @@ export async function POST(request: Request) {
 
   return Response.json({ ok: true, likes: count, matched });
 }
+
+export const GET = withMemberApiErrors(readLikes, "likes-read");
+
+export const POST = withMemberApiErrors(recordChoice, "discovery-choice");

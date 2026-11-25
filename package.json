@@ -38,8 +38,10 @@
     "test:landing-a11y": "node scripts/prototype/landing-a11y.cjs",
     "test:discovery-presentation": "node scripts/prototype/discovery-presentation-contracts.mjs",
     "test:notification-receipts": "node scripts/prototype/notification-receipts-contracts.mjs",
+    "test:bing-metadata": "node scripts/seo/bing-metadata-contracts.mjs && python3 -m unittest discover -s scripts/seo -p test_bing_metadata.py",
     "check:crawl-health": "node scripts/seo/crawl-health.mjs",
     "test:discovery-settings": "node scripts/prototype/discovery-settings.cjs",
+    "test:member-runtime": "node scripts/prototype/member-runtime-regressions.mjs",
     "test:member-auth": "node scripts/prototype/member-auth-regressions.mjs",
     "test:auth-onboarding": "node scripts/prototype/auth-onboarding.cjs",
     "test:evidence-safety": "node scripts/seo/public-evidence-contracts.mjs"
