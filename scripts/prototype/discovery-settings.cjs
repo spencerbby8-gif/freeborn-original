@@ -27,7 +27,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
   await ctx.addInitScript(s=>{localStorage.setItem('sb-fixture-auth-token',JSON.stringify(s));sessionStorage.setItem('fb-security-checked',String(Date.now()));},session());
   const profileQueries=[];let notificationItems=[];let chatDelay=0;let incomingCall=null;let settingsState={account:{email:'fixture@example.test'},profile:{displayName:'Taylor',city:'Abuja',interests:[],relationshipGoals:['long_term'],discoverable:true,messagePrivacy:'everyone',discoverPrivacy:'everyone'},discovery:{relationshipIntents:[],ageMin:18,ageMax:99,distanceKm:500,showGenders:[],verifiedOnly:false,photosRequired:true,vaccinationPreference:'any'},privacy:{hideDistance:false,hideActiveStatus:false,readReceipts:true},notifications:{matchAlerts:true,messageAlerts:true,likeAlerts:true,profileActivity:true}};
   let delaySetup=false,step='welcome',stepDraft=structuredClone(draft),completed=false,rejectChoice=false,failUpload=false,uploadCount=0,choiceCount=0,verifyInvalid=true,onboardingFail=false;
-  let messages=[],writes=[],authWrites=[],sockets=[],sentSignals=[],mediaStore=new Map();
+  let messages=[],writes=[],authWrites=[],sockets=[],sentSignals=[],mediaStore=new Map(),outgoingCall=null;let emailPrefs={matches:false,messages:false,likes:false};
   await ctx.routeWebSocket('wss://fixture.supabase.co/**',ws=>{
    let topic='',joinRef=null;sockets.push({ws,get topic(){return topic},get joinRef(){return joinRef}});
    ws.onMessage(raw=>{if(typeof raw!=='string'){const b=Buffer.from(raw);if(b[0]===3){const jr=b.subarray(7,7+b[1]).toString(),ref=b.subarray(7+b[1],7+b[1]+b[2]).toString();const offset=7+b[1]+b[2]+b[3]+b[4]+b[5];const data=JSON.parse(b.subarray(offset).toString());sentSignals.push(data);ws.send(JSON.stringify([jr,ref,topic,'phx_reply',{status:'ok',response:{}}]));}return;}const m=JSON.parse(raw);if(!Array.isArray(m))return;const [jr,ref,t,event,payload]=m;
@@ -36,7 +36,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
    });
   });
   await ctx.route('https://fixture.supabase.co/**',async r=>{
-   const req=r.request(),p=new URL(req.url()).pathname;if(p.endsWith('/broadcast'))return r.fulfill({status:202,json:{}});let data=user,status=200;
+   const req=r.request(),p=new URL(req.url()).pathname;if(p.includes('/api/broadcast/')||p.endsWith('/broadcast'))return r.fulfill({status:202,json:{}});let data=user,status=200;
    if(req.method()==='POST'){const body=req.postDataJSON();authWrites.push({p,body});if(p.endsWith('/signup'))data={user:{...user,identities:[{id:'fixture-email-identity',provider:'email',user_id:user.id}]},session:null};else if(p.endsWith('/verify')){if(verifyInvalid){status=403;data={msg:'Token has expired or is invalid',error_code:'otp_expired'};}else data={...session(),user};}else data={};}
    await r.fulfill({status,json:data,headers:{'access-control-allow-origin':'*'}});
   });
@@ -45,7 +45,8 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
    if(req.method()==='POST'){
     let body={};try{body=req.postDataJSON()}catch{}writes.push({p,body,auth:!!req.headers().authorization,raw:req.postDataBuffer()?.toString('latin1')});
     if(p==='/api/settings'){for(const key of Object.keys(body))Object.assign(settingsState[key]??={},body[key]);}
-    if(p==='/api/calls/session')data={id:mediaId,matchId:match,kind:body.kind,status:'ringing',peer:{id:peer,name:'Maya',photo:'/images/prototype/welcome.jpg'},self:{id,name:'Taylor',photo:''}};
+    if(p==='/api/calls/session')data=outgoingCall={id:mediaId,matchId:match,kind:body.kind,status:'ringing',peer:{id:peer,name:'Maya',photo:'/images/prototype/welcome.jpg'},self:{id,name:'Taylor',photo:''}};
+    if(p==='/api/email/preferences')emailPrefs=body;
     if(p==='/api/onboarding'){if(onboardingFail){status=503;data={error:'Fixture save unavailable'};}else Object.assign(stepDraft,body.patch);}
     if(p==='/api/onboarding/complete'){completed=true;data={ok:true};}
     if(p==='/api/likes'){choiceCount++;await new Promise(r=>setTimeout(r,500));if(rejectChoice){status=403;data={error:'Fixture like refused'};}}
@@ -53,11 +54,13 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
     if(p==='/api/chat/messages'){const row={id:`msg-${messages.length}`,mine:true,body:body.text,at:new Date().toISOString(),reactions:[]};messages.push(row);data={message:{id:row.id,at:row.at}};}
    }else if(p==='/api/onboarding/state'){if(delaySetup)await new Promise(r=>setTimeout(r,1500));data={completed,initialStep:step,draft:stepDraft};}
    else if(p==='/api/settings')data=settingsState;
+   else if(p==='/api/email/preferences')data={preferences:emailPrefs,sendingConfigured:false};
    else if(p==='/api/profiles')data={profiles:[{...deck,id:peer,name:'Maya',gender:'woman',photo:'/__fixture/woman.jpg',photos:['/__fixture/woman.jpg'],vaccinationStatus:'unvaccinated',relationshipGoals:['long_term'],lifestyle:['Natural living'],interests:['Hiking']},{...deck,id:mediaId,name:'Daniel',gender:'man',photo:'/images/samples/caleb.jpg',photos:['/images/samples/caleb.jpg'],vaccinationStatus:'unvaccinated',relationshipGoals:['friendship'],lifestyle:['Active lifestyle'],interests:['Reading']},{...deck,id:'unverified',name:'Unverified',verified:false,vaccinationStatus:'unvaccinated'}]};
+   else if(p==='/api/support')data={tickets:[]};
    else if(p==='/api/account')data={email:'fixture@example.test',createdAt:new Date().toISOString(),activeSignIns:1};
    else if(p==='/api/blocks')data={blocked:[]};
    else if(p==='/api/calls/session')data={incoming:incomingCall};
-   else if(p==='/api/calls/session/'+mediaId)data=incomingCall??{id:mediaId,status:'ended'};
+   else if(p==='/api/calls/session/'+mediaId)data=incomingCall??outgoingCall??{id:mediaId,status:'ended'};
    else if(p==='/api/calls/ice')data={iceServers:[],relayConfigured:false};
    else if(p==='/api/profile/me')data={profile:{id,displayName:'Taylor',photos:[],interests:[],relationshipGoals:[],isVerified:true}};
    else if(p==='/api/verification')data={verified:true,status:'approved'};

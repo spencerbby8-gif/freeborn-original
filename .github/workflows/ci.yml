@@ -193,7 +193,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://fixture.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-anon
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-publishable-key
       - name: Navigate Stories and Settings against real local handlers/SQL
         run: node scripts/settings-audit/run-browser.mjs
       - uses: actions/upload-artifact@v4

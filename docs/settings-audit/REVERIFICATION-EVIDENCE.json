@@ -1,0 +1,120 @@
+{
+  "scope": "Local fixture accounts, local PostgreSQL, mocked external Auth and providers; not hosted acceptance.",
+  "browserScenarioCounts": {
+    "member": 13,
+    "settings": 26,
+    "authOnboarding": 18,
+    "discoverySettings": 26
+  },
+  "localIntegrationCounts": {
+    "member": 28,
+    "communications": 45,
+    "discoverySql": 31,
+    "memberAdditiveMigration": 7,
+    "communicationsAdditiveMigration": 7
+  },
+  "pose": "6 modes passed with local gateway and DB fixtures",
+  "evidenceRoot": "/home/user/freeborn-audit/reverification",
+  "artifacts": [
+    {
+      "file": "extended-orchestration.log",
+      "sha256": "2459e750fdc88f9a20eb9df86544cfbd54b732d76efb0eff38c4329f1196bcf6",
+      "bytes": 8619
+    },
+    {
+      "file": "fix2-typecheck.log",
+      "sha256": "8fa1cf5506304e8abac55868e7f1a136c9b1dde57a3981a382da4c21ea129a6f",
+      "bytes": 29
+    },
+    {
+      "file": "fix2-lint.log",
+      "sha256": "6ba41d3386946f3480608c0bcb80bb893d785c187db4178012a840ea9081d89b",
+      "bytes": 20
+    },
+    {
+      "file": "fix2-build.log",
+      "sha256": "a6a8b32768538717a1d9e2f70280cd9618d026d75f47438882113c8b2c0cd07e",
+      "bytes": 3990
+    },
+    {
+      "file": "test-member-experience.log",
+      "sha256": "0ad799dbc693498e6ef0ae250043a3f2f34108985247c62153c5e887258eada0",
+      "bytes": 2090
+    },
+    {
+      "file": "test-settings-audit.log",
+      "sha256": "8c921ff0a1eab1ca2e4efc94b5fbaa5e46f0d3f9fb3b4e17e26f31fd13bab784",
+      "bytes": 3264
+    },
+    {
+      "file": "test-experience-db-retry.log",
+      "sha256": "f38a0ac4611f60fbdbbe6fa12716d4a0a2e5aa22d0e224d8503ef93400e1c0b2",
+      "bytes": 2047
+    },
+    {
+      "file": "test-member-migration.log",
+      "sha256": "69a1a53fe1a5ec1859650ed709fe37cb4bc29201a771187210ad4fccaf3e1984",
+      "bytes": 548
+    },
+    {
+      "file": "test-notification-migration.log",
+      "sha256": "97f683267955ce58d15037f257e237491f8a342f60df80779e0661e148a626f5",
+      "bytes": 614
+    },
+    {
+      "file": "test-pose.log",
+      "sha256": "3595ea5bcd93f55ad841612d11d3a98b34a7e7383b5fe19b2ee309c59c7888a6",
+      "bytes": 6246
+    },
+    {
+      "file": "test-retention-worker-retry.log",
+      "sha256": "b37e99754c3bf9de3f8185d9acbb9d7f3e491058475535e00dc54c3180d3dffe",
+      "bytes": 5145
+    },
+    {
+      "file": "test-deletion-local.log",
+      "sha256": "afa7900a30394be0f1973c49c65f7340f9659ac2e29251fe5e214a803a209a79",
+      "bytes": 1581
+    },
+    {
+      "file": "test-retention-local.log",
+      "sha256": "a62d8dcde02d97e8abc8314668f78d2a5d52eda8683c5614a47a44774c408972",
+      "bytes": 8201
+    },
+    {
+      "file": "test-member-runtime.log",
+      "sha256": "7cde83d28125484eb32202197608079088f8ec643555921fcbca332ffc1aa8aa",
+      "bytes": 1438
+    },
+    {
+      "file": "test-member-auth.log",
+      "sha256": "dee249e1a0a5e7eb7d60d6b779e5dc842a7bc6668f880093717f677eca53f2ef",
+      "bytes": 721
+    },
+    {
+      "file": "test-profile-trigger.log",
+      "sha256": "808cc403e68f69db94be7d3744631c0c3a1c15cfbef8a691fa844838f5db9d59",
+      "bytes": 733
+    },
+    {
+      "file": "final-trust.log",
+      "sha256": "40a4cd59ccc40f7e039e8a3768d42669bfa89211cb4367d8aae0be6a7b11f875",
+      "bytes": 52957
+    },
+    {
+      "file": "final-api.log",
+      "sha256": "ae9d345618e69da614885ddc2536e72ec67cac8b45105c4b14d0de19e533b5cc",
+      "bytes": 2047
+    },
+    {
+      "file": "final-migrations.log",
+      "sha256": "6c34947c9d1c8fcaa4f2420a70c871a47239fbc4f3e455a948fe53f2c47cd3fd",
+      "bytes": 445
+    },
+    {
+      "file": "final-env.log",
+      "sha256": "3967b02d7b1f8764efb7ae4c77b1f3c4b76f45f55f9ba4c63c84f6b0ba8eb104",
+      "bytes": 235
+    }
+  ]
+}

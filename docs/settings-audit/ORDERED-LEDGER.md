@@ -18,7 +18,9 @@ All entries below were navigated in a local production build, with production ro
 | 8 | About → Terms of Service / Privacy Policy / Cookie Policy; Back on each | In-app legal routes; Cookie Policy link corrected. Privacy adds retained story quotes, email provider/support processing and optional-email explanation. | Browser legal routes and Back; 320/1440 layout checks. |
 | 9 | Log out | Supabase `auth.signOut`, redirects only after success; failure remains an error. | Browser with fixture Auth response; real hosted token/session revocation unverified. |
 
-## Ordered browser outcomes (24 scenarios)
+## Original ordered browser outcomes (24 scenarios)
+
+A later re-verification added two malformed-response recovery scenarios (26 total); see `PLAN-REVERIFICATION.md` and `REVERIFICATION-EVIDENCE.json`.
 
 The root was traversed in order; destructive delete and logout were deferred so they could not invalidate the remaining audit. Tests separately enter safety/verification so a preceding step cannot hide a failure.
 

@@ -15,9 +15,9 @@
 
 | Check | Result |
 |---|---:|
-| Settings browser scenarios | 24 PASS |
+| Settings browser scenarios | 26 PASS (including malformed-response recovery) |
 | Member Stories/calls/chat browser scenarios | 13 PASS |
-| Combined CI browser orchestration | 37 PASS |
+| Extended browser coverage | 13 member + 26 Settings + 18 auth/onboarding + 26 Discovery/settings checks |
 | Communications production-handler / local SQL integration | 45 PASS |
 | Member-feature production-handler / local SQL integration | 28 PASS |
 | Discovery real-handler / local SQL regressions | 31 PASS |
@@ -41,7 +41,7 @@ Migration static manifest: **56 steps; 54 tables, 517 columns, 147 indexes, 95 c
 3. [Setup and real acceptance](SETUP-AND-ACCEPTANCE.md) — provider/domain/scheduler/webhook/Auth setup, exact disposable local reproduction, remaining release checks and rollback constraints.
 4. [Git handover](GIT-HANDOVER.md) — authentication blocker and transfer boundary.
 5. [Saved-plan re-verification](PLAN-REVERIFICATION.md) — completed versus partly tested versus future work.
-6. [Evidence index](LOCAL-EVIDENCE-INDEX.json) — scenario results and SHA-256 manifest for local artifacts. Full synthetic screenshots/results/logs live in `/home/user/freeborn-audit/{settings-audit,member-experience,core-readiness}/`; not a hosted walkthrough.
+6. [Original evidence index](LOCAL-EVIDENCE-INDEX.json) — scenario results and SHA-256 manifest for local artifacts. The [fresh re-verification manifest](REVERIFICATION-EVIDENCE.json) covers the expanded suites. Full synthetic screenshots/results/logs live in `/home/user/freeborn-audit/{settings-audit,member-experience,core-readiness}/`; not a hosted walkthrough.
 
 ## Still blocked / not claimed
 

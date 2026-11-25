@@ -4,5 +4,11 @@ const server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','
 try{
  let ready=false;for(let n=0;n<100;n++){if(server.exitCode!==null)throw Error('Fixture server exited');try{await fetch('http://127.0.0.1:3000/auth');ready=true;break;}catch{await delay(200);}}
  if(!ready)throw Error('Fixture server did not become ready');
- for(const script of ['scripts/member-experience/browser.mjs','scripts/settings-audit/browser.mjs'])await new Promise((resolve,reject)=>{const child=spawn(process.execPath,[script],{env:process.env,stdio:'inherit'});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Browser acceptance failed: '+script)));});
+ const suites=[
+  ['scripts/member-experience/browser.mjs',{}],
+  ['scripts/settings-audit/browser.mjs',{}],
+  ['scripts/prototype/auth-onboarding.cjs',{FREEBORN_UI_BASE_URL:'http://127.0.0.1:3000',FREEBORN_UI_OUTPUT:'scripts/settings-audit/.evidence/auth-onboarding'}],
+  ['scripts/prototype/discovery-settings.cjs',{FREEBORN_UI_BASE_URL:'http://127.0.0.1:3000',FREEBORN_UI_OUTPUT:'scripts/settings-audit/.evidence/discovery-settings'}],
+ ];
+ for(const [script,extra] of suites)await new Promise((resolve,reject)=>{const child=spawn(process.execPath,[script],{env:{...process.env,...extra},stdio:'inherit'});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Browser acceptance failed: '+script)));});
 }finally{server.kill('SIGTERM');}
