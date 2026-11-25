@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatSignals, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
+import { chatSignals, storyQuotes, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
@@ -113,6 +113,8 @@ export async function GET(request: Request) {
     }
   }
 
+  const quotes=ids.length?await db.select({messageId:storyQuotes.messageId,authorId:storyQuotes.authorId,caption:storyQuotes.caption}).from(storyQuotes).where(inArray(storyQuotes.messageId,ids)):[];
+  const quoteMap=new Map(quotes.map(q=>[q.messageId,{authorIsMe:q.authorId===member.id,caption:q.caption,imageUrl:`/api/stories/quotes/${q.messageId}/image`}]));
   return Response.json({
     /* `thread` exists because visibility and sendability are DIFFERENT questions, and the client
        cannot derive the second one: `view_conversation` was just granted (so the thread renders)
@@ -137,6 +139,7 @@ export async function GET(request: Request) {
     })(),
     messages: rows.map((m) => ({
       id: m.id,
+      storyReply: quoteMap.get(m.id)??null,
       body: m.body,
       mine: m.senderId === member.id,
       at: m.createdAt,

@@ -41,6 +41,8 @@ export async function callSessionView(row: CallSessionRow, memberId: string) {
     callerId: row.callerId,
     calleeId: row.calleeId,
     expiresAt: row.expiresAt.toISOString(),
+    endedBy: row.endedBy,
+    endReason: row.endReason,
     peer,
     self,
   };

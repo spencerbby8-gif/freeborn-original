@@ -145,7 +145,7 @@ export function OnboardingFlow({ initialDraft, initialStep }: OnboardingFlowProp
         /* Milestone moment (2026 onboarding research): celebrate the first
            meaningful action before the app opens — one breath, then in. */
         setCelebrating(true);
-        window.setTimeout(() => window.location.assign("/app"), 1500);
+        window.setTimeout(() => window.location.assign("/app/settings/welcome"), 1500);
         return;
       }
 

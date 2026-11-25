@@ -46,3 +46,9 @@ scripts/qa/.shots/
 
 # Generated local prototype UI-test captures (reviewed copies live under docs/).
 scripts/prototype/.shots/
+
+# Generated isolated member-experience test evidence (never runtime app code).
+scripts/member-experience/.evidence/
+
+# Local settings/auth/provider-adapter evidence. Reviewed redacted copies live in docs.
+scripts/settings-audit/.evidence/

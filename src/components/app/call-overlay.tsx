@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 /**
  * FREEBORN CALLS — real end-to-end, device to device.
@@ -28,6 +29,7 @@ import {
   type CallSignal,
   type RingPayload,
 } from "@/lib/call-bus";
+import { callOutcome } from "@/lib/call-outcome";
 import { holdCallUi } from "@/lib/call-ui-state";
 
 type CallProps = {
@@ -78,6 +80,12 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
   const [camOn, setCamOn] = useState(kind === "video");
   const [speakerOn, setSpeakerOn] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [facing,setFacing]=useState<"user"|"environment">("user");
+  const [switching,setSwitching]=useState(false);
+  const switchBusy=useRef(false);
+  const [cameraNotice,setCameraNotice]=useState("");
+  const [mirrorTip,setMirrorTip]=useState(false);
+  const selfIdRef=useRef("");
 
   const callIdRef = useRef(callIdProp ?? "");
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -202,7 +210,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     if (sendHangup && chanRef.current) {
       publish(chanRef.current, "control", { t: "hangup" } satisfies CallSignal);
     }
-    if (callIdRef.current) void updateCallSession(callIdRef.current, "end").catch(() => undefined);
+    if (sendHangup && callIdRef.current) void updateCallSession(callIdRef.current, "end").catch(() => undefined);
     try {
       pcRef.current?.close();
     } catch {
@@ -236,6 +244,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
   }, [peer.id, role]);
 
   const endCall = useCallback(() => {
+    if(closedRef.current)return; // Dismissing an already-ended call must never change its actor.
     /* B20 — say WHO ended it, on both sides, without ambiguity. The member who
        pressed the button reads "You …"; the other member reads "<name> ended
        the call" from the hangup signal. A bare "Call ended" next to the peer's
@@ -346,13 +355,17 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
         const session = role === "caller"
           ? await createCallSession(matchId, kind)
           : await getCallSession(callIdRef.current);
-        if (cancelled) return;
+        if (cancelled||closedRef.current) {
+          if(role==='caller')void updateCallSession(session.id,"end").catch(()=>undefined);
+          return;
+        }
         if (session.matchId !== matchId || session.kind !== kind || session.peer.id !== peer.id) {
           throw new Error("This call isn't available.");
         }
         callIdRef.current = session.id;
+        selfIdRef.current = session.self.id;
         if (role === "callee") await updateCallSession(session.id, "accept");
-        if (cancelled) return;
+        if (cancelled||closedRef.current) return;
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -364,7 +377,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
           } as MediaTrackConstraints,
           video: kind === "video" ? { facingMode: "user", width: { ideal: 640 }, frameRate: { ideal: 24 } } : false,
         });
-        if (cancelled) {
+        if (cancelled||closedRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
@@ -377,7 +390,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
         /* STUN aids a direct path. TURN is advertised only when configured;
            no relay means restrictive-NAT connectivity is not guaranteed. */
         const ice = await getIceConfig(callIdRef.current);
-        if (cancelled) return;
+        if (cancelled||closedRef.current) return;
         const pc = new RTCPeerConnection(ice);
         pcRef.current = pc;
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
@@ -612,7 +625,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
 
     return () => {
       cancelled = true;
-      cleanup(false);
+      cleanup(true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
@@ -651,6 +664,7 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     callIdRef.current = "";
     restartedRef.current = false;
     setSeconds(0);
+    setFacing("user");setFlipSelf(false);setCameraNotice("");setMirrorTip(false);
     setAttempt((a) => a + 1);
   };
 
@@ -670,6 +684,48 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
     if (remoteAudioRef.current) remoteAudioRef.current.muted = !next;
     if (remoteVideoRef.current) remoteVideoRef.current.muted = !next;
   };
+
+  const switchCamera=async()=>{
+    if(switchBusy.current||closedRef.current||!camOn)return;
+    const stream=localRef.current,pc=pcRef.current;
+    const old=stream?.getVideoTracks()[0];
+    const sender=pc?.getSenders().find(s=>s.track?.kind==='video');
+    if(!stream||!old||!sender){setCameraNotice("Your camera is not ready yet.");return;}
+    switchBusy.current=true;setSwitching(true);setCameraNotice("");
+    let replacement:MediaStream|null=null;
+    try{
+      const target=facing==='user'?'environment':'user';
+      replacement=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{exact:target},width:{ideal:640},frameRate:{ideal:24}}});
+      const track=replacement.getVideoTracks()[0];
+      if(!track)throw new Error('No camera');
+      if(closedRef.current)return;
+      track.enabled=old.enabled;
+      await sender.replaceTrack(track);
+      if(closedRef.current){track.stop();return;}
+      stream.removeTrack(old);stream.addTrack(track);old.stop();
+      if(localVideoRef.current){localVideoRef.current.srcObject=stream;void localVideoRef.current.play().catch(()=>undefined);}
+      replacement=null;setFacing(target);setFlipSelf(false);setCameraNotice(target==='user'?"Front camera active":"Back camera active");
+    }catch{setCameraNotice("Couldn’t switch cameras on this device. Your current camera is unchanged.");}
+    finally{replacement?.getTracks().forEach(t=>t.stop());switchBusy.current=false;setSwitching(false);}
+  };
+
+  useEffect(()=>{
+    let stopped=false,pending=false;
+    const poll=async()=>{
+      if(stopped||pending||closedRef.current||!callIdRef.current)return;
+      pending=true;
+      try{
+        const session=await getCallSession(callIdRef.current);
+        if(stopped||closedRef.current||session.status!=="ended")return;
+        cleanup(false);
+        setStateBoth("ended",callOutcome(session.endedBy,selfIdRef.current,peer.name,session.endReason));
+      }catch{/* Network failure is not evidence that either participant hung up. */}
+      finally{pending=false;}
+    };
+    const timer=setInterval(()=>void poll(),2500);
+    return()=>{stopped=true;clearInterval(timer);};
+    // Stable call identity and refs keep this poll from rebuilding the media connection.
+  },[attempt,cleanup,peer.name]);
 
   const fmt = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   const finished = state === "ended" || state === "declined" || state === "busy" || state === "no-answer" || state === "failed";
@@ -734,13 +790,13 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
             </p>
           ) : null}
           {finished ? (
-            <button
+            <Button unstyled
               type="button"
               onClick={role === "caller" ? callAgain : onClose}
               className="reference-call-retry"
             >
               {role === "caller" ? "Call again" : "Close"}
-            </button>
+            </Button>
           ) : null}
         </div>
         ) : null}
@@ -756,25 +812,32 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
                 flipSelf ? "-scale-x-100" : ""
               }`}
             />
-            <button
+            <Button unstyled
               type="button"
-              onClick={() => setFlipSelf((f) => !f)}
+              onClick={() => {setFlipSelf((f) => !f);setMirrorTip(true);}}
               aria-label="Flip self-view orientation"
-              title="Flip self view"
+              title="Mirror only your preview; this does not switch cameras or change the video you send"
+              aria-pressed={flipSelf}
+              aria-describedby="call-mirror-help"
               className="absolute -left-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/70 text-white backdrop-blur-sm transition active:scale-90"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 1v22" strokeDasharray="3 3" />
               </svg>
-            </button>
+            </Button>
+            <Button unstyled type="button" onClick={()=>setMirrorTip(v=>!v)} aria-label="About mirror preview" aria-expanded={mirrorTip} className="absolute bottom-1 right-1 rounded-full bg-black/80 px-2 text-xs text-white">?</Button>
+            {mirrorTip&&<p id="call-mirror-help" role="status" className="absolute bottom-full right-0 mb-2 w-48 rounded-xl bg-black/90 p-3 text-xs text-white">Mirror changes only your preview. Use Switch camera for front or back.</p>}
           </div>
         ) : null}
       </div>
+      {cameraNotice&&<p role="status" className="px-5 text-center text-sm text-white">{cameraNotice}</p>}
 
       {/* Controls */}
-      <div className="reference-call-controls">
-        <button
+      <div className="reference-call-controls" style={{flexWrap:"wrap"}}>
+        {kind==="video"&&!finished&&<Button unstyled type="button" onClick={()=>void switchCamera()} disabled={switching||!camOn} aria-label="Switch between front and back camera" title="Switch camera" className="flex h-12 items-center gap-1 rounded-full border border-white/20 px-3 text-xs text-white disabled:opacity-40"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v12H4zM9 12l-2 2 2 2m6-4 2 2-2 2M7 14h10"/></svg>{switching?'Switching…':'Switch camera'}</Button>}
+        <Button unstyled
           type="button"
+          disabled={finished}
           onClick={toggleSpeaker}
           aria-label={speakerOn ? "Turn speaker off" : "Turn speaker on"}
           title="Speaker"
@@ -786,10 +849,11 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
             <path d="M4 9v6h4l5 4V5L8 9H4z" />
             {!speakerOn ? <path d="M16 9l5 6M21 9l-5 6" /> : <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />}
           </svg>
-        </button>
+        </Button>
 
-        <button
+        <Button unstyled
           type="button"
+          disabled={finished}
           onClick={toggleMic}
           aria-label={micOn ? "Mute microphone" : "Unmute microphone"}
           title="Mute"
@@ -802,11 +866,12 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
             <path d="M5 11a7 7 0 0014 0M12 18v3" />
             {!micOn ? <path d="M4 4l16 16" /> : null}
           </svg>
-        </button>
+        </Button>
 
         {kind === "video" ? (
-          <button
+          <Button unstyled
             type="button"
+            disabled={finished||switching}
             onClick={toggleCam}
             aria-label={camOn ? "Turn camera off" : "Turn camera on"}
             title="Camera"
@@ -819,20 +884,20 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
               <path d="M16 10.5l5-3v9l-5-3" />
               {!camOn ? <path d="M3 3l18 18" /> : null}
             </svg>
-          </button>
+          </Button>
         ) : null}
 
-        <button
+        <Button unstyled
           type="button"
-          onClick={endCall}
-          aria-label="End call"
+          onClick={finished ? onClose : endCall}
+          aria-label={finished ? "Close call" : "End call"}
           title="End call"
           className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_16px_40px_-10px_rgba(239,68,68,0.7)] transition active:scale-95"
         >
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M3 12c0-1.5 4-4 9-4s9 2.5 9 4l-2.5 2.5-3-1.5-.5-2a12 12 0 00-6 0l-.5 2-3 1.5L3 12z" fill="currentColor" stroke="none" />
           </svg>
-        </button>
+        </Button>
       </div>
     </div>
   );

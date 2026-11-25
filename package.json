@@ -44,7 +44,14 @@
     "test:member-runtime": "node scripts/prototype/member-runtime-regressions.mjs",
     "test:member-auth": "node scripts/prototype/member-auth-regressions.mjs",
     "test:auth-onboarding": "node scripts/prototype/auth-onboarding.cjs",
-    "test:evidence-safety": "node scripts/seo/public-evidence-contracts.mjs"
+    "test:evidence-safety": "node scripts/seo/public-evidence-contracts.mjs",
+    "test:member-experience": "node scripts/member-experience/integration.mjs",
+    "test:member-experience-ui": "node scripts/member-experience/browser.mjs",
+    "test:member-migration": "node scripts/member-experience/migration.mjs",
+    "test:settings-audit": "node scripts/settings-audit/integration.mjs",
+    "test:settings-ui": "node scripts/settings-audit/browser.mjs",
+    "test:notification-migration": "node scripts/settings-audit/migration.mjs",
+    "test:settings-prepare": "node scripts/settings-audit/prepare.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",
@@ -57,7 +64,8 @@
     "pg": "8.20.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "svix": "^2.11.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.5",

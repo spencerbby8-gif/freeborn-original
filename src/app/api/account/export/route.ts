@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   accounts,
@@ -68,6 +68,12 @@ export async function GET(request: Request) {
     .where(eq(reports.reporterId, id));
   const [account] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
 
+  const {rows:conversationPreferences}=await db.execute(sql`select match_id,nickname,archived,hidden,pinned,updated_at from public.conversation_preferences where user_id=${id}::uuid`);
+  const {rows:storyPreferences}=await db.execute(sql`select audience,selected_ids,updated_at from public.story_preferences where user_id=${id}::uuid`);
+  const {rows:emailPreferences}=await db.execute(sql`select matches,messages,likes,updated_at from public.member_email_preferences where user_id=${id}::uuid`);
+  const {rows:notices}=await db.execute(sql`select kind,title,body,href,created_at,read_at from public.member_notices where user_id=${id}::uuid`);
+  const {rows:support}=await db.execute(sql`select t.id,t.message,t.email,t.status,t.created_at,coalesce((select json_agg(json_build_object('message',r.message,'createdAt',r.created_at)) from public.support_replies r where r.ticket_id=t.id),'[]'::json) replies from public.support_requests t where t.account_id=${id}::uuid`);
+
   const payload = {
     exportedAt: new Date().toISOString(),
     format: "freeborn-data-export/1",
@@ -136,6 +142,7 @@ export async function GET(request: Request) {
       note: "Selfie images from identity verification are verification evidence and are not part of this export. Deleting your account removes them.",
     },
     reportsFiled: myReports,
+    memberExperience: {conversationPreferences,storyPreferences,emailPreferences,notices,support},
     note: "Other members appear only as ids and timestamps. Your photos are downloadable from your profile page; this export lists their storage paths.",
   };
 
@@ -143,6 +150,7 @@ export async function GET(request: Request) {
   return new Response(body, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
       "Content-Disposition": `attachment; filename="freeborn-data-export-${new Date().toISOString().slice(0, 10)}.json"`,
     },
   });

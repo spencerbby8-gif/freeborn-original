@@ -99,7 +99,7 @@ try {
   const actual = verification.rows[0];
   // Every manifest step is recorded after it executes, including the legacy
   // verification step. Additive migrations run after that frozen verifier.
-  const expected = { tables: 44, columns: manifest.expected.publicColumns, indexes: 130, checks: 82, rls_enabled_forced: 44, anon_grants: 0, migrations: manifest.steps.length, auth_users: 0, storage_objects: 0 };
+  const expected = { tables: manifest.expected.publicTables, columns: manifest.expected.publicColumns, indexes: manifest.expected.publicIndexes, checks: manifest.expected.publicChecks, rls_enabled_forced: manifest.expected.publicTables, anon_grants: 0, migrations: manifest.steps.length, auth_users: 0, storage_objects: 0 };
   for (const [key, value] of Object.entries(expected)) {
     if (actual[key] !== value) fail(`post-replay verification ${key}=${actual[key]}, expected ${value}`);
   }

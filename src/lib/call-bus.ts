@@ -35,6 +35,8 @@ export type CallSession = {
   callerId: string;
   calleeId: string;
   expiresAt: string;
+  endedBy?: string|null;
+  endReason?: string|null;
   peer: CallPerson;
   self: CallPerson;
 };

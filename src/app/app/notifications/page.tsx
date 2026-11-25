@@ -4,10 +4,11 @@ import { NotificationsScreen } from "@/components/prototype/notifications";
 
 export const metadata: Metadata = { title: "Alerts", robots: { index: false } };
 
-export default function NotificationsPage() {
+export default async function NotificationsPage({searchParams}:{searchParams:Promise<{view?:string}>}) {
+  const {view}=await searchParams;
   return (
     <AppShell>
-      <NotificationsScreen />
+      <NotificationsScreen initialView={view==='matches'?'match':'all'}/>
     </AppShell>
   );
 }

@@ -1,0 +1,6 @@
+import { sql } from "drizzle-orm";
+import { db } from "@/db";
+import { getMember } from "@/lib/app-auth";
+import { rejectCrossOrigin } from "@/lib/request-guard";
+export async function GET(request:Request){const member=await getMember(request);if(!member)return Response.json({error:'Not signed in.'},{status:401});try{const {rows}=await db.execute(sql`select id,kind,title,body,href,created_at,read_at from public.member_notices where user_id=${member.id}::uuid order by created_at desc limit 50`);return Response.json({notices:rows},{headers:{'Cache-Control':'no-store'}});}catch{return Response.json({error:'Your updates could not be loaded.'},{status:503});}}
+export async function POST(request:Request){const blocked=rejectCrossOrigin(request);if(blocked)return blocked;const member=await getMember(request);if(!member)return Response.json({error:'Not signed in.'},{status:401});let id:unknown;try{({id}=await request.json());}catch{}if(typeof id!=='string'||!/^[-a-f0-9]{36}$/i.test(id))return Response.json({error:'Invalid notice.'},{status:400});try{await db.execute(sql`update public.member_notices set read_at=coalesce(read_at,now()) where id=${id}::uuid and user_id=${member.id}::uuid`);return Response.json({ok:true});}catch{return Response.json({error:'Could not mark this update read.'},{status:503});}}

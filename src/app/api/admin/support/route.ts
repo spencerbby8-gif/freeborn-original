@@ -1,0 +1,11 @@
+import { sql } from "drizzle-orm";
+import { db } from "@/db";
+import { getMember } from "@/lib/app-auth";
+import { rejectCrossOrigin } from "@/lib/request-guard";
+async function operator(request:Request){
+ const allow=(process.env.FREEBORN_ADMIN_EMAILS??'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+ if(!allow.length)return null;
+ const member=await getMember(request);return member&&allow.includes(member.email.toLowerCase())?member:null;
+}
+export async function GET(request:Request){if(!await operator(request))return Response.json({error:'Not found.'},{status:404});try{const {rows}=await db.execute(sql`select t.id,t.message,t.email,t.status,t.created_at,(select status from public.member_email_outbox where source_id=t.id and kind='support_ticket' limit 1) forwarding from public.support_requests t order by t.created_at desc limit 50`);return Response.json({tickets:rows},{headers:{'Cache-Control':'no-store'}});}catch{return Response.json({error:'Support inbox unavailable.'},{status:503});}}
+export async function POST(request:Request){const blocked=rejectCrossOrigin(request);if(blocked)return blocked;const admin=await operator(request);if(!admin)return Response.json({error:'Not found.'},{status:404});let b:{ticketId?:string;message?:string};try{b=await request.json();}catch{return Response.json({error:'Invalid body.'},{status:400});}if(!b||typeof b.ticketId!=='string'||!/^[-a-f0-9]{36}$/i.test(b.ticketId)||typeof b.message!=='string'||b.message.trim().length<5||b.message.length>4000)return Response.json({error:'Provide a valid ticket and a 5–4,000 character reply.'},{status:400});try{const result=await db.transaction(async tx=>{const {rows}=await tx.execute(sql`select id from public.support_requests where id=${b.ticketId}::uuid for update`);if(!rows.length)return false;await tx.execute(sql`insert into public.support_replies(ticket_id,author_id,message) values(${b.ticketId}::uuid,${admin.id}::uuid,${b.message!.trim()})`);await tx.execute(sql`update public.support_requests set status='replied' where id=${b.ticketId}::uuid`);return true;});return Response.json({ok:result},{status:result?201:404});}catch{return Response.json({error:'Reply could not be saved.'},{status:503});}}

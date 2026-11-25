@@ -44,15 +44,17 @@ export function loadPrefs(): Prefs {
   }
 }
 
-export function savePrefs(p: Prefs) {
+export function savePrefs(p: Prefs): boolean {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(p));
     /* Same-browser tabs and any component already mounted. The storage event
        only fires in OTHER tabs, so a deck open behind the settings sheet needs
        this one to notice. */
     window.dispatchEvent(new Event(PREFS_EVENT));
+    return true;
   } catch {
-    /* private mode: the choice simply does not persist */
+    /* Report storage denial honestly to callers that display saved status. */
+    return false;
   }
 }
 

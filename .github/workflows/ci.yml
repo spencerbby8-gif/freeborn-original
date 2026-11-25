@@ -2,7 +2,7 @@ name: CI — typecheck / lint / secret scan / build
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/member-stories-calls-chat]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -153,4 +153,54 @@ jobs:
         with:
           name: next-build-${{ github.sha }}
           path: .next
+          retention-days: 7
+
+  member-communications:
+    name: Stories, settings and notification evidence — isolated PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: member_experience_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d member_experience_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Prepare exact disposable loopback fixture database
+        run: npm run test:settings-prepare
+      - name: Real feature handlers and SQL — substituted auth and email transport
+        run: npm run test:member-experience && npm run test:settings-audit
+      - name: Clone local databases for actual additive migration replay
+        run: |
+          node --input-type=module -e "import pg from 'pg';const c=new pg.Client({connectionString:'postgresql://postgres:postgres@127.0.0.1:5432/postgres'});await c.connect();for(const db of ['member_migration_test','notification_migration_test'])await c.query('CREATE DATABASE '+db+' TEMPLATE member_experience_test');await c.end();"
+      - name: Actual additive SQL, preservation, RLS and non-bypass runtime grants
+        run: npm run test:member-migration && npm run test:notification-migration
+      - name: Install Chromium for interactive fixture acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Build with public fixture auth configuration only
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://fixture.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-publishable-key
+      - name: Navigate Stories and Settings against real local handlers/SQL
+        run: node scripts/settings-audit/run-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isolated-member-evidence-${{ github.sha }}
+          path: |
+            scripts/member-experience/.evidence/
+            scripts/settings-audit/.evidence/
           retention-days: 7

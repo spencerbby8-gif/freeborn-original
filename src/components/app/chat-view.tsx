@@ -1,4 +1,6 @@
 "use client";
+import { StoryRail, StoryReplyQuote } from "./stories";
+import { ConversationManager, type LocalConversationPreferences } from "./conversation-manager";
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { createChatPreviewUrl } from "@/lib/chat-preview-url";
@@ -37,6 +39,7 @@ import { CallOverlay } from "./call-overlay";
 
 type MatchRow = {
   id: string;
+  preferences?: LocalConversationPreferences;
   ended?: boolean;
   with: {
     id: string;
@@ -60,6 +63,7 @@ type MessageRow = {
   read: boolean;
   flagged?: boolean;
   reactions: ReactionChip[];
+  storyReply?: {authorIsMe:boolean;caption:string;imageUrl:string}|null;
   /** typed by me, not yet acknowledged by the server (see src/lib/chat-sync.ts) */
   pending?: boolean;
   /** the send was refused or lost; the bubble offers a retry instead of vanishing silently */
@@ -1139,6 +1143,7 @@ export function Thread({
                 </p>
               </div>
             ) : null}
+            {m.storyReply&&<StoryReplyQuote quote={m.storyReply}/>}
             <MessageContent body={m.body} onImage={setLightboxUrl} onVideo={setVideoUrl} />
             <span
               className={`chat-receipt sr-only ${
@@ -1196,8 +1201,9 @@ export function Thread({
 
   return (
     <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
-      <ChatHeader name={match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
-        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={e=>{e.currentTarget.closest("details")?.removeAttribute("open");setCall("voice");}} aria-label={`Voice call ${match.with.name}`}>Voice call</button><button type="button" onClick={e=>{e.currentTarget.closest("details")?.removeAttribute("open");setCall("video");}} aria-label={`Video call ${match.with.name}`}>Video call</button><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
+      <ChatHeader name={match.preferences?.nickname||match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
+        <div className="chat-direct-calls"><button type="button" className="bare-icon" disabled={Boolean(match.ended)} aria-label={`Voice call ${match.with.name}`} title="Voice call" onClick={()=>setCall("voice")}><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a15 15 0 0 1-7-7l2-2z"/></svg></button><button type="button" className="bare-icon" disabled={Boolean(match.ended)} aria-label={`Video call ${match.with.name}`} title="Video call" onClick={()=>setCall("video")}><PrototypeIcon name="video"/></button></div>
+        <details className="reference-chat-more"><summary className="bare-icon" aria-label="Conversation options"><PrototypeIcon name="more"/></summary><div className="reference-chat-menu"><button type="button" onClick={()=>onTapProfile(match.with.id)}>View profile &amp; safety</button></div></details>
       </ChatHeader>
 
       {toast ? (
@@ -1444,6 +1450,9 @@ type RequestLists = {
 
 export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
   const [search, setSearch] = useState("");
+  const [manage,setManage]=useState(false);
+  const [folder,setFolder]=useState<"inbox"|"archived"|"hidden">("inbox");
+  const [listError,setListError]=useState("");
   useEffect(() => {
     const listener = (e: Event) => setSearch(String((e as CustomEvent).detail ?? ""));
     window.addEventListener("freeborn:chat-search", listener);
@@ -1461,6 +1470,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
   const [requests, setRequests] = useState<RequestLists>({ incoming: [], outgoing: [] });
 
   const load = useCallback(async () => {
+    try {
     const t = await getAccessToken();
     setToken(t);
     const res = await fetch("/api/chat/matches", {
@@ -1469,7 +1479,8 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
     if (res.ok) {
       const json = await res.json();
       setMatches(json.matches);
-    }
+      setListError("");
+    } else { const failure=await res.json().catch(()=>null);throw Error(failure?.error??"Could not load your conversations."); }
     const rq = await fetch("/api/chat/requests", {
       headers: t ? { Authorization: `Bearer ${t}` } : {},
       cache: "no-store",
@@ -1478,7 +1489,8 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
       const rj = await readJsonSafe<Partial<RequestLists>>(rq);
       if (rj) setRequests({ incoming: rj.incoming ?? [], outgoing: rj.outgoing ?? [] });
     }
-    setLoading(false);
+    }catch(e){setListError(e instanceof Error?e.message:"Could not load your conversations.");}
+    finally{setLoading(false);}
   }, []);
 
   useEffect(() => {
@@ -1551,11 +1563,11 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
 
   return (
     <div className="fb-messages">
-      <MessagesHeading />
-      <div className="story-row" aria-label="Conversation profiles">
-        <a className="story-item" href="/app/profile/edit#photos" title="Edit your profile photos; stories are not available yet"><span className="story-add">+</span><span>Your story</span></a>
-        {matches.filter(m=>!m.ended).map(m=><Button unstyled className="story-item" key={m.id} onClick={()=>setOpenProfileId(m.with.id)}><span className="story-ring"><Avatar photo={m.with.photo} name={m.with.name} size={48}/></span><span>{m.with.name}</span></Button>)}
-      </div>
+      <MessagesHeading onManage={()=>setManage(true)}/>
+      <StoryRail/>
+      {manage&&<ConversationManager matches={matches} onClose={()=>setManage(false)} onSaved={load}/>}
+      <div className="tab-chips conversation-folders">{(['inbox','archived','hidden'] as const).map(f=><button type="button" className={`tab-chip ${folder===f?'active':''}`} aria-pressed={folder===f} key={f} onClick={()=>setFolder(f)}>{f==='inbox'?'Inbox':f==='archived'?'Archived':'Hidden'}</button>)}</div>
+      {listError&&<p role="alert" className="story-error">{listError}<button type="button" onClick={()=>void load()}>Try again</button></p>}
 
       {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
         <div className="mt-8">
@@ -1615,7 +1627,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
         </div>
       ) : null}
 
-      {matches.length === 0 ? (
+      {matches.length === 0 && !listError ? (
         <div className="mt-10 rounded-[28px] border border-white/[0.07] bg-white/[0.02] p-10 text-center">
           <p className="font-display text-xl font-semibold">No conversations yet</p>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--color-mist)]">
@@ -1630,7 +1642,8 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
         </div>
       ) : (
         <div className="thread-list">
-          {matches.filter((m) => !search.trim() || `${m.with.name} ${m.lastMessage?.body ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).map((m) => (
+          {matches.length>0&&!matches.some(m=>(folder==='hidden'?m.preferences?.hidden:folder==='archived'?m.preferences?.archived&&!m.preferences?.hidden:!m.preferences?.archived&&!m.preferences?.hidden)&&(!search.trim()||`${m.preferences?.nickname??''} ${m.with.name} ${m.lastMessage?.body??''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())))&&<div className="empty-state"><h2 className="display">A little breathing room.</h2><p>{search?'No conversations match your search.':`No conversations in ${folder} yet.`}</p></div>}
+          {matches.filter(m=>folder==='hidden'?m.preferences?.hidden:folder==='archived'?m.preferences?.archived&&!m.preferences?.hidden:!m.preferences?.archived&&!m.preferences?.hidden).filter((m) => !search.trim() || `${m.preferences?.nickname??''} ${m.with.name} ${m.lastMessage?.body ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).sort((a,b)=>Number(b.preferences?.pinned??false)-Number(a.preferences?.pinned??false)).map((m) => (
             <div
               key={m.id}
               role="button"
@@ -1659,7 +1672,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
               </button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate text-[15px] font-black">{m.with.name}</p>
+                  <p className="truncate text-[15px] font-black">{m.preferences?.pinned&&<span aria-label="Pinned">◆ </span>}{m.preferences?.nickname||m.with.name}</p>
                   {m.lastMessage ? (
                     <span className="shrink-0 text-[11px] text-[var(--color-ash)]">
                       {timeAgo(m.lastMessage.at)}
@@ -1669,7 +1682,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
                 <p className={`truncate text-[13px] ${m.unread > 0 ? "font-bold text-[var(--color-pearl)]" : "text-[var(--color-mist)]"}`}>
                   {m.lastMessage
                     ? `${m.lastMessage.mine ? "You: " : ""}${previewBody(m.lastMessage.body)}`
-                    : "Say hello. The conversation is open."}
+                    : "It’s a match · Send your first hello."}
                 </p>
               </div>
               {m.unread > 0 ? (

@@ -1259,6 +1259,8 @@ export const callSessions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    endedBy: uuid("ended_by").references(() => userProfiles.id, { onDelete: "set null" }),
+    endReason: text("end_reason"),
   },
   (t) => [
     index("call_sessions_match_idx").on(t.matchId, t.createdAt.desc()),
@@ -1326,3 +1328,81 @@ export const storageCleanupJobs = pgTable(
     check("storage_cleanup_jobs_completed_has_time", sql`${t.status} <> 'completed' or ${t.completedAt} is not null`),
   ]
 );
+
+
+/** Server-only member experience data. No direct browser role grants. */
+export const conversationPreferences = pgTable("conversation_preferences", {
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  matchId: uuid("match_id").notNull().references(() => matches.id, { onDelete: "cascade" }),
+  nickname: text("nickname"),
+  archived: boolean("archived").notNull().default(false),
+  hidden: boolean("hidden").notNull().default(false),
+  pinned: boolean("pinned").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.userId, t.matchId] }), check("conversation_nickname_length", sql`char_length(${t.nickname}) between 1 and 40`)]);
+
+export const storyPreferences = pgTable("story_preferences", {
+  userId: uuid("user_id").primaryKey().references(() => userProfiles.id, { onDelete: "cascade" }),
+  audience: text("audience").notNull().default("all"),
+  selectedIds: jsonb("selected_ids").$type<string[]>().notNull().default([]),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [check("story_audience_mode", sql`${t.audience} in ('all','exclude','only')`), check("story_audience_array", sql`jsonb_typeof(${t.selectedIds}) = 'array' and jsonb_array_length(${t.selectedIds}) <= 500`)]);
+
+export const memberStories = pgTable("member_stories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  authorId: uuid("author_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  caption: text("caption").notNull().default(""),
+  imageBase64: text("image_base64").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull().default(sql`now() + interval '24 hours'`),
+}, t => [index("member_stories_author_expiry_idx").on(t.authorId, t.expiresAt), check("story_caption_length", sql`char_length(${t.caption}) <= 280`), check("story_image_size", sql`octet_length(${t.imageBase64}) between 1 and 1400000`), check("story_expiry_24h", sql`${t.expiresAt} = ${t.createdAt} + interval '24 hours'`)]);
+
+export const storyViews = pgTable("story_views", {
+  storyId: uuid("story_id").notNull().references(() => memberStories.id, { onDelete: "cascade" }),
+  viewerId: uuid("viewer_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.storyId, t.viewerId] })]);
+
+export const storyQuotes = pgTable("story_quotes", {
+  messageId: uuid("message_id").primaryKey().references(() => messages.id, { onDelete: "cascade" }),
+  storyId: uuid("story_id").references(() => memberStories.id, { onDelete: "set null" }),
+  authorId: uuid("author_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  imageBase64: text("image_base64").notNull(),
+  senderId: uuid("sender_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  clientId: uuid("client_id").notNull(),
+  caption: text("caption").notNull().default(""),
+}, t => [unique("story_reply_idempotency").on(t.senderId, t.clientId), check("story_quote_image_size",sql`octet_length(${t.imageBase64}) between 1 and 1400000`)]);
+
+export const storyUploadReceipts = pgTable("story_upload_receipts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete:"cascade" }),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},t=>[index("story_upload_receipts_user_time_idx").on(t.userId,t.createdAt)]);
+
+/** Communications tables mirror the additive SQL; triggers/grants live in migration
+ * 20261122000000. Never use drizzle push to reconcile a hosted Auth schema. */
+export const memberNotices = pgTable("member_notices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, {onDelete:"cascade"}),
+  eventKey: text("event_key").notNull().unique(), kind: text("kind").notNull(),
+  title: text("title").notNull(), body: text("body").notNull(), href: text("href").notNull(),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(), readAt: timestamp("read_at",{withTimezone:true}),
+},t=>[index("member_notices_user_time_idx").on(t.userId,t.createdAt),check("member_notice_app_link",sql`${t.href} like '/app%'`)]);
+export const memberEmailPreferences = pgTable("member_email_preferences", {
+  userId: uuid("user_id").primaryKey().references(() => userProfiles.id,{onDelete:"cascade"}),
+  matches: boolean("matches").notNull().default(false), messages: boolean("messages").notNull().default(false), likes: boolean("likes").notNull().default(false),
+  updatedAt: timestamp("updated_at",{withTimezone:true}).notNull().defaultNow(),
+});
+export const memberEmailOutbox = pgTable("member_email_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(), userId: uuid("user_id").references(() => userProfiles.id,{onDelete:"cascade"}),
+  eventKey: text("event_key").notNull().unique(), kind: text("kind").notNull(), sourceId: uuid("source_id").notNull(), peerId: uuid("peer_id").references(() => userProfiles.id,{onDelete:"cascade"}),
+  createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(), availableAt: timestamp("available_at",{withTimezone:true}).notNull().defaultNow(),
+  status: text("status").notNull().default("pending"), attempts: integer("attempts").notNull().default(0), claimedAt: timestamp("claimed_at",{withTimezone:true}),
+  providerId: text("provider_id"), acceptedAt: timestamp("accepted_at",{withTimezone:true}), lastError: text("last_error"),
+  deliveryStatus: text("delivery_status").notNull().default("unknown"), deliveryEventAt: timestamp("delivery_event_at",{withTimezone:true}),
+  unsubscribeToken: uuid("unsubscribe_token").notNull().defaultRandom(),
+},t=>[index("member_email_outbox_due_idx").on(t.status,t.availableAt),check("email_event_kind",sql`${t.kind} in ('welcome','match','message','like','verification','appeal','support_ticket','support_ack','support_reply')`),check("email_send_state",sql`${t.status} in ('pending','sending','accepted','suppressed','failed')`),check("email_bounded_attempts",sql`${t.attempts} between 0 and 8`),check("email_delivery_state",sql`${t.deliveryStatus} in ('unknown','delivered','bounced','complained','failed')`)]);
+export const supportReplies = pgTable("support_replies", {
+  id: uuid("id").primaryKey().defaultRandom(), ticketId: uuid("ticket_id").notNull().references(() => supportRequests.id,{onDelete:"cascade"}),
+  authorId: uuid("author_id").references(() => userProfiles.id,{onDelete:"set null"}), message: text("message").notNull(), createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
+},t=>[check("support_reply_length",sql`char_length(${t.message}) between 5 and 4000`)]);

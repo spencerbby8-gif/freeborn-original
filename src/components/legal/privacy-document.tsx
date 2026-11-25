@@ -200,6 +200,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
       </Clause>
 
       <Clause n="5" title="What other members can see">
+        <p>Stories are shared only with eligible active matches within your chosen audience. The author can see who viewed each story. Originals expire from Stories after 24 hours. If someone replies, a copy of the exact picture is retained in that private conversation after the original expires or is deleted. Changing the story audience does not recall copies already sent. Blocked or ended matches cannot use the conversation to retrieve those copies. Screenshots and copies outside Freeborn cannot be recalled.</p>
         <p>
           Discovery is controlled by you and enforced on the server, not hidden with
           styling. Other signed-in members can see the profile fields you published,
@@ -292,6 +293,8 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
       </Clause>
 
       <Clause n="8" title="Who we share your data with">
+        <p>Where email delivery is configured, Freeborn uses Resend to send welcome, support and account-status messages and optional activity alerts. The provider processes the recipient address, message content and delivery metadata. Support requests are stored in a restricted queue and forwarded to support@freeborndating.com; your request and chosen reply-to address may therefore be processed by the sending provider and the support mailbox provider. Do not include passwords, sign-in codes or financial information. Provider-region, contractual and retention settings must be confirmed for the deployment; this policy does not assert that a data processing agreement has been executed.</p>
+        <p>Optional match, message and like emails are off until enabled in Settings → Notifications. They include an unsubscribe option and do not include private message text or profile details. Requested support and account/security updates are separate. Signing in with Google does not automatically subscribe you to activity emails.</p>
         <p>
           We do not sell personal data, we do not share it with advertisers, and we do
           not share it with data brokers. The following processors handle data on our
@@ -417,6 +420,7 @@ export function PrivacyDocument({member=false}:{member?:boolean}={}) {
       </Clause>
 
       <Clause n="10" title="How long we keep things">
+        <p>Private story image quotes remain with the conversation rather than expiring with the original. Support tickets, replies, email preferences and in-app notices are associated with your account and removed from the application database when its deletion completes. Email copies already sent may remain in recipient mailboxes and provider logs; deleting the Freeborn account cannot recall them. Read-time story expiry does not by itself prove physical cleanup has run.</p>
         <LegalTable
           head={["Data", "Kept for", "Why that long"]}
           rows={[
