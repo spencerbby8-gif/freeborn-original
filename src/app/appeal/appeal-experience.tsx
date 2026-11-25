@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Back } from "@/components/prototype/frame";
 import { Wordmark } from "@/components/wordmark";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -21,7 +22,9 @@ export function AppealExperience({member=false}:{member?:boolean}) {
   const [plea, setPlea] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [loadError,setLoadError]=useState<string|null>(null);
   const load = async () => {
+    setLoadError(null);
     const token = await getAccessToken().catch(() => null);
     if (!token) {
       window.location.replace("/auth?mode=sign-in");
@@ -29,6 +32,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
     }
     try {
       const res = await fetch("/api/appeals", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Could not load your appeal. Please try again.");
       if (res.ok) {
         const json = await res.json();
         if (json.appeal) {
@@ -38,7 +42,8 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         }
       }
     } catch {
-      /* fall through to form */
+      setLoadError("Could not load your appeal. Please try again.");
+      return;
     }
     setState("form");
   };
@@ -113,6 +118,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
     }
   };
 
+  if(loadError)return <section className="screen active"><div className="scroll new-form-screen"><Back href="/app/settings/safety"/><h1 className="display">Account appeals</h1><p role="alert">{loadError}</p><Button unstyled className="btn-grad wide" onClick={()=>void load()}>Try again</Button></div></section>;
   return (
     <div className={member?"screen active member-appeal":"relative min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]"}>
       <div className={member?"scroll new-form-screen":"mx-auto flex min-h-[100dvh] w-full max-w-[640px] flex-col px-5 py-8"}>
@@ -187,6 +193,8 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                 record, and a person decides it.
               </p>
               <textarea
+                aria-label="Your appeal"
+                maxLength={2000}
                 value={plea}
                 onChange={(e) => setPlea(e.target.value)}
                 placeholder="What happened? Why do you believe this is a mistake?"

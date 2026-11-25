@@ -485,7 +485,8 @@ export async function completeOnboarding(userId: string, supabaseOverride?: SbCl
       onboarding_completed_at: new Date().toISOString(),
       discoverable: true,
     })
-    .eq("id", userId);
+    .eq("id", userId)
+    .is("onboarding_completed_at", null);
   if (error) throw new Error(`Could not complete onboarding: ${error.message}`);
 }
 

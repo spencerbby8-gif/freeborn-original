@@ -1,0 +1,568 @@
+{
+  "scope": "Local evidence only; real production handlers/local PostgreSQL, fixture Auth/provider/ancillary adapters. Not hosted acceptance.",
+  "baseCommit": "8e7dea489d996e66b54598fd6561efc04f678c7c",
+  "browser": {
+    "member-experience": {
+      "scope": "Interactive local browser, real production feature handlers and local PostgreSQL; fixture Supabase identities. NOT real Supabase signup, email confirmation, hosted RLS or physical two-device call acceptance.",
+      "checks": [
+        {
+          "name": "Messages has four unchanged bottom tabs, a real story rail and a labelled management pencil",
+          "status": "passed"
+        },
+        {
+          "name": "Manage conversations saves private nickname/pin/archive and restores it through folders",
+          "status": "passed"
+        },
+        {
+          "name": "Composer retains selected pictures when choosing audience; posts multiple stories with consent",
+          "status": "passed"
+        },
+        {
+          "name": "Matched member views multiple actual stories, navigates segments and sends a quoted reply",
+          "status": "passed"
+        },
+        {
+          "name": "Author sees the actual recorded viewer for the exact story",
+          "status": "passed"
+        },
+        {
+          "name": "Notifications reproduces missing-column error, then recovers when the required migration is present",
+          "status": "passed"
+        },
+        {
+          "name": "Old Matches route opens Matches inside Notifications; Clear cannot remove matches",
+          "status": "passed"
+        },
+        {
+          "name": "Exact quoted story image appears in real chat with direct call icons",
+          "status": "passed"
+        },
+        {
+          "name": "Voice icon opens the voice-call screen without video-only controls",
+          "status": "passed"
+        },
+        {
+          "name": "Remote call end is attributed to peer; Close does not overwrite it",
+          "status": "passed"
+        },
+        {
+          "name": "Expiry removes original in an open viewer but leaves quoted image in private chat",
+          "status": "passed"
+        },
+        {
+          "name": "320px Matches and story-privacy layouts fit their phone frame",
+          "status": "passed"
+        },
+        {
+          "name": "1440px Matches and story-privacy layouts fit their phone frame",
+          "status": "passed"
+        }
+      ],
+      "pageErrors": []
+    },
+    "settings-audit": {
+      "scope": "Local production build, real handlers and local PostgreSQL. Supabase auth/provider calls substituted. No hosted signup, email inbox receipt, physical media or live engine proof.",
+      "checks": [
+        {
+          "name": "Settings root: ordered menu, membership entry and four unchanged tabs",
+          "status": "passed"
+        },
+        {
+          "name": "Account: email accordion and submit invoke account handler; confirmation is provider-simulated",
+          "status": "passed"
+        },
+        {
+          "name": "Account: password accordion validates current password and sends update to auth adapter",
+          "status": "passed"
+        },
+        {
+          "name": "Account: download creates a real JSON export, including new support/preferences section",
+          "status": "passed"
+        },
+        {
+          "name": "Account: deactivate and delete confirmations can both be cancelled without deleting data",
+          "status": "passed"
+        },
+        {
+          "name": "Audience: each native choice persists; blocked-account Unblock invokes real SQL route",
+          "status": "passed"
+        },
+        {
+          "name": "Device: units and all three switches survive reload; motion reaches the frame",
+          "status": "passed"
+        },
+        {
+          "name": "Device storage refusal cannot produce a false saved confirmation",
+          "status": "passed"
+        },
+        {
+          "name": "Notifications: three in-app switches and three opt-in email switches persist independently",
+          "status": "passed"
+        },
+        {
+          "name": "Discovery preferences: intention, sliders, interests/custom interest and gender save actual SQL",
+          "status": "passed"
+        },
+        {
+          "name": "Membership: every plan selector works and availability cannot take payment",
+          "status": "passed"
+        },
+        {
+          "name": "Privacy: all four switches save and restore actual account boundaries",
+          "status": "passed"
+        },
+        {
+          "name": "Safety: all navigation destinations exist; verification entry opens consent modal without submitting identity media",
+          "status": "passed"
+        },
+        {
+          "name": "Verification data: keep/confirm withdrawal invoke the existing durable cleanup path",
+          "status": "passed"
+        },
+        {
+          "name": "Appeals: load error is explicit and Retry recovers; non-suspended submission is refused honestly",
+          "status": "passed"
+        },
+        {
+          "name": "Help: form creates a real local ticket/reference and reload shows persisted history",
+          "status": "passed"
+        },
+        {
+          "name": "Operator inbox: reply button persists a human response and member sees it after refresh",
+          "status": "passed"
+        },
+        {
+          "name": "About and every legal screen: links render full documents and Back returns correctly",
+          "status": "passed"
+        },
+        {
+          "name": "Welcome: completion notice appears once, guide links work and Start exploring marks it read",
+          "status": "passed"
+        },
+        {
+          "name": "Account: actual deactivate write hides only the test profile and preserves conversations",
+          "status": "passed"
+        },
+        {
+          "name": "Settings and Account logout controls both invoke signOut and leave the member area",
+          "status": "passed"
+        },
+        {
+          "name": "Delete forever: real local deletion removes only the test account, queues cleanup and shows pending not completed",
+          "status": "passed"
+        },
+        {
+          "name": "320px settings, communications and legal layouts have no horizontal phone overflow",
+          "status": "passed"
+        },
+        {
+          "name": "1440px settings, communications and legal layouts have no horizontal phone overflow",
+          "status": "passed"
+        }
+      ],
+      "pageErrors": []
+    }
+  },
+  "artifacts": [
+    {
+      "path": "settings-audit/browser/01-settings.png",
+      "bytes": 51366,
+      "sha256": "bf5fe0eb51bec4d069d226dbb71a6061e45b1e5137f32d233197181babc5a7a6"
+    },
+    {
+      "path": "settings-audit/browser/02-account.png",
+      "bytes": 100661,
+      "sha256": "397ea649b2ac0198df3a21bdced3b9e84edc6993d32fc31fa3f7ef3f8ba27b02"
+    },
+    {
+      "path": "settings-audit/browser/03-audience.png",
+      "bytes": 46179,
+      "sha256": "06d09f33c9c87794298b934a686520085df672c8587b265c599da93ca4b45b97"
+    },
+    {
+      "path": "settings-audit/browser/04-device.png",
+      "bytes": 35794,
+      "sha256": "d1e0fa0e20c97e5474957b41b7287e08a36d728e757f1f252c145c2b2b25eef8"
+    },
+    {
+      "path": "settings-audit/browser/05-notification-settings.png",
+      "bytes": 98686,
+      "sha256": "b47a9f0fe968c67109c2f568c0b005bcd2075e0215aa06bdd7bb335e893a2c36"
+    },
+    {
+      "path": "settings-audit/browser/06-discovery-preferences.png",
+      "bytes": 58543,
+      "sha256": "706f2034f64efd3461d507e45d654000133e3d3908c31fd250053b8afb4dfb70"
+    },
+    {
+      "path": "settings-audit/browser/07-membership.png",
+      "bytes": 57840,
+      "sha256": "65543b9486038ea100f7878b93878b7967fc4f30c38be08132719c6265a0e5e0"
+    },
+    {
+      "path": "settings-audit/browser/08-privacy-safety.png",
+      "bytes": 45772,
+      "sha256": "9d779c573c65b54b4015c2faf07ca830e47a00d7ea8f926c48eb30bdd8a5c3c9"
+    },
+    {
+      "path": "settings-audit/browser/09-safety-center.png",
+      "bytes": 66950,
+      "sha256": "0141eff46db16afc825a4f71e605d6a4e56d12a3ad75ef396be1bfbca20fbd7d"
+    },
+    {
+      "path": "settings-audit/browser/10-verification-entry.png",
+      "bytes": 82906,
+      "sha256": "c7ca9dd6f6e597bf3f3a22def5ecf4238938558b93f5cc9b3eaa0e8a35bce30f"
+    },
+    {
+      "path": "settings-audit/browser/11-verification-consent.png",
+      "bytes": 74149,
+      "sha256": "4188e41d76934fcd0b8491781322b7dc97659e428d07b7fd37fd6551f6542429"
+    },
+    {
+      "path": "settings-audit/browser/12-appeals.png",
+      "bytes": 55807,
+      "sha256": "237939b5397b6d71eadd1ed652e30d1447f602de51fb00585f6985a8dcf7bda1"
+    },
+    {
+      "path": "settings-audit/browser/13-support.png",
+      "bytes": 106991,
+      "sha256": "a0694ad2f901d70a518895782ae6f8eca9b66ef9679d6483d3d7acf5070a80b3"
+    },
+    {
+      "path": "settings-audit/browser/14-support-operator.png",
+      "bytes": 48520,
+      "sha256": "9c582289a5c78a467465bbd7cbb23efacd41d438b01ceb59f78949351aa61aae"
+    },
+    {
+      "path": "settings-audit/browser/15-about.png",
+      "bytes": 22171,
+      "sha256": "c2f63c1ab14cc99fbabb91a700e37adf2776b766ea1aa65bf77b8fe02afb2704"
+    },
+    {
+      "path": "settings-audit/browser/16-terms.png",
+      "bytes": 65241,
+      "sha256": "b9b6be936dc45cd1535862216d464ad5587b33f34274cd94db3020bec87092f2"
+    },
+    {
+      "path": "settings-audit/browser/17-privacy-policy.png",
+      "bytes": 64468,
+      "sha256": "2283846dcc2e52c0afad79524678767d7c6ca7d0d1422ab0c26a0b239f12bf01"
+    },
+    {
+      "path": "settings-audit/browser/18-cookies.png",
+      "bytes": 64513,
+      "sha256": "e735fd60ef6d9d095267b2250d31a5c2f49e133b530584e6dc9c2f3b6c85d41e"
+    },
+    {
+      "path": "settings-audit/browser/19-welcome.png",
+      "bytes": 130223,
+      "sha256": "3fdf3ff260ad0aacf7dfc70fe2a3b1b67b6ce68bcb426ac5cbb34c163db4bb40"
+    },
+    {
+      "path": "settings-audit/browser/legal-1440.png",
+      "bytes": 303879,
+      "sha256": "961ff21c67c92d8dd160ab3b703cc0f741e7aa7487370547a4b2962f7c43e00a"
+    },
+    {
+      "path": "settings-audit/browser/legal-320.png",
+      "bytes": 63920,
+      "sha256": "190a527dcb2eaeb98c6cd618d532522bf774da51ee99d4a475cca801a208ef03"
+    },
+    {
+      "path": "settings-audit/browser/notification-settings-1440.png",
+      "bytes": 323686,
+      "sha256": "4e7b9add038752fdeb1e358dc381496efd7f49fffcfe3127c4202b53fac36ca7"
+    },
+    {
+      "path": "settings-audit/browser/notification-settings-320.png",
+      "bytes": 93999,
+      "sha256": "e8683a8c0ea2c9141ef6cefa6fc029211a2c13590b3850ab3f09f2165f894e77"
+    },
+    {
+      "path": "settings-audit/browser/results.json",
+      "bytes": 90745,
+      "sha256": "f56c786e6da299370a332fa1ff1e11240ec1ff84e5354c58c5211acfca093289"
+    },
+    {
+      "path": "settings-audit/browser/support-1440.png",
+      "bytes": 300203,
+      "sha256": "b9c335a4094f5873480ea98d2983219fceb95bf141cd13a8c9c9f2c70b2ebd3d"
+    },
+    {
+      "path": "settings-audit/browser/support-320.png",
+      "bytes": 66787,
+      "sha256": "83b18ed098e2035421d11f2ea141ec26c104d035e5774805d029e914926c66e2"
+    },
+    {
+      "path": "settings-audit/browser/welcome-1440.png",
+      "bytes": 351450,
+      "sha256": "258727e159c02d4bd176ac07992eefa650f7eae9b0d0ed9103c1d4d5ba835631"
+    },
+    {
+      "path": "settings-audit/browser/welcome-320.png",
+      "bytes": 123486,
+      "sha256": "07ec7a52e07a56bb77fc023963086d50480b1a494a3ed6717f40a3eb91f64c8b"
+    },
+    {
+      "path": "settings-audit/email-dns.json",
+      "bytes": 649,
+      "sha256": "840f68714631d1f3be949f10f408b88c5529468e3234e98ee7fa794087df6fd2"
+    },
+    {
+      "path": "settings-audit/integration-results.json",
+      "bytes": 5309,
+      "sha256": "27371e8275f270b443d83a04ec3174bfc770b68d2e2bb42a059603c5c82acaa4"
+    },
+    {
+      "path": "settings-audit/migration-results.json",
+      "bytes": 916,
+      "sha256": "7604eb95e9253624bad7df62b7c6afd2ad7a5e846e7614939033b070db39a342"
+    },
+    {
+      "path": "settings-audit/other-clone-reconciliation.json",
+      "bytes": 141974,
+      "sha256": "0ba5ca297b889afaf1c1abe807957887053887222a544a5050ea9bedd9cbb865"
+    },
+    {
+      "path": "member-experience/browser/chat-story-quote-and-calls.png",
+      "bytes": 70550,
+      "sha256": "edbee8b1e216ab851638fad8627a77a1fb1a576b64ec59974d8dd26b3d692288"
+    },
+    {
+      "path": "member-experience/browser/conversation-manager.png",
+      "bytes": 67878,
+      "sha256": "cf1670291ba19b6276d8d9fc8b37e4712e4716152578ff4c83b7c0c8696f410b"
+    },
+    {
+      "path": "member-experience/browser/matches-1440.png",
+      "bytes": 313277,
+      "sha256": "a060c96e669c9e089cb06170bba8c771f4e139e6b7a009c198e04c0e4b51c9aa"
+    },
+    {
+      "path": "member-experience/browser/matches-320.png",
+      "bytes": 58972,
+      "sha256": "99cd504c16ab8f629806551f04294854dc91dd9560b3602db153ced4e05f3acb"
+    },
+    {
+      "path": "member-experience/browser/messages-inbox.png",
+      "bytes": 35426,
+      "sha256": "8012470e332612ab76025fdbf9b9ba6c3244f79ec5a9cb08b4811dc0809b2d4e"
+    },
+    {
+      "path": "member-experience/browser/notifications-matches.png",
+      "bytes": 65828,
+      "sha256": "3a761d91b7e857a615931d1a0c662e3e7a798822299bf93fac523ab1746ed979"
+    },
+    {
+      "path": "member-experience/browser/notifications-schema-error.png",
+      "bytes": 20977,
+      "sha256": "d485a6c31565e83fea09296296b92cfd6c1eda7586932018506b43c574841bc6"
+    },
+    {
+      "path": "member-experience/browser/results.json",
+      "bytes": 2370,
+      "sha256": "ca4d5256bfba62f18f5095ebe1db474663734ab72571b1ddf64c5963552f7583"
+    },
+    {
+      "path": "member-experience/browser/story-composer.png",
+      "bytes": 166421,
+      "sha256": "0749085efed0b568db0f2394780b0aa070ea6024e4a2ad18e8b97b68346e252f"
+    },
+    {
+      "path": "member-experience/browser/story-privacy-1440.png",
+      "bytes": 312563,
+      "sha256": "17ace38bdb5db25d28efc99ab12bf4092208df021b51d790a151386ea9269b07"
+    },
+    {
+      "path": "member-experience/browser/story-privacy-320.png",
+      "bytes": 43312,
+      "sha256": "14df759e1fa113f568ddeb81a717db861d59a65991abb0edb1d4ef2d614324cc"
+    },
+    {
+      "path": "member-experience/browser/story-privacy.png",
+      "bytes": 67106,
+      "sha256": "f064e3a07e80947fc843df797785cec3e1e9cd54c33e203bb445733b06ff5e02"
+    },
+    {
+      "path": "member-experience/browser/story-viewer-reply.png",
+      "bytes": 164336,
+      "sha256": "a25f5357a312a2a0ce7351619fecc7ca679fe5df1b7a1e83a42ad3f7a1887d23"
+    },
+    {
+      "path": "member-experience/browser/story-viewers.png",
+      "bytes": 13128,
+      "sha256": "e9d76b026df7d70face9276369d94afb607b6b021dd7cc67b0b06dba6ff1b261"
+    },
+    {
+      "path": "member-experience/browser/video-call-camera-controls.png",
+      "bytes": 151699,
+      "sha256": "d773dffc208b58313de0e047c785f6a716c47d30ffc530938358f28ae887b300"
+    },
+    {
+      "path": "member-experience/discovery-preservation-final.json",
+      "bytes": 631,
+      "sha256": "61981b38e78639fd7daee597c19a22d30da0ba1dbd96c00d71d7cea4fa82f544"
+    },
+    {
+      "path": "member-experience/discovery-preservation.json",
+      "bytes": 205,
+      "sha256": "32981c2a864d3d3b27f3e1b0f856a899a51d13f0b0c5d7fe11d0be8750ad8f8b"
+    },
+    {
+      "path": "member-experience/integration-results.json",
+      "bytes": 3481,
+      "sha256": "3fa9962d826f590f8f7088e3b34e4377f9f7bbd5f0b9a63ef399e2ba9ddc5ecc"
+    },
+    {
+      "path": "member-experience/live-readonly-findings.json",
+      "bytes": 753,
+      "sha256": "575fe850797dfb3b396b453ddf84f3662c7a3c78304c0a41e8af6c0c2ca5e828"
+    },
+    {
+      "path": "member-experience/migration-results.json",
+      "bytes": 660,
+      "sha256": "a2efb3a3290b2760413a6e77eb772c22f628a56f136fdc29a6c63cdf3b4b1a9f"
+    },
+    {
+      "path": "core-readiness/communications-audit.log",
+      "bytes": 24,
+      "sha256": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3"
+    },
+    {
+      "path": "core-readiness/communications-build.log",
+      "bytes": 3991,
+      "sha256": "f422a760f37bcd35a5b0c201d25f394f670fa6e03fbaf6b9627fd62831b2a951"
+    },
+    {
+      "path": "core-readiness/communications-integration.log",
+      "bytes": 3264,
+      "sha256": "6ca72722ac0cd9073e8a4ef82851c486e25b049dd15500ea52ebb94351f2ae8e"
+    },
+    {
+      "path": "core-readiness/communications-lint.log",
+      "bytes": 20,
+      "sha256": "6ba41d3386946f3480608c0bcb80bb893d785c187db4178012a840ea9081d89b"
+    },
+    {
+      "path": "core-readiness/communications-migration-replay.log",
+      "bytes": 614,
+      "sha256": "97f683267955ce58d15037f257e237491f8a342f60df80779e0661e148a626f5"
+    },
+    {
+      "path": "core-readiness/communications-migration.log",
+      "bytes": 269,
+      "sha256": "52969f160322e84d84bdfe57729d8f132236aebb12cf0603b96243f87d5d28d2"
+    },
+    {
+      "path": "core-readiness/communications-trust.log",
+      "bytes": 52955,
+      "sha256": "6558ff24641b2f3c0802fb3f53c2fce1c93debe370a885ed045da625d6223d6c"
+    },
+    {
+      "path": "core-readiness/communications-typecheck.log",
+      "bytes": 29,
+      "sha256": "8fa1cf5506304e8abac55868e7f1a136c9b1dde57a3981a382da4c21ea129a6f"
+    },
+    {
+      "path": "core-readiness/final-api-contracts.log",
+      "bytes": 2047,
+      "sha256": "ae9d345618e69da614885ddc2536e72ec67cac8b45105c4b14d0de19e533b5cc"
+    },
+    {
+      "path": "core-readiness/final-browser-orchestration.log",
+      "bytes": 4405,
+      "sha256": "5608af5f9d825686812a98594a25b193a62f76dc29d13cdf6c56fd045b287abb"
+    },
+    {
+      "path": "core-readiness/final-build-welcome.log",
+      "bytes": 3990,
+      "sha256": "a6957f4574e53a1353f1310b18f63e560d0859f2b17854819469c944905c2de1"
+    },
+    {
+      "path": "core-readiness/final-discovery-sql.log",
+      "bytes": 2047,
+      "sha256": "f38a0ac4611f60fbdbbe6fa12716d4a0a2e5aa22d0e224d8503ef93400e1c0b2"
+    },
+    {
+      "path": "core-readiness/final-lint-welcome.log",
+      "bytes": 20,
+      "sha256": "6ba41d3386946f3480608c0bcb80bb893d785c187db4178012a840ea9081d89b"
+    },
+    {
+      "path": "core-readiness/final-submission-contracts.log",
+      "bytes": 899,
+      "sha256": "237c670a2246cef0a129226f413d4b35f7a725f9d52568d7a46b37237591219e"
+    },
+    {
+      "path": "core-readiness/final-test-bing-metadata.log",
+      "bytes": 1721,
+      "sha256": "830c9af084c5ed2ea35439dd72f9436477d431d2c81046fac13615174ec33405"
+    },
+    {
+      "path": "core-readiness/final-test-db-tls.log",
+      "bytes": 896,
+      "sha256": "344a8f23a150554edccd1a401414e2b7f406d8437566fe80ffc6de76916cd044"
+    },
+    {
+      "path": "core-readiness/final-test-discovery-presentation.log",
+      "bytes": 1069,
+      "sha256": "802ac0a9dccbee17ff5ce41d6e8318454f9ada5f9b92b5ef9284c44adc8fff7d"
+    },
+    {
+      "path": "core-readiness/final-test-engines.log",
+      "bytes": 1057,
+      "sha256": "0f4931ab7be17434462eb85414b63f42de752798dd9e8565d1c0a2feb1aeaf45"
+    },
+    {
+      "path": "core-readiness/final-test-evidence-safety.log",
+      "bytes": 1637,
+      "sha256": "da754b0fc15454e86d8b5c2980ef1dc90e85d9a643b02dc3858317c065e97e44"
+    },
+    {
+      "path": "core-readiness/final-test-filter-storage.log",
+      "bytes": 218,
+      "sha256": "e108f4cb82c0264abcb8c736635af295bbac4593d82baeea1b87b6516ab3319c"
+    },
+    {
+      "path": "core-readiness/final-test-turn.log",
+      "bytes": 1494,
+      "sha256": "534c52ffb65b3232494472ab1653f5fa38f5ada5305fa479b6533867ccf3e534"
+    },
+    {
+      "path": "core-readiness/final-typecheck-welcome.log",
+      "bytes": 29,
+      "sha256": "8fa1cf5506304e8abac55868e7f1a136c9b1dde57a3981a382da4c21ea129a6f"
+    },
+    {
+      "path": "core-readiness/member-browser.log",
+      "bytes": 1432,
+      "sha256": "5096ba33e07738f647f46df98810612bcfb1faff2503cb85da6925e8fba45470"
+    },
+    {
+      "path": "core-readiness/member-integration.log",
+      "bytes": 2090,
+      "sha256": "0caff77f22ba3b3ca964a5858d933b9688ead99d7ec60b993866db90bb7df3f5"
+    },
+    {
+      "path": "core-readiness/member-migration-replay.log",
+      "bytes": 548,
+      "sha256": "69a1a53fe1a5ec1859650ed709fe37cb4bc29201a771187210ad4fccaf3e1984"
+    },
+    {
+      "path": "core-readiness/member-trust-harness.log",
+      "bytes": 52957,
+      "sha256": "a9ef6872fdafe356fd7b128c10139a6d626cd6c25e8f5c66b2f4e9a8048c4cd5"
+    },
+    {
+      "path": "core-readiness/settings-browser.log",
+      "bytes": 2563,
+      "sha256": "acd3dbe1f564a96c735ba06e3129c63c7b162fc93afb7b1237c7b364c3c90fc9"
+    },
+    {
+      "path": "core-readiness/settings-prepare.log",
+      "bytes": 333,
+      "sha256": "27bdeb653789798a6418cbc1f04d317218fd52cdf1d45b1a05c8c2275db483f6"
+    }
+  ]
+}

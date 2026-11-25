@@ -1,11 +1,12 @@
+import { featureRoute } from "@/lib/member-feature-errors";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches, messages, profilePhotos, userProfiles, userPrivateSettings } from "@/db/schema";
+import { blockedUsers, conversationPreferences, matches, messages, profilePhotos, userProfiles, userPrivateSettings } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 
-export async function GET(request: Request) {
+async function readMatches(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
@@ -94,7 +95,9 @@ export async function GET(request: Request) {
     const [privacy] = await db.select({hideActiveStatus:userPrivateSettings.hideActiveStatus}).from(userPrivateSettings).where(eq(userPrivateSettings.userId,otherId)).limit(1);
     const active =
       other.lastActiveAt != null && Date.now() - other.lastActiveAt.getTime() < 15 * 60 * 1000;
+    const [local] = await db.select().from(conversationPreferences).where(and(eq(conversationPreferences.userId,member.id),eq(conversationPreferences.matchId,row.id))).limit(1);
     out.push({
+      preferences: {nickname:local?.nickname??null,archived:local?.archived??false,hidden:local?.hidden??false,pinned:local?.pinned??false},
       id: row.id,
       with: {
         id: otherId,
@@ -123,5 +126,7 @@ export async function GET(request: Request) {
     });
   }
 
-  return Response.json({ matches: out });
+  return Response.json({ matches: out }, {headers:{"Cache-Control":"private, no-store"}});
 }
+
+export const GET=featureRoute(readMatches);

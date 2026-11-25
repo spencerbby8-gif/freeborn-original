@@ -1,0 +1,1 @@
+export const STORY_DISCLOSURE="Stories disappear from Stories after 24 hours. Matches can see that you viewed theirs. If someone replies, a copy of your exact story picture stays in that private conversation after expiry or story deletion. Audience changes do not recall copies already sent. People can also take screenshots.";

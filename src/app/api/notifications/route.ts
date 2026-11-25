@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { withMemberApiErrors } from "@/lib/member-api-errors";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
@@ -134,6 +135,9 @@ async function readNotifications(request: Request) {
     });
   }
 
+  const durable=await db.execute<{id:string;kind:string;title:string;body:string;href:string;created_at:Date;read_at:Date|null}>(sql`select id,kind,title,body,href,created_at,read_at from public.member_notices where user_id=${member.id}::uuid order by created_at desc limit 50`);
+  for(const n of durable.rows)items.push({id:`notice-${n.id}`,type:'tip',title:n.title,body:n.body,at:new Date(n.created_at),unread:!n.read_at,href:n.href});
+
   // Verification engine alerts
   const [latestVerify] = await db
     .select()
@@ -141,7 +145,7 @@ async function readNotifications(request: Request) {
     .where(eq(verificationRequests.accountId, member.id))
     .orderBy(desc(verificationRequests.submittedAt))
     .limit(1);
-  if (latestVerify) {
+  if (latestVerify && !durable.rows.some(n=>n.kind==='verification')) {
     if (latestVerify.status === "approved") {
       items.push({
         id: `verify-${latestVerify.id}`,
@@ -186,18 +190,6 @@ async function readNotifications(request: Request) {
 
   items.sort((a, b) => b.at.getTime() - a.at.getTime());
 
-  if (items.length === 0) {
-    items.push({
-      id: "tip-1",
-      type: "tip",
-      title: "Welcome to Freeborn",
-      body: "Like someone in Discover and the room opens up. Matches and messages land here.",
-      at: new Date(),
-      unread: false,
-      href: "/app",
-    });
-  }
-
   // Clearing a feed never marks a private message read or deletes source data.
   const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
   return Response.json({ notifications: visible, memberId: member.id });
@@ -205,6 +197,7 @@ async function readNotifications(request: Request) {
 
 
 async function clearNotifications(request: Request) {
+  const blocked=rejectCrossOrigin(request);if(blocked)return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
   let body: unknown;

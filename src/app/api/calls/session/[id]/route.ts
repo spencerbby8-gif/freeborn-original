@@ -1,6 +1,7 @@
+import { isBlockedPair } from "@/lib/conversation-access";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { callSessions } from "@/db/schema";
+import { callSessions, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { callSessionView, findParticipantSession, isCallSessionLive } from "@/lib/call-session-server";
 import { rejectCrossOrigin } from "@/lib/request-guard";
@@ -15,7 +16,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!isUuid(id)) return badIdResponse();
   const row = await findParticipantSession(id, member.id);
   if (!row) return Response.json({ error: "Call not found." }, { status: 404 });
-  if (!isCallSessionLive(row)) return Response.json({ error: "This call has expired." }, { status: 410 });
+  const [conversation]=await db.select({status:matches.status}).from(matches).where(eq(matches.id,row.matchId)).limit(1);
+  if(!conversation||!["active","archived"].includes(conversation.status)||await isBlockedPair(row.callerId,row.calleeId))return Response.json({error:"Call not found."},{status:404});
+  if (row.status !== "ended" && !isCallSessionLive(row)) return Response.json({ error: "This call has expired." }, { status: 410 });
   return Response.json(await callSessionView(row, member.id), { headers: { "Cache-Control": "private, no-store" } });
 }
 
@@ -46,7 +49,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     status: nextStatus,
     ...(action === "accept"
       ? { expiresAt: new Date(Date.now() + 4 * 60 * 60_000) }
-      : { endedAt: new Date() }),
+      : { endedAt: new Date(), endedBy: member.id, endReason: action === "decline" ? "declined" : row.status === "ringing" ? "cancelled" : "ended" }),
   }).where(and(
     eq(callSessions.id, id),
     inArray(callSessions.status, action === "end" ? ["ringing", "active"] : ["ringing"]),

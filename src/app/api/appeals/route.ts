@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { appeals, humanChallenges, securityEvents, suspensions } from "@/db/schema";
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
  * no code path lifts a suspension: reinstatement is a manual act.
  */
 export async function POST(request: Request) {
+  const crossOrigin=rejectCrossOrigin(request);if(crossOrigin)return crossOrigin;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

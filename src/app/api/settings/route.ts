@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { dbErrorMessage, normalizeDisplayName } from "@/lib/field-rules";
 
@@ -80,6 +81,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const blocked=rejectCrossOrigin(request);if(blocked)return blocked;
   const supabase = await createSupabaseClientForApi(request);
   const {
     data: { user },

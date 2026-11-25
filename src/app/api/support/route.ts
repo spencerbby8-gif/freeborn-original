@@ -1,50 +1,33 @@
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { supportRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
-
-export const dynamic = "force-dynamic";
-
-const hits = new Map<string, number[]>();
-function rateLimited(accountId: string, max: number, windowMs: number) {
-  const now = Date.now();
-  const recent = (hits.get(accountId) ?? []).filter((t) => now - t < windowMs);
-  hits.set(accountId, recent);
-  if (recent.length >= max) return true;
-  recent.push(now);
-  return false;
+import { rejectCrossOrigin } from "@/lib/request-guard";
+import { validEmail } from "@/lib/member-email";
+export const dynamic="force-dynamic";
+/** Tickets and the mail outbox are committed atomically by a database trigger.
+ * Returning a reference proves persistence, NOT inbox receipt or human review. */
+export async function POST(request:Request){
+ const blocked=rejectCrossOrigin(request);if(blocked)return blocked;
+ const member=await getMember(request);if(!member)return Response.json({error:'Not signed in.'},{status:401});
+ let body:unknown;try{body=await request.json();}catch{return Response.json({error:'Invalid request body.'},{status:400});}
+ if(!body||typeof body!=='object')return Response.json({error:'Invalid request body.'},{status:400});
+ const {message,email} = body as {message?:unknown;email?:unknown};
+ if(typeof message!=='string'||message.trim().length<5||message.trim().length>4000)return Response.json({error:'Use 5 to 4,000 characters for your message.'},{status:400});
+ if(email!==undefined&&(typeof email!=='string'||email.trim()&&!validEmail(email.trim())))return Response.json({error:'Enter a valid reply-to email or leave it empty.'},{status:400});
+ try{
+ const result=await db.transaction(async tx=>{
+  // Per-account lock + durable quota survives serverless restarts and concurrent requests.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${member.id}))`);
+  const {rows:[quota]}=await tx.execute<{n:number}>(sql`select count(*)::int n from public.support_requests where account_id=${member.id}::uuid and created_at>now()-interval '1 hour'`);
+  if(quota.n>=10)return null;
+  const {rows:[ticket]}=await tx.execute<{id:string}>(sql`insert into public.support_requests(account_id,message,email) values(${member.id}::uuid,${message.trim()},${typeof email==='string'&&email.trim()?email.trim():member.email}) returning id`);
+  return ticket;
+ });
+ if(!result)return Response.json({error:'Too many requests. Please try again in an hour.'},{status:429,headers:{'Retry-After':'3600'}});
+ return Response.json({ok:true,ticketId:result.id,delivery:'queued',message:'Saved to support. Email forwarding is queued; delivery and human review are not yet confirmed.'},{status:201,headers:{'Cache-Control':'no-store'}});
+ }catch{return Response.json({error:'Your request could not be saved. Please try again.'},{status:503});}
 }
-
-/**
- * POST /api/support — a message from a real member, stored for a real human
- * to read. No canned replies, no ticket bots.
- */
-export async function POST(request: Request) {
-  const member = await getMember(request);
-  if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 });
-  }
-  const { message, email } = (body ?? {}) as { message?: string; email?: string };
-  const clean = (message ?? "").trim();
-  if (clean.length < 5) {
-    return Response.json({ error: "Tell us a little more. At least a sentence." }, { status: 400 });
-  }
-  if (clean.length > 4000) {
-    return Response.json({ error: "Keep it under 4,000 characters." }, { status: 400 });
-  }
-  if (rateLimited(member.id, 10, 60 * 60 * 1000)) {
-    return Response.json({ error: "Too many messages. Please try again in an hour." }, { status: 429 });
-  }
-
-  await db.insert(supportRequests).values({
-    accountId: member.id,
-    message: clean,
-    email: (email ?? "").trim().slice(0, 200) || null,
-  });
-
-  return Response.json({ ok: true });
+export async function GET(request:Request){
+ const member=await getMember(request);if(!member)return Response.json({error:'Not signed in.'},{status:401});
+ try{const {rows}=await db.execute(sql`select t.id,t.message,t.status,t.created_at,coalesce((select json_agg(json_build_object('id',r.id,'message',r.message,'createdAt',r.created_at) order by r.created_at) from public.support_replies r where r.ticket_id=t.id),'[]'::json) replies,(select case when delivery_status<>'unknown' then delivery_status else status end from public.member_email_outbox o where o.source_id=t.id and o.kind='support_ticket' limit 1) forwarding from public.support_requests t where t.account_id=${member.id}::uuid order by t.created_at desc limit 25`);return Response.json({tickets:rows},{headers:{'Cache-Control':'no-store'}});}catch{return Response.json({error:'Support history unavailable.'},{status:503});}
 }
