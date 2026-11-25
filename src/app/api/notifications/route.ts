@@ -38,6 +38,8 @@ async function readNotifications(request: Request) {
     at: Date;
     unread: boolean;
     href: string;
+    profileId?: string;
+    profileName?: string;
   }> = [];
 
   const blocks=await db.select({blockerId:blockedUsers.blockerId,blockedId:blockedUsers.blockedId}).from(blockedUsers).where(or(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,member.id)));
@@ -128,8 +130,10 @@ async function readNotifications(request: Request) {
     items.push({
       id: `like-${liker.id}-${like.createdAt.getTime()}`,
       type: "like",
+      profileId: liker.id,
+      profileName: liker.displayName ?? "Member",
       title: `${liker.displayName ?? "Someone"} liked you${like.action === "superlike" ? " (Super Like)" : ""}`,
-      body: "Open the Likes tab to see who and like them back.",
+      body: "Like back to match, or open a message draft.",
       photo: resolvePhotoUrl(likerPhoto?.storagePath ?? ""),
       at: like.createdAt,
       unread: false,

@@ -1772,8 +1772,8 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
   const likeSrc = src("src/app/api/likes/route.ts");
   ok("[17] a second mutual like cannot resurrect a severed pair",
     /endedPreviously: true/.test(likeSrc) && /status !== "active"/.test(likeSrc));
-  ok("[17] undo detaches when the thread has messages, deletes only when empty",
-    /undoMayDeleteMatchRow\(Boolean\(anyMessage\)\)/.test(likeSrc) && /unmatchReason: "other"/.test(likeSrc));
+  ok("[17] undo retains history when messages, media or calls exist, deletes only empty matches",
+    /undoMayDeleteMatchRow\(Boolean\(anyMessage\|\|anyMedia\|\|anyCall\)\)/.test(likeSrc) && /unmatchReason:\s*["']other["']/.test(likeSrc) && /\.for\(['"]update['"]\)/.test(likeSrc));
 
   const deckSrc = src("src/app/api/profiles/route.ts");
   ok("[17] a severed match no longer grants incognito visibility",

@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches, messageRequests } from "@/db/schema";
+import { blockedUsers, matches, messageRequests } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { isBlockedPair } from "@/lib/conversation-access";
 import { isUuid } from "@/lib/uuid";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
   const { id } = await context.params;
   if (!isUuid(id)) return Response.json({ error: "Unknown request." }, { status: 404 });
 
@@ -63,36 +66,39 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (action === "accept") {
     const [userA, userB] = [row.fromId, row.toId].sort() as [string, string];
     const result = await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select({ id: matches.id, status: matches.status })
-        .from(matches)
-        .where(and(eq(matches.userA, userA), eq(matches.userB, userB)))
-        .limit(1);
-      if (existing && existing.status !== "active") {
-        return { error: "severed" as const };
-      }
+      // Same pair lock as blocking and reciprocal likes, with the block check
+      // inside the transaction. A concurrent block cannot slip between check
+      // and creation of the conversation.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${userA}::text, ${userB}::text) || ':' || greatest(${userA}::text, ${userB}::text), 0))`);
+      const [blocked] = await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+        and(eq(blockedUsers.blockerId,userA),eq(blockedUsers.blockedId,userB)),
+        and(eq(blockedUsers.blockerId,userB),eq(blockedUsers.blockedId,userA))
+      )).limit(1);
+      if(blocked)return {error:'blocked' as const};
+      // Lock the request itself: simultaneous accept/cancel must not both win.
+      const [current] = await tx.select({status:messageRequests.status}).from(messageRequests).where(eq(messageRequests.id,row.id)).for('update');
+      if(!current || current.status!=='pending')return {error:'answered' as const};
+      const [existing] = await tx.select({ id: matches.id, status: matches.status }).from(matches)
+        .where(and(eq(matches.userA, userA), eq(matches.userB, userB))).limit(1);
+      if (existing && existing.status !== "active") return { error: "severed" as const };
       let matchId = existing?.id;
       if (!matchId) {
-        const [created] = await tx
-          .insert(matches)
-          .values({ userA, userB, initiatedBy: row.fromId, lastMessageAt: new Date() })
-          .returning();
-        matchId = created.id;
+        const [created] = await tx.insert(matches).values({ userA, userB, initiatedBy: row.fromId, lastMessageAt: new Date() })
+          .onConflictDoNothing({target:[matches.userA,matches.userB]}).returning({id:matches.id});
+        if(created)matchId=created.id;
+        else {
+          const [winner]=await tx.select({id:matches.id,status:matches.status}).from(matches).where(and(eq(matches.userA,userA),eq(matches.userB,userB))).limit(1);
+          if(!winner||winner.status!=='active')return {error:'severed' as const};
+          matchId=winner.id;
+        }
       }
-      await tx
-        .update(messageRequests)
-        .set({ status: "accepted", respondedAt: new Date() })
-        .where(eq(messageRequests.id, row.id));
+      await tx.update(messageRequests).set({ status: "accepted", respondedAt: new Date() }).where(eq(messageRequests.id, row.id));
       return { matchId };
     });
     if (result.error) {
-      return Response.json(
-        {
-          error:
-            "This conversation has ended. Unmatching is permanent in Freeborn: neither of you can send again.",
-        },
-        { status: 409 },
-      );
+      if(result.error==='blocked')return Response.json({error:"This conversation isn't available."},{status:403});
+      if(result.error==='answered')return Response.json({error:"This request has already been answered."},{status:409});
+      return Response.json({error:"This conversation has ended. Unmatching is permanent in Freeborn: neither of you can send again."},{status:409});
     }
     return Response.json({ matchId: result.matchId }, { headers: { "Cache-Control": "private, no-store" } });
   }

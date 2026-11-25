@@ -246,6 +246,7 @@
 .fb-prototype .like-name .verified svg{width:15px;height:15px}
 .fb-prototype .like-role{color:var(--muted);font-size:11px;margin-top:3px}
 .fb-prototype .like-dist{color:var(--faint);font-size:10px;margin-top:3px}
+.fb-prototype .like-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .fb-prototype .like-btn{flex:0 0 42px;width:42px;height:42px;border-radius:999px;border:1px solid rgba(224,104,95,.45);background:rgba(224,104,95,.08);display:grid;place-items:center;color:#e88d84;transition:transform .15s}
 .fb-prototype .like-btn svg{width:19px;height:19px}
 .fb-prototype .like-btn:active{transform:scale(1.2)}
@@ -316,6 +317,7 @@
 .fb-prototype .new-label{font-size:9px;letter-spacing:.28em;color:var(--faint);font-weight:700;padding:10px 22px 0}
 .fb-prototype .notif-list{display:flex;flex-direction:column;gap:9px;padding:9px 20px 18px}
 .fb-prototype .notif-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--hairline);border-radius:19px;padding:11px 13px;animation:fadeUp .35s ease both}
+.fb-prototype .notif-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
 .fb-prototype .notif-ic{flex:0 0 42px;width:42px;height:42px;border-radius:999px;display:grid;place-items:center}
 .fb-prototype .notif-ic svg{width:19px;height:19px}
 .fb-prototype .notif-ic.rose{background:rgba(224,104,95,.16)}.fb-prototype .notif-ic.rose svg{stroke:#e88d84}

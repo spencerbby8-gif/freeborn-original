@@ -11,6 +11,12 @@ const connectionString=process.env.E2E_DATABASE_URL??'postgresql://postgres:post
 if(!['localhost','127.0.0.1','::1'].includes(new URL(connectionString).hostname))throw Error('Disposable local database only');
 const client=new pg.Client({connectionString});await client.connect();
 const state={db:drizzle(client),user:null,failure:null};globalThis.__memberRuntime=state;
+// The fixture wraps everything in an outer rollback. A production handler's
+// transaction must be a savepoint here, not a second BEGIN/COMMIT on the same
+// connection (which would accidentally commit and break cleanup). True
+// multi-connection concurrency is exercised by relationship-recovery tests.
+let transactionIndex=0;
+state.db.transaction=async fn=>{const savepoint=`member_runtime_${++transactionIndex}`;await client.query(`savepoint ${savepoint}`);try{const result=await fn(state.db);await client.query(`release savepoint ${savepoint}`);return result}catch(e){await client.query(`rollback to savepoint ${savepoint}`);await client.query(`release savepoint ${savepoint}`);throw e}};
 const replacements={
  '@/db':'export const db=globalThis.__memberRuntime.db',
  '@/lib/app-auth':'export async function getMember(){const s=globalThis.__memberRuntime;if(s.failure)throw s.failure;return s.user} export async function getLocalProfile(id){return globalThis.__memberRuntime.lookup(id)}',

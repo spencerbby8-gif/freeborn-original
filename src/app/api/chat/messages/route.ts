@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatSignals, storyQuotes, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
+import { blockedUsers, chatSignals, storyQuotes, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
@@ -236,11 +236,31 @@ export async function POST(request: Request) {
     .limit(1);
   const scam = scoreScamMessage(clean, Number(priorHist?.flags ?? 0));
   const scamFlag = scam.shouldWarn;
-  const rows = await db
-    .insert(messages)
-    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag })
-    .returning({ id: messages.id, createdAt: messages.createdAt });
-  const [stored] = rows;
+  const committed = await db.transaction(async (tx) => {
+    // Pair lock makes send and block linearizable. Locking the match row also
+    // serializes unmatch and safe swipe undo against message insertion.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [live] = await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if(!live || (live.userA!==member.id && live.userB!==member.id))return {error:'Match not found.',status:404} as const;
+    const access=decideMatchAccess({status:live.status as MatchLifecycleStatus,isParticipant:true,isActor:live.unmatchedBy===member.id,hasMessages:false,action:'send_message'});
+    if(!access.allow)return {error:severedMessage(live.status as MatchLifecycleStatus),status:403} as const;
+    const [blocked]=await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+      and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if(blocked)return {error:"This conversation isn't available.",status:403} as const;
+    // Recheck messaging rules inside the same critical section, not just
+    // before it: matching never grants an exemption from a privacy setting.
+    const [recipient]=await tx.select({name:userProfiles.displayName,privacy:userProfiles.messagePrivacy}).from(userProfiles).where(eq(userProfiles.id,otherId)).for('share');
+    const [sender]=await tx.select({verified:userProfiles.isVerified,vaccination:userProfiles.vaccinationStatus}).from(userProfiles).where(eq(userProfiles.id,member.id)).for('share');
+    const privacy=recipient?.privacy??'everyone';
+    if(privacy!=='everyone' && !(privacy==='verified'?sender?.verified===true:sender?.vaccination==='unvaccinated'))
+      return {error:privacy==='verified'?`${recipient?.name??'This member'} only accepts messages from verified members.`:`${recipient?.name??'This member'} only accepts messages from unvaccinated members.`,status:403} as const;
+    const [stored]=await tx.insert(messages).values({matchId,senderId:member.id,body:clean,flagged:scamFlag}).returning({id:messages.id,createdAt:messages.createdAt});
+    return {stored} as const;
+  });
+  if('error' in committed)return Response.json({error:committed.error},{status:committed.status});
+  const stored=committed.stored;
   if (scamFlag) await recordScamFlag(member.id);
   if (scam.shouldEscalate) {
     try {
