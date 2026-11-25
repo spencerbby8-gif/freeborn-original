@@ -30,7 +30,7 @@
 | Environment isolation / migration manifest / secret scan | PASS |
 | Existing discovery/privacy/filter/presentation, notification receipts, media, engine/TLS/TURN, evidence safety, Bing metadata and submission contracts | PASS locally |
 
-The browser result uses real local SQL/handlers but fixture Auth/provider/ancillary resources. Fake media is not physical voice/video acceptance. The new GitHub CI job was validated locally, not observed running remotely. The production build uses public fixture configuration, not a deployed application.
+The browser result uses real local SQL/handlers but fixture Auth/provider/ancillary resources. Fake media is not physical voice/video acceptance. The isolated communications job passed in [GitHub run 45623379830](https://github.com/spencerbby8-gif/freeborn-original/actions/runs/45623379830) for an earlier branch commit; the latest commit has additional fixes and must get its own successful remote checks. The production build uses public fixture configuration, not a deployed application.
 
 Migration static manifest: **56 steps; 54 tables, 517 columns, 147 indexes, 95 checks**. Communications measured delta: 4 tables / 36 columns / 8 indexes / 6 checks. **Full clean-chain hosted replay remains unrun.** Actual additive migration execution is narrower than that. Local account deletion removed only the seeded test identity and queued cleanup; it did not prove physical hosted Storage erasure.
 
