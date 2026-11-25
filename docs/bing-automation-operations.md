@@ -4,7 +4,7 @@
 
 Prepared against canonical main `8e7dea489d996e66b54598fd6561efc04f678c7c`, independently matched to the latest READY production deployment returned for Vercel project `freeborn`. Vercel records that commit as the merge of PR #95. This work does NOT merge, push, redeploy, change production variables, alter a database or enable schedules in the hosted repository.
 
-The new workflows are local proposals, gated OFF unless owner variables are explicitly set to `true`. Full hosted GitHub Actions execution, cache persistence, scheduled delivery and notifications remain untested. YAML parsing is not an actual Actions run. No application source or four bottom tabs changed.
+The notifier and Bing monitor are local proposals, gated OFF unless owner variables are explicitly set to `true`. A separate `search-automation-checks.yml` runs the 27 mocked safeguard tests on relevant pull requests/pushes without credentials or external requests; it does not send notifications. Full hosted GitHub Actions execution, cache persistence, scheduled delivery and notifications remain untested. All three new workflows passed actionlint v1.7.12 locally (external shellcheck/pyflakes integrations disabled); local linting is not an actual Actions run. No application source or four bottom tabs changed.
 
 ## Confirmed authenticated Bing observations
 
