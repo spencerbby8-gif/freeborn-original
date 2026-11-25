@@ -1,0 +1,62 @@
+name: Public search change notifications
+on:
+  schedule:
+    - cron: '47 * * * *'
+  workflow_dispatch:
+    inputs:
+      initialize_baseline:
+        description: 'Initialize missing state without submitting existing pages (review prior receipts first)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: production-public-search-notifications
+  cancel-in-progress: false
+jobs:
+  notify:
+    if: github.ref == 'refs/heads/main' && vars.SEARCH_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test notification safeguards (mocked; no submissions)
+        run: python3 -m unittest discover -s scripts/seo -p test_search_automation.py -v
+      - uses: actions/cache/restore@v4
+        id: state
+        with:
+          path: .search-state/state.json
+          key: public-search-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            public-search-state-v1-
+      - name: Require durable baseline or explicit owner initialization
+        env:
+          INITIALIZE_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_baseline && 'true' || 'false' }}
+        run: |
+          if [ ! -f .search-state/state.json ]; then
+            if [ "$INITIALIZE_BASELINE" = 'true' ]; then
+              python3 scripts/seo/search-notify.py --baseline --report=search-baseline-report.json
+            else
+              echo 'No cached baseline. Manual initialization or state recovery required; refusing automatic rebaseline or resubmission.'
+              exit 1
+            fi
+          fi
+      - name: Notify meaningful live public-page changes
+        run: python3 scripts/seo/search-notify.py --apply
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('.search-state/state.json') != ''
+        with:
+          path: .search-state/state.json
+          key: public-search-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-search-state-and-receipt-${{ github.run_id }}
+          path: |
+            search-notify-report.json
+            .search-state/state.json
+          include-hidden-files: true
+          retention-days: 90

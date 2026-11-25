@@ -23,6 +23,12 @@ netlify/
 .netlify/
 *.zip
 
+# Search notification runtime state/receipts (CI artifacts, never website source)
+.search-state/
+search-notify-report.json
+search-baseline-report.json
+bing-monitor-report.json
+
 # Python growth-tool runtime artifacts
 __pycache__/
 *.py[cod]
