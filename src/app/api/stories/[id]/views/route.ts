@@ -18,11 +18,20 @@ export const POST=featureRoute(async(request:Request,ctx:{params:Promise<{id:str
  const me=await getMember(request);if(!me)return Response.json({error:"Not signed in."},{status:401});
  const blocked=rejectCrossOrigin(request);if(blocked)return blocked;
  const {id}=await ctx.params;if(!isUuid(id))return Response.json({error:"Story not found."},{status:404});
- // One statement rechecks current audience and expiry at the actual write, not just before it.
- const result=await db.execute(sql`insert into public.story_views(story_id,viewer_id)
+ // Taking the pair and author-audience locks before the INSERT prevents a
+ // view receipt from crossing a concurrent block or privacy change.
+ const result=await db.transaction(async tx=>{
+ const identity=await tx.execute(sql`select author_id from public.member_stories where id=${id}::uuid`);
+ const authorId=identity.rows[0]?.author_id;
+ if(typeof authorId!=="string" || authorId===me.id)return false;
+ await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${me.id}::text, ${authorId}::text) || ':' || greatest(${me.id}::text, ${authorId}::text), 0))`);
+ await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('story-privacy:' || ${authorId}::text, 0))`);
+ const inserted=await tx.execute(sql`insert into public.story_views(story_id,viewer_id)
  select s.id,${me.id}::uuid from public.member_stories s left join public.story_preferences p on p.user_id=s.author_id
- where s.id=${id}::uuid and s.author_id<>${me.id}::uuid and s.expires_at>now() and ${storyAudienceSql(me.id)}
+ where s.id=${id}::uuid and s.author_id=${authorId}::uuid and s.author_id<>${me.id}::uuid and s.expires_at>now() and ${storyAudienceSql(me.id)}
  on conflict(story_id,viewer_id) do update set viewed_at=story_views.viewed_at returning story_id`);
- if(!result.rows.length)return Response.json({error:"Story not available."},{status:404});
+ return inserted.rows.length>0;
+ });
+ if(!result)return Response.json({error:"Story not available."},{status:404});
  return Response.json({ok:true});
 });

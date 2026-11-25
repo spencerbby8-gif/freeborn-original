@@ -2518,10 +2518,10 @@ console.log("\n[24] design system — the shared control contract, the migration
     callBusSrc.indexOf("client.realtime.setAuth()") < callBusSrc.indexOf("client.channel(topic"));
   ok("[26] ICE issuance is authenticated and scoped to a live participant session",
     iceSrc.includes("getMember(request)") && iceSrc.includes("findParticipantSession(callId, member.id)") &&
-    iceSrc.includes("isCallSessionLive(session)") && iceSrc.includes('relayStatus: turn ? "configured-unverified" : "unconfigured"'));
+    iceSrc.includes("isCallSessionLive(session)") && iceSrc.includes("isCallRelationshipAvailable(session)") && iceSrc.includes('relayStatus: turn ? "configured-unverified" : "unconfigured"'));
   ok("[26] the server, not a client topic, mints call authority",
     sessionSrc.includes("pg_advisory_xact_lock") && sessionSrc.includes("isBlockedPair(member.id, calleeId)") &&
-    sessionSrc.includes("decideMatchAccess") && sessionSrc.includes("tx.insert(callSessions)"));
+    sessionSrc.includes('liveMatch.status!=="active"') && sessionSrc.includes("from(blockedUsers)") && sessionSrc.includes("tx.insert(callSessions)"));
   ok("[26] incoming rings are re-read from the server before display",
     listenerSrc.includes("getCallSession(hint.callId)") && listenerSrc.includes("session.calleeId !== user.id") &&
     listenerSrc.includes("from: session.peer"));

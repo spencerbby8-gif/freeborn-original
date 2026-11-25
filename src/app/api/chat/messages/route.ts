@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");
-  if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
+  if (!isUuid(matchId)) return Response.json({ error: "A valid match is required." }, { status: 400 });
 
   const viewed = await ownsMatch(matchId, member.id, "view_conversation");
   if (!viewed) return Response.json({ error: "Match not found." }, { status: 404 });
@@ -55,13 +55,20 @@ export async function GET(request: Request) {
       { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true },
       { status: 403 }
     );
-  const match = viewed;
-  const otherId = match.userA === member.id ? match.userB : match.userA;
+  const otherId = viewed.userA === member.id ? viewed.userB : viewed.userA;
+  return db.transaction(async tx=>{
+  // Viewing also marks messages read. Serialize the authorization snapshot
+  // and receipt update with relationship boundaries, then re-check inside it.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+  const [match]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+  if(!match || (match.userA!==member.id && match.userB!==member.id))return Response.json({error:"Match not found."},{status:404});
+  const access=decideMatchAccess({status:match.status as MatchLifecycleStatus,isParticipant:true,isActor:match.unmatchedBy===member.id,hasMessages:false,action:"view_conversation"});
+  if(!access.allow)return Response.json({error:"This conversation isn't available. Unmatching removes it from the member who ended it.",ended:true},{status:403});
   // Legacy archived rows retain their status while blocked. Apply the block
   // independently so a direct URL cannot show the blocker an open thread or
   // tell the other participant that sending is permitted. The non-blocker
   // may still read their existing history for reporting, as for blocked rows.
-  const blocks = await db.select({blockerId:blockedUsers.blockerId}).from(blockedUsers).where(or(
+  const blocks = await tx.select({blockerId:blockedUsers.blockerId}).from(blockedUsers).where(or(
     and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
     and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
   ));
@@ -69,7 +76,7 @@ export async function GET(request: Request) {
     return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true},{status:403});
   const effectiveStatus = blocks.length ? "blocked" : match.status as MatchLifecycleStatus;
 
-  await db
+  await tx
     .update(messages)
     .set({ readAt: new Date() })
     .where(
@@ -80,7 +87,7 @@ export async function GET(request: Request) {
       )
     );
 
-  const rows = await db
+  const rows = await tx
     .select()
     .from(messages)
     .where(eq(messages.matchId, matchId))
@@ -90,7 +97,7 @@ export async function GET(request: Request) {
      receipts off, your own messages report read=false — the read event is
      still recorded (their unread badge works), it is simply not shown to
      you. Their messages report your own read state normally. */
-  const [otherPriv] = await db
+  const [otherPriv] = await tx
     .select({ readReceipts: userPrivateSettings.readReceipts })
     .from(userPrivateSettings)
     .where(eq(userPrivateSettings.userId, otherId))
@@ -104,7 +111,7 @@ export async function GET(request: Request) {
     Array<{ emoji: string; mine: boolean; count: number }>
   >();
   if (ids.length > 0) {
-    const reactionRows = await db
+    const reactionRows = await tx
       .select({
         messageId: messageReactions.messageId,
         userId: messageReactions.userId,
@@ -125,7 +132,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const quotes=ids.length?await db.select({messageId:storyQuotes.messageId,authorId:storyQuotes.authorId,caption:storyQuotes.caption}).from(storyQuotes).where(inArray(storyQuotes.messageId,ids)):[];
+  const quotes=ids.length?await tx.select({messageId:storyQuotes.messageId,authorId:storyQuotes.authorId,caption:storyQuotes.caption}).from(storyQuotes).where(inArray(storyQuotes.messageId,ids)):[];
   const quoteMap=new Map(quotes.map(q=>[q.messageId,{authorIsMe:q.authorId===member.id,caption:q.caption,imageUrl:`/api/stories/quotes/${q.messageId}/image`}]));
   return Response.json({
     /* `thread` exists because visibility and sendability are DIFFERENT questions, and the client
@@ -159,6 +166,7 @@ export async function GET(request: Request) {
       flagged: Boolean(m.flagged),
       reactions: reactionsByMessage.get(m.id) ?? [],
     })),
+  });
   });
 }
 

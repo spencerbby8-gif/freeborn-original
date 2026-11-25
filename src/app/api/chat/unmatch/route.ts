@@ -1,6 +1,6 @@
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatSignals, matches } from "@/db/schema";
+import { callSessions, chatSignals, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUnmatchReason } from "@/lib/match-lifecycle";
@@ -76,6 +76,7 @@ export async function POST(request: Request) {
         or(eq(matches.userA, otherId), eq(matches.userB, otherId)),
         inArray(matches.status, ["active", "archived", "blocked"])
       )).returning({ id: matches.id, status: matches.status });
+    if (row) await tx.update(callSessions).set({status:"ended",endedAt:new Date(),endedBy:null,endReason:"unavailable"}).where(and(eq(callSessions.matchId,row.id),inArray(callSessions.status,["ringing","active"])));
     return row;
   });
 

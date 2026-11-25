@@ -1,6 +1,6 @@
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, callSessions, matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { rejectCrossOrigin } from "@/lib/request-guard";
@@ -102,6 +102,11 @@ export async function POST(request: Request) {
         or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
         eq(matches.status, "active")
       ));
+    // Do not revive an old ring or call if this pair is later unblocked.
+    await tx.update(callSessions).set({status:"ended",endedAt:new Date(),endedBy:null,endReason:"unavailable"}).where(and(
+      or(and(eq(callSessions.callerId,member.id),eq(callSessions.calleeId,profileId)),and(eq(callSessions.callerId,profileId),eq(callSessions.calleeId,member.id))),
+      inArray(callSessions.status,["ringing","active"])
+    ));
     return true;
   });
   if (!found) return Response.json({ error: "Member not found." }, { status: 404 });

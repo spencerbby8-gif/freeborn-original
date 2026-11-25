@@ -18,6 +18,7 @@ import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   callChannel,
+  CallSessionError,
   createCallSession,
   destroyChannel,
   getCallSession,
@@ -719,7 +720,14 @@ export function CallOverlay({ kind, role, matchId, peer, callId: callIdProp, onC
         if(stopped||closedRef.current||session.status!=="ended")return;
         cleanup(false);
         setStateBoth("ended",callOutcome(session.endedBy,selfIdRef.current,peer.name,session.endReason));
-      }catch{/* Network failure is not evidence that either participant hung up. */}
+      }catch(error){
+        // A definite authorization/expiry response closes local devices and the
+        // peer connection. Network failures/5xx are not proof the call ended.
+        if(!stopped&&!closedRef.current&&error instanceof CallSessionError&&[401,403,404,410].includes(error.status)){
+          cleanup(false);
+          setStateBoth("ended","The call has ended.");
+        }
+      }
       finally{pending=false;}
     };
     const timer=setInterval(()=>void poll(),2500);

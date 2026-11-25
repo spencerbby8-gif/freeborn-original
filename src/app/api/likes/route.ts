@@ -163,6 +163,7 @@ async function recordChoice(request: Request) {
           }else{
             const severed=await tx.update(matches).set({status:'unmatched',unmatchedBy:member.id,unmatchedAt:new Date(),unmatchReason:'other'})
               .where(and(eq(matches.id,match.id),eq(matches.status,'active'))).returning({id:matches.id});unmatched=severed.length>0;
+            if(unmatched)await tx.update(callSessions).set({status:'ended',endedAt:new Date(),endedBy:null,endReason:'unavailable'}).where(and(eq(callSessions.matchId,match.id),inArray(callSessions.status,['ringing','active'])));
           }
         }
       }

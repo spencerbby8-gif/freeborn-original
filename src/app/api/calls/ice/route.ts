@@ -1,5 +1,5 @@
 import { getMember } from "@/lib/app-auth";
-import { findParticipantSession, isCallSessionLive } from "@/lib/call-session-server";
+import { findParticipantSession, isCallRelationshipAvailable, isCallSessionLive } from "@/lib/call-session-server";
 import {
   buildMeteredIceServers,
   buildTurnServer,
@@ -31,6 +31,7 @@ export async function GET(request: Request) {
   const session = await findParticipantSession(callId, member.id);
   if (!session) return Response.json({ error: "Call not found." }, { status: 404 });
   if (!isCallSessionLive(session)) return Response.json({ error: "This call has expired." }, { status: 410 });
+  if (!(await isCallRelationshipAvailable(session))) return Response.json({error:"Call not found."},{status:404});
 
   const iceServers: RTCIceServer[] = [...STUN_ONLY];
   const pushUnique = (server: RTCIceServer) => {
@@ -46,6 +47,10 @@ export async function GET(request: Request) {
     FREEBORN_CLOUDFLARE_TURN_TTL_SECONDS: process.env.FREEBORN_CLOUDFLARE_TURN_TTL_SECONDS,
   });
   if (cloudflare) {
+    // The external provider can take time. Recheck after it responds rather
+    // than returning freshly issued credentials to a relationship now closed.
+    const current=await findParticipantSession(callId,member.id);
+    if(!current || !isCallSessionLive(current) || !(await isCallRelationshipAvailable(current)))return Response.json({error:"Call not found."},{status:404});
     for (const s of cloudflare.iceServers) pushUnique(s as RTCIceServer);
     return Response.json(
       {
