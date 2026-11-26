@@ -14,6 +14,7 @@ import { useModalFocus } from "@/components/prototype/modal-focus";
 import { PrototypeIcon } from "@/components/prototype/frame";
 import { MessagesHeading } from "@/components/prototype/screens";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
+import { SystemInboxLink } from "@/components/app/system-inbox";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -1648,6 +1649,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
       <StoryRail/>
       {manage&&<ConversationManager matches={matches} onClose={()=>setManage(false)} onSaved={load}/>}
       <div className="tab-chips conversation-folders">{(['inbox','archived','hidden'] as const).map(f=><button type="button" className={`tab-chip ${folder===f?'active':''}`} aria-pressed={folder===f} key={f} onClick={()=>setFolder(f)}>{f==='inbox'?'Inbox':f==='archived'?'Archived':'Hidden'}</button>)}</div>
+      {folder==='inbox'&&<SystemInboxLink/>}
       {listError&&<p role="alert" className="story-error">{listError}<button type="button" onClick={()=>void load()}>Try again</button></p>}
 
       {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (

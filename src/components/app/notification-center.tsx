@@ -171,9 +171,10 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
           // the display cap so the open thread cannot crowd out another chat.
           state.fresh.filter(item => shouldSurfaceAlert(item,p,document.hidden,isActiveChat)).slice(0,3)
             .forEach(item => fire(item as Alert));
+          const systemUnread = Number.isSafeInteger(json.systemUnread) && json.systemUnread >= 0 ? json.systemUnread : 0;
           window.dispatchEvent(new CustomEvent("freeborn:unread", { detail: {
-            alerts: state.alerts,
-            chat: chatUnread,
+            alerts: state.alerts + systemUnread,
+            chat: chatUnread + systemUnread,
             likes: state.likes,
           }}));
         }

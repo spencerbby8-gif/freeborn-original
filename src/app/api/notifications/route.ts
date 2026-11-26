@@ -151,7 +151,8 @@ async function readNotifications(request: Request) {
   }
 
   const durable=await db.execute<{id:string;kind:string;title:string;body:string;href:string;created_at:Date;read_at:Date|null}>(sql`select id,kind,title,body,href,created_at,read_at from public.member_notices where user_id=${member.id}::uuid order by created_at desc limit 50`);
-  for(const n of durable.rows)items.push({id:`notice-${n.id}`,type:'tip',title:n.title,body:n.body,at:new Date(n.created_at),unread:!n.read_at,href:n.href});
+  for(const n of durable.rows)items.push({id:`notice-${n.id}`,type:'tip',title:n.title,body:n.body,at:new Date(n.created_at),unread:!n.read_at,href:'/app/chat/freeborn'});
+  const {rows:[systemCount]}=await db.execute<{n:number}>(sql`select count(*)::int n from public.member_notices where user_id=${member.id}::uuid and read_at is null`);
 
   // Verification engine alerts
   const [latestVerify] = await db
@@ -206,8 +207,8 @@ async function readNotifications(request: Request) {
   items.sort((a, b) => b.at.getTime() - a.at.getTime());
 
   // Clearing a feed never marks a private message read or deletes source data.
-  const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
-  return Response.json({ notifications: visible, memberId: member.id });
+  const visible = np?.dismissedBefore ? items.filter((item) => (item.id.startsWith("notice-") && item.unread) || (item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime())) : items;
+  return Response.json({ notifications: visible, memberId: member.id, systemUnread: systemCount.n });
 }
 
 
