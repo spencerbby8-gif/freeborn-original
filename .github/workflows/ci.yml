@@ -158,7 +158,7 @@ jobs:
         run: npm run build
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: next-build-${{ github.sha }}
           path: .next
@@ -205,7 +205,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-publishable-key
       - name: Navigate Stories and Settings against real local handlers/SQL
         run: node scripts/settings-audit/run-browser.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: isolated-member-evidence-${{ github.sha }}
