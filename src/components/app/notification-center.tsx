@@ -14,7 +14,8 @@
 
 import { PhotoImage } from "@/components/ui/photo-image";
 import { PrototypeIcon } from "@/components/prototype/frame";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { PausableExpiry } from "@/components/app/pausable-expiry";
 import { createPortal } from "react-dom";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
@@ -49,8 +50,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
   /* A call screen beats a permission prompt: the ask card sits at z-[310] over
      the call overlay's z-[200], i.e. straight on top of Answer/Decline on an
      incoming ring and speaker/mute/end on a live call. */
-  const [callUiUp, setCallUiUp] = useState(isCallUiActive);
-  useEffect(() => subscribeCallUiActive(setCallUiUp), []);
+  const callUiUp = useSyncExternalStore(subscribeCallUiActive, isCallUiActive, () => false);
   const [verificationUp,setVerificationUp]=useState(false);
   const [threadUp,setThreadUp]=useState(false);
   useEffect(()=>{const verification=(e:Event)=>setVerificationUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));const thread=(e:Event)=>setThreadUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));window.addEventListener('freeborn:verification',verification);window.addEventListener('freeborn:chat-thread',thread);return()=>{window.removeEventListener('freeborn:verification',verification);window.removeEventListener('freeborn:chat-thread',thread);};},[]);
@@ -130,7 +130,6 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
         }, 350);
       }
       pushBrowserNotification(a.title, a.body, a.href);
-      setTimeout(() => setBanners((b) => b.filter((x) => x.key !== key)), 6_500);
     };
 
     let inFlight = false;
@@ -257,6 +256,8 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
         </div>
       ) : null}
 
+      {/* Keep each timer mounted while verification hides the presentation. */}
+      {banners.map(b => <PausableExpiry key={b.key} active={!callUiUp} milliseconds={6500} onExpire={() => setBanners(current => current.filter(x => x.key !== b.key))} />)}
       {/* Alert banners */}
       {alertPortal && createPortal(
         !verificationUp && banners.map((b) => (

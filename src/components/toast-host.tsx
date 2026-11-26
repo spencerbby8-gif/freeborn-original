@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { PausableExpiry } from "@/components/app/pausable-expiry";
+import { isCallUiActive, subscribeCallUiActive } from "@/lib/call-ui-state";
 import { AUTH_ENTRY_COPY, AUTH_ENTRY_READY_EVENT, consumeAuthEntry, getAuthEntryReady, peekAuthEntry } from "@/lib/auth/entry-toast";
 import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supabase/browser";
 
@@ -46,6 +48,7 @@ const TONE_STYLES: Record<ToastTone, { ring: string; icon: string; bar: string }
 
 export function ToastHost() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const callUiUp = useSyncExternalStore(subscribeCallUiActive, isCallUiActive, () => false);
 
   useEffect(() => {
     let seq = 0;
@@ -54,9 +57,6 @@ export function ToastHost() {
       if (!detail?.title) return;
       const id = ++seq;
       setToasts((current) => [...current.slice(-2), { ...detail, id }]);
-      window.setTimeout(() => {
-        setToasts((current) => current.filter((t) => t.id !== id));
-      }, 5200);
     };
     window.addEventListener(EVENT, onToast);
     return () => window.removeEventListener(EVENT, onToast);
@@ -85,7 +85,7 @@ export function ToastHost() {
   }, []);
 
   return (
-    <div className="fb-global-alerts pointer-events-none fixed inset-x-0 top-3 z-[400] flex flex-col items-center px-4">
+    <div data-call-active={callUiUp} aria-hidden={callUiUp || undefined} className="fb-global-alerts pointer-events-none fixed inset-x-0 top-3 z-[400] flex flex-col items-center px-4">
       <div className="fb-global-toast-list flex w-full max-w-[420px] flex-col gap-2">
       {toasts.map((t) => {
         const s = TONE_STYLES[t.tone];
@@ -95,6 +95,7 @@ export function ToastHost() {
             role="alert"
             className={`fb-toast-in pointer-events-auto flex w-full max-w-[420px] shrink-0 items-start gap-3 overflow-hidden rounded-2xl border ${s.ring} bg-[#10141f]/95 p-3.5 pr-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md`}
           >
+            <PausableExpiry active={!callUiUp} milliseconds={5200} onExpire={() => setToasts(current => current.filter(x => x.id !== t.id))} />
             <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${s.icon}`}>
               {t.tone === "error" ? (
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" aria-hidden>

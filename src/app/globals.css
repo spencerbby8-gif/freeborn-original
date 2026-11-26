@@ -693,6 +693,7 @@ select:focus {
 }
 /* One viewport stack for action toasts and feed alerts. The latter stay below
    both the mobile header and any action toasts, including wrapped/long text. */
+.fb-global-alerts[data-call-active="true"] { display: none; }
 .fb-global-alerts { top: calc(12px + env(safe-area-inset-top, 0px)); max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px)); }
 .fb-global-toast-list { max-height: 45dvh; overflow-y: auto; }
 .member-alert-stack { min-height: 0; overflow-y: auto; margin-top: 8px; }
