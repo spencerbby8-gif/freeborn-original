@@ -86,6 +86,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         setChallengeNote("One quick check, to keep the appeal queue readable. This takes a second or two.");
         const run = await runHumanChallenge("appeal", fetch, {
           risk: "browser",
+          accessToken: token,
           onStatus: (t) => setChallengeNote(t),
         });
         if (run.ok) {

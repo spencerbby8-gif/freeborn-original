@@ -100,9 +100,11 @@ export async function solveChallenge(nonce: string, opts: SolveOptions): Promise
 export async function runHumanChallenge(
   purpose: string,
   fetchImpl: typeof fetch = fetch,
-  opts: { risk?: string; onStatus?: (s: string) => void } = {}
+  opts: { risk?: string; onStatus?: (s: string) => void; accessToken?: string | null } = {}
 ): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
-  const h = { "Content-Type": "application/json" };
+  // The SPA stores its session in localStorage; there may be no SSR cookie.
+  // Use the same member token as the action that requested the challenge.
+  const h = { "Content-Type": "application/json", ...(opts.accessToken ? { Authorization: `Bearer ${opts.accessToken}` } : {}) };
   let issue: Response;
   try {
     issue = await fetchImpl("/api/human/issue", { method: "POST", headers: h, body: JSON.stringify({ purpose, risk: opts.risk }) });

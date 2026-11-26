@@ -668,7 +668,9 @@ ok("an aborted solve reports 'aborted' rather than hanging forever",
     const r = await solveChallenge(nonce12, { bits: 20, budget: 4_000_000, signal: ac.signal });
     return r.ok === false && r.reason === "aborted";
   })()) === true);
-const mockFetch = (async (url: string, init?: { body?: string }) => {
+const challengeAuthHeaders: Array<string | null> = [];
+const mockFetch = (async (url: string, init?: { body?: string; headers?: HeadersInit }) => {
+  challengeAuthHeaders.push(new Headers(init?.headers).get("authorization"));
   if (url.endsWith("/api/human/issue")) {
     return new Response(JSON.stringify({ nonce: nonce12, difficultyBits: 12, solverBudget: 200_000, algorithm: "sha256-prefix-zeros" }), { status: 200 });
   }
@@ -676,7 +678,8 @@ const mockFetch = (async (url: string, init?: { body?: string }) => {
   const good = sent.nonce === nonce12 && typeof sent.solution === "string" && serverSemantics(nonce12, sent.solution, 12);
   return new Response(JSON.stringify(good ? { ok: true, token: "tok-fixed-0001" } : { error: "bad" }), { status: good ? 200 : 400 });
 }) as unknown as typeof fetch;
-const flow = await runHumanChallenge("appeal", mockFetch, { risk: "browser" });
+const flow = await runHumanChallenge("appeal", mockFetch, { risk: "browser", accessToken: "fixture-session-token" });
+ok("the challenge issuer and verifier receive the same explicit fixture bearer", challengeAuthHeaders.length === 2 && challengeAuthHeaders.every(value => value === "Bearer fixture-session-token"));
 ok("the full issue -> solve -> verify -> token round trip completes",
   flow.ok === true, flow.ok ? `token=${(flow as { token: string }).token}` : `error=${(flow as { error: string }).error}`);
 ok("runHumanChallenge asks the server for the browser tier, not the default",
