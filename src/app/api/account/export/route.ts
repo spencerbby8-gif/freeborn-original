@@ -15,6 +15,8 @@ import {
   verificationRequests,
 } from "@/db/schema";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
+import { vaultEntries } from "@/db/schema";
+import { decryptVaultPayload } from "@/lib/vault-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,17 @@ export async function GET(request: Request) {
     .from(reports)
     .where(eq(reports.reporterId, id));
   const [account] = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
+  /* Owner's own vault (decision H5 — owner data). Decrypted for the owner only;
+     an undecryptable or unconfigured payload exports as null, never raw. */
+  const [vaultRow] = await db.select().from(vaultEntries).where(eq(vaultEntries.userId, id)).limit(1);
+  let vault: Record<string, unknown> | null = null;
+  if (vaultRow) {
+    try {
+      vault = { consentAcceptedAt: vaultRow.consentAcceptedAt, consentVersion: vaultRow.consentVersion, entries: decryptVaultPayload(vaultRow.payload) };
+    } catch {
+      vault = null;
+    }
+  }
 
   const {rows:conversationPreferences}=await db.execute(sql`select match_id,nickname,archived,hidden,pinned,updated_at from public.conversation_preferences where user_id=${id}::uuid`);
   const {rows:storyPreferences}=await db.execute(sql`select audience,selected_ids,updated_at from public.story_preferences where user_id=${id}::uuid`);
@@ -143,6 +156,7 @@ export async function GET(request: Request) {
       note: "Selfie images from identity verification are verification evidence and are not part of this export. Deleting your account removes them.",
     },
     reportsFiled: myReports,
+    vault,
     memberExperience: {conversationPreferences,storyPreferences,hiddenStoryAuthors,emailPreferences,notices,support},
     note: "Other members appear only as ids and timestamps. Your photos are downloadable from your profile page; this export lists their storage paths.",
   };

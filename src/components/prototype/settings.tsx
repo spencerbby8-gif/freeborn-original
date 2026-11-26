@@ -6,7 +6,7 @@ import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Back, MenuRow, PrototypeIcon } from "./frame";
 import { memberRequest, useMemberResource, type Settings } from "./data";
@@ -24,7 +24,9 @@ export function SettingsScreen() {
     <div className="bare-head settings-head"><Back/><h1 className="display settings-title">Settings</h1></div>
     <div className="menu-group"><MenuRow href="/app/settings/account" icon="profile">Account</MenuRow><MenuRow href="/app/privacy" icon="shield">Privacy &amp; Safety</MenuRow><MenuRow href="/app/settings/notifications" icon="bell">Notifications</MenuRow><MenuRow href="/app/preferences" icon="filters">Discovery Preferences</MenuRow><MenuRow href="/app/premium" icon="card">Membership · coming later</MenuRow></div>
     <Link href="/app/premium" className="upgrade-banner"><span className="upgrade-crown"><PrototypeIcon name="crown"/></span><span className="upgrade-text"><b>Explore membership</b><small>Explore the planned membership. Not available yet.</small></span><PrototypeIcon name="next" className="chev gold"/></Link>
-    <div className="menu-group"><MenuRow href="/app/settings/verification" icon="shield">Verification data &amp; withdrawal</MenuRow><MenuRow href="/app/settings/welcome" icon="info">How to use Freeborn</MenuRow><MenuRow href="/app/settings/support" icon="help">Help &amp; Support</MenuRow><MenuRow href="/app/settings/about" icon="info">About</MenuRow></div><div className="settings-spacer"/>
+    <div className="menu-group"><MenuRow href="/app/settings/verification" icon="shield">Verification data &amp; withdrawal</MenuRow><MenuRow href="/app/settings/welcome" icon="info">How to use Freeborn</MenuRow><MenuRow href="/app/settings/support" icon="help">Help &amp; Support</MenuRow><MenuRow href="/app/settings/about" icon="info">About</MenuRow></div>
+    <VaultCard/>
+    <div className="settings-spacer"/>
     <ScreenError message={error}/><Button unstyled className="logout-btn" onClick={()=>void logout()} disabled={busy}>{busy?'Logging out…':'Log out'}</Button>
   </div></section>;
 }
@@ -81,4 +83,50 @@ export function NotificationSettingsScreen(){
 export function PremiumScreen(){
   const [plan,setPlan]=useState(1);const [notice,setNotice]=useState(false);
   return <section className="screen active" aria-label="Premium"><div className="scroll premium-scroll"><div className="bare-head"><Back href="/app/settings"/></div><div className="premium-hero"><span className="crown-ring"><PrototypeIcon name="crown"/></span><h1 className="display premium-head">Get more<br/>meaningful matches</h1><p className="premium-sub">A look at the planned membership. These plans are not live or purchasable.</p></div><div className="feature-grid">{['Intentional discovery','Thoughtful conversations','Privacy controls','Profile verification'].map(f=><div className="feature-item" key={f}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e9c37c"/><path d="M8.3 12.4l2.5 2.5 4.9-5.1" stroke="#241a10" strokeWidth="1.8" fill="none"/></svg><span>{f}</span></div>)}</div><div className="plan-row">{[{len:'1 Month',price:'Not live',save:''},{len:'3 Months',price:'Not live',save:''},{len:'6 Months',price:'Not live',save:''}].map((p,i)=><Button unstyled key={p.len} className={`plan-card ${plan===i?'selected':''}`} aria-pressed={plan===i} onClick={()=>setPlan(i)}>{i===1&&<span className="plan-badge">Coming later</span>}<span className="plan-len">{p.len}</span><span className="plan-price">{p.price}</span>{p.save&&<span className="plan-note">{p.save}</span>}</Button>)}</div><Button unstyled className="btn-grad big" onClick={()=>setNotice(true)}>Check availability</Button>{notice&&<ScreenError message="Purchases are not available yet. No payment was taken and no subscription was created."/>}<p className="fineprint center">Subscriptions are not available yet. No payment will be taken.</p></div></section>;
+}
+
+/* ---- Mutual-Filter Vault — settings is the only consent surface at launch.
+   Consent copy (approved, v1): stored encrypted, shown only on identical
+   answers, deletable anytime, never public. Consent precedes saves (403
+   otherwise, enforced server-side). Stale consent keeps the owner's editor
+   fully live (invariant V-2) and prompts re-acceptance. ---- */
+const VAULT_ANSWERS=["vaccinated","unvaccinated","prefer_not_to_say"] as const;
+const VAULT_ANSWER_LABELS: Record<string,string>={vaccinated:"Vaccinated",unvaccinated:"Unvaccinated",prefer_not_to_say:"Prefer not to say"};
+type VaultState={ok:boolean;consent:{acceptedAt:string;version:string;current:boolean}|null;entries:Record<string,string>};
+export function VaultCard(){
+  const [state,setState]=useState<VaultState|null>(null);
+  const [loadError,setLoadError]=useState<string|null>(null);
+  const [dismissed,setDismissed]=useState(false);
+  const [stance,setStance]=useState<string>("");
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState<string|null>(null);
+  const [saved,setSaved]=useState(false);
+  async function load(){setError(null);setLoadError(null);try{const s=await memberRequest<VaultState>('/api/vault');setState(s);setStance(s.entries.vaccination_stance??'');}catch(e){setLoadError(e instanceof Error?e.message:'Could not load private preferences.');}}
+  useEffect(()=>{void load();},[]);
+  async function accept(){setBusy(true);setError(null);try{await memberRequest('/api/vault/consent',{accepted:true});await load();}catch(e){setError(e instanceof Error?e.message:'Could not save consent.');}finally{setBusy(false);}}
+  async function save(){setBusy(true);setError(null);setSaved(false);try{await memberRequest('/api/vault',{entries:stance?{vaccination_stance:stance}:{}});setSaved(true);await load();}catch(e){setError(e instanceof Error?e.message:'Could not save private preferences.');}finally{setBusy(false);}}
+  async function deleteAll(){setBusy(true);setError(null);try{await memberRequest('/api/vault',undefined,undefined,'DELETE');setStance('');await load();}catch(e){setError(e instanceof Error?e.message:'Could not delete private preferences.');}finally{setBusy(false);}}
+  if(dismissed)return null;
+  return <div className="menu-group" style={{paddingTop:18}}>
+    <span className="coral-label pad-x">Private preferences</span>
+    {loadError?<ScreenError message={loadError} retry={()=>void load()}/>:!state?<Loading/>:!state.consent?(
+      <>
+        <p className="fineprint" style={{padding:'0 22px'}}>These preferences are private. They&apos;re stored encrypted and shown only to members who chose the same answers. You can delete them anytime. They&apos;re never public.</p>
+        <div className="pref-pills" style={{padding:'0 22px'}}>
+          <Button unstyled className="btn-grad big wide" disabled={busy} onClick={()=>void accept()}>Save &amp; continue</Button>
+          <Button unstyled className="btn-ghost" disabled={busy} onClick={()=>setDismissed(true)}>No thanks</Button>
+        </div>
+      </>
+    ):(
+      <>
+        {state.consent && !state.consent.current ? <p role="status" className="fineprint" style={{padding:'0 22px'}}>Your answers are saved but hidden from other members until you accept the updated terms below.</p> : null}
+        <div className="pref-pills" style={{padding:'0 22px'}}>{VAULT_ANSWERS.map(v=><Button unstyled key={v} aria-pressed={stance===v} className={`pref-pill ${stance===v?'selected':''}`} disabled={busy} onClick={()=>{setStance(v);setSaved(false);}}>{VAULT_ANSWER_LABELS[v]}</Button>)}</div>
+        <div className="pref-foot"><Button unstyled className="btn-grad big wide" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save'}</Button></div>
+        {saved&&<p role="status" className="fineprint center">Private preferences saved.</p>}
+        <p className="fineprint center">Answers are shown to another member only when you both picked the same one.</p>
+        <div className="pref-foot"><Button unstyled className="btn-ghost" disabled={busy} onClick={()=>void deleteAll()}>{busy?'Deleting…':'Delete all private preferences'}</Button></div>
+      </>
+    )}
+    <ScreenError message={error}/>
+  </div>;
 }

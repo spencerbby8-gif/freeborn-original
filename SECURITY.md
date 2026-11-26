@@ -59,3 +59,19 @@ enrol MFA for a user. Therefore:
   the matching secret (owner action).
 - MFA for the org owner is not enrolled. Enable TOTP in Supabase Dashboard
   (owner action).
+
+## Mutual-Filter Vault (2026-11-26)
+
+The Vault adds two server-only secrets — `VAULT_ENCRYPTION_KEY` (AES-256-GCM
+payload key) and `VAULT_MATCH_PEPPER` (HMAC-SHA256 equality pepper). Flag both
+as secrets in Vercel, exactly like `SUPABASE_TRANSACTION_POOLER`. Residual
+risk, on record: digest equality over a closed value enumeration is only as
+strong as the pepper — a leak of BOTH the database and `VAULT_MATCH_PEPPER`
+would allow brute-forcing the small enum and inverting digests. Per-user salts
+are impossible by design (they would break cross-member matching). Rotation:
+`VAULT_ENCRYPTION_KEY` rotates lazily per save via `vault_entries.key_version`;
+`VAULT_MATCH_PEPPER` rotation requires a one-time re-HMAC of
+`vault_match_keys` (coordinate before rotating). Admins have no vault access
+by decision (no grants, no policies, no routes); vault rows are RLS
+default-deny for anon/authenticated and revoked. Vault deletion is HARD
+delete; account deletion erases vault rows both explicitly and by cascade.

@@ -67,6 +67,9 @@ type FullProfile = {
   mixerCity: string | null;
   /** Computed server-side from the viewer's own row; null on your own profile. */
   inCommon?: { values: string[]; interests: string[]; lifestyle: string[] } | null;
+  /* Mutual-Filter Vault: present on EVERY response (null when nothing is
+     mutually matched — self-read, non-match, or consent-frozen). */
+  vault?: { consentVersion: string; entries: Record<string, string> } | null;
   /** Only present when this card was opened as "View as others". */
   visibility?: { visible: boolean; reasons: string[] } | null;
 };
@@ -807,6 +810,26 @@ export function ProfileView({
                   {profile.inCommon.interests.length ? (
                     <SharedRow label="Interests" items={profile.inCommon.interests} />
                   ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {profile.vault && Object.keys(profile.vault.entries).length > 0 ? (
+              <div className="rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">
+                  Private preferences you share
+                </p>
+                <p className="mt-2 text-[12.5px] leading-6 text-[var(--color-mist)]">
+                  Visible because you each chose the same answer privately. Nothing here is public.
+                </p>
+                <div className="mt-4 space-y-3">
+                  {Object.entries(profile.vault.entries).map(([key, value]) => (
+                    <SharedRow
+                      key={key}
+                      label={key === "vaccination_stance" ? "Vaccination" : key}
+                      items={[VAX_LABELS[value]?.label ?? value]}
+                    />
+                  ))}
                 </div>
               </div>
             ) : null}

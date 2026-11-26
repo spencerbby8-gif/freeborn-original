@@ -129,6 +129,8 @@ export async function requestAccountDeletion(accountId: string, email: string): 
     await del(sql`delete from public.user_private_settings where user_id = ${id}`);
     await del(sql`delete from public.notification_preferences where user_id = ${id}`);
     await del(sql`delete from public.user_private_locations where user_id = ${id}`);
+    await del(sql`delete from public.vault_match_keys where user_id = ${id}`);
+    await del(sql`delete from public.vault_entries where user_id = ${id}`);
     await del(sql`delete from public.discovery_preferences where user_id = ${id}`);
     await del(sql`delete from public.user_trust_history where user_id = ${id}`);
     await del(sql`delete from public.verification_rate_limits where user_id = ${id}`);

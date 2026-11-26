@@ -12,9 +12,10 @@ const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
 
 check(manifest.schemaVersion === 1, "unsupported clean-start manifest schema");
-// 58 includes the additive hidden-story and fresh Realtime authorization changes. Move this pin only together with a manifest step; the pin
+// 59 includes the additive hidden-story, fresh Realtime authorization and
+// mutual-filter vault changes. Move this pin only together with a manifest step; the pin
 // exists to catch silent drift.
-check(manifest.steps.length === 58, `expected 58 replay steps, found ${manifest.steps.length}`);
+check(manifest.steps.length === 59, `expected 59 replay steps, found ${manifest.steps.length}`);
 check(manifest.expected.steps === manifest.steps.length, "expected replay-step count must match manifest");
 check(new Set(manifest.steps.map((step) => step.version)).size === manifest.steps.length, "duplicate replay versions");
 check(new Set(manifest.steps.map((step) => step.name)).size === manifest.steps.length, "duplicate replay names");
