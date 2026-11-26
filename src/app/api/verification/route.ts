@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, userProfiles, verificationRequests } from "@/db/schema";
@@ -94,6 +95,8 @@ export async function GET(request: Request) {
  * at a time.
  */
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

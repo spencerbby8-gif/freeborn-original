@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { securityEvents, suspensions } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { checkIpReputation, clientIp } from "@/lib/ip-reputation";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ export const dynamic = "force-dynamic";
  * Freeborn's own people).
  */
 export async function POST(request: Request) {
+  // This endpoint can create a suspension and audit events, so protect it like
+  // every other state-changing handler even when authentication uses cookies.
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

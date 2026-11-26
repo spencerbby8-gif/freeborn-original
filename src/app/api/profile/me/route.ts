@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { matches, messages, userSwipes } from "@/db/schema";
@@ -192,6 +193,8 @@ const COLUMN: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const supabase = await createSupabaseClientForApi(request);
   const {
     data: { user },

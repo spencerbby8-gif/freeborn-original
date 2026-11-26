@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { profilePhotos, securityEvents, userProfiles, verificationRequests } from "@/db/schema";
@@ -259,6 +260,8 @@ async function collectProfilePhotos(memberId: string, origin: string): Promise<s
 }
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const startedAt = Date.now();
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });

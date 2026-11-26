@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { eventInterests } from "@/db/schema";
@@ -39,6 +40,8 @@ export async function GET(request: Request) {
  * POST /api/events/interest — register interest in a Freeborn mixer in a city.
  */
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
