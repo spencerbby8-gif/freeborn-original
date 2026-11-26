@@ -161,11 +161,11 @@ export function createDrizzlePoseStore(database: PoseDatabase): PoseStore {
           ))
           .returning({ id: verificationChallenges.id });
         if (won) return true;
-        await tx.update(verificationChallenges).set({ status: "expired" }).where(and(
+        const [expired] = await tx.update(verificationChallenges).set({ status: "expired" }).where(and(
           eq(verificationChallenges.id, id), eq(verificationChallenges.status, "active"),
           sql`${verificationChallenges.expiresAt} <= clock_timestamp()`
-        ));
-        return false;
+        )).returning({ id: verificationChallenges.id });
+        return expired ? "expired" : false;
       });
     },
 

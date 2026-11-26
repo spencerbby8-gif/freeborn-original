@@ -896,6 +896,13 @@ ok("[13] token comparison stays text-to-text with no bogus cast",
   i.setCas(false);
   const raced = await consumePose(U, T1, undefined, i.store);
   ok("[13b] a lost consume race is not a verification", raced.state === "mismatch" && raced.detail === "lost the consume race");
+  const expiredAfterLock = mk();
+  await assignPose(U, T1, expiredAfterLock.store, firstOfPool);
+  const lateLock = await consumePose(U, T1, undefined, {
+    ...expiredAfterLock.store,
+    consume: async () => "expired" as const,
+  });
+  ok("[13b] a pose that expires while awaiting its lock is recorded as expired", lateLock.state === "expired");
 
   /* Foreign member learns nothing distinguishable. */
   const j = mk();
