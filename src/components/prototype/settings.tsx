@@ -24,7 +24,7 @@ export function SettingsScreen() {
     <div className="bare-head settings-head"><Back/><h1 className="display settings-title">Settings</h1></div>
     <div className="menu-group"><MenuRow href="/app/settings/account" icon="profile">Account</MenuRow><MenuRow href="/app/privacy" icon="shield">Privacy &amp; Safety</MenuRow><MenuRow href="/app/settings/notifications" icon="bell">Notifications</MenuRow><MenuRow href="/app/preferences" icon="filters">Discovery Preferences</MenuRow><MenuRow href="/app/premium" icon="card">Membership · coming later</MenuRow></div>
     <Link href="/app/premium" className="upgrade-banner"><span className="upgrade-crown"><PrototypeIcon name="crown"/></span><span className="upgrade-text"><b>Explore membership</b><small>Explore the planned membership. Not available yet.</small></span><PrototypeIcon name="next" className="chev gold"/></Link>
-    <div className="menu-group"><MenuRow href="/app/settings/verification" icon="shield">Verification data &amp; withdrawal</MenuRow><MenuRow href="/app/settings/support" icon="help">Help &amp; Support</MenuRow><MenuRow href="/app/settings/about" icon="info">About</MenuRow></div><div className="settings-spacer"/>
+    <div className="menu-group"><MenuRow href="/app/settings/verification" icon="shield">Verification data &amp; withdrawal</MenuRow><MenuRow href="/app/settings/welcome" icon="info">How to use Freeborn</MenuRow><MenuRow href="/app/settings/support" icon="help">Help &amp; Support</MenuRow><MenuRow href="/app/settings/about" icon="info">About</MenuRow></div><div className="settings-spacer"/>
     <ScreenError message={error}/><Button unstyled className="logout-btn" onClick={()=>void logout()} disabled={busy}>{busy?'Logging out…':'Log out'}</Button>
   </div></section>;
 }
