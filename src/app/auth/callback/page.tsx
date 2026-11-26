@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/auth/url";
+import { queueAuthEntry } from "@/lib/auth/entry-toast";
 import { Wordmark } from "@/components/wordmark";
 
 /**
@@ -54,8 +55,15 @@ export default function CallbackPage() {
           k.includes("code-verifier")
         );
         if (hasVerifier) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
+            // A successful client PKCE exchange proves a session, not whether
+            // this was a new account, a returning Google user or an email link.
+            // Recovery/other destinations must not receive an unrelated banner.
+            const target = new URL(next, window.location.origin).pathname;
+            if (data.session?.user.id && (target === "/app" || target === "/onboarding")) {
+              queueAuthEntry("callbackSignedIn", data.session.user.id, target);
+            }
             window.location.replace(next);
             return;
           }

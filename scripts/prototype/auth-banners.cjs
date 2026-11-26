@@ -13,22 +13,23 @@ const out='/home/user/freeborn-audit/auth-banner-browser';
  const html=await(await fetch(base+'/auth')).text();const paths=[...new Set([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(x=>x[1]).filter(x=>x.startsWith('/_next/')))];
  if(!hasFixtureOrigin(await Promise.all(paths.map(async p=>(await fetch(base+p)).text()))))throw Error('Requires isolated fixture build');
  await fs.mkdir(out,{recursive:true});const browser=await chromium.launch({headless:true,args:['--no-sandbox']});const errors=[];
- async function fixture({width=393,completed=true,signup='confirmation',failLogin=false,denyEntryStorage=false,preauth=false}={}){
+ async function fixture({width=393,completed=true,signup='confirmation',failLogin=false,denyEntryStorage=false,preauth=false,pkceVerifier=false,failExchange=false,onboardingFirstError=false,gateStatus=200}={}){
   const ctx=await browser.newContext({viewport:{width,height:852},reducedMotion:'reduce'});
-  await ctx.addInitScript(({s,preauth,denyEntryStorage})=>{
-   localStorage.setItem('fb-notif-asked','1');sessionStorage.setItem('fb-security-checked',String(Date.now()));if(preauth)localStorage.setItem('sb-fixture-auth-token',JSON.stringify(s));
+  await ctx.addInitScript(({s,preauth,denyEntryStorage,pkceVerifier})=>{
+   localStorage.setItem('fb-notif-asked','1');sessionStorage.setItem('fb-security-checked',String(Date.now()));if(preauth)localStorage.setItem('sb-fixture-auth-token',JSON.stringify(s));if(pkceVerifier)localStorage.setItem('sb-fixture-auth-token-code-verifier',JSON.stringify('fixture-verifier'));
    if(denyEntryStorage){const original=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(this===sessionStorage&&k==='freeborn.auth-entry.v1')throw new DOMException('Synthetic denied storage','SecurityError');return original.call(this,k,v)}}
-  },{s:session(),preauth,denyEntryStorage});
+  },{s:session(),preauth,denyEntryStorage,pkceVerifier});
   await ctx.routeWebSocket('wss://fixture.supabase.co/**',ws=>ws.onMessage(()=>{}));
   await ctx.route('https://api.pwnedpasswords.com/**',r=>r.fulfill({status:503,body:'fixture unavailable'}));
   await ctx.route('https://fixture.supabase.co/**',r=>{
    const req=r.request(),p=new URL(req.url()).pathname;let data={},status=200;
-   if(p.endsWith('/token')){if(failLogin){status=400;data={msg:'Invalid login credentials',error:'invalid_grant'};}else data=session();}
+   if(p.endsWith('/token')){if(failLogin||(failExchange&&new URL(req.url()).searchParams.get('grant_type')==='pkce')){status=400;data={msg:'Invalid login credentials',error:'invalid_grant'};}else data=session();}
    else if(p.endsWith('/signup'))data=signup==='signed'?{...session(),user:{...user,identities:[{id:'fixture',provider:'email',user_id:id}]}}:{user:{...user,identities:[{id:'fixture',provider:'email',user_id:id}]},session:null};
    else if(p.endsWith('/verify'))data=session();else if(p.endsWith('/user'))data=user;
    return r.fulfill({status,json:data,headers:{'access-control-allow-origin':'*'}});
   });
-  await ctx.route(base+'/api/**',r=>{const p=new URL(r.request().url()).pathname;let data={ok:true};if(p==='/api/onboarding/state')data={completed,initialStep:'welcome',draft:{}};else if(p==='/api/settings')data={profile:{displayName:'QA Member',interests:[],relationshipGoals:[]},discovery:{relationshipIntents:[],ageMin:21,ageMax:40,distanceKm:80,showGenders:[],photosRequired:true},privacy:{},notifications:{},account:{}};else if(p==='/api/profiles')data={profiles:[]};else if(p==='/api/chat/matches')data={matches:[]};else if(p==='/api/chat/requests')data={incoming:[],outgoing:[]};else if(p==='/api/notifications')data={memberId:id,notifications:[]};else if(p==='/api/likes')data={liked:[],likedYou:[]};else if(p==='/api/verification')data={verified:true,status:'approved'};else if(p==='/api/profile/me')data={profile:{id,displayName:'QA Member',photos:[],interests:[],values:[],relationshipGoals:[]}};return r.fulfill({json:data})});
+  let onboardingReads=0;
+  await ctx.route(base+'/api/**',r=>{const p=new URL(r.request().url()).pathname;let data={ok:true},status=200;if(p==='/api/onboarding/state'){onboardingReads++;if(gateStatus!==200){status=gateStatus;data={error:'Synthetic gate error'};}else if(onboardingFirstError&&onboardingReads===1){status=503;data={error:'Synthetic temporary failure'};}else data={completed,initialStep:'welcome',draft:{}};}else if(p==='/api/auth/callback-exchange')data={ok:false};else if(p==='/api/settings')data={profile:{displayName:'QA Member',interests:[],relationshipGoals:[]},discovery:{relationshipIntents:[],ageMin:21,ageMax:40,distanceKm:80,showGenders:[],photosRequired:true},privacy:{},notifications:{},account:{}};else if(p==='/api/profiles')data={profiles:[]};else if(p==='/api/chat/matches')data={matches:[]};else if(p==='/api/chat/requests')data={incoming:[],outgoing:[]};else if(p==='/api/notifications')data={memberId:id,notifications:[]};else if(p==='/api/likes')data={liked:[],likedYou:[]};else if(p==='/api/verification')data={verified:true,status:'approved'};else if(p==='/api/profile/me')data={profile:{id,displayName:'QA Member',photos:[],interests:[],values:[],relationshipGoals:[]}};return r.fulfill({status,json:data})});
   const page=await ctx.newPage();page.setDefaultTimeout(8000);page.on('pageerror',e=>{errors.push(e.message);console.error('PAGEERROR',e.stack)});return {ctx,page};
  }
  async function login(page){await page.goto(base+'/auth?mode=sign-in',{waitUntil:'domcontentloaded'});await page.getByLabel('Email address',{exact:true}).fill('fixture@example.test');await page.locator('input[name=password]').fill('Fixture-Password-2026!');await page.getByRole('button',{name:'Continue',exact:true}).click();}
@@ -37,6 +38,33 @@ const out='/home/user/freeborn-audit/auth-banner-browser';
  try{
   for(const width of [320,393,1440]){
    const {ctx,page}=await fixture({width});try{await login(page);await page.waitForURL(base+'/app');const banner=await assertEntry(page,'Welcome back to Freeborn.');await page.screenshot({path:`${out}/sign-in-${width}.png`});await banner.getByRole('button',{name:'Dismiss notification'}).click();assert.equal(await banner.count(),0);await page.reload({waitUntil:'domcontentloaded'});assert.equal(await page.getByRole('alert').filter({hasText:'Welcome back to Freeborn.'}).count(),0);console.log(`PASS ${width}px sign-in banner survives navigation, dismisses, and never replays`);}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({onboardingFirstError:true});try{await login(page);await page.waitForURL(base+'/app');await assertEntry(page,'Welcome back to Freeborn.');await page.reload({waitUntil:'domcontentloaded'});assert.equal(await page.getByRole('alert').filter({hasText:'Welcome back to Freeborn.'}).count(),0);console.log('PASS onboarding fallback redirects completed account to app before presenting one welcome');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({pkceVerifier:true,completed:false});try{await page.goto(base+'/auth/callback?code=fixture-code&next=%2Fonboarding',{waitUntil:'domcontentloaded'});await page.waitForURL(base+'/onboarding');await assertEntry(page,'You’re signed in');await page.reload({waitUntil:'domcontentloaded'});assert.equal(await page.getByRole('alert').filter({hasText:'You’re signed in'}).count(),0);console.log('PASS simulated PKCE callback shows generic signed-in banner after session gate');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({pkceVerifier:true,completed:true});try{await page.goto(base+'/auth/callback?code=fixture-code&next=%2Fonboarding',{waitUntil:'domcontentloaded'});await page.waitForURL(base+'/app');await assertEntry(page,'You’re signed in');await page.reload({waitUntil:'domcontentloaded'});assert.equal(await page.getByRole('alert').filter({hasText:'You’re signed in'}).count(),0);console.log('PASS simulated callback redirects completed account to app before generic banner');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({pkceVerifier:true,failExchange:true});try{await page.goto(base+'/auth/callback?code=fixture-code&next=%2Fapp',{waitUntil:'domcontentloaded'});await page.getByRole('heading',{name:"That sign-in couldn't finish"}).waitFor();assert.equal(await page.evaluate(()=>sessionStorage.getItem('freeborn.auth-entry.v1')),null);console.log('PASS failed callback produces no success handoff');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({preauth:true});try{await page.goto(base+'/auth/callback?next=%2Fapp',{waitUntil:'domcontentloaded'});await page.waitForURL(base+'/app');await page.waitForTimeout(300);assert.equal(await page.getByRole('alert').filter({hasText:'You’re signed in'}).count(),0);console.log('PASS existing session without callback code creates no sign-in banner');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({pkceVerifier:true});try{await page.goto(base+'/auth/callback?code=fixture-code&next=%2Fauth%3Fmode%3Dupdate-password',{waitUntil:'domcontentloaded'});await page.waitForURL(/\/auth\?mode=update-password/);assert.equal(await page.evaluate(()=>sessionStorage.getItem('freeborn.auth-entry.v1')),null);console.log('PASS recovery callback does not claim a new login or show entry banner');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({preauth:true,gateStatus:503});try{await page.goto(base+'/auth',{waitUntil:'domcontentloaded'});await page.evaluate(({id})=>sessionStorage.setItem('freeborn.auth-entry.v1',JSON.stringify({kind:'signedIn',memberId:id,target:'/onboarding',createdAt:Date.now()})),{id});await page.goto(base+'/onboarding',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1000);assert.equal(await page.getByRole('alert').filter({hasText:'Welcome back to Freeborn.'}).count(),0);assert.ok(await page.evaluate(()=>sessionStorage.getItem('freeborn.auth-entry.v1')));console.log('PASS onboarding 503 does not consume or show unverified welcome');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({preauth:true,gateStatus:401});try{await page.goto(base+'/auth',{waitUntil:'domcontentloaded'});await page.evaluate(({id})=>sessionStorage.setItem('freeborn.auth-entry.v1',JSON.stringify({kind:'signedIn',memberId:id,target:'/onboarding',createdAt:Date.now()})),{id});await page.goto(base+'/onboarding',{waitUntil:'domcontentloaded'});await page.waitForURL(/status=session-lost/);assert.equal(await page.getByRole('alert').filter({hasText:'Welcome back to Freeborn.'}).count(),0);console.log('PASS repeated onboarding 401 redirects without showing welcome');}finally{await ctx.close();}
+  }
+  {
+   const {ctx,page}=await fixture({preauth:true,completed:false});try{await page.goto(base+'/auth/callback?next='+encodeURIComponent('//evil.example/'),{waitUntil:'domcontentloaded'});await page.waitForURL(base+'/onboarding');assert.equal(new URL(page.url()).origin,base);console.log('PASS callback rejects scheme-relative next redirect');}finally{await ctx.close();}
   }
   {
    const {ctx,page}=await fixture({completed:false,signup:'signed'});try{await signup(page);await page.waitForURL(base+'/onboarding');await assertEntry(page,'You’re signed in.');await page.reload({waitUntil:'domcontentloaded'});assert.equal(await page.getByRole('alert').filter({hasText:'You’re signed in.'}).count(),0);console.log('PASS signup session welcome survives navigation to onboarding exactly once');}finally{await ctx.close();}

@@ -4,6 +4,7 @@ import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { announceAuthEntryReady } from "@/lib/auth/entry-toast";
 import { PrototypeFrame } from "@/components/prototype/frame";
 import { DiscoveryFilters } from "@/components/prototype/filters";
 import { VerifyGate } from "./verify-modal";
@@ -78,6 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         /* Render IMMEDIATELY — the door check runs alongside, never blocking
            the screen. Cached for 10 minutes so tab switches stay instant. */
         setChecking(false);
+        announceAuthEntryReady(user.id);
 
         /* Presence heartbeat — truthful Active status for everyone. */
         const beat = () => {

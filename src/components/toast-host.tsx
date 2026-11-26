@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AUTH_ENTRY_COPY, consumeAuthEntry, peekAuthEntry } from "@/lib/auth/entry-toast";
+import { AUTH_ENTRY_COPY, AUTH_ENTRY_READY_EVENT, consumeAuthEntry, getAuthEntryReady, peekAuthEntry } from "@/lib/auth/entry-toast";
 import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supabase/browser";
 
 /**
@@ -63,17 +63,25 @@ export function ToastHost() {
   }, []);
 
   useEffect(() => {
-    const pending = peekAuthEntry(window.location.pathname);
-    if (!pending || !isWebSupabaseConfigured) return;
+    if (!isWebSupabaseConfigured) return;
     let cancelled = false;
-    void (async () => {
-      let session = null;
-      try { session = await createSupabaseBrowserClient().auth.getSession(); } catch { /* best effort */ }
-      if (cancelled || !consumeAuthEntry(pending.raw)) return;
-      // A second account in the same tab must never see another account's handoff.
-      if (session?.data.session?.user.id === pending.entry.memberId) showToast(AUTH_ENTRY_COPY[pending.entry.kind]);
-    })();
-    return () => { cancelled = true; };
+    const onReady = (event: Event) => {
+      const memberId = (event as CustomEvent<{ memberId?: string }>).detail?.memberId;
+      const pending = peekAuthEntry(window.location.pathname);
+      if (!pending || !memberId) return;
+      if (pending.entry.memberId !== memberId) { consumeAuthEntry(pending.raw); return; }
+      void (async () => {
+        let session = null;
+        try { session = await createSupabaseBrowserClient().auth.getSession(); } catch { /* best effort */ }
+        if (cancelled || !consumeAuthEntry(pending.raw)) return;
+        // The gate and current session must both identify the intended recipient.
+        if (session?.data.session?.user.id === memberId) showToast(AUTH_ENTRY_COPY[pending.entry.kind]);
+      })();
+    };
+    window.addEventListener(AUTH_ENTRY_READY_EVENT, onReady);
+    const ready = getAuthEntryReady();
+    if (ready?.path === window.location.pathname) onReady(new CustomEvent(AUTH_ENTRY_READY_EVENT, { detail: ready }));
+    return () => { cancelled = true; window.removeEventListener(AUTH_ENTRY_READY_EVENT, onReady); };
   }, []);
 
   if (toasts.length === 0) return null;

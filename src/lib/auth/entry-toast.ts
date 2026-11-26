@@ -1,10 +1,13 @@
 /** One-time, tab-local auth feedback. Never stores a member name, email, token or free text. */
 export const AUTH_ENTRY_KEY = "freeborn.auth-entry.v1";
+export const AUTH_ENTRY_READY_EVENT = "freeborn:auth-entry-ready";
 const MAX_AGE_MS = 120_000;
 const FUTURE_SKEW_MS = 5_000;
+let lastReady: { memberId: string; path: string } | null = null;
 
 export const AUTH_ENTRY_COPY = {
   signedIn: { tone: "success", title: "You're in", body: "Welcome back to Freeborn." },
+  callbackSignedIn: { tone: "success", title: "You’re signed in", body: "Welcome to Freeborn." },
   accountCreated: { tone: "success", title: "Welcome to Freeborn", body: "You’re signed in." },
   emailConfirmed: { tone: "success", title: "Email confirmed", body: "Welcome to Freeborn." },
   passwordUpdated: { tone: "success", title: "Password updated", body: "Your password has been updated." },
@@ -18,6 +21,7 @@ type Entry = { kind: AuthEntryKind; memberId: string; target: AuthEntryTarget; c
 export function queueAuthEntry(kind: AuthEntryKind, memberId: string, target: AuthEntryTarget): boolean {
   if (typeof window === "undefined" || !memberId || memberId.length > 128) return false;
   try {
+    lastReady = null;
     const entry: Entry = { kind, memberId, target, createdAt: Date.now() };
     window.sessionStorage.setItem(AUTH_ENTRY_KEY, JSON.stringify(entry));
     return true;
@@ -57,4 +61,26 @@ export function consumeAuthEntry(raw: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Move an unconsumed onboarding handoff to the app only after a verified gate redirect. */
+export function retargetAuthEntry(memberId: string, from: AuthEntryTarget, to: AuthEntryTarget): void {
+  const pending = peekAuthEntry(from);
+  if (!pending || pending.entry.memberId !== memberId) return;
+  try {
+    if (window.sessionStorage.getItem(AUTH_ENTRY_KEY) !== pending.raw) return;
+    window.sessionStorage.setItem(AUTH_ENTRY_KEY, JSON.stringify({ ...pending.entry, target: to }));
+  } catch { /* best effort only */ }
+}
+
+/** UI gate has resolved its current user; this is a hint, never an authorization token. */
+export function announceAuthEntryReady(memberId: string): void {
+  if (typeof window === "undefined") return;
+  lastReady = { memberId, path: window.location.pathname };
+  window.dispatchEvent(new CustomEvent(AUTH_ENTRY_READY_EVENT, { detail: lastReady }));
+}
+
+/** A gate can finish before the root host effect subscribes during hydration. */
+export function getAuthEntryReady(): { memberId: string; path: string } | null {
+  return lastReady;
 }

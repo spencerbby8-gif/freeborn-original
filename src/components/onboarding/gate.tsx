@@ -3,6 +3,7 @@
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient, getAccessToken } from "@/lib/supabase/browser";
+import { announceAuthEntryReady, retargetAuthEntry } from "@/lib/auth/entry-toast";
 import type { OnboardingDraft, OnboardingStepName } from "@/lib/onboarding-data";
 import { OnboardingFlow } from "@/components/onboarding/flow";
 
@@ -30,11 +31,13 @@ export function OnboardingGate() {
 
         /* One probe = "does this device still hold a usable session?". A null
            answer means no client user OR a 401 from the state route. */
+        let memberId: string | null = null;
         const probe = async (): Promise<Response | null> => {
           const {
             data: { user },
           } = await supabase.auth.getUser();
           if (!user) return null;
+          memberId = user.id;
           const token = await getAccessToken();
           const res = await fetch("/api/onboarding/state", {
             headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -66,10 +69,12 @@ export function OnboardingGate() {
         if (json.completed) {
           // Finished members land in the app shell (tabs included), never on
           // the bare discovery page.
+          if (res.ok && memberId) retargetAuthEntry(memberId, "/onboarding", "/app");
           window.location.replace("/app");
           return;
         }
 
+        if (res.ok && memberId) announceAuthEntryReady(memberId);
         setState({
           phase: "ready",
           draft: json.draft ?? ({} as OnboardingDraft),
