@@ -78,12 +78,12 @@
     "@types/react-dom": "19.2.3",
     "axe-core": "4.14.1",
     "drizzle-kit": "0.31.11",
-    "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
+    "eslint": "10.15.0",
+    "eslint-config-next": "16.4.6",
     "playwright": "^1.65.1",
     "postcss": "8.5.33",
     "tailwindcss": "4.3.5",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "overrides": {
     "zod": "4.6.7",
