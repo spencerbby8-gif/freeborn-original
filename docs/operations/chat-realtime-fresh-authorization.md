@@ -1,0 +1,24 @@
+# Chat Realtime: fresh-authorization hardening (local release candidate)
+
+**Not a complete block/unmatch fix. Do not deploy this migration as a release.** It tightens the existing `can_use_chat_topic` predicate for fresh private Broadcast authorization: the authenticated caller must be one of the two participants, the match must be active or archived, and neither direction may be blocked. Other status values and malformed topic UUIDs are denied. It changes no `realtime.messages` policies or the `is_match_participant` helper used for retained signal/history access. The migration is local only and needs independent review, explicit production approval, and the remaining acceptance work below.
+
+## What it does not establish
+
+- Supabase Realtime can cache read and write permissions per channel/socket. This change alone does **not** revoke a socket previously authorized, including one whose insert permission was already cached. A query can also be authorized before a concurrent block commits. No immediate revocation or closed timing window is claimed.
+- A participant authorized to broadcast may submit arbitrary payloads through a custom client. The stock app sends content-free hints; the server policy does not constrain payloads. Public channels are separate and their deployed configuration is unknown. This migration neither changes nor tests them.
+- Postgres Changes, existing old-client sockets, TURN credentials and ongoing WebRTC media require separate analysis. HTTP message checks and retained-history rules remain independent; already delivered bytes cannot be withdrawn.
+- The effect of policy composition must be reviewed against the actual catalog at release; another permissive policy can grant access independently. Actual Realtime role, session configuration, versions and cached-authorization behavior are not established by local PostgreSQL.
+
+## Compatibility and release sequencing
+
+Active and archived unblocked matches continue to pass, matching current HTTP chat semantics. Blocked, unmatched, strangers, malformed topics and missing identity fail this predicate. An existing UI may show slower update/recovery while private joins are denied; its HTTP polling and readable history behavior must be tested with actual service and deployed client versions. Server post-write broadcasts can fail after a later block; they are not message authority. Check interaction with Postgres Changes and other call/ring policies before release.
+
+Before any deployment, use an owner-approved isolated environment with synthetic accounts and test fresh and already-joined sockets before/after each block direction, double block/unblock, explicit unmatch, token refresh/reconnect, REST vs WebSocket publish, arbitrary payloads, public/private channels, old tabs and Postgres Changes. Establish and demonstrate a supported drain or other mitigation for cached permissions across all nodes; if there is no reliable one, this blocker remains open. Verify actual runtime role/function ownership, RLS policy composition and query plans; obtain independent security review, a release/rollback plan and scoped approval. Do not create the test environment under the current local-only instruction.
+
+A rollback to the previous membership-only function would again authorize blocked and ended participants on fresh joins. A rollback would need explicit owner approval, monitoring and a separate mitigation; it cannot restore already delivered information or fix cached sockets. No production migration, setting or deploy was performed.
+
+## Local evidence
+
+- `scripts/realtime-audit/fresh-authorization.mjs` creates and destroys a disposable loopback database with synthetic identities and mock `realtime.messages` policies. It reproduces the old membership-only allowance, applies the new migration twice, verifies grants, both participants/stranger/anonymous identity, malformed topic, active/archived/blocked/unmatched, both block directions and double block/unblock, and separately checks mock RLS read/write and unrelated call policy composition. It confirms an authorized custom publisher can still send arbitrary payload (`/home/user/freeborn-audit/realtime-fresh-authorization.log`).
+- `scripts/realtime-audit/schema-replay.mjs` clones a named local disposable app schema into a new disposable database, supplies a mock `auth.uid()`, applies the migration twice, verifies unchanged public table/column/index/check and existing row counts, and uses real app match/block definitions for block/unblock/unmatch (`realtime-fresh-schema.log`). An initial fixture unmatch omitted its required actor and failed 23514; corrected to meet the real schema before passing. This is not a full clean replay.
+- The clean-start manifest includes this additive migration and increments its step count. Manifest/hash validation and local application do not imply a hosted replay or permission to apply it.

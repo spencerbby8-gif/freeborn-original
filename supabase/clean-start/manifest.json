@@ -12,7 +12,7 @@
     "supabase/migrations/20261102090100_fb15_retention_scheduling.sql"
   ],
   "expected": {
-    "steps": 57,
+    "steps": 58,
     "publicTables": 55,
     "publicColumns": 520,
     "publicIndexes": 148,
@@ -360,6 +360,12 @@
       "name": "hidden_story_authors",
       "path": "supabase/migrations/20261122010000_hidden_story_authors.sql",
       "sha256": "5f3b70b9b746221782a2e4e986c2c1797cd5dab31e4b0b5248628b44ec5995d4"
+    },
+    {
+      "version": "20261122020000",
+      "name": "chat_realtime_fresh_authorization",
+      "path": "supabase/migrations/20261122020000_chat_realtime_fresh_authorization.sql",
+      "sha256": "c6c9aacd113fd7e4454955c2132ff116dbf373208cf6221ab5ee0462eb1aa64e"
     }
   ]
 }
