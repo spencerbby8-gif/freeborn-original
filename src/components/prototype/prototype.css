@@ -1201,8 +1201,10 @@
 /* Scoped first-visit filter hint. Does not move or restyle the four bottom tabs. */
 .fb-prototype .discover-scroll .discovery-filter-anchor{position:relative;display:inline-flex;flex-shrink:0;margin-left:auto;align-self:center}
 .fb-prototype .discover-scroll .discovery-filter-anchor .chip-flame{margin-left:0}
-/* The hint occupies its own row so it never covers the card’s Like action. */
+/* The hint has its own row. Let the card shrink on roomy screens so the row
+   does not push the actions behind the tabs; short screens can still scroll. */
 .fb-prototype .discover-scroll .intent-chips:has(.discovery-filter-tip){flex-wrap:wrap}
+.fb-prototype .discover-scroll:has(.discovery-filter-tip) .deck{flex:1 1 440px;min-height:440px}
 .fb-prototype .discovery-filter-tip{position:relative;flex:0 0 100%;margin-top:7px;display:flex;gap:8px;align-items:flex-start;padding:13px 10px 13px 14px;border:1px solid #c8aa6c66;border-radius:14px;background:#292637;color:#f5e8d4;box-shadow:0 10px 24px #0006;font-size:12px;line-height:1.5;white-space:normal;text-align:left}
 .fb-prototype .discovery-filter-tip:before{content:"";position:absolute;top:-5px;right:14px;width:8px;height:8px;transform:rotate(45deg);background:#292637;border-top:1px solid #c8aa6c66;border-left:1px solid #c8aa6c66}
 .fb-prototype .discovery-filter-tip b{display:block;font-size:12px;margin-bottom:3px}
