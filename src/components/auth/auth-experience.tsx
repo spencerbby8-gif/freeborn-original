@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
+import { clearSecurityCheckCache } from "@/lib/auth/security-check-cache";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { EmailCodeScreen } from "./email-code-screen";
@@ -187,6 +188,7 @@ export function AuthExperience({
 
   /** Route by onboarding state after any successful auth. */
   const enterAfterAuth = async (kind: AuthEntryKind) => {
+    clearSecurityCheckCache();
     let memberId: string | undefined;
     const navigate = (target: AuthEntryTarget) => {
       // A fixed event identifier and account-scoping ID cross the full-page navigation;

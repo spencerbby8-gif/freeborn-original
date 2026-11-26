@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/auth/url";
 import { queueAuthEntry } from "@/lib/auth/entry-toast";
+import { clearSecurityCheckCache } from "@/lib/auth/security-check-cache";
 import { Wordmark } from "@/components/wordmark";
 
 /**
@@ -45,6 +46,7 @@ export default function CallbackPage() {
       // 1) Already have a live session? Straight through.
       const { data: existing } = await supabase.auth.getSession();
       if (existing.session) {
+        clearSecurityCheckCache();
         window.location.replace(next);
         return;
       }
@@ -57,6 +59,7 @@ export default function CallbackPage() {
         if (hasVerifier) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
+            clearSecurityCheckCache();
             // A successful client PKCE exchange proves a session, not whether
             // this was a new account, a returning Google user or an email link.
             // Recovery/other destinations must not receive an unrelated banner.
@@ -78,6 +81,7 @@ export default function CallbackPage() {
           });
           const json = await res.json();
           if (json.ok) {
+            clearSecurityCheckCache();
             window.location.replace(next);
             return;
           }
