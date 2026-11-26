@@ -78,7 +78,7 @@ export const authStatusMessages = {
     // The URL status is not an authorization verdict. Give a useful next step
     // without asserting that any account has actually been suspended.
     title: "Account access notice",
-    body: `If your account is suspended and you believe this is a mistake, you can file an appeal at ${absolute("/appeal")}.`,
+    body: `If your account is suspended, visit ${absolute("/appeal")} for appeal access information.`,
   },
 };
 

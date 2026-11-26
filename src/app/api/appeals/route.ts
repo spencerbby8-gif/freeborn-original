@@ -95,7 +95,7 @@ export async function POST(request: Request) {
        cannot meet is a promise we should not make. Terms clause 6 now says the
        same thing plainly. */
     return Response.json(
-      { error: "An appeal is already under review. We will be in touch." },
+      { error: "An appeal is already under review. Check back for a recorded update." },
       { status: 409 }
     );
   }
@@ -205,6 +205,6 @@ export async function POST(request: Request) {
 
   return Response.json({
     ok: true,
-    message: "Appeal received. A person reads every appeal. Check back here for the result.",
+    message: "Appeal received for review. Check back for a recorded update.",
   });
 }
