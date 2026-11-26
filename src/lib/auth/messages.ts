@@ -21,32 +21,32 @@ export const authStatusMessages = {
   "verification-sent": {
     tone: "success" as const,
     title: "Check your inbox",
-    body: "We sent a verification link so you can confirm your email and unlock your session.",
+    body: "If eligible, check your email for instructions to confirm your address.",
   },
   "reset-sent": {
     tone: "success" as const,
-    title: "Recovery email sent",
-    body: "Open the reset link from your email to choose a new password.",
+    title: "Check your email",
+    body: "If the address is eligible, check your inbox for recovery instructions.",
   },
   verified: {
     tone: "success" as const,
-    title: "Email confirmed",
-    body: "Your account is now verified. You can continue into Freeborn.",
+    title: "Continue to Freeborn",
+    body: "If you have confirmed your email, sign in to continue.",
   },
   recovered: {
     tone: "success" as const,
-    title: "Recovery confirmed",
-    body: "Choose a new password to finish restoring your account.",
+    title: "Continue account recovery",
+    body: "If you opened a recovery link, choose a new password to continue.",
   },
   "password-updated": {
     tone: "success" as const,
-    title: "Password updated",
-    body: "Your account is secured again. Taking you into Freeborn.",
+    title: "Continue to sign in",
+    body: "If you changed your password, sign in with the new one.",
   },
   "signed-out": {
     tone: "success" as const,
-    title: "Signed out",
-    body: "You've been securely signed out of Freeborn.",
+    title: "Sign in to continue",
+    body: "If you signed out, sign in again to return.",
   },
   "oauth-error": {
     tone: "error" as const,
@@ -75,15 +75,10 @@ export const authStatusMessages = {
   },
   suspended: {
     tone: "error" as const,
-    title: "Account suspended",
-    /* Two corrections. (1) The appeal link pointed at freeborn.app, a domain
-       Freeborn does not own, so suspended members were being sent to a stranger's
-       website. It now derives from the canonical constant. (2) The old copy asserted
-       a specific cause ("datacenter or automated traffic") to every suspended member
-       regardless of why they were actually suspended, which is a false statement to
-       anyone removed for conduct. The message no longer invents a reason; the real
-       reason is carried on the suspension record and shown by the appeal flow. */
-    body: `This account was suspended under Freeborn's community standard. If you believe this is a mistake, file an appeal at ${absolute("/appeal")}. Every appeal is reviewed by a person, not a model.`, 
+    // The URL status is not an authorization verdict. Give a useful next step
+    // without asserting that any account has actually been suspended.
+    title: "Account access notice",
+    body: `If your account is suspended and you believe this is a mistake, you can file an appeal at ${absolute("/appeal")}.`,
   },
 };
 

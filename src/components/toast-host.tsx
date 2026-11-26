@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AUTH_ENTRY_COPY, consumeAuthEntry, peekAuthEntry } from "@/lib/auth/entry-toast";
+import { createSupabaseBrowserClient, isWebSupabaseConfigured } from "@/lib/supabase/browser";
 
 /**
  * Freeborn global popup toasts.
@@ -58,6 +60,20 @@ export function ToastHost() {
     };
     window.addEventListener(EVENT, onToast);
     return () => window.removeEventListener(EVENT, onToast);
+  }, []);
+
+  useEffect(() => {
+    const pending = peekAuthEntry(window.location.pathname);
+    if (!pending || !isWebSupabaseConfigured) return;
+    let cancelled = false;
+    void (async () => {
+      let session = null;
+      try { session = await createSupabaseBrowserClient().auth.getSession(); } catch { /* best effort */ }
+      if (cancelled || !consumeAuthEntry(pending.raw)) return;
+      // A second account in the same tab must never see another account's handoff.
+      if (session?.data.session?.user.id === pending.entry.memberId) showToast(AUTH_ENTRY_COPY[pending.entry.kind]);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   if (toasts.length === 0) return null;
