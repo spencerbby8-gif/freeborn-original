@@ -37,7 +37,7 @@ async function ownsMatch(
   return row;
 }
 
-/** Thread messages (marks the other person's messages as read). */
+/** Thread messages (marks incoming messages read only while the relationship is open). */
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
@@ -57,8 +57,8 @@ export async function GET(request: Request) {
     );
   const otherId = viewed.userA === member.id ? viewed.userB : viewed.userA;
   return db.transaction(async tx=>{
-  // Viewing also marks messages read. Serialize the authorization snapshot
-  // and receipt update with relationship boundaries, then re-check inside it.
+  // A live thread view can mark messages read. Serialize the authorization
+  // snapshot and receipt update with relationship boundaries, then re-check.
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
   const [match]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
   if(!match || (match.userA!==member.id && match.userB!==member.id))return Response.json({error:"Match not found.",code:"thread_unavailable"},{status:404});
@@ -76,16 +76,22 @@ export async function GET(request: Request) {
     return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true,code:"thread_unavailable"},{status:403});
   const effectiveStatus = blocks.length ? "blocked" : match.status as MatchLifecycleStatus;
 
-  await tx
-    .update(messages)
-    .set({ readAt: new Date() })
-    .where(
-      and(
-        eq(messages.matchId, matchId),
-        sql`${messages.senderId} <> ${member.id}`,
-        sql`${messages.readAt} is null`
-      )
-    );
+  // Retained history is available for evidence after a boundary, but opening it
+  // must not signal fresh activity to the other participant. readAt also backs
+  // unread badges, so old unread messages can resurface if a block is removed.
+  // A read that committed before a boundary cannot be recalled.
+  if (!blocks.length && (effectiveStatus === "active" || effectiveStatus === "archived")) {
+    await tx
+      .update(messages)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(messages.matchId, matchId),
+          sql`${messages.senderId} <> ${member.id}`,
+          sql`${messages.readAt} is null`
+        )
+      );
+  }
 
   const rows = await tx
     .select()
