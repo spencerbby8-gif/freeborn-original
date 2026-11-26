@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { humanChallenges, securityEvents } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       and(
         eq(humanChallenges.email, email),
         eq(humanChallenges.nonce, nonce),
-        inArray(humanChallenges.status, ["issued", "failed"])
+        eq(humanChallenges.status, "issued"),
+        lt(humanChallenges.attempts, MAX_ATTEMPTS)
       )
     )
     .orderBy(desc(humanChallenges.issuedAt))
@@ -55,28 +56,28 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "no-live-challenge" }, { status: 410 });
   }
   if (new Date(row.expiresAt).getTime() < Date.now()) {
-    await db.update(humanChallenges).set({ status: "expired" }).where(eq(humanChallenges.id, row.id));
+    await db.update(humanChallenges).set({ status: "expired" }).where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued")));
     return Response.json({ ok: false, error: "expired" }, { status: 408 });
   }
 
   const ok = meetsDifficulty(nonce, solution, row.difficultyBits ?? 18);
+  // Atomic compare-and-update: racing verifications cannot resurrect consumed,
+  // failed or expired challenges, nor count more than MAX_ATTEMPTS guesses.
+  const [updated] = await db.update(humanChallenges)
+    .set(ok
+      ? { status: "solved", solvedAt: sql`timezone('utc', now())`, attempts: sql`${humanChallenges.attempts} + 1` }
+      : { status: sql`case when ${humanChallenges.attempts} + 1 >= ${MAX_ATTEMPTS} then 'failed' else 'issued' end`, attempts: sql`${humanChallenges.attempts} + 1` })
+    .where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued"),
+      lt(humanChallenges.attempts, MAX_ATTEMPTS), gt(humanChallenges.expiresAt, sql`clock_timestamp()`)))
+    .returning({ id: humanChallenges.id, attempts: humanChallenges.attempts });
+  if (!updated) return Response.json({ ok: false, error: "no-live-challenge" }, { status: 410 });
   if (!ok) {
-    const attempts = row.attempts + 1;
-    await db
-      .update(humanChallenges)
-      .set({ attempts, status: attempts >= MAX_ATTEMPTS ? "failed" : "issued" })
-      .where(eq(humanChallenges.id, row.id));
-    await db.insert(securityEvents).values({ email, kind: "human_challenge_failed", detail: `attempts=${attempts}` });
+    await db.insert(securityEvents).values({ email, kind: "human_challenge_failed", detail: `attempts=${updated.attempts}` });
     return Response.json(
-      { ok: false, error: attempts >= MAX_ATTEMPTS ? "too-many-attempts" : "wrong-solution", attempts },
+      { ok: false, error: updated.attempts >= MAX_ATTEMPTS ? "too-many-attempts" : "wrong-solution", attempts: updated.attempts },
       { status: 400 }
     );
   }
-
-  await db
-    .update(humanChallenges)
-    .set({ status: "solved", solvedAt: sql`timezone('utc', now())`, attempts: row.attempts + 1 })
-    .where(eq(humanChallenges.id, row.id));
 
   return Response.json(
     { ok: true, token: row.id, purpose: row.purpose, enforcing: process.env.FREEBORN_HUMAN_CHALLENGE === "enforce" },

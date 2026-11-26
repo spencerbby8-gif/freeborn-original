@@ -113,7 +113,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         showToast({ tone: "error", title: "Couldn't file the appeal", body: json.error ?? "Try again." });
       }
     } catch {
-      showToast({ tone: "error", title: "Couldn't file the appeal", body: "Check your connection." });
+      showToast({ tone: "error", title: "Submission not confirmed", body: "Check your appeal status before trying again." });
     } finally {
       setBusy(false);
     }
@@ -170,7 +170,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                   <path d="M12 7v5l3 2" />
                 </svg>
               </span>
-              <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under investigation</h1>
+              <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under review</h1>
               <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-6 text-[var(--color-mist)]">
                 Your appeal is recorded alongside your account&apos;s security record for human review.
                 Check back here for any recorded update.
@@ -205,6 +205,10 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                 >
                   {member?"Back to Discover":"Sign back in"}
                 </Link>
+              ) : appeal.status === "decided" ? (
+                <button type="button" className="btn-ember mt-6 inline-flex rounded-full px-7 py-3 text-[14px] font-bold" onClick={() => setState("form")}>
+                  Start another appeal
+                </button>
               ) : null}
             </div>
           ) : (
