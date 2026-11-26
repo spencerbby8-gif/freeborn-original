@@ -17,6 +17,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ageFromBirthDate } from "@/lib/age";
 import { coordinateOrigin } from "@/lib/coordinate-origin";
 import { badIdResponse, isUuid } from "@/lib/uuid";
+import { getMutualVault } from "@/lib/vault-visibility";
 
 /* ageFromBirthDate now lives in src/lib/age.ts — it was copy-pasted
    verbatim into this file and /api/profile/[id]. Duplicating the AGE
@@ -354,6 +355,19 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     };
   }
 
+  /* Mutual-Filter Vault — enforced server-side only (never client filtering).
+     null for self-reads (owners use /api/vault), for non-matches, and for
+     every consent-frozen state. The `vault` key is ALWAYS present so the
+     response shape stays structurally identical for every viewer. */
+  let vault: Awaited<ReturnType<typeof getMutualVault>> = null;
+  if (row.id !== viewer.id) {
+    try {
+      vault = await getMutualVault(viewer.id, row.id);
+    } catch {
+      vault = null; /* fail closed: hide rather than 500 the profile */
+    }
+  }
+
   return Response.json({
     profile: {
       id: row.id,
@@ -399,6 +413,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       presence,
       mixerCity: mixer?.city ?? null,
       inCommon,
+      vault,
       visibility,
     },
   });

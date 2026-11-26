@@ -1413,3 +1413,40 @@ export const supportReplies = pgTable("support_replies", {
   id: uuid("id").primaryKey().defaultRandom(), ticketId: uuid("ticket_id").notNull().references(() => supportRequests.id,{onDelete:"cascade"}),
   authorId: uuid("author_id").references(() => userProfiles.id,{onDelete:"set null"}), message: text("message").notNull(), createdAt: timestamp("created_at",{withTimezone:true}).notNull().defaultNow(),
 },t=>[check("support_reply_length",sql`char_length(${t.message}) between 5 and 4000`)]);
+
+/* --- public.vault_entries / public.vault_match_keys (Mutual-Filter Vault) -- */
+
+export const vaultEntries = pgTable(
+  "vault_entries",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    consentAcceptedAt: timestamp("consent_accepted_at", { withTimezone: true }).notNull(),
+    consentVersion: text("consent_version").notNull(),
+    payload: text("payload").notNull(),
+    keyVersion: integer("key_version").notNull().default(1),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    check("vault_entries_key_version_check", sql`${t.keyVersion} >= 1`),
+    check("vault_entries_consent_version_check", sql`${t.consentVersion} <> ''`),
+  ]
+);
+
+export const vaultMatchKeys = pgTable(
+  "vault_match_keys",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: "cascade" }),
+    prefKey: text("pref_key").notNull(),
+    valueDigest: charN("value_digest", 64).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(utcNow),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.prefKey] }),
+    check("vault_match_keys_pref_key_check", sql`${t.prefKey} <> ''`),
+    check("vault_match_keys_digest_check", sql`char_length(${t.valueDigest}) = 64`),
+  ]
+);
