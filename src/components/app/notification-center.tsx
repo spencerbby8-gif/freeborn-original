@@ -15,6 +15,7 @@
 import { PhotoImage } from "@/components/ui/photo-image";
 import { PrototypeIcon } from "@/components/prototype/frame";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
 import { loadFeedReceipts, saveFeedReceipts, reconcileFeed, shouldSurfaceAlert, type FeedReceipts } from "@/lib/notification-receipts";
@@ -42,6 +43,8 @@ type Banner = Alert & { key: number };
 
 export function NotificationCenter({ pathname, suppressPrompts=false }: { pathname?: string; suppressPrompts?:boolean }) {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [alertPortal, setAlertPortal] = useState<HTMLElement | null>(null);
+  useEffect(() => { setAlertPortal(document.getElementById("member-alert-portal")); }, []);
   const [askOpen, setAskOpen] = useState(false);
   /* A call screen beats a permission prompt: the ask card sits at z-[310] over
      the call overlay's z-[200], i.e. straight on top of Answer/Decline on an
@@ -255,8 +258,8 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
       ) : null}
 
       {/* Alert banners */}
-      <div aria-live="polite" aria-relevant="additions" className="member-alert-stack pointer-events-none fixed inset-x-0 z-[300] flex flex-col items-center gap-2 px-4">
-        {!verificationUp && banners.map((b) => (
+      {alertPortal && createPortal(
+        !verificationUp && banners.map((b) => (
           <button
             key={b.key}
             type="button"
@@ -264,7 +267,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
               setBanners((x) => x.filter((y) => y.key !== b.key));
               window.location.assign(b.href);
             }}
-            className="fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md"
+            className="fb-toast-in pointer-events-auto flex w-full max-w-[440px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md"
           >
             {b.photo ? (
               <PhotoImage src={b.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/15" imgClassName="object-cover" compact />
@@ -281,8 +284,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
               Open
             </span>
           </button>
-        ))}
-      </div>
+        )), alertPortal)}
     </>
   );
 }

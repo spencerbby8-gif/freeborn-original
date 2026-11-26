@@ -3,8 +3,11 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import {createRequire} from 'node:module';
+const {hasFixtureOrigin}=createRequire(import.meta.url)('../prototype/fixture-preflight.cjs');
 import {createHarness,IDS} from '../member-experience/harness.mjs';
 const base='http://127.0.0.1:3000',out='/home/user/freeborn-audit/banner-browser';await fs.mkdir(out,{recursive:true});
+const html=await(await fetch(base+'/auth')).text();const paths=[...new Set([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(x=>x[1]).filter(x=>x.startsWith('/_next/')))];if(!hasFixtureOrigin(await Promise.all(paths.map(async p=>(await fetch(base+p)).text()))))throw Error('Requires isolated fixture build');
 const h=await createHarness({routes:{blocks:'src/app/api/blocks/route.ts'}});await h.seed();
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});let contexts=[];const errors=[];let holdRead=false,releaseRead=()=>{};
 async function contextFor(who){
@@ -31,6 +34,20 @@ try{
  await d.goto(base+'/app/chat?match='+IDS.other,{waitUntil:'domcontentloaded'});await d.getByRole('textbox',{name:'Message'}).fill('Secret text from the other chat');const sent1=d.waitForResponse(r=>new URL(r.url()).pathname==='/api/chat/messages'&&r.request().method()==='POST'&&r.status()===200);await d.getByRole('button',{name:'Send message'}).click();await sent1;await d.getByText('Secret text from the other chat',{exact:true}).waitFor();
  const rows=await h.client.query('select id from messages where match_id=$1 and sender_id=$2 and body=$3',[IDS.other,IDS.d,'Secret text from the other chat']);assert.equal(rows.rowCount,1);
  await a.bringToFront();assert.equal(await a.evaluate(()=>document.hidden),false);await poll(a);const banner=a.locator('.member-alert-stack button').filter({hasText:'QA Sky sent you a message'});await banner.waitFor();assert.equal(await banner.count(),1);assert.equal((await banner.textContent()).includes('Secret text'),false);const box=await banner.boundingBox();assert.ok(box&&box.y<160,`banner not near top ${JSON.stringify(box)}`);await a.screenshot({path:out+'/different-chat-banner.png'});
+ // Reproduce concurrent feedback from independent toast and notification systems.
+ await a.setViewportSize({width:320,height:700});
+ await a.evaluate(()=>{for(let i=0;i<3;i++)window.dispatchEvent(new CustomEvent('freeborn:toast',{detail:{tone:'info',title:'Fixture feedback '+i,body:'A deliberately longer message checks that overlapping notices remain readable and their controls can be used.'}}));});
+ await a.getByRole('alert').filter({hasText:'Fixture feedback 2'}).waitFor();
+ for(const viewport of [{width:320,height:700},{width:320,height:500},{width:393,height:852},{width:1440,height:800},{width:1440,height:1000}]){
+  await a.setViewportSize(viewport);
+  const boxes=await a.evaluate(()=>({clip:(()=>{const r=document.querySelector('.fb-global-toast-list').getBoundingClientRect();return {top:r.top,bottom:r.bottom}})(),toasts:[...document.querySelectorAll('[role=alert]')].filter(e=>e.textContent.includes('Fixture feedback')).map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}}),banner:(()=>{const e=document.querySelector('.member-alert-stack button'),r=e.getBoundingClientRect(),x=(r.left+r.right)/2,y=(r.top+r.bottom)/2,hit=document.elementFromPoint(x,y);return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,hit:!!hit&&e.contains(hit),viewportHeight:innerHeight}})()}));
+  assert.equal(boxes.toasts.length,3);assert.ok(boxes.banner.hit&&boxes.banner.bottom<=boxes.banner.viewportHeight,'banner not fully reachable '+JSON.stringify({viewport,boxes}));
+  for(const b of boxes.toasts){const visibleTop=Math.max(b.top,boxes.clip.top),visibleBottom=Math.min(b.bottom,boxes.clip.bottom);if(visibleBottom>visibleTop)assert.ok(boxes.banner.top>=visibleBottom||boxes.banner.bottom<=visibleTop||boxes.banner.left>=b.right||boxes.banner.right<=b.left,'feed banner overlaps toast '+JSON.stringify({viewport,boxes}));}
+  if(viewport.width===320&&viewport.height===700)await a.screenshot({path:out+'/overlap-320.png'});
+ }
+ // Dismiss with the keyboard; scrolling must not make controls unreachable.
+ for(let i=0;i<3;i++){const close=a.getByRole('alert').filter({hasText:'Fixture feedback'}).first().getByRole('button',{name:'Dismiss notification'});await close.focus();assert.equal(await close.evaluate(e=>document.activeElement===e),true);await close.press('Enter');}
+ await a.setViewportSize({width:393,height:852});await banner.waitFor();console.log('PASS simultaneous long feedback and feed banner do not overlap and controls stay reachable across mobile and desktop viewports');
  await poll(a);assert.equal(await a.locator('.member-alert-stack button').filter({hasText:'QA Sky sent you a message'}).count(),1);console.log('PASS another account sends in real browser; different-chat banner appears once without private text');
  await d.getByRole('textbox',{name:'Message'}).fill('Second private text');const sent2=d.waitForResponse(r=>new URL(r.url()).pathname==='/api/chat/messages'&&r.request().method()==='POST'&&r.status()===200);await d.getByRole('button',{name:'Send message'}).click();await sent2;await d.getByText('Second private text',{exact:true}).waitFor();await a.bringToFront();await poll(a);const second=await h.client.query("select id from messages where match_id=$1 and sender_id=$2 and body='Second private text'",[IDS.other,IDS.d]);await a.waitForFunction(({id,match,msg})=>{const r=JSON.parse(localStorage.getItem('freeborn.feed-receipts.v1.'+id)||'{}');return r.delivered?.includes(`message:${match}:${msg}`)},{id:IDS.a,match:IDS.other,msg:second.rows[0].id});assert.equal(await a.locator('.member-alert-stack button').filter({hasText:'QA Sky sent you a message'}).count(),1);console.log('PASS distinct unread messages coalesce into one visible banner');
  await banner.click();await a.waitForURL(new RegExp('match='+IDS.other));await a.getByText('Secret text from the other chat',{exact:true}).waitFor();await a.screenshot({path:out+'/opened-correct-chat.png'});assert.equal((await h.client.query('select read_at is not null as read from messages where id=$1',[rows.rows[0].id])).rows[0].read,true);console.log('PASS banner opens intended chat and real thread marks message read');assert.deepEqual(errors,[]);

@@ -84,17 +84,16 @@ export function ToastHost() {
     return () => { cancelled = true; window.removeEventListener(AUTH_ENTRY_READY_EVENT, onReady); };
   }, []);
 
-  if (toasts.length === 0) return null;
-
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[400] flex flex-col items-center gap-2 px-4">
+    <div className="fb-global-alerts pointer-events-none fixed inset-x-0 top-3 z-[400] flex flex-col items-center px-4">
+      <div className="fb-global-toast-list flex w-full max-w-[420px] flex-col gap-2">
       {toasts.map((t) => {
         const s = TONE_STYLES[t.tone];
         return (
           <div
             key={t.id}
             role="alert"
-            className={`fb-toast-in pointer-events-auto flex w-full max-w-[420px] items-start gap-3 overflow-hidden rounded-2xl border ${s.ring} bg-[#10141f]/95 p-3.5 pr-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md`}
+            className={`fb-toast-in pointer-events-auto flex w-full max-w-[420px] shrink-0 items-start gap-3 overflow-hidden rounded-2xl border ${s.ring} bg-[#10141f]/95 p-3.5 pr-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] backdrop-blur-md`}
           >
             <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${s.icon}`}>
               {t.tone === "error" ? (
@@ -132,6 +131,9 @@ export function ToastHost() {
           </div>
         );
       })}
+      </div>
+      {/* Feed alerts share the same viewport stack so neither system covers the other. */}
+      <div id="member-alert-portal" className="member-alert-stack flex w-full max-w-[440px] flex-col gap-2" aria-live="polite" aria-relevant="additions" />
     </div>
   );
 }
