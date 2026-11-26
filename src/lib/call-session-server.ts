@@ -1,7 +1,8 @@
 import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { callSessions, profilePhotos, userProfiles } from "@/db/schema";
+import { callSessions, matches, profilePhotos, userProfiles } from "@/db/schema";
 import { resolvePhotoUrl } from "@/lib/photo-url";
+import { isBlockedPair } from "@/lib/conversation-access";
 
 export type CallSessionRow = typeof callSessions.$inferSelect;
 export type CallPerson = { id: string; name: string; photo: string };
@@ -60,4 +61,10 @@ export async function findParticipantSession(id: string, memberId: string) {
     )
     .limit(1);
   return row ?? null;
+}
+
+/** Check the current relationship, not merely possession of a call ID. */
+export async function isCallRelationshipAvailable(row: CallSessionRow): Promise<boolean> {
+  const [match]=await db.select({status:matches.status}).from(matches).where(eq(matches.id,row.matchId)).limit(1);
+  return match?.status === "active" && !(await isBlockedPair(row.callerId,row.calleeId));
 }

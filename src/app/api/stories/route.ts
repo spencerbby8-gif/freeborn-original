@@ -15,7 +15,9 @@ export const GET=featureRoute(async(request:Request)=>{
  case when s.author_id=${me.id}::uuid then (select count(*)::int from public.story_views v where v.story_id=s.id) else null end as "viewerCount"
  from public.member_stories s join public.user_profiles u on u.id=s.author_id
  left join public.story_preferences p on p.user_id=s.author_id
- where s.expires_at>now() and ${storyAudienceSql(me.id)} order by s.created_at asc limit 1000`);
+ where s.expires_at>now() and ${storyAudienceSql(me.id)}
+ and not exists(select 1 from public.hidden_story_authors h where h.viewer_id=${me.id}::uuid and h.author_id=s.author_id)
+ order by s.created_at asc limit 1000`);
  return Response.json({memberId:me.id,stories:result.rows.map(row=>({...row,name:row.name||"Freeborn member",photo:resolvePhotoUrl(row.photo as string),imageUrl:`/api/stories/${row.id}/image`}))},{headers:{"Cache-Control":"private, no-store"}});
 });
 export const POST=featureRoute(async(request:Request)=>{

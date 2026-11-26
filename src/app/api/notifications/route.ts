@@ -38,13 +38,18 @@ async function readNotifications(request: Request) {
     at: Date;
     unread: boolean;
     href: string;
+    profileId?: string;
+    profileName?: string;
+    matchId?: string;
+    eventId?: string;
+    unreadIds?: string[];
   }> = [];
 
   const blocks=await db.select({blockerId:blockedUsers.blockerId,blockedId:blockedUsers.blockedId}).from(blockedUsers).where(or(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,member.id)));
   const blocked=new Set(blocks.map(b=>b.blockerId===member.id?b.blockedId:b.blockerId));
   for (const m of myMatches) {
     const otherId = m.userA === member.id ? m.userB : m.userA;
-    if(m.status!=="active"||blocked.has(otherId))continue;
+    if((m.status!=="active"&&m.status!=="archived")||blocked.has(otherId))continue;
     const [other] = await db
       .select()
       .from(userProfiles)
@@ -63,7 +68,7 @@ async function readNotifications(request: Request) {
       id: `match-${m.id}`,
       type: "match",
       title: `New match: ${name}`,
-      body: "You liked each other. The conversation is open. Say hello.",
+      body: "You’re connected. The conversation is open. Say hello.",
       photo: resolvePhotoUrl(photo?.storagePath ?? ""),
       at: m.createdAt,
       unread: false,
@@ -82,19 +87,25 @@ async function readNotifications(request: Request) {
       );
 
     if (unread > 0) {
-      const [last] = await db
-        .select({ body: messages.body, createdAt: messages.createdAt })
+      const pending = await db
+        .select({ id: messages.id, createdAt: messages.createdAt })
         .from(messages)
-        .where(and(eq(messages.matchId, m.id), eq(messages.senderId, otherId)))
-        .orderBy(desc(messages.createdAt))
-        .limit(1);
+        .where(and(eq(messages.matchId, m.id), eq(messages.senderId, otherId), sql`${messages.readAt} is null`))
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .limit(500);
+      // A concurrent read can clear the last unread message between queries.
+      const last = pending[0];
+      if (!last) continue;
       items.push({
         id: `msg-${m.id}`,
         type: "message",
+        matchId: m.id,
+        eventId: `${last.id}:${unread}`,
+        unreadIds: pending.map(message => message.id),
         title: `${name} sent you a message`,
         body: "Open the conversation to read it.",
         photo: resolvePhotoUrl(photo?.storagePath ?? ""),
-        at: last?.createdAt ?? m.createdAt,
+        at: last.createdAt,
         unread: true,
         href,
       });
@@ -109,8 +120,10 @@ async function readNotifications(request: Request) {
     .where(and(eq(userSwipes.likedId, member.id), inArray(userSwipes.action, ["like", "superlike"])))
     .orderBy(desc(userSwipes.createdAt))
     .limit(20);
+  const existingPairs = new Set(myMatches.map(m => m.userA === member.id ? m.userB : m.userA));
   for (const like of incomingLikes) {
-    if(blocked.has(like.likerId))continue;
+    // An existing or ended match is not a fresh like-back invitation.
+    if(blocked.has(like.likerId) || existingPairs.has(like.likerId))continue;
     const [liker] = await db
       .select({ id: userProfiles.id, displayName: userProfiles.displayName })
       .from(userProfiles)
@@ -126,8 +139,10 @@ async function readNotifications(request: Request) {
     items.push({
       id: `like-${liker.id}-${like.createdAt.getTime()}`,
       type: "like",
+      profileId: liker.id,
+      profileName: liker.displayName ?? "Member",
       title: `${liker.displayName ?? "Someone"} liked you${like.action === "superlike" ? " (Super Like)" : ""}`,
-      body: "Open the Likes tab to see who and like them back.",
+      body: "Like back to match, or open a message draft.",
       photo: resolvePhotoUrl(likerPhoto?.storagePath ?? ""),
       at: like.createdAt,
       unread: false,
@@ -136,7 +151,8 @@ async function readNotifications(request: Request) {
   }
 
   const durable=await db.execute<{id:string;kind:string;title:string;body:string;href:string;created_at:Date;read_at:Date|null}>(sql`select id,kind,title,body,href,created_at,read_at from public.member_notices where user_id=${member.id}::uuid order by created_at desc limit 50`);
-  for(const n of durable.rows)items.push({id:`notice-${n.id}`,type:'tip',title:n.title,body:n.body,at:new Date(n.created_at),unread:!n.read_at,href:n.href});
+  for(const n of durable.rows)items.push({id:`notice-${n.id}`,type:'tip',title:n.title,body:n.body,at:new Date(n.created_at),unread:!n.read_at,href:'/app/chat/freeborn'});
+  const {rows:[systemCount]}=await db.execute<{n:number}>(sql`select count(*)::int n from public.member_notices where user_id=${member.id}::uuid and read_at is null`);
 
   // Verification engine alerts
   const [latestVerify] = await db
@@ -191,8 +207,8 @@ async function readNotifications(request: Request) {
   items.sort((a, b) => b.at.getTime() - a.at.getTime());
 
   // Clearing a feed never marks a private message read or deletes source data.
-  const visible = np?.dismissedBefore ? items.filter((item) => item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime()) : items;
-  return Response.json({ notifications: visible, memberId: member.id });
+  const visible = np?.dismissedBefore ? items.filter((item) => (item.id.startsWith("notice-") && item.unread) || (item.id !== "tip-1" && item.at.getTime() > np.dismissedBefore!.getTime())) : items;
+  return Response.json({ notifications: visible, memberId: member.id, systemUnread: systemCount.n });
 }
 
 

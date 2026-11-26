@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { humanChallenges, securityEvents } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -37,49 +37,53 @@ export async function POST(request: Request) {
   }
 
   const email = member.email.toLowerCase();
-  const [row] = await db
-    .select()
-    .from(humanChallenges)
-    .where(
-      and(
-        eq(humanChallenges.email, email),
-        eq(humanChallenges.nonce, nonce),
-        inArray(humanChallenges.status, ["issued", "failed"])
+  return db.transaction(async tx => {
+    const [row] = await tx
+      .select()
+      .from(humanChallenges)
+      .where(
+        and(
+          eq(humanChallenges.email, email),
+          eq(humanChallenges.nonce, nonce),
+          eq(humanChallenges.status, "issued"),
+          lt(humanChallenges.attempts, MAX_ATTEMPTS)
+        )
       )
-    )
-    .orderBy(desc(humanChallenges.issuedAt))
-    .limit(1);
+      .orderBy(desc(humanChallenges.issuedAt))
+      .limit(1)
+      .for("update");
 
-  if (!row) {
-    await db.insert(securityEvents).values({ email, kind: "human_challenge_missing", detail: `purpose-lookup failed for ${nonce.slice(0, 8)}…` });
-    return Response.json({ ok: false, error: "no-live-challenge" }, { status: 410 });
-  }
-  if (new Date(row.expiresAt).getTime() < Date.now()) {
-    await db.update(humanChallenges).set({ status: "expired" }).where(eq(humanChallenges.id, row.id));
-    return Response.json({ ok: false, error: "expired" }, { status: 408 });
-  }
+    if (!row) {
+      await tx.insert(securityEvents).values({ email, kind: "human_challenge_missing", detail: `purpose-lookup failed for ${nonce.slice(0, 8)}…` });
+      return Response.json({ ok: false, error: "no-live-challenge" }, { status: 410 });
+    }
+    if (new Date(row.expiresAt).getTime() < Date.now()) {
+      await tx.update(humanChallenges).set({ status: "expired" }).where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued")));
+      return Response.json({ ok: false, error: "expired" }, { status: 408 });
+    }
 
-  const ok = meetsDifficulty(nonce, solution, row.difficultyBits ?? 18);
-  if (!ok) {
-    const attempts = row.attempts + 1;
-    await db
-      .update(humanChallenges)
-      .set({ attempts, status: attempts >= MAX_ATTEMPTS ? "failed" : "issued" })
-      .where(eq(humanChallenges.id, row.id));
-    await db.insert(securityEvents).values({ email, kind: "human_challenge_failed", detail: `attempts=${attempts}` });
+    const ok = meetsDifficulty(nonce, solution, row.difficultyBits ?? 18);
+    // Acquire the row lock before checking expiry in the conditional UPDATE: a
+    // clock predicate evaluated before an UPDATE waits can become stale.
+    const [updated] = await tx.update(humanChallenges)
+      .set(ok
+        ? { status: "solved", solvedAt: sql`clock_timestamp()`, attempts: sql`${humanChallenges.attempts} + 1` }
+        : { status: sql`case when ${humanChallenges.attempts} + 1 >= ${MAX_ATTEMPTS} then 'failed' else 'issued' end`, attempts: sql`${humanChallenges.attempts} + 1` })
+      .where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued"),
+        lt(humanChallenges.attempts, MAX_ATTEMPTS), gt(humanChallenges.expiresAt, sql`clock_timestamp()`)))
+      .returning({ id: humanChallenges.id, attempts: humanChallenges.attempts });
+    if (!updated) return Response.json({ ok: false, error: "no-live-challenge" }, { status: 410 });
+    if (!ok) {
+      await tx.insert(securityEvents).values({ email, kind: "human_challenge_failed", detail: `attempts=${updated.attempts}` });
+      return Response.json(
+        { ok: false, error: updated.attempts >= MAX_ATTEMPTS ? "too-many-attempts" : "wrong-solution", attempts: updated.attempts },
+        { status: 400 }
+      );
+    }
+
     return Response.json(
-      { ok: false, error: attempts >= MAX_ATTEMPTS ? "too-many-attempts" : "wrong-solution", attempts },
-      { status: 400 }
+      { ok: true, token: row.id, purpose: row.purpose, enforcing: process.env.FREEBORN_HUMAN_CHALLENGE === "enforce" },
+      { headers: { "cache-control": "private, no-store" } }
     );
-  }
-
-  await db
-    .update(humanChallenges)
-    .set({ status: "solved", solvedAt: sql`timezone('utc', now())`, attempts: row.attempts + 1 })
-    .where(eq(humanChallenges.id, row.id));
-
-  return Response.json(
-    { ok: true, token: row.id, purpose: row.purpose, enforcing: process.env.FREEBORN_HUMAN_CHALLENGE === "enforce" },
-    { headers: { "cache-control": "private, no-store" } }
-  );
+  });
 }

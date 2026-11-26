@@ -6,6 +6,7 @@ import { resolvePhotoUrl } from "@/lib/photo-url";
 import { suppressedUserIds } from "@/lib/identity-resolve";
 import { getMember } from "@/lib/app-auth";
 import { ageFromBirthDate } from "@/lib/age";
+import { coordinateOrigin } from "@/lib/coordinate-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -184,13 +185,12 @@ async function readDiscovery(request: Request) {
   const ageMin = ageMinParam !== null ? Number(ageMinParam) : baseAgeMin;
   const ageMax = ageMaxParam !== null ? Number(ageMaxParam) : baseAgeMax;
   const distanceParam = url.searchParams.get("distance");
-  const latParam = url.searchParams.get("lat");
-  const lngParam = url.searchParams.get("lng");
+  const origin = coordinateOrigin(url.searchParams);
   // 500 means "Anywhere" — treat it (and anything above) as no cap at all.
   const effectiveDistance = distanceParam !== null ? Number(distanceParam) : baseDistance;
   const distance = Number.isFinite(effectiveDistance) && effectiveDistance < 500 ? effectiveDistance : NaN;
-  let fromLat = latParam !== null ? Number(latParam) : NaN;
-  let fromLng = lngParam !== null ? Number(lngParam) : NaN;
+  let fromLat = origin?.latitude ?? NaN;
+  let fromLng = origin?.longitude ?? NaN;
 
   /* SUPPRESSION IS REAL, NOT DECORATIVE.
      moderation-policy.ts documents suppression's three effects; effect 1 is "not in the
@@ -505,7 +505,12 @@ async function readDiscovery(request: Request) {
 
     const loc = locByUser.get(row.id);
     let distanceKm: number | null = null;
-    if (haveOrigin && loc?.latitude != null && loc?.longitude != null) {
+    if (hideDistance) {
+      // A yes/no distance filter is itself a location oracle, even if the
+      // returned distance is null. Treat hidden distance like unknown distance
+      // for bounded searches, independent of the supplied origin.
+      if (Number.isFinite(distance)) continue;
+    } else if (haveOrigin && loc?.latitude != null && loc?.longitude != null) {
       distanceKm = Math.round(haversineKm(fromLat, fromLng, loc.latitude, loc.longitude));
       if (Number.isFinite(distance) && distanceKm > distance) continue;
     } else if (Number.isFinite(distance)) {

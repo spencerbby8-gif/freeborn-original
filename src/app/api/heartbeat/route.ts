@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { userProfiles } from "@/db/schema";
@@ -13,6 +14,8 @@ const lastBeat = new Map<string, number>();
  * real write per 2 minutes per member.
  */
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

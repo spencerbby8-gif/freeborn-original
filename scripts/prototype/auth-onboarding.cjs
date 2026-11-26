@@ -86,6 +86,7 @@ const draft={display_name:'Taylor',birth_date:'1998-01-02',gender:'woman',city:'
    const desc=await filter.getAttribute('aria-describedby');if(!desc||await tip.locator('[id]').getAttribute('id')!==desc)throw Error('Tip not attached to filter');
    if(await page.locator('.disc-head [aria-describedby]').count())throw Error('Tip attached to notifications');
    const bounds=await tip.boundingBox();if(bounds.x<0||bounds.x+bounds.width>viewport.width)throw Error('Tip overflows viewport');
+   const like=page.getByRole('button',{name:'Like Aria',exact:true});const cardBox=await like.boundingBox();if(bounds.x<cardBox.x+cardBox.width&&bounds.x+bounds.width>cardBox.x&&bounds.y<cardBox.y+cardBox.height&&bounds.y+bounds.height>cardBox.y)throw Error('Tip covers the like action');await like.scrollIntoViewIfNeeded();if(!await like.evaluate(el=>{const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!hit&&(hit===el||el.contains(hit))}))throw Error('Tip or another layer intercepts like');
    await capture('filter-tip');await page.getByRole('button',{name:'Dismiss filter tip'}).click();await page.reload({waitUntil:'networkidle'});if(await tip.count())throw Error('Dismissal not retained');
    await filter.click();await page.getByRole('dialog',{name:'Discovery filters',exact:true}).waitFor();await page.getByRole('button',{name:'Close filters',exact:true}).click();
   });

@@ -65,6 +65,10 @@ async function authHeaders(extra?: Record<string, string>): Promise<Record<strin
   return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(extra ?? {}) };
 }
 
+export class CallSessionError extends Error {
+  constructor(public readonly status: number, message: string) { super(message); this.name="CallSessionError"; }
+}
+
 async function sessionRequest(path: string, init?: RequestInit): Promise<CallSession> {
   const res = await fetch(path, {
     ...init,
@@ -75,7 +79,7 @@ async function sessionRequest(path: string, init?: RequestInit): Promise<CallSes
     }),
   });
   const json = await readJsonSafe<CallSession & { error?: string }>(res);
-  if (!res.ok || !json?.id) throw new Error(json?.error ?? "This call isn't available.");
+  if (!res.ok || !json?.id) throw new CallSessionError(res.status, json?.error ?? "This call isn't available.");
   return json;
 }
 

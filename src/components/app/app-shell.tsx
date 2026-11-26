@@ -4,6 +4,7 @@ import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { announceAuthEntryReady } from "@/lib/auth/entry-toast";
 import { PrototypeFrame } from "@/components/prototype/frame";
 import { DiscoveryFilters } from "@/components/prototype/filters";
 import { VerifyGate } from "./verify-modal";
@@ -78,6 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         /* Render IMMEDIATELY — the door check runs alongside, never blocking
            the screen. Cached for 10 minutes so tab switches stay instant. */
         setChecking(false);
+        announceAuthEntryReady(user.id);
 
         /* Presence heartbeat — truthful Active status for everyone. */
         const beat = () => {
@@ -97,19 +99,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         window.setInterval(beat, 4 * 60 * 1000);
 
         try {
-          const cachedAt = Number(window.sessionStorage.getItem("fb-security-checked") ?? "0");
-          if (Date.now() - cachedAt < 10 * 60 * 1000) return;
+          // This is only a UI optimization, not authorization. Old anonymous
+          // timestamps and another member's cached result must not bypass the
+          // current member's check. Unavailable storage is a cache miss.
+          let cached: { memberId?: unknown; checkedAt?: unknown } | null = null;
+          try { cached = JSON.parse(window.sessionStorage.getItem("fb-security-checked") ?? "null"); } catch { /* cache miss */ }
+          const now = Date.now();
+          if (cached?.memberId === user.id && typeof cached.checkedAt === "number" &&
+              Number.isFinite(cached.checkedAt) && cached.checkedAt <= now && now - cached.checkedAt < 10 * 60 * 1000) return;
           const token = (await supabase.auth.getSession()).data.session?.access_token;
           const res = await fetch("/api/security/check", {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           if (res.ok) {
-            window.sessionStorage.setItem("fb-security-checked", String(Date.now()));
             const verdict = await res.json();
-            if (verdict.suspended) {
+            if (verdict.suspended === true) {
+              try { window.sessionStorage.removeItem("fb-security-checked"); } catch { /* best effort */ }
               await supabase.auth.signOut().catch(() => undefined);
               window.location.replace("/auth?mode=sign-in&status=suspended");
+            } else if (verdict.suspended === false) {
+              try { window.sessionStorage.setItem("fb-security-checked", JSON.stringify({ memberId: user.id, checkedAt: now })); } catch { /* cache is optional */ }
             }
           }
         } catch {

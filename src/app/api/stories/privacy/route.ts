@@ -15,11 +15,18 @@ export const POST=featureRoute(async(request:Request)=>{
  const input=await request.json().catch(()=>null);
  if(!input||!['all','exclude','only'].includes(input.audience)||!Array.isArray(input.selectedIds)||input.selectedIds.length>500||!input.selectedIds.every(isUuid))return Response.json({error:"Choose an audience and valid matches."},{status:400});
  const selected:string[]=[...new Set<string>(input.selectedIds)];
- if(selected.length){const valid=await db.execute(sql`select distinct case when m.user_a=${me.id}::uuid then m.user_b else m.user_a end as id
+ const saved=await db.transaction(async tx=>{
+ // Coordinate audience changes with replies, including the first preferences
+ // insert when there is no row available to lock.
+ await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('story-privacy:' || ${me.id}::text, 0))`);
+ if(selected.length){const valid=await tx.execute(sql`select distinct case when m.user_a=${me.id}::uuid then m.user_b else m.user_a end as id
  from public.matches m where m.status='active' and (m.user_a=${me.id}::uuid or m.user_b=${me.id}::uuid)
  and not exists(select 1 from public.blocked_users b where (b.blocker_id=m.user_a and b.blocked_id=m.user_b) or (b.blocker_id=m.user_b and b.blocked_id=m.user_a))`);
- const ids=new Set(valid.rows.map(r=>r.id));if(selected.some(id=>!ids.has(id)))return Response.json({error:"One of those matches is no longer available. Refresh and try again."},{status:400});}
- await db.execute(sql`insert into public.story_preferences(user_id,audience,selected_ids) values(${me.id}::uuid,${input.audience},${JSON.stringify(selected)}::jsonb)
+ const ids=new Set(valid.rows.map(r=>r.id));if(selected.some(id=>!ids.has(id)))return false;}
+ await tx.execute(sql`insert into public.story_preferences(user_id,audience,selected_ids) values(${me.id}::uuid,${input.audience},${JSON.stringify(selected)}::jsonb)
  on conflict(user_id) do update set audience=excluded.audience,selected_ids=excluded.selected_ids,updated_at=now()`);
+ return true;
+ });
+ if(!saved)return Response.json({error:"One of those matches is no longer available. Refresh and try again."},{status:400});
  return Response.json({ok:true});
 });

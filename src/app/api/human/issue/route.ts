@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/db";
 import { humanChallenges } from "@/db/schema";
@@ -100,26 +100,28 @@ export async function POST(request: Request) {
   const nonce = randomBytes(16).toString("hex");
   const tokenHash = createHash("sha256").update(`freeborn-hc-v1:${nonce}`).digest().subarray(0, 8).toString("hex");
 
-  /* One live challenge per (member, purpose): an unbounded issue endpoint is itself
-     a DoS amplifier, and it lets a script keep stale unsolved rows around forever. */
-  await db
-    .update(humanChallenges)
-    .set({ status: "expired" })
-    .where(and(eq(humanChallenges.email, email), eq(humanChallenges.purpose, purpose), eq(humanChallenges.status, "issued")));
-
   const risk = (body as { risk?: unknown })?.risk;
   const riskKind =
     risk === "high" || risk === "elevated" || risk === "browser" ? (risk as "high" | "elevated" | "browser") : "standard";
   const difficultyBits = difficultyForRisk(riskKind);
 
-  await db.insert(humanChallenges).values({
-    email,
-    purpose,
-    tokenHash,
-    status: "issued",
-    nonce,
-    difficultyBits,
-  });
+  try {
+    // The partial unique index is a backstop, not a serialization mechanism:
+    // concurrent expire-then-insert requests could otherwise race into a 23505.
+    // Expiry and insertion share one transaction so an insert failure does not
+    // destroy an already-issued challenge. This lock covers this issuer only.
+    await db.transaction(async tx => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('human-issue:' || ${email}::text || ':' || ${purpose}::text, 0))`);
+      await tx.update(humanChallenges).set({ status: "expired" }).where(and(
+        eq(humanChallenges.email, email), eq(humanChallenges.purpose, purpose), eq(humanChallenges.status, "issued")
+      ));
+      await tx.insert(humanChallenges).values({ email, purpose, tokenHash, status: "issued", nonce, difficultyBits });
+    });
+  } catch {
+    // A connection failure can be commit-ambiguous. Reissuing is safe, though
+    // it may supersede an earlier nonce; do not promise that no row was made.
+    return Response.json({ error: "We couldn't prepare a challenge. Please try again." }, { status: 503 });
+  }
 
   return Response.json(
     {

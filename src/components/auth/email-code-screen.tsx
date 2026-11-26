@@ -20,7 +20,7 @@ export function EmailCodeScreen({ email, code, onCode, busy, error, onVerify, on
     <div className="email-code-seal"><PrototypeIcon name="lock"/><span/></div>
     <p className="email-code-eyebrow">YOUR CONNECTION STARTS HERE</p>
     <h1 className="display">Check your<br/><em>inbox.</em></h1>
-    <p className="onboard-sub">We sent a confirmation code to<br/><strong>{email}</strong></p>
+    <p className="onboard-sub">If eligible, a confirmation code can be sent to<br/><strong>{email}</strong></p>
     <form onSubmit={onVerify} noValidate className="email-code-form">
       <label htmlFor="email-confirmation-code" className="setup-label">Email confirmation code</label>
       <input id="email-confirmation-code" className="email-code-input" autoFocus value={code} onChange={e => onCode(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6,8}" placeholder="••••••" aria-invalid={Boolean(error)} aria-describedby="email-code-help email-code-error" disabled={busy}/>

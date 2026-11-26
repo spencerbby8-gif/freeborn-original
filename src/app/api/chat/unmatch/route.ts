@@ -1,10 +1,11 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatSignals, matches } from "@/db/schema";
+import { callSessions, chatSignals, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUnmatchReason } from "@/lib/match-lifecycle";
 import { scheduleChatNotice } from "@/lib/chat-notify";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     reason?: unknown;
     destructive?: unknown;
   };
-  if (!otherId || otherId === member.id) {
+  if (!isUuid(otherId) || otherId === member.id) {
     return Response.json({ error: "A valid member is required." }, { status: 400 });
   }
   if (reason !== undefined && reason !== null && reason !== "" && !isUnmatchReason(reason)) {
@@ -63,22 +64,21 @@ export async function POST(request: Request) {
   const cleanReason = typeof reason === "string" && reason ? reason : null;
   const now = new Date();
 
-  // The pair is stored ordered (matches_ordered), but a client may hold either id, so both
-  // orientations are attempted — and only an *active* row may be severed. Requiring
-  // status='active' in the WHERE clause is what makes this idempotent and race-safe: two
-  // members unmatching each other at the same instant produce one write and two identical
-  // answers, never a second "unmatched at" that overwrites the first.
-  const [updated] = await db
-    .update(matches)
-    .set({ status: "unmatched", unmatchedBy: member.id, unmatchedAt: now, unmatchReason: cleanReason })
-    .where(
-      and(
+  // Explicit unmatch remains terminal even if a block currently hides the
+  // thread. Share the pair lock with block/unblock so unblock cannot later
+  // reactivate a match that either member deliberately ended.
+  const updated = await db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [row] = await tx.update(matches)
+      .set({ status: "unmatched", unmatchedBy: member.id, unmatchedAt: now, unmatchReason: cleanReason })
+      .where(and(
         or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
         or(eq(matches.userA, otherId), eq(matches.userB, otherId)),
-        eq(matches.status, "active")
-      )
-    )
-    .returning({ id: matches.id, status: matches.status });
+        inArray(matches.status, ["active", "archived", "blocked"])
+      )).returning({ id: matches.id, status: matches.status });
+    if (row) await tx.update(callSessions).set({status:"ended",endedAt:new Date(),endedBy:null,endReason:"unavailable"}).where(and(eq(callSessions.matchId,row.id),inArray(callSessions.status,["ringing","active"])));
+    return row;
+  });
 
   if (!updated) {
     // Either there was never a match, or it was already severed (possibly by the other

@@ -8,6 +8,7 @@ import { Wordmark } from "@/components/wordmark";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { showToast } from "@/components/toast-host";
 import { runHumanChallenge } from "@/lib/human-challenge-client";
+import { CONTACT_EMAIL } from "@/lib/site";
 
 type AppealState = {
   status: string;
@@ -17,7 +18,7 @@ type AppealState = {
 } | null;
 
 export function AppealExperience({member=false}:{member?:boolean}) {
-  const [state, setState] = useState<"loading" | "form" | "filed" | "checking">("loading");
+  const [state, setState] = useState<"loading" | "signed-out" | "form" | "filed" | "checking">("loading");
   const [appeal, setAppeal] = useState<AppealState>(null);
   const [plea, setPlea] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,12 +26,12 @@ export function AppealExperience({member=false}:{member?:boolean}) {
   const [loadError,setLoadError]=useState<string|null>(null);
   const load = async () => {
     setLoadError(null);
-    const token = await getAccessToken().catch(() => null);
-    if (!token) {
-      window.location.replace("/auth?mode=sign-in");
-      return;
-    }
     try {
+      const token = await getAccessToken();
+      if (!token) {
+        setState("signed-out");
+        return;
+      }
       const res = await fetch("/api/appeals", { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Could not load your appeal. Please try again.");
       if (res.ok) {
@@ -85,6 +86,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         setChallengeNote("One quick check, to keep the appeal queue readable. This takes a second or two.");
         const run = await runHumanChallenge("appeal", fetch, {
           risk: "browser",
+          accessToken: token,
           onStatus: (t) => setChallengeNote(t),
         });
         if (run.ok) {
@@ -112,13 +114,12 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         showToast({ tone: "error", title: "Couldn't file the appeal", body: json.error ?? "Try again." });
       }
     } catch {
-      showToast({ tone: "error", title: "Couldn't file the appeal", body: "Check your connection." });
+      showToast({ tone: "error", title: "Submission not confirmed", body: "Check your appeal status before trying again." });
     } finally {
       setBusy(false);
     }
   };
 
-  if(loadError)return <section className="screen active"><div className="scroll new-form-screen"><Back href="/app/settings/safety"/><h1 className="display">Account appeals</h1><p role="alert">{loadError}</p><Button unstyled className="btn-grad wide" onClick={()=>void load()}>Try again</Button></div></section>;
   return (
     <div className={member?"screen active member-appeal":"relative min-h-[100dvh] bg-[var(--color-night)] text-[var(--color-pearl)]"}>
       <div className={member?"scroll new-form-screen":"mx-auto flex min-h-[100dvh] w-full max-w-[640px] flex-col px-5 py-8"}>
@@ -135,9 +136,32 @@ export function AppealExperience({member=false}:{member?:boolean}) {
         </div>}
 
         <div className={member?"member-appeal-content":"my-auto py-10"}>
-          {state === "loading" ? (
+          {loadError ? (
+            <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.02] p-8">
+              <h1 className="font-display text-2xl font-semibold">Account appeals</h1>
+              <p role="alert" className="mt-3">{loadError}</p>
+              <Button unstyled className="btn-grad wide mt-5" onClick={() => void load()}>Try again</Button>
+              <p className="mt-3 text-[13px] text-[var(--color-mist)]">If the problem continues, you can try emailing <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. This page cannot confirm delivery or a response.</p>
+            </div>
+          ) : state === "loading" ? (
             <div className="flex justify-center py-20">
               <span className="inline-block h-9 w-9 animate-spin rounded-full border-2 border-[var(--color-gold-500)] border-t-transparent" />
+            </div>
+          ) : state === "signed-out" ? (
+            <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.02] p-8">
+              <h1 className="font-display text-2xl font-semibold">Accessing an appeal</h1>
+              <p className="mt-3 text-[13.5px] leading-6 text-[var(--color-mist)]">
+                No active session was found on this device. The appeal form requires a signed-in session.
+                Signing in may take you to another screen rather than returning you here.
+              </p>
+              <p className="mt-3 text-[13.5px] leading-6 text-[var(--color-mist)]">
+                If you cannot access the form, you can try emailing <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+                This page cannot confirm email delivery or a response.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link href="/auth?mode=sign-in" className="btn-ember inline-flex rounded-full px-6 py-3 text-[14px] font-bold">Sign in</Link>
+                <button type="button" className="rounded-full border border-white/20 px-6 py-3 text-[14px] font-bold" onClick={() => void load()}>Check session again</button>
+              </div>
             </div>
           ) : state === "checking" ? (
             <div className="rounded-[28px] border border-[var(--color-gold-500)]/30 bg-white/[0.02] p-8 text-center">
@@ -147,10 +171,10 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                   <path d="M12 7v5l3 2" />
                 </svg>
               </span>
-              <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under investigation</h1>
+              <h1 className="mt-5 font-display text-2xl font-semibold">Your appeal is under review</h1>
               <p className="mx-auto mt-3 max-w-[40ch] text-[14px] leading-6 text-[var(--color-mist)]">
-                Your appeal is recorded alongside your account&apos;s security record,
-                and a person reads it. Check back here for the result.
+                Your appeal is recorded alongside your account&apos;s security record for human review.
+                Check back here for any recorded update.
               </p>
               <p className="mx-auto mt-3 max-w-[42ch] text-[12.5px] leading-5 text-[var(--color-ash)]">
                 We deliberately do not print a date. Reinstatement is decided by the
@@ -158,7 +182,7 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                 a promise nothing in the system enforces.
               </p>
               <p className="mt-4 text-[12px] text-[var(--color-ash)]">
-                Suspensions come from automated and datacenter traffic. Never from an opinion, and never from a report on its own.
+                If you cannot access this page later, you can try emailing {CONTACT_EMAIL}.
               </p>
             </div>
           ) : state === "filed" && appeal ? (
@@ -170,9 +194,9 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                 }`}
               >
                 {appeal.verdict === "cleared"
-                  ? "Your account has been cleared. Welcome back."
+                  ? "The recorded appeal decision is cleared. Account access may require a separate update."
                   : appeal.verdict
-                    ? "The suspension stands after investigation."
+                    ? "An appeal decision has been recorded. Contact support if you need more details."
                     : "Your appeal is still being processed."}
               </p>
               {appeal.verdict === "cleared" ? (
@@ -182,15 +206,18 @@ export function AppealExperience({member=false}:{member?:boolean}) {
                 >
                   {member?"Back to Discover":"Sign back in"}
                 </Link>
+              ) : appeal.status === "decided" ? (
+                <button type="button" className="btn-ember mt-6 inline-flex rounded-full px-7 py-3 text-[14px] font-bold" onClick={() => setState("form")}>
+                  Start another appeal
+                </button>
               ) : null}
             </div>
           ) : (
             <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.02] p-8">
               <h1 className="font-display text-2xl font-semibold">Appeal your suspension</h1>
               <p className="mt-3 text-[13.5px] leading-6 text-[var(--color-mist)]">
-                Suspensions come from automated and datacenter traffic. Never from an opinion, and never from a report on its own.
-                Tell us your side. Your appeal is read together with your account&apos;s security
-                record, and a person decides it.
+                Tell us your side. Your appeal is recorded with your account&apos;s security
+                record for human review. No review time is guaranteed.
               </p>
               <textarea
                 aria-label="Your appeal"

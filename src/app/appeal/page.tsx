@@ -4,7 +4,7 @@ import { AppealExperience } from "./appeal-experience";
 export const metadata: Metadata = {
   title: "Appeal a suspension",
   description:
-    "Appeal a Freeborn account suspension. Every appeal is read and decided by a person, not by a model.",
+    "Information about appealing a Freeborn account suspension.",
   robots: { index: false },
 };
 

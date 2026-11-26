@@ -1,11 +1,12 @@
 import { CHAT_FILE_TYPES, CHAT_FILE_MAX, chatFileMime, validChatFileBytes } from "@/lib/chat-file";
 import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatMedia, matches } from "@/db/schema";
+import { blockedUsers, chatMedia, matches, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isBlockedPair } from "@/lib/conversation-access";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
      previously wide open. Uploading into someone else's conversation is not a
      thing a member should be able to do either. */
   const matchId = String(form.get("match") ?? "");
-  if (!matchId) {
+  if (!isUuid(matchId)) {
     return Response.json({ error: "match is required." }, { status: 400 });
   }
   const [match] = await db
@@ -115,10 +116,25 @@ export async function POST(request: Request) {
 
   const bytes = Buffer.from(await file.arrayBuffer());
   if (kind === "file" && !validChatFileBytes(mime, bytes)) return Response.json({error:"That document format could not be verified. Choose a PDF, UTF-8 text/CSV, or Office document."},{status:400});
-  const [row] = await db
-    .insert(chatMedia)
-    .values({ senderId: member.id, matchId, kind, mime, data: bytes })
-    .returning({ id: chatMedia.id });
-
-  return Response.json({ ok: true, id: row.id, kind });
+  const outcome = await db.transaction(async tx=>{
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [live]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if(!live||(live.userA!==member.id&&live.userB!==member.id))return {error:'missing' as const};
+    if(!decideMatchAccess({status:live.status as MatchLifecycleStatus,isParticipant:true,isActor:live.unmatchedBy===member.id,hasMessages:false,action:'send_message'}).allow)return {error:'closed' as const};
+    const [block]=await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+      and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if(block)return {error:'closed' as const};
+    const [recipient]=await tx.select({name:userProfiles.displayName,privacy:userProfiles.messagePrivacy}).from(userProfiles).where(eq(userProfiles.id,otherId)).for('share');
+    const [sender]=await tx.select({verified:userProfiles.isVerified,vaccination:userProfiles.vaccinationStatus}).from(userProfiles).where(eq(userProfiles.id,member.id)).for('share');
+    const privacy=recipient?.privacy??'everyone';
+    if(privacy!=='everyone'&&!(privacy==='verified'?sender?.verified===true:sender?.vaccination==='unvaccinated'))return {error:'restricted' as const,privacy,name:recipient?.name??'This member'};
+    const [row]=await tx.insert(chatMedia).values({senderId:member.id,matchId,kind,mime,data:bytes}).returning({id:chatMedia.id});
+    return {id:row.id};
+  });
+  if(outcome.error==='missing')return Response.json({error:'Match not found.'},{status:404});
+  if(outcome.error==='closed')return Response.json({error:"This conversation isn't available."},{status:403});
+  if(outcome.error==='restricted')return Response.json({error:outcome.privacy==='verified'?`${outcome.name} only accepts messages from verified members.`:`${outcome.name} only accepts messages from unvaccinated members.`,restricted:true},{status:403});
+  return Response.json({ ok: true, id: outcome.id, kind });
 }

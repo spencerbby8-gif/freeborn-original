@@ -13,10 +13,14 @@
  */
 
 import { PhotoImage } from "@/components/ui/photo-image";
-import { useEffect, useRef, useState } from "react";
+import { PrototypeIcon } from "@/components/prototype/frame";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { PausableExpiry } from "@/components/app/pausable-expiry";
+import { createPortal } from "react-dom";
 import { getAccessToken } from "@/lib/supabase/browser";
 import { playChime, pushBrowserNotification, requestNotifyPermission, warmAudio } from "@/lib/notify";
-import { loadFeedReceipts, saveFeedReceipts, reconcileFeed, type FeedReceipts } from "@/lib/notification-receipts";
+import { loadFeedReceipts, saveFeedReceipts, reconcileFeed, shouldSurfaceAlert, type FeedReceipts } from "@/lib/notification-receipts";
+import { isActiveChat } from "@/lib/active-chat";
 import { isCallUiActive, subscribeCallUiActive } from "@/lib/call-ui-state";
 
 const POLL_MS = 8_000;
@@ -31,18 +35,22 @@ type Alert = {
   href: string;
   at?: string;
   unread?: boolean;
+  matchId?: string;
+  eventId?: string;
+  unreadIds?: string[];
 };
 
 type Banner = Alert & { key: number };
 
 export function NotificationCenter({ pathname, suppressPrompts=false }: { pathname?: string; suppressPrompts?:boolean }) {
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [alertPortal, setAlertPortal] = useState<HTMLElement | null>(null);
+  useEffect(() => { setAlertPortal(document.getElementById("member-alert-portal")); }, []);
   const [askOpen, setAskOpen] = useState(false);
   /* A call screen beats a permission prompt: the ask card sits at z-[310] over
      the call overlay's z-[200], i.e. straight on top of Answer/Decline on an
      incoming ring and speaker/mute/end on a live call. */
-  const [callUiUp, setCallUiUp] = useState(isCallUiActive);
-  useEffect(() => subscribeCallUiActive(setCallUiUp), []);
+  const callUiUp = useSyncExternalStore(subscribeCallUiActive, isCallUiActive, () => false);
   const [verificationUp,setVerificationUp]=useState(false);
   const [threadUp,setThreadUp]=useState(false);
   useEffect(()=>{const verification=(e:Event)=>setVerificationUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));const thread=(e:Event)=>setThreadUp(Boolean((e as CustomEvent<{open:boolean}>).detail?.open));window.addEventListener('freeborn:verification',verification);window.addEventListener('freeborn:chat-thread',thread);return()=>{window.removeEventListener('freeborn:verification',verification);window.removeEventListener('freeborn:chat-thread',thread);};},[]);
@@ -111,7 +119,8 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
 
     const fire = (a: Alert) => {
       const key = ++seq.current;
-      setBanners((b) => [...b.slice(-2), { ...a, key }]);
+      // Coalesce multiple updates to one conversation into one visible banner.
+      setBanners((b) => [...b.filter(existing => !(a.type === "message" && a.matchId && existing.type === "message" && existing.matchId === a.matchId)).slice(-2), { ...a, key }]);
       if (soundsOn()) {
         playChime();
         // Retry once — some browsers block the first audio attempt after a
@@ -121,7 +130,6 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
         }, 350);
       }
       pushBrowserNotification(a.title, a.body, a.href);
-      setTimeout(() => setBanners((b) => b.filter((x) => x.key !== key)), 6_500);
     };
 
     let inFlight = false;
@@ -161,14 +169,14 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
           receiptRef.current = state.receipts;
           firstRun.current = false;
           if (accountId) saveFeedReceipts(accountId, state.receipts);
-          state.fresh.slice(0, 3).forEach(item => {
-            const alert = item as Alert;
-            // Do not interrupt the feed the member is already reading.
-            if (!p.startsWith("/app/notifications")) fire(alert);
-          });
+          // Mark the complete feed delivered first, then filter before applying
+          // the display cap so the open thread cannot crowd out another chat.
+          state.fresh.filter(item => shouldSurfaceAlert(item,p,document.hidden,isActiveChat)).slice(0,3)
+            .forEach(item => fire(item as Alert));
+          const systemUnread = Number.isSafeInteger(json.systemUnread) && json.systemUnread >= 0 ? json.systemUnread : 0;
           window.dispatchEvent(new CustomEvent("freeborn:unread", { detail: {
-            alerts: state.alerts,
-            chat: chatUnread,
+            alerts: state.alerts + systemUnread,
+            chat: chatUnread + systemUnread,
             likes: state.likes,
           }}));
         }
@@ -248,9 +256,11 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
         </div>
       ) : null}
 
+      {/* Keep each timer mounted while verification hides the presentation. */}
+      {banners.map(b => <PausableExpiry key={b.key} active={!callUiUp} milliseconds={6500} onExpire={() => setBanners(current => current.filter(x => x.key !== b.key))} />)}
       {/* Alert banners */}
-      <div aria-live="polite" aria-relevant="additions" className="member-alert-stack pointer-events-none fixed inset-x-0 z-[300] flex flex-col items-center gap-2 px-4">
-        {!verificationUp && banners.map((b) => (
+      {alertPortal && createPortal(
+        !verificationUp && banners.map((b) => (
           <button
             key={b.key}
             type="button"
@@ -258,15 +268,13 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
               setBanners((x) => x.filter((y) => y.key !== b.key));
               window.location.assign(b.href);
             }}
-            className="fb-toast-in pointer-events-auto flex w-full max-w-[440px] items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md"
+            className="fb-toast-in pointer-events-auto flex w-full max-w-[440px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--color-ember-500)]/45 bg-[#10141f]/97 p-3.5 text-left shadow-[0_30px_80px_-16px_rgba(0,0,0,0.9)] backdrop-blur-md"
           >
             {b.photo ? (
               <PhotoImage src={b.photo} alt="" className="h-11 w-11 shrink-0 rounded-full border border-white/15" imgClassName="object-cover" compact />
             ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--gradient-ember-warm)] text-white">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M12 20.4S4.3 15.6 4.3 10a4.1 4.1 0 018.1-1 4.1 4.1 0 018.1 1c0 5.6-8.4 10.4-8.4 10.4z" />
-                </svg>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2b3048] text-[#f3d4b2]">
+                <PrototypeIcon name={b.type === "message" ? "messages" : b.type === "like" || b.type === "match" ? "heart" : "bell"} className="h-5 w-5"/>
               </span>
             )}
             <span className="min-w-0 flex-1">
@@ -277,8 +285,7 @@ export function NotificationCenter({ pathname, suppressPrompts=false }: { pathna
               Open
             </span>
           </button>
-        ))}
-      </div>
+        )), alertPortal)}
     </>
   );
 }

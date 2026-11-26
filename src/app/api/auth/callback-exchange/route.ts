@@ -1,7 +1,10 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /** Server-side PKCE-code exchange (cookie session) for the callback page. */
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   let body: unknown;
   try {
     body = await request.json();

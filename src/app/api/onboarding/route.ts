@@ -1,9 +1,12 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { STEP_ORDER, type OnboardingDraft, type OnboardingStepName } from "@/lib/onboarding-data";
 import { applyStepPatch, ensureProfileRow } from "@/lib/onboarding-store";
 import { createSupabaseClientForApi } from "@/lib/supabase/api-auth";
 import { isUnderMinAge, MIN_AGE } from "@/lib/age";
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const supabase = await createSupabaseClientForApi(request);
   const {
     data: { user },

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { humanChallenges } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
@@ -51,45 +51,49 @@ export async function POST(request: Request) {
   const email = member.email.toLowerCase();
   const nonce = randomBytes(16).toString("hex");
 
-  await db
-    .update(humanChallenges)
-    .set({ status: "expired" })
-    .where(
-      and(
-        eq(humanChallenges.email, email),
-        eq(humanChallenges.purpose, "verification"),
-        eq(humanChallenges.status, "issued")
-      )
-    );
-
-  const [row] = await db
-    .insert(humanChallenges)
-    .values({
-      email,
-      purpose: "verification",
-      nonce,
-      /* Same derivation the /api/human/verify endpoint checks, so a leaked row never
-         reveals the nonce, and the token is comparable without storing it in the clear. */
-      tokenHash: createHash("sha256").update(`freeborn-liveness-v1:${nonce}`).digest().subarray(0, 8).toString("hex"),
-      status: "issued",
-      difficultyBits: 0,
-      expiresAt: new Date(Date.now() + TTL_SECONDS * 1000),
-    })
-    .returning({ id: humanChallenges.id, expiresAt: humanChallenges.expiresAt });
-
-  /* The pose the member must perform is chosen HERE, not by the client. It is bound to
-     this token in public.verification_challenges, which the verification pipeline had
-     never written to despite being provisioned with exactly these columns. If the write
-     fails we say so in the response and the attempt is still recorded downstream; a
-     control we could not deliver must not become an outage for a real member. */
-  let pose: { label: string; demo: string; poseId: string } | null = null;
-  let poseError: string | null = null;
+  let issued: {
+    row: { id: string; expiresAt: Date };
+    pose: { label: string; demo: string; poseId: string } | null;
+    poseWarning: string | null;
+  };
   try {
-    const assigned = await assignPoseChallenge(member.id, row.id);
-    pose = { label: assigned.pose.label, demo: assigned.pose.demo, poseId: assigned.poseId };
-  } catch (err) {
-    poseError = err instanceof Error ? err.message.slice(0, 160) : "unknown";
+    issued = await db.transaction(async tx => {
+      // Same order for every issuer: serialize both the email's live token and
+      // the account's active poses, including email changes / reused emails.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('verification-email:' || ${email}::text, 0))`);
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('verification-user:' || ${member.id}::text, 0))`);
+      await tx.update(humanChallenges).set({ status: "expired" }).where(and(
+        eq(humanChallenges.email, email), eq(humanChallenges.purpose, "verification"), eq(humanChallenges.status, "issued")
+      ));
+      const [row] = await tx.insert(humanChallenges).values({
+        email,
+        purpose: "verification",
+        nonce,
+        tokenHash: createHash("sha256").update(`freeborn-liveness-v1:${nonce}`).digest().subarray(0, 8).toString("hex"),
+        status: "issued",
+        difficultyBits: 0,
+        expiresAt: new Date(Date.now() + TTL_SECONDS * 1000),
+      }).returning({ id: humanChallenges.id, expiresAt: humanChallenges.expiresAt });
+      if (!row) throw new Error("No challenge row returned");
+
+      // A savepoint preserves the existing pose-store outage fallback without
+      // committing partial pose changes when assignment fails. The outer lock
+      // stays held until the challenge and its optional pose are committed.
+      let pose: { label: string; demo: string; poseId: string } | null = null;
+      let poseWarning: string | null = null;
+      try {
+        const assigned = await tx.transaction(inner => assignPoseChallenge(member.id, row.id, inner));
+        pose = { label: assigned.pose.label, demo: assigned.pose.demo, poseId: assigned.poseId };
+      } catch {
+        poseWarning = "The pose challenge could not be prepared.";
+      }
+      return { row, pose, poseWarning };
+    });
+  } catch {
+    // The transaction may have committed even if its response was lost.
+    return Response.json({ error: "We couldn't prepare a verification check. Please try again." }, { status: 503 });
   }
+  const { row, pose, poseWarning } = issued;
 
   return Response.json(
     {
@@ -102,7 +106,7 @@ export async function POST(request: Request) {
       /** Server-assigned pose. Perform THIS one; a client-supplied label is ignored. */
       pose,
       poseRequired: pose !== null,
-      ...(poseError ? { poseWarning: poseError } : {}),
+      ...(poseWarning ? { poseWarning } : {}),
       rule: pose
         ? `POST /api/verification/check with livenessToken. One use, ${TTL_SECONDS} seconds. The pose above is the only pose that counts. A missing or consumed token means the attempt is recorded but the badge is not granted.`
         : `POST /api/verification/check with livenessToken. One use, ${TTL_SECONDS} seconds. A missing or consumed token means the attempt is recorded but the badge is not granted.`,

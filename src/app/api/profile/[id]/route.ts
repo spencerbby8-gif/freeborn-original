@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ageFromBirthDate } from "@/lib/age";
+import { coordinateOrigin } from "@/lib/coordinate-origin";
 import { badIdResponse, isUuid } from "@/lib/uuid";
 
 /* ageFromBirthDate now lives in src/lib/age.ts — it was copy-pasted
@@ -68,12 +69,23 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const notReadable = () => Response.json({ error: "Profile not found." }, { status: 404 });
 
   const url = new URL(request.url);
-  const fromLat = Number(url.searchParams.get("lat"));
-  const fromLng = Number(url.searchParams.get("lng"));
-  const haveOrigin = Number.isFinite(fromLat) && Number.isFinite(fromLng);
+  const origin = coordinateOrigin(url.searchParams);
+  let fromLat = origin?.latitude ?? NaN;
+  let fromLng = origin?.longitude ?? NaN;
 
   const [row] = await db.select().from(userProfiles).where(eq(userProfiles.id, id)).limit(1);
   if (!row) return Response.json({ error: "Profile not found." }, { status: 404 });
+
+  // Match discovery's saved-location fallback without inventing an origin. A
+  // self-preview has no meaningful distance from oneself unless an explicit
+  // origin was requested, so it does not use the saved-origin fallback.
+  if (!origin && row.id !== viewer.id) {
+    const [savedOrigin] = await db.select({ latitude: userPrivateLocations.latitude, longitude: userPrivateLocations.longitude })
+      .from(userPrivateLocations).where(eq(userPrivateLocations.userId, viewer.id)).limit(1);
+    fromLat = savedOrigin?.latitude ?? NaN;
+    fromLng = savedOrigin?.longitude ?? NaN;
+  }
+  const haveOrigin = Number.isFinite(fromLat) && Number.isFinite(fromLng);
 
   /* Only set when the caller asked with ?as=others, and only ever about the
      caller's own profile. */

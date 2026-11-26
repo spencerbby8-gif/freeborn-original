@@ -1,10 +1,9 @@
 import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { callSessions, matches } from "@/db/schema";
+import { blockedUsers, callSessions, matches } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { isBlockedPair } from "@/lib/conversation-access";
 import { callSessionView } from "@/lib/call-session-server";
-import { decideMatchAccess, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isUuid } from "@/lib/uuid";
 
@@ -32,23 +31,16 @@ export async function GET(request: Request) {
 
   const noStore = { headers: { "Cache-Control": "private, no-store" } };
 
-  const [row] = await db
-    .select()
-    .from(callSessions)
-    .where(
-      and(
-        eq(callSessions.calleeId, member.id),
-        eq(callSessions.status, "ringing"),
-        gt(callSessions.expiresAt, sql`now()`),
-      ),
-    )
-    .orderBy(desc(callSessions.createdAt))
-    .limit(1);
-
+  // Filter before selecting the newest ring: a stale ring from an ended or
+  // blocked relationship must not obscure another valid incoming call.
+  const [result] = await db.select({call:callSessions}).from(callSessions)
+    .innerJoin(matches,eq(matches.id,callSessions.matchId))
+    .where(and(eq(callSessions.calleeId,member.id),eq(callSessions.status,"ringing"),
+      gt(callSessions.expiresAt,sql`now()`),eq(matches.status,"active"),
+      sql`not exists (select 1 from ${blockedUsers} b where (b.blocker_id=${callSessions.callerId} and b.blocked_id=${callSessions.calleeId}) or (b.blocker_id=${callSessions.calleeId} and b.blocked_id=${callSessions.callerId}))`))
+    .orderBy(desc(callSessions.createdAt)).limit(1);
+  const row=result?.call;
   if (!row) return Response.json({ incoming: null }, noStore);
-  if (await isBlockedPair(member.id, row.callerId)) {
-    return Response.json({ incoming: null }, noStore);
-  }
   return Response.json({ incoming: await callSessionView(row, member.id) }, noStore);
 }
 
@@ -69,15 +61,10 @@ export async function POST(request: Request) {
   }
 
   const [match] = await db.select().from(matches).where(eq(matches.id, matchId)).limit(1);
-  const participant = Boolean(match && (match.userA === member.id || match.userB === member.id));
-  const access = decideMatchAccess({
-    status: (match?.status ?? null) as MatchLifecycleStatus | null,
-    isParticipant: participant,
-    isActor: match?.unmatchedBy === member.id,
-    hasMessages: false,
-    action: "send_message",
-  });
-  if (!match || !access.allow) return Response.json({ error: "This call isn't available." }, { status: 403 });
+  // The currently checked-in Realtime policy authorizes active matches only.
+  // Reject archived calls rather than minting a session that cannot signal.
+  if (!match || match.status !== "active" || (match.userA !== member.id && match.userB !== member.id))
+    return Response.json({ error: "This call isn't available." }, { status: 403 });
   const calleeId = match.userA === member.id ? match.userB : match.userA;
   if (await isBlockedPair(member.id, calleeId)) {
     return Response.json({ error: "This call isn't available." }, { status: 403 });
@@ -86,6 +73,14 @@ export async function POST(request: Request) {
   const row = await db.transaction(async (tx) => {
     // Serialize session issuance per member across serverless instances.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${member.id}))`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${calleeId}::text) || ':' || greatest(${member.id}::text, ${calleeId}::text), 0))`);
+    const [liveMatch]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if(!liveMatch || liveMatch.status!=="active" || (liveMatch.userA!==member.id && liveMatch.userB!==member.id))return {denied:true as const};
+    const [blocked]=await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,calleeId)),
+      and(eq(blockedUsers.blockerId,calleeId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if(blocked)return {denied:true as const};
     await tx.update(callSessions)
       .set({ status: "ended", endedAt: new Date() })
       .where(and(eq(callSessions.callerId, member.id), eq(callSessions.status, "ringing"), sql`${callSessions.expiresAt} <= now()`));
@@ -93,7 +88,7 @@ export async function POST(request: Request) {
       .where(and(eq(callSessions.callerId, member.id), gt(callSessions.createdAt, sql`now() - interval '1 minute'`)));
     const [live] = await tx.select({ n: sql<number>`count(*)::int` }).from(callSessions)
       .where(and(or(eq(callSessions.callerId, member.id), eq(callSessions.calleeId, member.id)), sql`${callSessions.status} in ('ringing','active')`, gt(callSessions.expiresAt, sql`now()`)));
-    if ((recent?.n ?? 0) >= 5 || (live?.n ?? 0) >= 3) return null;
+    if ((recent?.n ?? 0) >= 5 || (live?.n ?? 0) >= 3) return {limited:true as const};
     const [created] = await tx.insert(callSessions).values({
       matchId,
       callerId: member.id,
@@ -102,8 +97,9 @@ export async function POST(request: Request) {
       status: "ringing",
       expiresAt: new Date(Date.now() + 2 * 60_000),
     }).returning();
-    return created;
+    return {created};
   });
-  if (!row) return Response.json({ error: "Too many call attempts. Please wait a moment." }, { status: 429 });
-  return Response.json(await callSessionView(row, member.id), { headers: { "Cache-Control": "private, no-store" } });
+  if ('denied' in row) return Response.json({error:"This call isn't available."},{status:403});
+  if ('limited' in row) return Response.json({ error: "Too many call attempts. Please wait a moment." }, { status: 429 });
+  return Response.json(await callSessionView(row.created, member.id), { headers: { "Cache-Control": "private, no-store" } });
 }

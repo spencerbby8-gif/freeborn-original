@@ -1,4 +1,5 @@
 import { withMemberApiErrors } from "@/lib/member-api-errors";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { securityEvents, userPrivateLocations } from "@/db/schema";
@@ -28,6 +29,8 @@ function distKm(lat1: number, lon1: number, lat2: number, lon2: number) {
  * cross-verification is the strongest honest defense a browser allows.
  */
 async function saveLocation(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

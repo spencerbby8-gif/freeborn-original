@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatSignals, storyQuotes, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
+import { blockedUsers, chatSignals, storyQuotes, matches, messageReactions, messages, userPrivateSettings, userProfiles, userTrustHistory } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { scoreScamMessage } from "@/lib/scam-guard";
 import { decideMatchAccess, severedMessage, type MatchLifecycleStatus } from "@/lib/match-lifecycle";
@@ -8,6 +8,7 @@ import { openCase, recordScamFlag, recomputeTrust } from "@/lib/identity-resolve
 import { rejectCrossOrigin } from "@/lib/request-guard";
 import { isBlockedPair } from "@/lib/conversation-access";
 import { scheduleChatNotice } from "@/lib/chat-notify";
+import { isUuid } from "@/lib/uuid";
 
 async function ownsMatch(
   matchId: string,
@@ -36,7 +37,7 @@ async function ownsMatch(
   return row;
 }
 
-/** Thread messages (marks the other person's messages as read). */
+/** Thread messages (marks incoming messages read only while the relationship is open). */
 export async function GET(request: Request) {
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
@@ -45,29 +46,54 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");
-  if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
+  if (!isUuid(matchId)) return Response.json({ error: "A valid match is required." }, { status: 400 });
 
   const viewed = await ownsMatch(matchId, member.id, "view_conversation");
-  if (!viewed) return Response.json({ error: "Match not found." }, { status: 404 });
+  if (!viewed) return Response.json({ error: "Match not found.", code: "thread_unavailable" }, { status: 404 });
   if ("denied" in viewed)
     return Response.json(
-      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true },
+      { error: "This conversation isn't available. Unmatching removes it from the member who ended it.", ended: true, code: "thread_unavailable" },
       { status: 403 }
     );
-  const match = viewed;
+  const otherId = viewed.userA === member.id ? viewed.userB : viewed.userA;
+  return db.transaction(async tx=>{
+  // A live thread view can mark messages read. Serialize the authorization
+  // snapshot and receipt update with relationship boundaries, then re-check.
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+  const [match]=await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+  if(!match || (match.userA!==member.id && match.userB!==member.id))return Response.json({error:"Match not found.",code:"thread_unavailable"},{status:404});
+  const access=decideMatchAccess({status:match.status as MatchLifecycleStatus,isParticipant:true,isActor:match.unmatchedBy===member.id,hasMessages:false,action:"view_conversation"});
+  if(!access.allow)return Response.json({error:"This conversation isn't available. Unmatching removes it from the member who ended it.",ended:true,code:"thread_unavailable"},{status:403});
+  // Legacy archived rows retain their status while blocked. Apply the block
+  // independently so a direct URL cannot show the blocker an open thread or
+  // tell the other participant that sending is permitted. The non-blocker
+  // may still read their existing history for reporting, as for blocked rows.
+  const blocks = await tx.select({blockerId:blockedUsers.blockerId}).from(blockedUsers).where(or(
+    and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+    and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+  ));
+  if(blocks.some(block=>block.blockerId===member.id))
+    return Response.json({error:"This conversation isn't available while you have blocked this member.",ended:true,code:"thread_unavailable"},{status:403});
+  const effectiveStatus = blocks.length ? "blocked" : match.status as MatchLifecycleStatus;
 
-  await db
-    .update(messages)
-    .set({ readAt: new Date() })
-    .where(
-      and(
-        eq(messages.matchId, matchId),
-        sql`${messages.senderId} <> ${member.id}`,
-        sql`${messages.readAt} is null`
-      )
-    );
+  // Retained history is available for evidence after a boundary, but opening it
+  // must not signal fresh activity to the other participant. readAt also backs
+  // unread badges, so old unread messages can resurface if a block is removed.
+  // A read that committed before a boundary cannot be recalled.
+  if (!blocks.length && (effectiveStatus === "active" || effectiveStatus === "archived")) {
+    await tx
+      .update(messages)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(messages.matchId, matchId),
+          sql`${messages.senderId} <> ${member.id}`,
+          sql`${messages.readAt} is null`
+        )
+      );
+  }
 
-  const rows = await db
+  const rows = await tx
     .select()
     .from(messages)
     .where(eq(messages.matchId, matchId))
@@ -77,8 +103,7 @@ export async function GET(request: Request) {
      receipts off, your own messages report read=false — the read event is
      still recorded (their unread badge works), it is simply not shown to
      you. Their messages report your own read state normally. */
-  const otherId = match.userA === member.id ? match.userB : match.userA;
-  const [otherPriv] = await db
+  const [otherPriv] = await tx
     .select({ readReceipts: userPrivateSettings.readReceipts })
     .from(userPrivateSettings)
     .where(eq(userPrivateSettings.userId, otherId))
@@ -92,7 +117,7 @@ export async function GET(request: Request) {
     Array<{ emoji: string; mine: boolean; count: number }>
   >();
   if (ids.length > 0) {
-    const reactionRows = await db
+    const reactionRows = await tx
       .select({
         messageId: messageReactions.messageId,
         userId: messageReactions.userId,
@@ -113,7 +138,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const quotes=ids.length?await db.select({messageId:storyQuotes.messageId,authorId:storyQuotes.authorId,caption:storyQuotes.caption}).from(storyQuotes).where(inArray(storyQuotes.messageId,ids)):[];
+  const quotes=ids.length?await tx.select({messageId:storyQuotes.messageId,authorId:storyQuotes.authorId,caption:storyQuotes.caption}).from(storyQuotes).where(inArray(storyQuotes.messageId,ids)):[];
   const quoteMap=new Map(quotes.map(q=>[q.messageId,{authorIsMe:q.authorId===member.id,caption:q.caption,imageUrl:`/api/stories/quotes/${q.messageId}/image`}]));
   return Response.json({
     /* `thread` exists because visibility and sendability are DIFFERENT questions, and the client
@@ -124,7 +149,7 @@ export async function GET(request: Request) {
        decideMatchAccess the POST path uses, so there is one table, not two. */
     thread: (() => {
       const send = decideMatchAccess({
-        status: match.status as MatchLifecycleStatus,
+        status: effectiveStatus,
         isParticipant: true,
         isActor: match.unmatchedBy === member.id,
         hasMessages: rows.length > 0,
@@ -132,9 +157,9 @@ export async function GET(request: Request) {
       });
       return {
         canSend: send.allow,
-        status: match.status,
+        status: effectiveStatus,
         reason: send.allow ? null : send.reason,
-        notice: send.allow ? null : severedMessage(match.status as MatchLifecycleStatus),
+        notice: send.allow ? null : severedMessage(effectiveStatus),
       };
     })(),
     messages: rows.map((m) => ({
@@ -147,6 +172,7 @@ export async function GET(request: Request) {
       flagged: Boolean(m.flagged),
       reactions: reactionsByMessage.get(m.id) ?? [],
     })),
+  });
   });
 }
 
@@ -236,11 +262,31 @@ export async function POST(request: Request) {
     .limit(1);
   const scam = scoreScamMessage(clean, Number(priorHist?.flags ?? 0));
   const scamFlag = scam.shouldWarn;
-  const rows = await db
-    .insert(messages)
-    .values({ matchId, senderId: member.id, body: clean, flagged: scamFlag })
-    .returning({ id: messages.id, createdAt: messages.createdAt });
-  const [stored] = rows;
+  const committed = await db.transaction(async (tx) => {
+    // Pair lock makes send and block linearizable. Locking the match row also
+    // serializes unmatch and safe swipe undo against message insertion.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [live] = await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if(!live || (live.userA!==member.id && live.userB!==member.id))return {error:'Match not found.',status:404} as const;
+    const access=decideMatchAccess({status:live.status as MatchLifecycleStatus,isParticipant:true,isActor:live.unmatchedBy===member.id,hasMessages:false,action:'send_message'});
+    if(!access.allow)return {error:severedMessage(live.status as MatchLifecycleStatus),status:403} as const;
+    const [blocked]=await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+      and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if(blocked)return {error:"This conversation isn't available.",status:403} as const;
+    // Recheck messaging rules inside the same critical section, not just
+    // before it: matching never grants an exemption from a privacy setting.
+    const [recipient]=await tx.select({name:userProfiles.displayName,privacy:userProfiles.messagePrivacy}).from(userProfiles).where(eq(userProfiles.id,otherId)).for('share');
+    const [sender]=await tx.select({verified:userProfiles.isVerified,vaccination:userProfiles.vaccinationStatus}).from(userProfiles).where(eq(userProfiles.id,member.id)).for('share');
+    const privacy=recipient?.privacy??'everyone';
+    if(privacy!=='everyone' && !(privacy==='verified'?sender?.verified===true:sender?.vaccination==='unvaccinated'))
+      return {error:privacy==='verified'?`${recipient?.name??'This member'} only accepts messages from verified members.`:`${recipient?.name??'This member'} only accepts messages from unvaccinated members.`,status:403} as const;
+    const [stored]=await tx.insert(messages).values({matchId,senderId:member.id,body:clean,flagged:scamFlag}).returning({id:messages.id,createdAt:messages.createdAt});
+    return {stored} as const;
+  });
+  if('error' in committed)return Response.json({error:committed.error},{status:committed.status});
+  const stored=committed.stored;
   if (scamFlag) await recordScamFlag(member.id);
   if (scam.shouldEscalate) {
     try {
@@ -325,7 +371,7 @@ export async function DELETE(request: Request) {
 
   const url = new URL(request.url);
   const matchId = url.searchParams.get("match");
-  if (!matchId) return Response.json({ error: "match is required." }, { status: 400 });
+  if (!isUuid(matchId)) return Response.json({ error: "A valid match is required." }, { status: 400 });
 
   const target = await ownsMatch(matchId, member.id, "send_message");
   if (!target) return Response.json({ error: "Match not found." }, { status: 404 });
@@ -351,7 +397,25 @@ export async function DELETE(request: Request) {
       { status: 409 }
     );
 
-  const removed = await db.delete(messages).where(eq(messages.matchId, matchId)).returning({ id: messages.id });
+  // Deleting history is irreversible for both participants. Coordinate with
+  // block, unmatch and send so a stale pre-check cannot erase retained evidence.
+  const otherId = target.userA === member.id ? target.userB : target.userA;
+  const outcome = await db.transaction(async tx => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${otherId}::text) || ':' || greatest(${member.id}::text, ${otherId}::text), 0))`);
+    const [live] = await tx.select().from(matches).where(eq(matches.id,matchId)).for('update');
+    if (!live || (live.userA !== member.id && live.userB !== member.id)) return { missing: true as const };
+    const access = decideMatchAccess({status:live.status as MatchLifecycleStatus,isParticipant:true,isActor:live.unmatchedBy===member.id,hasMessages:false,action:'send_message'});
+    if (!access.allow) return { denied: true as const };
+    const [blocked] = await tx.select({id:blockedUsers.id}).from(blockedUsers).where(or(
+      and(eq(blockedUsers.blockerId,member.id),eq(blockedUsers.blockedId,otherId)),
+      and(eq(blockedUsers.blockerId,otherId),eq(blockedUsers.blockedId,member.id))
+    )).limit(1);
+    if (blocked) return { denied: true as const };
+    const removed = await tx.delete(messages).where(eq(messages.matchId,matchId)).returning({id:messages.id});
+    return { deleted: removed.length };
+  });
+  if ('missing' in outcome) return Response.json({error:'Match not found.'},{status:404});
+  if ('denied' in outcome) return Response.json({error:"This conversation isn't available; its history is retained."},{status:409});
   // The other member's open thread has to learn this happened. Same optional-signal contract
   // as the send path: if the insert fails, their poll still refetches and finds an empty
   // conversation — the signal buys immediacy, never correctness. `cleared` is in the table's
@@ -362,5 +426,5 @@ export async function DELETE(request: Request) {
     console.warn("[chat] cleared signal skipped:", (err as Error).message);
   }
   scheduleChatNotice(request, matchId, "cleared");
-  return Response.json({ ok: true, deleted: removed.length });
+  return Response.json({ ok: true, deleted: outcome.deleted });
 }

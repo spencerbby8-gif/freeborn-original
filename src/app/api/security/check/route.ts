@@ -1,8 +1,9 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { securityEvents, suspensions } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { checkIpReputation, clientIp } from "@/lib/ip-reputation";
+import { rejectCrossOrigin } from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,10 @@ export const dynamic = "force-dynamic";
  * Freeborn's own people).
  */
 export async function POST(request: Request) {
+  // This endpoint can create a suspension and audit events, so protect it like
+  // every other state-changing handler even when authentication uses cookies.
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
@@ -78,18 +83,27 @@ export async function POST(request: Request) {
   }
 
   if (verdict.datacenter) {
-    await db.insert(securityEvents).values({
-      email: member.email.toLowerCase(),
-      ip,
-      kind: "datacenter-blocked",
-      detail: verdict.isp ?? null,
-    });
-    await db.insert(suspensions).values({
-      email: member.email.toLowerCase(),
-      ip,
-      reason: "privacy_policy",
-    });
-    return Response.json({ suspended: true, reason: "privacy_policy" });
+    const email = member.email.toLowerCase();
+    try {
+      const reason = await db.transaction(async (tx) => {
+        // Serialize cooperating security checks; other suspension writers must
+        // explicitly share this lock before this can be a global guarantee.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended('security-check:' || ${email}::text, 0))`);
+        const [current] = await tx.select().from(suspensions)
+          .where(eq(suspensions.email, email))
+          .orderBy(desc(suspensions.createdAt)).limit(1);
+        if (current?.active) return current.reason;
+        await tx.insert(securityEvents).values({
+          email, ip, kind: "datacenter-blocked", detail: verdict.isp ?? null,
+        });
+        await tx.insert(suspensions).values({ email, ip, reason: "privacy_policy" });
+        return "privacy_policy";
+      });
+      return Response.json({ suspended: true, reason });
+    } catch {
+      // A lost connection can make the transaction outcome uncertain.
+      return Response.json({ error: "Security check temporarily unavailable." }, { status: 503 });
+    }
   }
 
   return Response.json({ suspended: false });

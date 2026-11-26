@@ -1,3 +1,4 @@
+import { rejectCrossOrigin } from "@/lib/request-guard";
 /**
  * Call tracing — the end-to-end black box.
  * Every signaling step POSTs here; after a failed call the trace shows
@@ -40,6 +41,8 @@ const MAX = 600;
 const MAX_PER_CALL = 40;
 
 export async function POST(request: Request) {
+  const blocked = rejectCrossOrigin(request);
+  if (blocked) return blocked;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 

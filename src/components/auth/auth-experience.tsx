@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
+import { clearSecurityCheckCache } from "@/lib/auth/security-check-cache";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { EmailCodeScreen } from "./email-code-screen";
@@ -14,6 +15,7 @@ import { getAuthErrorMessage } from "@/lib/auth/messages";
 import { signupOutcome, EXISTING_ACCOUNT_MESSAGE } from "@/lib/auth/signup-outcome";
 import { getBaseUrl } from "@/lib/auth/url";
 import { showToast } from "@/components/toast-host";
+import { AUTH_ENTRY_COPY, queueAuthEntry, type AuthEntryKind, type AuthEntryTarget } from "@/lib/auth/entry-toast";
 import { TurnstileGate, turnstileEnabled } from "./turnstile";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
@@ -185,20 +187,30 @@ export function AuthExperience({
   }, []);
 
   /** Route by onboarding state after any successful auth. */
-  const enterAfterAuth = async () => {
+  const enterAfterAuth = async (kind: AuthEntryKind) => {
+    clearSecurityCheckCache();
+    let memberId: string | undefined;
+    const navigate = (target: AuthEntryTarget) => {
+      // A fixed event identifier and account-scoping ID cross the full-page navigation;
+      // no token, email address, name or user-authored text is stored.
+      // If storage is unavailable, auth must still proceed; show immediate feedback instead.
+      if (!memberId || !queueAuthEntry(kind, memberId, target)) showToast(AUTH_ENTRY_COPY[kind]);
+      window.location.assign(target);
+    };
     try {
       if (supabase) {
         const {
           data: { session },
         } = await supabase.auth.getSession();
         const token = session?.access_token;
+        memberId = session?.user?.id;
         if (token) {
           const res = await fetch("/api/onboarding/state", {
             headers: { Authorization: `Bearer ${token}` },
           });
           if (res.ok) {
             const json = (await res.json()) as { completed?: boolean };
-            window.location.assign(json.completed ? "/app" : "/onboarding");
+            navigate(json.completed ? "/app" : "/onboarding");
             return;
           }
         }
@@ -206,7 +218,7 @@ export function AuthExperience({
     } catch {
       /* fall back to onboarding */
     }
-    window.location.assign("/onboarding");
+    navigate("/onboarding");
   };
 
   const updateField = (field: keyof Values, value: string) => {
@@ -300,8 +312,7 @@ export function AuthExperience({
             "Signed in, but this browser refused to keep the session. Open this page in its own tab and sign in again."
           );
         }
-        showToast({ tone: "success", title: "You're in", body: "Welcome back to Freeborn." });
-        await enterAfterAuth();
+        await enterAfterAuth("signedIn");
         return;
       }
 
@@ -329,8 +340,7 @@ export function AuthExperience({
         if (error) throw error;
         if (outcome === "unavailable") throw new Error("We couldn’t confirm that a new account was created. Please try again, or sign in if you already have an account.");
         if (outcome === "signed-in") {
-          showToast({ tone: "success", title: "Account created", body: "Welcome to Freeborn. Let's build your profile." });
-          await enterAfterAuth();
+          await enterAfterAuth("accountCreated");
           return;
         }
         // Email confirmation is required on this project before first sign-in.
@@ -351,8 +361,8 @@ export function AuthExperience({
         if (error) throw error;
         showToast({
           tone: "success",
-          title: "Recovery email sent",
-          body: "Open the link from your inbox to choose a new password.",
+          title: "Check your email",
+          body: "If the address is eligible, check your inbox for recovery instructions.",
         });
         setPending(null);
         return;
@@ -361,12 +371,7 @@ export function AuthExperience({
       // update-password (arrived via the recovery email link)
       const { error } = await supabase.auth.updateUser({ password: values.password });
       if (error) throw error;
-      showToast({
-        tone: "success",
-        title: "Password updated",
-        body: "Your account is secured again. Taking you inside.",
-      });
-      await enterAfterAuth();
+      await enterAfterAuth("passwordUpdated");
     } catch (error) {
       /* A Turnstile token is single-use: once a submit has carried it — success
          or failure — it is spent. Drop it so the remounted widget issues a fresh
@@ -470,13 +475,8 @@ export function AuthExperience({
       });
       if (error) throw error;
       if (data.session) {
-        showToast({
-          tone: "success",
-          title: "Email confirmed",
-          body: "Welcome to Freeborn. Let's build your profile.",
-        });
         setCodeStep(null);
-        await enterAfterAuth();
+        await enterAfterAuth("emailConfirmed");
         return;
       }
       setCodeError("That code didn't complete sign-in. Request a fresh one and try again.");
@@ -511,8 +511,8 @@ export function AuthExperience({
       if (error) throw error;
       showToast({
         tone: "success",
-        title: "Code sent",
-        body: `A fresh code is on its way to ${codeStep.email}.`,
+        title: "Check your email",
+        body: "If a code was sent, check your inbox for the latest one.",
       });
     } catch {
       setCodeError("Couldn't resend right now. Wait a moment and try again.");

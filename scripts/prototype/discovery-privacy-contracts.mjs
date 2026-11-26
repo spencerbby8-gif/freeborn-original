@@ -29,7 +29,7 @@ await check('Swiped candidate does not silently recycle',async()=>assert.deepEqu
 await check('Paused profile is excluded',async()=>assert.deepEqual(ids(await get('',{privacy:[{userId:'a',discoveryPaused:true}]})),['b']));
 await check('Incognito stranger is excluded',async()=>assert.deepEqual(ids(await get('',{privacy:[{userId:'a',incognito:true}]})),['b']));
 await check('Verified audience refuses unverified viewer',async()=>assert.deepEqual(ids(await get('',{viewerVerified:false,rows:[{...A,discoverPrivacy:'verified'},B]})),['b']));
-await check('Distance hidden in JSON, not merely in CSS',async()=>{const r=await get('distance=40',{privacy:[{userId:'a',hideDistance:true}]});assert.equal(r.profiles[0].distanceKm,null);assert.equal(r.profiles[0].hideDistance,true);assert.ok(!JSON.stringify(r).includes('latitude'));});
+await check('Hidden-distance profiles are excluded from capped search and do not reveal distance in Anywhere',async()=>{const o={privacy:[{userId:'a',hideDistance:true}]};assert.deepEqual(ids(await get('distance=40',o)),[]);const r=await get('distance=500',o);const p=r.profiles.find(p=>p.id==='a');assert.equal(p.distanceKm,null);assert.equal(p.hideDistance,true);assert.ok(!JSON.stringify(r).includes('latitude'));});
 await check('Saved location enforces distance without browser GPS',async()=>assert.deepEqual(ids(await get('distance=40')),['a']));
 await check('Anywhere explicitly overrides saved distance cap',async()=>assert.deepEqual(ids(await get('distance=500',{prefs:{distanceKm:5,photosRequired:true}})),['a','b']));
 await check('Missing origin never silently ignores a distance cap',async()=>{const r=await get('distance=40',{locations:[]});assert.deepEqual(r.profiles,[]);assert.equal(r.locationRequired,true);});

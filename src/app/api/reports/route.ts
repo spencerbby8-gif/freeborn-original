@@ -1,4 +1,6 @@
 import { REASONS } from "@/lib/report-reasons";
+import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isUuid } from "@/lib/uuid";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { reports, securityEvents, userProfiles, warnings } from "@/db/schema";
@@ -46,6 +48,8 @@ function rateLimited(accountId: string, max: number, windowMs: number) {
  * capped details, rate-limited to 10 reports per hour per account.
  */
 export async function POST(request: Request) {
+  const crossOrigin = rejectCrossOrigin(request);
+  if (crossOrigin) return crossOrigin;
   const member = await getMember(request);
   if (!member) return Response.json({ error: "Not signed in." }, { status: 401 });
 
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
     details?: string;
   };
 
-  if (!profileId) {
+  if (!isUuid(profileId)) {
     return Response.json({ error: "A profile id is required." }, { status: 400 });
   }
   const target = await getLocalProfile(profileId);

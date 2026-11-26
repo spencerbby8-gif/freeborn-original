@@ -9,7 +9,7 @@
 import { PhotoImage } from "@/components/ui/photo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { callChannel, destroyChannel, getCallSession, getIncomingCall, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
+import { callChannel, CallSessionError, destroyChannel, getCallSession, getIncomingCall, publish, ringChannel, traceCall, updateCallSession, type RingPayload } from "@/lib/call-bus";
 import { startRingtone, stopRingtone } from "@/lib/notify";
 import { CallOverlay } from "./call-overlay";
 import { holdCallUi } from "@/lib/call-ui-state";
@@ -25,10 +25,26 @@ export function CallListener() {
     incomingRef.current = incoming;
   }, [incoming]);
   const [active, setActive] = useState<{ role: "callee"; payload: RingPayload } | null>(null);
+  const [declineBusy, setDeclineBusy] = useState(false);
+  const [declineError, setDeclineError] = useState<string | null>(null);
+  const decliningRef = useRef(false);
   const busyRef = useRef(false);
   /* The callId this member is already ringing or already on, kept in refs so a
      delivery arriving while the socket handler runs can compare against it. */
   const handledIdRef = useRef<string | null>(null);
+  // A local timeout is not a server decline: another device may still answer.
+  // Remember only this device's auto-missed call IDs until their server expiry.
+  const autoMissedRef = useRef(new Map<string, number>());
+  const ringExpiryRef = useRef<{ callId: string; at: number } | null>(null);
+  const autoMissed = (id: string) => {
+    const now = Date.now();
+    for (const [key, at] of autoMissedRef.current) if (at <= now) autoMissedRef.current.delete(key);
+    return autoMissedRef.current.has(id);
+  };
+  const rememberExpiry = (id: string, expiresAt: string) => {
+    const parsed = Date.parse(expiresAt);
+    ringExpiryRef.current = { callId: id, at: Number.isFinite(parsed) ? parsed : Date.now() + 120_000 };
+  };
 
   useEffect(() => {
     busyRef.current = incoming !== null || active !== null;
@@ -73,6 +89,7 @@ export function CallListener() {
       /* The route already scopes this to the signed-in member's own live rings;
          this is the cheap client-side sanity check on top. */
       if (session.status !== "ringing") return;
+      if (autoMissed(session.id)) return;
       if (isAlreadyHandled(session.id)) {
         traceCall(session.id, "callee", "rx-ring-poll-duplicate");
         return;
@@ -84,7 +101,9 @@ export function CallListener() {
         from: session.peer,
       };
       handledIdRef.current = payload.callId;
+      rememberExpiry(payload.callId, session.expiresAt);
       traceCall(payload.callId, "callee", "rx-ring-poll");
+      setDeclineError(null);
       setIncoming(payload);
       startRingtone();
     };
@@ -134,6 +153,7 @@ export function CallListener() {
           const session = await getCallSession(hint.callId);
           if (cancelled || session.status !== "ringing" || session.calleeId !== user.id) return;
           const payload: RingPayload = { callId: session.id, matchId: session.matchId, kind: session.kind, from: session.peer };
+          if (autoMissed(payload.callId)) return;
           if (isAlreadyHandled(payload.callId)) {
             traceCall(payload.callId, "callee", "rx-ring-duplicate");
             return;
@@ -141,6 +161,8 @@ export function CallListener() {
           traceCall(payload.callId, "callee", "rx-ring");
           if (busyRef.current) { respondBusy(payload.callId); return; }
           handledIdRef.current = payload.callId;
+          rememberExpiry(payload.callId, session.expiresAt);
+          setDeclineError(null);
           setIncoming(payload);
           startRingtone();
         })().catch(() => undefined);
@@ -175,8 +197,17 @@ export function CallListener() {
   useEffect(() => {
     if (!incoming) return;
     const t = setTimeout(() => {
+      const remembered = ringExpiryRef.current;
+      const until = remembered?.callId === incoming.callId ? remembered.at : Date.now() + 120_000;
+      autoMissedRef.current.set(incoming.callId, until);
+      // Bound local memory even if many rings arrive or the clock changes.
+      while (autoMissedRef.current.size > 20) {
+        const oldest = autoMissedRef.current.keys().next().value;
+        if (!oldest) break;
+        autoMissedRef.current.delete(oldest);
+      }
       stopRingtone();
-      setIncoming(null);
+      setIncoming(current => current?.callId === incoming.callId ? null : current);
     }, RING_AUTO_MISS_MS);
     return () => clearTimeout(t);
   }, [incoming]);
@@ -197,11 +228,15 @@ export function CallListener() {
           stopRingtone();
           setIncoming(null);
         }
-      } catch {
-        if (!cancelled) {
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof CallSessionError && [401, 403, 404, 410].includes(error.status)) {
           traceCall(incoming.callId, "callee", "ring-session-gone");
           stopRingtone();
           setIncoming(null);
+        } else {
+          // Network and 5xx failures do not prove the call ended.
+          traceCall(incoming.callId, "callee", "ring-session-check-unavailable");
         }
       }
     };
@@ -214,29 +249,45 @@ export function CallListener() {
   }, [incoming]);
 
   const accept = useCallback(() => {
-    if (!incoming) return;
+    if (!incoming || decliningRef.current) return;
+    setDeclineError(null);
     stopRingtone();
     setActive({ role: "callee", payload: incoming });
     setIncoming(null);
   }, [incoming]);
 
-  const decline = useCallback(() => {
-    if (!incoming) return;
+  const decline = useCallback(async () => {
+    if (!incoming || decliningRef.current) return;
+    decliningRef.current = true;
+    setDeclineBusy(true);
+    setDeclineError(null);
     stopRingtone();
     const callId = incoming.callId;
-    void (async () => {
-      const chan = await callChannel(callId);
-      chan.subscribe((s) => {
-        if (s === "SUBSCRIBED") {
-          publish(chan, "control", { t: "declined" });
-          setTimeout(() => {
-            destroyChannel(chan);
-            void updateCallSession(callId, "decline").catch(() => undefined);
-          }, 500);
-        }
-      });
-    })().catch(() => undefined);
-    setIncoming(null);
+    try {
+      // The authoritative HTTP write must not depend on a WebSocket join.
+      await updateCallSession(callId, "decline");
+      setIncoming(current => current?.callId === callId ? null : current);
+      // A signal remains best-effort; the session poll is the fallback, and a
+      // new channel may no longer be authorized after the session was ended.
+      void (async () => {
+        const chan = await callChannel(callId);
+        const cleanup = setTimeout(() => destroyChannel(chan), 10_500);
+        chan.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            publish(chan, "control", { t: "declined" });
+            clearTimeout(cleanup);
+            setTimeout(() => destroyChannel(chan), 500);
+          }
+        });
+      })().catch(() => undefined);
+    } catch {
+      // A lost response might still have committed. The session poll will
+      // reconcile it; do not tell the member the decline definitely happened.
+      if (incomingRef.current?.callId === callId) setDeclineError("We couldn't confirm the decline. Try again or check your connection.");
+    } finally {
+      decliningRef.current = false;
+      setDeclineBusy(false);
+    }
   }, [incoming]);
 
   return (
@@ -260,10 +311,12 @@ export function CallListener() {
             </p>
             <p className="text-[13px] text-[var(--color-mist)]">is calling you on Freeborn…</p>
           </div>
+          {declineError ? <p role="alert" className="text-center text-[13px] text-[var(--color-mist)]">{declineError}</p> : null}
           <div className="flex items-center gap-10">
             <button
               type="button"
-              onClick={decline}
+              onClick={() => void decline()}
+              disabled={declineBusy}
               aria-label="Decline call"
               className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white shadow-[0_16px_40px_-10px_rgba(239,68,68,0.7)] transition active:scale-95"
             >
@@ -274,6 +327,7 @@ export function CallListener() {
             <button
               type="button"
               onClick={accept}
+              disabled={declineBusy}
               aria-label="Answer call"
               className="flex items-center justify-center rounded-full bg-[#2fbf71] p-5 text-white shadow-[0_16px_40px_-10px_rgba(47,191,113,0.7)] transition active:scale-95"
             >

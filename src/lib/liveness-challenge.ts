@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { humanChallenges } from "@/db/schema";
 
@@ -25,10 +25,9 @@ const LOOKUP = and(eq(humanChallenges.purpose, "verification"))!;
 /**
  * Find the member's live verification challenge and consume it.
  *
- * Consumption is a compare-and-set (`status='issued'` in the WHERE of the UPDATE)
- * so two concurrent submissions cannot both redeem one token — the loser sees
- * `replayed`. That is the entire point of the control, so it is done as one
- * statement rather than read-then-write.
+ * A row lock is acquired before the database clock is checked. A time predicate
+ * evaluated before waiting on a lock is not enough: an unchanged row can expire
+ * while an UPDATE waits. The conditional write then also keeps single-use semantics.
  */
 export async function consumeLivenessChallenge(
   email: string,
@@ -38,40 +37,38 @@ export async function consumeLivenessChallenge(
     return { state: "missing", detail: "no livenessToken supplied" };
   }
 
-  const [row] = await db
-    .select({
-      id: humanChallenges.id,
-      email: humanChallenges.email,
-      status: humanChallenges.status,
-      expiresAt: humanChallenges.expiresAt,
-    })
-    .from(humanChallenges)
-    .where(and(eq(humanChallenges.id, tokenId), LOOKUP))
-    .limit(1);
+  return db.transaction(async tx => {
+    const [row] = await tx
+      .select({ id: humanChallenges.id, email: humanChallenges.email, status: humanChallenges.status })
+      .from(humanChallenges)
+      .where(and(eq(humanChallenges.id, tokenId), LOOKUP))
+      .limit(1)
+      .for("update");
 
-  if (!row) return { state: "missing", detail: "token not found (or already consumed)" };
-  if (String(row.email).toLowerCase() !== email.toLowerCase()) {
-    /* Same 404-shaped answer as a replay on purpose: a caller must not learn whether
-       someone else's token exists. Logged server-side with the real reason. */
-    return { state: "foreign", detail: "token belongs to a different member" };
-  }
-  if (row.status !== "issued") return { state: "replayed", detail: `token status=${row.status}` };
-  if (row.expiresAt && new Date(row.expiresAt).getTime() < Date.now()) {
-    await db
-      .update(humanChallenges)
-      .set({ status: "expired" })
-      .where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued")));
+    if (!row) return { state: "missing", detail: "token not found (or already consumed)" };
+    if (String(row.email).toLowerCase() !== email.toLowerCase()) {
+      return { state: "foreign", detail: "token belongs to a different member" };
+    }
+    if (row.status !== "issued") return { state: "replayed", detail: `token status=${row.status}` };
+
+    // clock_timestamp(), unlike transaction now(), advances while waiting for a lock.
+    // The schema requires an expiry; retaining legacy NULL behavior avoids a silent
+    // policy change for an older database that might still contain NULL values.
+    const [consumed] = await tx.update(humanChallenges)
+      .set({ status: "solved", solvedAt: sql`clock_timestamp()` })
+      .where(and(
+        eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued"),
+        sql`(${humanChallenges.expiresAt} is null or ${humanChallenges.expiresAt} > clock_timestamp())`
+      ))
+      .returning({ id: humanChallenges.id });
+    if (consumed) return { state: "verified", detail: "single-use token consumed by this member" };
+
+    await tx.update(humanChallenges).set({ status: "expired" }).where(and(
+      eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued"),
+      sql`${humanChallenges.expiresAt} <= clock_timestamp()`
+    ));
     return { state: "expired", detail: "issued more than the TTL ago" };
-  }
-
-  const [consumed] = await db
-    .update(humanChallenges)
-    .set({ status: "solved", solvedAt: new Date() })
-    .where(and(eq(humanChallenges.id, row.id), eq(humanChallenges.status, "issued")))
-    .returning({ id: humanChallenges.id });
-
-  if (!consumed) return { state: "replayed", detail: "lost the consume race" };
-  return { state: "verified", detail: "single-use token consumed by this member" };
+  });
 }
 
 /** Suffix written into `verification_requests.method`, so the audit row says which

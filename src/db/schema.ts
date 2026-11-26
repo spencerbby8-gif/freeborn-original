@@ -1348,6 +1348,13 @@ export const storyPreferences = pgTable("story_preferences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [check("story_audience_mode", sql`${t.audience} in ('all','exclude','only')`), check("story_audience_array", sql`jsonb_typeof(${t.selectedIds}) = 'array' and jsonb_array_length(${t.selectedIds}) <= 500`)]);
 
+/** Private per-viewer feed preference, never visible to the hidden author. */
+export const hiddenStoryAuthors = pgTable("hidden_story_authors", {
+  viewerId: uuid("viewer_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  hiddenAt: timestamp("hidden_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.viewerId, t.authorId] }), check("hidden_story_authors_no_self", sql`${t.viewerId} <> ${t.authorId}`)]);
+
 export const memberStories = pgTable("member_stories", {
   id: uuid("id").primaryKey().defaultRandom(),
   authorId: uuid("author_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),

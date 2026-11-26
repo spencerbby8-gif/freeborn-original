@@ -1,7 +1,7 @@
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 const b=await build({entryPoints:['src/lib/notification-receipts.ts'],bundle:true,write:false,format:'esm',platform:'node'});
-const {reconcileFeed,feedEventKey,loadFeedReceipts,saveFeedReceipts}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
+const {reconcileFeed,feedEventKey,loadFeedReceipts,saveFeedReceipts,shouldSurfaceAlert}=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
 let count=0;const check=(name,fn)=>{fn();console.log(`PASS ${++count} ${name}`)};
 const empty=()=>({delivered:[],read:[]});
 const like={id:'like-1',type:'like',at:'2026-11-21T10:00:00Z'};
@@ -29,4 +29,17 @@ check('Corrupt storage fails safely',()=>{store.set('freeborn.feed-receipts.v1.B
 check('Malformed arrays are sanitized',()=>{store.set('freeborn.feed-receipts.v1.B',JSON.stringify({read:[1,'yes'],delivered:false}));assert.deepEqual(loadFeedReceipts('B'),{read:['yes'],delivered:[]})});
 check('Storage denial does not throw',()=>{globalThis.localStorage={getItem:()=>{throw Error('denied')},setItem:()=>{throw Error('denied')}};assert.deepEqual(loadFeedReceipts('C'),empty());saveFeedReceipts('C',empty())});
 check('Receipt sets are bounded',()=>{const events=Array.from({length:2500},(_,i)=>({id:String(i),type:'like'}));const r=reconcileFeed(events,empty(),'/app/notifications',true);assert.equal(r.receipts.read.length,2000);assert.equal(r.receipts.delivered.length,2000)});
+
+
+const chatEvent={id:'msg-pair',type:'message',at:'2026-11-21T12:00:00Z',eventId:'message-a',matchId:'chat-a'};
+check('Different message IDs stay distinct even at the same timestamp',()=>assert.notEqual(feedEventKey(chatEvent),feedEventKey({...chatEvent,eventId:'message-b'})));
+check('Current foreground thread does not alert itself',()=>assert.equal(shouldSurfaceAlert(chatEvent,'/app/chat',false,id=>id==='chat-a'),false));
+check('A different open thread does not suppress incoming messages',()=>assert.equal(shouldSurfaceAlert(chatEvent,'/app/chat',false,id=>id==='chat-b'),true));
+check('Backgrounded thread may still alert the member',()=>assert.equal(shouldSurfaceAlert(chatEvent,'/app/chat',true,id=>id==='chat-a'),true));
+check('The notifications page does not interrupt itself',()=>assert.equal(shouldSurfaceAlert(chatEvent,'/app/notifications',false,()=>false),false));
+check('Suppressed current-chat events are still delivered to avoid later replay',()=>{const a=reconcileFeed([chatEvent],empty(),'/app/chat',false);assert.equal(shouldSurfaceAlert(a.fresh[0],'/app/chat',false,()=>true),false);assert.equal(reconcileFeed([chatEvent],a.receipts,'/app',false).fresh.length,0)});
+
+check('A newly unread message is fresh even if timestamps and topmost ID tie',()=>{const one={...chatEvent,eventId:'same:1',unreadIds:['a']};const two={...chatEvent,eventId:'same:2',unreadIds:['a','b']};const r=reconcileFeed([one],empty(),'/app',true);assert.equal(reconcileFeed([two],r.receipts,'/app',false).fresh.length,1)});
+check('Shrinking an unread set does not replay an older message',()=>{const two={...chatEvent,eventId:'same:2',unreadIds:['a','b']};const one={...chatEvent,eventId:'same:1',unreadIds:['a']};const r=reconcileFeed([two],empty(),'/app',true);assert.equal(reconcileFeed([one],r.receipts,'/app',false).fresh.length,0)});
+check('Large unchanged unread backlog does not replay when receipt storage is bounded',()=>{const groups=Array.from({length:6},(_,i)=>({id:`msg-${i}`,type:'message',matchId:`chat-${i}`,eventId:'rev',unreadIds:Array.from({length:500},(_,j)=>`${i}-${j}`)}));const r=reconcileFeed(groups,empty(),'/app',true);assert.equal(r.receipts.delivered.length,2000);assert.equal(reconcileFeed(groups,r.receipts,'/app',false).fresh.length,0)});
 console.log(`PASS ${count} notification receipt contracts (browser-local only).`);

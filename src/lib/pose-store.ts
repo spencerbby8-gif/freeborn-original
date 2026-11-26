@@ -28,8 +28,8 @@ export interface PoseStore {
     demo: string;
     ttlSeconds: number;
   }): Promise<void>;
-  /** Compare-and-set. Returns false if the row was no longer `active`. */
-  consume(id: string): Promise<boolean>;
+  /** Compare-and-set. `expired` means it passed its TTL while waiting to consume. */
+  consume(id: string): Promise<boolean | "expired">;
   markExpired(id: string): Promise<void>;
 }
 
@@ -134,6 +134,7 @@ export async function consumePose(
   }
 
   const won = await store.consume(row.id);
+  if (won === "expired") return { state: "expired", detail: "pose expired while waiting to consume" };
   if (!won) return { state: "mismatch", detail: "lost the consume race" };
 
   const label = row.gesture;

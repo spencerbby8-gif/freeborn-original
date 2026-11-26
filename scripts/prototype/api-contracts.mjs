@@ -5,7 +5,7 @@ import { build } from 'esbuild';
 
 const state = {
   user: { id: 'owner-fixture', email: 'owner@example.test' },
-  rows: {}, readError: null, writeError: null, writes: [], selects: [], notices: [],
+  rows: {}, readError: null, writeError: null, writes: [], selects: [], notices: [], executeCalls: 0,
 };
 globalThis.__freebornContract = state;
 const virtual = {
@@ -20,7 +20,7 @@ const virtual = {
   '@/lib/supabase/server':'export async function createSupabaseServerClient(){throw Error("Unexpected hosted client")}',
   '@/lib/app-auth': 'export async function getMember(){return globalThis.__freebornContract.user}',
   '@/db': `export const db={
-    async execute(){return {rows:globalThis.__freebornContract.notices}},
+    async execute(){const s=globalThis.__freebornContract;return {rows:s.executeCalls++ % 2 ? [{n:s.notices.filter(n=>!n.read_at).length}] : s.notices}},
     select(){const q={from(){return q},where(){return q},orderBy(){return q},limit(){return q},then(ok,bad){return Promise.resolve(globalThis.__freebornContract.selects.shift()??[]).then(ok,bad)}};return q},
     insert(table){return {values(patch){globalThis.__freebornContract.writes.push({table,patch});return {async onConflictDoUpdate(config){globalThis.__freebornContract.writes.at(-1).conflict=config}}}}}
   }`,
@@ -38,7 +38,7 @@ async function notificationGet(request){if(state.user)state.selects.splice(1,0,[
 let passed=0;
 function ok(name,fn){fn();passed++;console.log(`ok ${passed} - ${name}`)}
 function req(body,method='POST'){return new Request('http://local.test/api/test',{method,...(body===undefined?{}:{headers:{'content-type':'application/json'},body:JSON.stringify(body)})});}
-function reset(){state.user={id:'owner-fixture',email:'owner@example.test'};state.rows={};state.readError=null;state.writeError=null;state.writes=[];state.selects=[];state.notices=[];}
+function reset(){state.user={id:'owner-fixture',email:'owner@example.test'};state.rows={};state.readError=null;state.writeError=null;state.writes=[];state.selects=[];state.notices=[];state.executeCalls=0;}
 reset();state.user=null;
 for(const [name,handler,request] of [['settings read',settings.GET,req(undefined,'GET')],['settings write',settings.POST,req({profile:{interests:['Hiking']}})],['notification read',notifications.GET,req(undefined,'GET')],['notification clear',notifications.POST,req({action:'clear'})]]){
  const r=await handler(request);ok(`${name} rejects an unauthenticated member`,()=>assert.equal(r.status,401));
@@ -62,7 +62,7 @@ ok('clear uses the authenticated owner, never the body owner',()=>{assert.equal(
 ok('clear cutoff is a server timestamp, not client-supplied time',()=>assert.ok(write.patch.dismissedBefore.getTime()>=before&&write.patch.dismissedBefore.getTime()<=Date.now()));
 ok('clear only updates dismissal and preferences bookkeeping, not source messages',()=>{assert.equal(state.writes.length,1);assert.deepEqual(Object.keys(write.conflict.set).sort(),['dismissedBefore','updatedAt']);});
 reset();state.selects=[[],[],[],[]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('empty feed never fabricates a welcome before onboarding completion',()=>assert.deepEqual(body.notifications,[]));
-reset();state.notices=[{id:'durable-welcome',kind:'welcome',title:'Welcome to Freeborn',body:'Guide',href:'/app/settings/welcome',created_at:new Date('2026-11-21T00:00:00Z'),read_at:null}];state.selects=[[],[],[],[]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('completed onboarding welcome comes from the durable notice with stable timestamp',()=>{assert.equal(response.status,200);assert.equal(body.notifications[0].id,'notice-durable-welcome');assert.equal(body.notifications[0].at,'2026-11-21T00:00:00.000Z');assert.equal(body.notifications[0].unread,true);});
+reset();state.notices=[{id:'durable-welcome',kind:'welcome',title:'Welcome to Freeborn',body:'Guide',href:'/app/settings/welcome',created_at:new Date('2026-11-21T00:00:00Z'),read_at:null}];state.selects=[[],[],[],[]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('completed onboarding welcome comes from the durable notice with stable timestamp',()=>{assert.equal(response.status,200);assert.equal(body.notifications[0].id,'notice-durable-welcome');assert.equal(body.notifications[0].at,'2026-11-21T00:00:00.000Z');assert.equal(body.notifications[0].unread,true);assert.equal(body.systemUnread,1);});
 reset();state.selects=[[],[],[],[{dismissedBefore:new Date(),matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('dismissed feed does not recreate the synthetic welcome notification',()=>assert.deepEqual(body.notifications,[]));
 reset();const cutoff=new Date('2026-11-20T12:00:00Z');state.selects=[[],[{likerId:'one',action:'like',createdAt:cutoff},{likerId:'two',action:'like',createdAt:new Date(cutoff.getTime()+1)}],[{id:'one',displayName:'One'}],[],[{id:'two',displayName:'Two'}],[],[],[{dismissedBefore:cutoff,matchAlerts:true,messageAlerts:true,likeAlerts:true}]];response=await notificationGet(req(undefined,'GET'));body=await response.json();ok('clear excludes the cutoff boundary but keeps newer real events',()=>{assert.equal(body.notifications.length,1);assert.equal(body.notifications[0].title,'Two liked you');});
 reset();response=await settings.POST(req({privacy:{user_id:'other',hideDistance:true,hideActiveStatus:true,discoveryPaused:true,incognito:true,readReceipts:false}}));ok('Privacy persistence maps flags to the authenticated owner only',()=>{assert.equal(response.status,200);assert.deepEqual(state.writes[0].patch,{user_id:'owner-fixture',hide_distance:true,hide_active_status:true,discovery_paused:true,incognito:true,read_receipts:false});});

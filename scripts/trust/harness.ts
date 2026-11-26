@@ -542,9 +542,9 @@ ok("a verification purpose exists in schema and migration, not only in code",
 ok("the challenge route is auth-gated, cross-origin-guarded and single-live",
   chalSrc.includes("Not signed in.") && chalSrc.includes("rejectCrossOrigin") &&
   chalSrc.includes('eq(humanChallenges.status, "issued")'));
-ok("the token is consumed, not looked up twice, and bound to one member",
+ok("the token is consumed once under a row lock, bounded by the database clock and bound to one member",
   liveSrc.includes("status: \"solved\"") && liveSrc.includes("foreign") &&
-  liveSrc.includes("lost the consume race"));
+  liveSrc.includes('.for("update")') && liveSrc.includes("clock_timestamp()"));
 ok("replay, expiry and absence are distinct states rather than one boolean",
   /missing\|expired\|replayed\|foreign/.test(liveSrc.replace(/[`\s]/g, "")) ||
   (liveSrc.includes('"missing"') && liveSrc.includes('"expired"') && liveSrc.includes('"replayed"') && liveSrc.includes('"foreign"')));
@@ -668,7 +668,9 @@ ok("an aborted solve reports 'aborted' rather than hanging forever",
     const r = await solveChallenge(nonce12, { bits: 20, budget: 4_000_000, signal: ac.signal });
     return r.ok === false && r.reason === "aborted";
   })()) === true);
-const mockFetch = (async (url: string, init?: { body?: string }) => {
+const challengeAuthHeaders: Array<string | null> = [];
+const mockFetch = (async (url: string, init?: { body?: string; headers?: HeadersInit }) => {
+  challengeAuthHeaders.push(new Headers(init?.headers).get("authorization"));
   if (url.endsWith("/api/human/issue")) {
     return new Response(JSON.stringify({ nonce: nonce12, difficultyBits: 12, solverBudget: 200_000, algorithm: "sha256-prefix-zeros" }), { status: 200 });
   }
@@ -676,7 +678,8 @@ const mockFetch = (async (url: string, init?: { body?: string }) => {
   const good = sent.nonce === nonce12 && typeof sent.solution === "string" && serverSemantics(nonce12, sent.solution, 12);
   return new Response(JSON.stringify(good ? { ok: true, token: "tok-fixed-0001" } : { error: "bad" }), { status: good ? 200 : 400 });
 }) as unknown as typeof fetch;
-const flow = await runHumanChallenge("appeal", mockFetch, { risk: "browser" });
+const flow = await runHumanChallenge("appeal", mockFetch, { risk: "browser", accessToken: "fixture-session-token" });
+ok("the challenge issuer and verifier receive the same explicit fixture bearer", challengeAuthHeaders.length === 2 && challengeAuthHeaders.every(value => value === "Bearer fixture-session-token"));
 ok("the full issue -> solve -> verify -> token round trip completes",
   flow.ok === true, flow.ok ? `token=${(flow as { token: string }).token}` : `error=${(flow as { error: string }).error}`);
 ok("runHumanChallenge asks the server for the browser tier, not the default",
@@ -763,7 +766,7 @@ ok("[13] pose TTL matches the liveness token it rides on", POSE_TTL_SECONDS === 
 
 /* Wiring: server issues, client obeys, and a failed issue degrades loudly. */
 ok("[13] challenge route issues the pose before responding",
-   /assignPoseChallenge\(member\.id, row\.id\)/.test(chalSrc));
+   /tx\.transaction\(inner => assignPoseChallenge\(member\.id, row\.id, inner\)\)/.test(chalSrc));
 ok("[13] a pose-assignment failure is reported, not swallowed",
    /poseWarning/.test(chalSrc) && /poseRequired: pose !== null/.test(chalSrc));
 /* Pinned on behaviour, not on a local variable name (an earlier draft matched
@@ -893,6 +896,13 @@ ok("[13] token comparison stays text-to-text with no bogus cast",
   i.setCas(false);
   const raced = await consumePose(U, T1, undefined, i.store);
   ok("[13b] a lost consume race is not a verification", raced.state === "mismatch" && raced.detail === "lost the consume race");
+  const expiredAfterLock = mk();
+  await assignPose(U, T1, expiredAfterLock.store, firstOfPool);
+  const lateLock = await consumePose(U, T1, undefined, {
+    ...expiredAfterLock.store,
+    consume: async () => "expired" as const,
+  });
+  ok("[13b] a pose that expires while awaiting its lock is recorded as expired", lateLock.state === "expired");
 
   /* Foreign member learns nothing distinguishable. */
   const j = mk();
@@ -1746,8 +1756,8 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     "the delete is what cascaded the conversation away");
   ok("[17] unmatch requires an explicit confirmation and validates the reason",
     /destructive !== true/.test(unmatchSrc) && /isUnmatchReason/.test(unmatchSrc));
-  ok("[17] unmatch is idempotent and race-safe (only an active row may be severed)",
-    /eq\(matches\.status, "active"\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc));
+  ok("[17] unmatch is idempotent and terminal for active, archived and blocked matches",
+    /inArray\(matches\.status, \["active", "archived", "blocked"\]\)/.test(unmatchSrc) && /alreadyEnded: true/.test(unmatchSrc) && /pg_advisory_xact_lock/.test(unmatchSrc));
 
   const blockSrc = src("src/app/api/blocks/route.ts");
   ok("[17] blocking preserves the thread instead of cascading the evidence away",
@@ -1766,14 +1776,14 @@ const src = (rel: string) => readFileSync(new URL(`../../${rel}`, import.meta.ur
     /needsConfirmation: true/.test(msgSrc) && /kept for the member who did not end it/.test(msgSrc));
 
   const reactSrc = src("src/app/api/chat/reactions/route.ts");
-  ok("[17] a reaction is a write, so it requires an open thread",
-    /eq\(matches\.status, "active"\)/.test(reactSrc));
+  ok("[17] a reaction requires an active or archived unblocked thread",
+    /inArray\(matches\.status,\["active","archived"\]\)/.test(reactSrc) && /from\(blockedUsers\)/.test(reactSrc) && /pg_advisory_xact_lock/.test(reactSrc));
 
   const likeSrc = src("src/app/api/likes/route.ts");
   ok("[17] a second mutual like cannot resurrect a severed pair",
     /endedPreviously: true/.test(likeSrc) && /status !== "active"/.test(likeSrc));
-  ok("[17] undo detaches when the thread has messages, deletes only when empty",
-    /undoMayDeleteMatchRow\(Boolean\(anyMessage\)\)/.test(likeSrc) && /unmatchReason: "other"/.test(likeSrc));
+  ok("[17] undo retains history when messages, media or calls exist, deletes only empty matches",
+    /undoMayDeleteMatchRow\(Boolean\(anyMessage\|\|anyMedia\|\|anyCall\)\)/.test(likeSrc) && /unmatchReason:\s*["']other["']/.test(likeSrc) && /\.for\(['"]update['"]\)/.test(likeSrc));
 
   const deckSrc = src("src/app/api/profiles/route.ts");
   ok("[17] a severed match no longer grants incognito visibility",
@@ -1983,7 +1993,7 @@ console.log("\n[18] chat sync — the reconnect + merge + poll-policy core, ever
   ok("[18] the signal is best-effort: its failure is caught and the send still succeeds",
     /try \{[\s\S]{0,400}chatSignals[\s\S]{0,200}catch \{/.test(msgRoute));
   ok("[18] POST returns the stored id so the echo retires by identity",
-    /returning\(\{ id: messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
+    /insert\(messages\)[\s\S]{0,250}returning\(\{\s*id:\s*messages\.id/.test(msgRoute) && /message: stored/.test(msgRoute));
   ok("[18] unmatching also signals, so the other member's open thread updates now and not on a poll",
     /kind: "severed"/.test(src("src/app/api/chat/unmatch/route.ts")));
   const sig = readFileSync(new URL("../../db/migrations/2026-10-30-chat-signals.sql", import.meta.url), "utf8");
@@ -2189,9 +2199,9 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
   ok("[22] GET tells the client whether THIS member may write, decided by decideMatchAccess",
     /thread: \(\(\) => \{/.test(get) && threadBlock.includes('action: "send_message"') &&
       /decideMatchAccess\(\{[\s\S]*?\}\);/.test(threadBlock));
-  ok("[22] the thread facts are derived from the row the view permission already returned (no second query)",
-    /status: match\.status as MatchLifecycleStatus/.test(threadBlock) &&
-      /isActor: match\.unmatchedBy === member\.id/.test(threadBlock));
+  ok("[22] thread write facts use the match row and independently recheck bilateral blocks",
+    /status: effectiveStatus/.test(threadBlock) && /isActor: match\.unmatchedBy === member\.id/.test(threadBlock) &&
+      /from\(blockedUsers\)/.test(get) && /blocks\.some\(block=>block\.blockerId===member\.id\)/.test(get));
   ok("[22] the route does not hand-roll lifecycle rules the table already owns",
     !/status === "unmatched"/.test(threadBlock) && !/status !== "active"/.test(threadBlock));
 
@@ -2203,7 +2213,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
     /data-readonly-thread=""/.test(notice) && /This conversation is read-only\./.test(notice) &&
       /\{threadAccess && !threadAccess\.canSend \? <ReadOnlyThreadNotice/.test(cv.replace(/\n\s*/g, " ")) === false &&
       /<ReadOnlyThreadNotice notice=\{threadAccess\.notice\} \/>/.test(cv) &&
-      /\{threadAccess && !threadAccess\.canSend \? null : \(/.test(cv));
+      /\{!threadAccess \|\| !threadAccess\.canSend \? null : \(/.test(cv));
   // The component's own doc comment contains the word "connection" (it explains why the copy
   // must not). Judging prose would fail on a correct file — strip comments first, always.
   const noticeCode = notice.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -2213,7 +2223,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
      comment. And `threadAccess` must be a dependency of `deliver`, or the closure reads a verdict
      from mount time and the gate silently stops working the moment the thread ends. */
   const deliverBody = cv.slice(cv.indexOf("const deliver = useCallback("), cv.indexOf("const retrySend"));
-  const guardAt = deliverBody.indexOf("if (threadAccess && !threadAccess.canSend) {");
+  const guardAt = deliverBody.indexOf("if (!typingAllowedRef.current || (threadAccess && !threadAccess.canSend)) {");
   const postAt = deliverBody.indexOf('method: "POST"');
   /* ORDER, not presence — a guard written after the fetch is a comment. Slice to `retrySend`
      because other POSTs exist earlier in this file, and a file-wide indexOf found the wrong one. */
@@ -2228,7 +2238,7 @@ console.log("\n[22] policy refusals are permanent; transport failures are not");
     /m\.failed && m\.blocked \?[\s\S]{0,900}?Not delivered[\s\S]{0,120}?\) : m\.failed \? \(/.test(cv) &&
       !/blocked[\s\S]{0,400}retrySend/.test(cv));
   ok("[22] a refusal on policy grounds also closes the composer, so it cannot be tried again",
-    /if \(!retryable\) setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
+    /if \(!retryable\) \{[\s\S]{0,300}?typingAllowedRef\.current = false;[\s\S]{0,300}?setThreadAccess\(\(prev\) => \(\{ canSend: false/.test(cv));
   ok("[22] and a retry clears BOTH flags, so a recovered send cannot stay marked blocked",
     /\{ \.\.\.m, failed: false, blocked: false \}/.test(cv));
 }
@@ -2518,10 +2528,10 @@ console.log("\n[24] design system — the shared control contract, the migration
     callBusSrc.indexOf("client.realtime.setAuth()") < callBusSrc.indexOf("client.channel(topic"));
   ok("[26] ICE issuance is authenticated and scoped to a live participant session",
     iceSrc.includes("getMember(request)") && iceSrc.includes("findParticipantSession(callId, member.id)") &&
-    iceSrc.includes("isCallSessionLive(session)") && iceSrc.includes('relayStatus: turn ? "configured-unverified" : "unconfigured"'));
+    iceSrc.includes("isCallSessionLive(session)") && iceSrc.includes("isCallRelationshipAvailable(session)") && iceSrc.includes('relayStatus: turn ? "configured-unverified" : "unconfigured"'));
   ok("[26] the server, not a client topic, mints call authority",
     sessionSrc.includes("pg_advisory_xact_lock") && sessionSrc.includes("isBlockedPair(member.id, calleeId)") &&
-    sessionSrc.includes("decideMatchAccess") && sessionSrc.includes("tx.insert(callSessions)"));
+    sessionSrc.includes('liveMatch.status!=="active"') && sessionSrc.includes("from(blockedUsers)") && sessionSrc.includes("tx.insert(callSessions)"));
   ok("[26] incoming rings are re-read from the server before display",
     listenerSrc.includes("getCallSession(hint.callId)") && listenerSrc.includes("session.calleeId !== user.id") &&
     listenerSrc.includes("from: session.peer"));

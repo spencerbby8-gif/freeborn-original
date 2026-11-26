@@ -4,6 +4,7 @@ import { ConversationManager, type LocalConversationPreferences } from "./conver
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 
 import { createChatPreviewUrl } from "@/lib/chat-preview-url";
+import { holdActiveChat } from "@/lib/active-chat";
 import { CHAT_FILE_ACCEPT, CHAT_FILE_MAX, chatFileMime, safeChatFilename } from "@/lib/chat-file";
 import { ChatHeader, ChatSendIcon } from "@/components/prototype/chat-chrome";
 import { PhotoImage } from "@/components/ui/photo-image";
@@ -13,6 +14,7 @@ import { useModalFocus } from "@/components/prototype/modal-focus";
 import { PrototypeIcon } from "@/components/prototype/frame";
 import { MessagesHeading } from "@/components/prototype/screens";
 import { ReadOnlyThreadNotice } from "@/components/app/read-only-thread-notice";
+import { SystemInboxLink } from "@/components/app/system-inbox";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/supabase/browser";
@@ -449,6 +451,8 @@ export function Thread({
   onChanged: () => void;
   onTapProfile: (id: string) => void;
 }) {
+  // Covers both ChatView and the profile/draft path, which render this Thread.
+  useEffect(() => holdActiveChat(match.id), [match.id]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [initialMessages,setInitialMessages]=useState<"loading"|"ready"|"error">("loading");
   const [text, setText] = useState(initialDraft);
@@ -520,6 +524,12 @@ export function Thread({
   const phaseRef = useRef<ChannelPhase>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const busRef = useRef<ChatBus | null>(null);
+  // Only a current, successful server verdict enables ephemeral typing signals.
+  const typingAllowedRef = useRef(false);
+  const readSequenceRef = useRef(0);
+  const appliedReadRef = useRef(0);
+  const threadAliveRef = useRef(true);
+  const [threadUnavailable, setThreadUnavailable] = useState(false);
 
   /* What the server says about THIS member's ability to write, not what the client guesses from
      `status`. A thread can be readable and unwritable at once — the member who was unmatched
@@ -544,7 +554,7 @@ export function Thread({
       clearTimeout(typingStopTimerRef.current);
       typingStopTimerRef.current = null;
     }
-    relayMessageNotice(match.id, "typing-stop");
+    if (typingAllowedRef.current) relayMessageNotice(match.id, "typing-stop");
   };
   const [threadAccess, setThreadAccess] = useState<{
     canSend: boolean;
@@ -553,6 +563,7 @@ export function Thread({
   } | null>(null);
 
   const load = useCallback(async () => {
+    const sequence = ++readSequenceRef.current;
     const res = await fetch(`/api/chat/messages?match=${match.id}`, {
       headers: authHeaders(token),
       cache: "no-store",
@@ -562,15 +573,48 @@ export function Thread({
     const json = res
       ? await readJsonSafe<{
           messages?: MessageRow[];
+          code?: string;
           thread?: { canSend: boolean; status?: string; notice?: string | null; reason?: string | null };
         }>(res)
       : null;
-    if (!res || !res.ok || !json || !Array.isArray(json.messages)) {
+    // A delayed earlier response must not undo a newer access decision.
+    if (!threadAliveRef.current || sequence < appliedReadRef.current) return false;
+    appliedReadRef.current = sequence;
+    if (res && (res.status === 403 || res.status === 404) && json?.code === "thread_unavailable") {
+      typingAllowedRef.current = false;
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+      typingUntilRef.current = 0;
+      setPeerTyping(false);
+      setMessages([]);
+      setLightboxUrl(null);
+      setVideoUrl(null);
+      setSheetFor(null);
+      setCall(null);
+      setShowVoice(false);
+      setThreadAccess({ canSend: false, notice: null, reason: "unavailable" });
+      setThreadUnavailable(true);
+      setInitialMessages("ready");
+      syncRef.current.failures = 0;
+      return false;
+    }
+    if (!res || !res.ok || !json || !Array.isArray(json.messages) || typeof json.thread?.canSend !== "boolean") {
       syncRef.current.failures += 1;
       setInitialMessages(previous=>previous==="ready"?previous:"error");
       return false;
     }
+    setThreadUnavailable(false);
     setInitialMessages("ready");
+    typingAllowedRef.current = json.thread?.canSend === true;
+    if (!typingAllowedRef.current) {
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+      typingUntilRef.current = 0;
+      setPeerTyping(false);
+      setShowVoice(false);
+      setAttachOpen(false);
+      // The call overlay owns session revocation and displays the ended state.
+    }
     const real = json.messages;
     // The thread's writability can change while it is open (the other member ends it, a moderator
     // blocks it), so it is re-read on every fetch rather than remembered from mount time.
@@ -595,6 +639,7 @@ export function Thread({
   }, [match.id, token]);
 
   const armPoll = useCallback(() => {
+    if (!threadAliveRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
     const ms = pollIntervalMs({
@@ -612,6 +657,7 @@ export function Thread({
   }, [load]);
 
   useEffect(() => {
+    threadAliveRef.current = true;
     void load();
     const bus = joinChatChannel(match.id, {
       onPhase: (ph) => {
@@ -622,6 +668,7 @@ export function Thread({
         /* A typing notice moves the indicator and nothing else - it must not
            cost a thread fetch per keystroke. */
         if (notice?.kind === "typing") {
+          if (!typingAllowedRef.current) return;
           typingUntilRef.current = Date.now() + 4000;
           setPeerTyping(true);
           return;
@@ -656,6 +703,11 @@ export function Thread({
       window.addEventListener("offline", rearm);
     }
     return () => {
+      threadAliveRef.current = false;
+      // Invalidate outstanding requests even if React re-runs the effect in Strict Mode.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      appliedReadRef.current = ++readSequenceRef.current;
+      typingAllowedRef.current = false;
       if (typeof document !== "undefined") document.removeEventListener("visibilitychange", rearm);
       if (typeof window !== "undefined") {
         window.removeEventListener("online", rearm);
@@ -768,10 +820,10 @@ export function Thread({
          hid itself. Returning false (never true) matters: `true` would tell the caller the
          message went out, which is the exact lie this whole path exists to stop telling.
          `threadAccess` is a real dependency below, so this cannot read a stale verdict. */
-      if (threadAccess && !threadAccess.canSend) {
+      if (!typingAllowedRef.current || (threadAccess && !threadAccess.canSend)) {
         pendingRef.current = markPendingFailed(pendingRef.current, tempId);
         setMessages((ms) => ms.map((m) => (m.id === tempId ? { ...m, failed: true, blocked: true } : m)));
-        flash(threadAccess.notice ?? "This conversation is read-only, so nothing can be sent here.");
+        flash(threadAccess?.notice ?? "This conversation is not currently available for sending.");
         return false;
       }
       const res = await fetch("/api/chat/messages", {
@@ -793,14 +845,20 @@ export function Thread({
         /* A refusal is also information about the thread: if the server declined on policy
            grounds, stop offering the input that produced the refusal. Self-healing beats a
            disabled-by-poll-only UI. */
-        if (!retryable) setThreadAccess((prev) => ({ canSend: false, notice: json?.error ?? prev?.notice ?? null, reason: "denied" }));
+        if (!retryable) {
+          appliedReadRef.current = ++readSequenceRef.current;
+          typingAllowedRef.current = false;
+          if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+          typingStopTimerRef.current = null;
+          setThreadAccess((prev) => ({ canSend: false, notice: json?.error ?? prev?.notice ?? null, reason: "denied" }));
+        }
         armPoll();
         return false;
       }
       if (json?.message?.id) pendingRef.current = ackPending(pendingRef.current, tempId, json.message.id);
       // Relay a content-free hint to the other member from this client: instant while both are
       // online, and harmless to lose, because the server also wrote a chat_signals row.
-      relayMessageNotice(match.id);
+      if (typingAllowedRef.current) relayMessageNotice(match.id);
       void load();
       onChanged();
       return true;
@@ -1199,6 +1257,18 @@ export function Thread({
     );
   }
 
+  if (threadUnavailable) {
+    return (
+      <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
+        <div className="reference-thread-error" role="alert">
+          <p>This conversation is not available.</p>
+          <Button unstyled type="button" className="btn-ghost" onClick={() => void load()}>Try again</Button>
+          <Button unstyled type="button" className="btn-ghost" onClick={onBack}>Back to messages</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fb-thread reference-chat flex w-full max-w-full flex-col overflow-hidden" style={{ height: heightPx ?? undefined }}>
       <ChatHeader name={match.preferences?.nickname||match.with.name} photo={match.with.photo} verified={match.with.verified} active={match.with.active} subtitle={peerTyping?'typing…':match.with.active?'Active now':match.with.city||'Freeborn member'} onBack={onBack} onProfile={()=>onTapProfile(match.with.id)}>
@@ -1273,7 +1343,7 @@ export function Thread({
       ) : null}
 
       {/* Composer — voice recording overlays it Telegram-style */}
-      {threadAccess && !threadAccess.canSend ? null : (
+      {!threadAccess || !threadAccess.canSend ? null : (
       <div className="fb-composer reference-chat-composer">
         <div className="relative shrink-0">
           <button
@@ -1312,6 +1382,7 @@ export function Thread({
                Change-driven also means the very first keystroke is never held
                back by a throttle window; later changes re-affirm at most every
                700 ms so the receiver's safety net never lapses mid-sentence. */
+            if (!typingAllowedRef.current) return;
             const now = Date.now();
             if (now - lastTypingSentRef.current > 700) {
               lastTypingSentRef.current = now;
@@ -1323,7 +1394,7 @@ export function Thread({
             if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
             typingStopTimerRef.current = setTimeout(() => {
               typingStopTimerRef.current = null;
-              relayMessageNotice(match.id, "typing-stop");
+              if (typingAllowedRef.current) relayMessageNotice(match.id, "typing-stop");
             }, 900);
           }}
           onKeyDown={(e) => {
@@ -1498,6 +1569,17 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
     queueMicrotask(() => void load());
   }, [load]);
 
+  // Closing a blocked member's profile must also close their open thread.
+  useEffect(() => {
+    const blocked = (event: Event) => {
+      const id = (event as CustomEvent<{profileId?: string}>).detail?.profileId;
+      if (id && openMatch?.with.id === id) { setOpenMatch(null); setDismissedDeepLink(true); }
+      void load();
+    };
+    window.addEventListener("freeborn:member-blocked", blocked);
+    return () => window.removeEventListener("freeborn:member-blocked", blocked);
+  }, [load, openMatch?.with.id]);
+
   /* Tell the app shell when a conversation is open, so the bottom tab bar
      hides — and returns when you go back to the message list. */
   useEffect(() => {
@@ -1567,6 +1649,7 @@ export function ChatView({initialMatchId}:{initialMatchId?:string}={}) {
       <StoryRail/>
       {manage&&<ConversationManager matches={matches} onClose={()=>setManage(false)} onSaved={load}/>}
       <div className="tab-chips conversation-folders">{(['inbox','archived','hidden'] as const).map(f=><button type="button" className={`tab-chip ${folder===f?'active':''}`} aria-pressed={folder===f} key={f} onClick={()=>setFolder(f)}>{f==='inbox'?'Inbox':f==='archived'?'Archived':'Hidden'}</button>)}</div>
+      {folder==='inbox'&&<SystemInboxLink/>}
       {listError&&<p role="alert" className="story-error">{listError}<button type="button" onClick={()=>void load()}>Try again</button></p>}
 
       {requests.incoming.length > 0 || requests.outgoing.length > 0 ? (

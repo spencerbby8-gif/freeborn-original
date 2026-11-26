@@ -176,9 +176,16 @@ values ('operator', 'appeal_cleared', 'appeal', '<member-email>', 'cleared',
 commit;
 ```
 
-`appeal-experience.tsx` reads `verdict === 'cleared'` as success and any other
-non-null verdict as the rejection text shown to the member. Write a verdict a
-member can read, because that string is rendered to them verbatim.
+The current `appeal-experience.tsx` does **not** render the verdict text
+verbatim. `cleared` displays generic recorded-decision guidance and explicitly
+says access may require a separate update; another non-null verdict displays a
+generic decision and directs the member to support. A rejected verdict alone
+does not prove the account is still suspended, and a `cleared` verdict alone
+does not prove access has been restored. This historical manual procedure is not
+a reviewed, race-safe production decision workflow: the appeal route's lock is
+not shared by direct SQL, suspension authorization is unresolved, and the signed-out
+appeal path is not established. Do not run these example statements in production
+without separate authorization and review.
 
 **Reject an appeal:** same shape, `verdict` set to the reason, `status =
 'decided'`, suspension left active, audit `action = 'appeal_rejected'`.

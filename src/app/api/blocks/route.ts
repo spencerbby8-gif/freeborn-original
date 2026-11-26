@@ -1,9 +1,10 @@
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { blockedUsers, matches, profilePhotos, userProfiles } from "@/db/schema";
+import { blockedUsers, callSessions, matches, messageRequests, profilePhotos, userProfiles } from "@/db/schema";
 import { getMember } from "@/lib/app-auth";
 import { resolvePhotoUrl } from "@/lib/photo-url";
 import { rejectCrossOrigin } from "@/lib/request-guard";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -68,32 +69,47 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
   const { profileId, reason } = (body ?? {}) as { profileId?: string; reason?: string };
-  if (!profileId || profileId === member.id) {
+  if (!isUuid(profileId) || profileId === member.id) {
     return Response.json({ error: "A valid member is required." }, { status: 400 });
   }
 
-  await db
-    .insert(blockedUsers)
-    .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
-    .onConflictDoNothing();
+  if (reason !== undefined && (typeof reason !== "string" || reason.length > 500)) {
+    return Response.json({ error: "Invalid block reason." }, { status: 400 });
+  }
 
-  /* Sever the match; keep the conversation.
-     This used to `delete(matches)` twice, which cascaded the messages away — on a BLOCK,
-     where the report and the evidence are the entire point. Moderation needs the thread to
-     outlive the blocker's view of it, and the blocked member must not be able to undo that by
-     deleting their own account's visibility either: the rows stay, and only the reporter's
-     account deletion (or a moderation decision) may purge them. */
-  await db
-    .update(matches)
-    .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
-    .where(
-      and(
+  // Serialize both directions of block/unblock for this pair. The block row and
+  // the preserved match transition must commit together or not at all.
+  const found = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);
+    // Hold the target profile through insertion to avoid an FK failure if an
+    // account is deleted at the same time as this request.
+    const [other] = await tx.select({id:userProfiles.id}).from(userProfiles).where(eq(userProfiles.id,profileId)).for('key share');
+    if (!other) return false;
+    await tx.insert(blockedUsers)
+      .values({ blockerId: member.id, blockedId: profileId, reason: reason ?? null })
+      .onConflictDoNothing();
+    // A pending invitation is not an existing conversation. Retire it so an
+    // old request cannot silently reappear after either member unblocks.
+    await tx.update(messageRequests).set({status:"declined",respondedAt:new Date()}).where(and(
+      or(and(eq(messageRequests.fromId,member.id),eq(messageRequests.toId,profileId)),and(eq(messageRequests.fromId,profileId),eq(messageRequests.toId,member.id))),
+      eq(messageRequests.status,"pending")
+    ));
+    // Preserve the original row, messages and media as safety evidence.
+    await tx.update(matches)
+      .set({ status: "blocked", unmatchedBy: member.id, unmatchedAt: new Date() })
+      .where(and(
         or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
         or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
         eq(matches.status, "active")
-      )
-    );
-
+      ));
+    // Do not revive an old ring or call if this pair is later unblocked.
+    await tx.update(callSessions).set({status:"ended",endedAt:new Date(),endedBy:null,endReason:"unavailable"}).where(and(
+      or(and(eq(callSessions.callerId,member.id),eq(callSessions.calleeId,profileId)),and(eq(callSessions.callerId,profileId),eq(callSessions.calleeId,member.id))),
+      inArray(callSessions.status,["ringing","active"])
+    ));
+    return true;
+  });
+  if (!found) return Response.json({ error: "Member not found." }, { status: 404 });
   return Response.json({ ok: true });
 }
 
@@ -113,11 +129,30 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
   }
   const { profileId } = (body ?? {}) as { profileId?: string };
-  if (!profileId) return Response.json({ error: "A valid member is required." }, { status: 400 });
+  if (!isUuid(profileId) || profileId === member.id) return Response.json({ error: "A valid member is required." }, { status: 400 });
 
-  await db
-    .delete(blockedUsers)
-    .where(and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)));
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(least(${member.id}::text, ${profileId}::text) || ':' || greatest(${member.id}::text, ${profileId}::text), 0))`);
+    const removed = await tx.delete(blockedUsers)
+      .where(and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)))
+      .returning({ id: blockedUsers.id });
+    if (!removed.length) return;
+    const [remaining] = await tx.select({ id: blockedUsers.id }).from(blockedUsers)
+      .where(or(
+        and(eq(blockedUsers.blockerId, member.id), eq(blockedUsers.blockedId, profileId)),
+        and(eq(blockedUsers.blockerId, profileId), eq(blockedUsers.blockedId, member.id))
+      )).limit(1);
+    if (remaining) return;
+    // Restore only a formerly blocked match, never an explicit unmatch. No
+    // history is reconstructed: we reuse the original match ID and records.
+    await tx.update(matches)
+      .set({ status: "active", unmatchedBy: null, unmatchedAt: null })
+      .where(and(
+        or(eq(matches.userA, member.id), eq(matches.userB, member.id)),
+        or(eq(matches.userA, profileId), eq(matches.userB, profileId)),
+        eq(matches.status, "blocked")
+      ));
+  });
 
   return Response.json({ ok: true });
 }

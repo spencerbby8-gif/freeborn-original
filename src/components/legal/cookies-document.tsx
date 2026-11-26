@@ -191,8 +191,8 @@ export function CookiesDocument({member=false}:{member?:boolean}={}) {
           rows={[
             [
               <code key="k9" className="font-mono text-[12.5px] text-pearl">fb-security-checked</code>,
-              "A timestamp of the last routine security check.",
-              "So the check runs at most once per interval rather than on every navigation.",
+              "The account identifier and timestamp of a recent routine security check that returned a non-suspended result.",
+              "To avoid repeating the same account’s routine check on each navigation for a short interval; it is not an authorization control.",
             ],
             [
               <code key="k10" className="font-mono text-[12.5px] text-pearl">freeborn.origin</code>,
