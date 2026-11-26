@@ -766,7 +766,7 @@ ok("[13] pose TTL matches the liveness token it rides on", POSE_TTL_SECONDS === 
 
 /* Wiring: server issues, client obeys, and a failed issue degrades loudly. */
 ok("[13] challenge route issues the pose before responding",
-   /assignPoseChallenge\(member\.id, row\.id\)/.test(chalSrc));
+   /tx\.transaction\(inner => assignPoseChallenge\(member\.id, row\.id, inner\)\)/.test(chalSrc));
 ok("[13] a pose-assignment failure is reported, not swallowed",
    /poseWarning/.test(chalSrc) && /poseRequired: pose !== null/.test(chalSrc));
 /* Pinned on behaviour, not on a local variable name (an earlier draft matched

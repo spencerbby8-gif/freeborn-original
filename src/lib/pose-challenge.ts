@@ -57,121 +57,130 @@ export * from "@/lib/pose-store";
  * Production adapter. Nothing above this line touches the database. *
  * ------------------------------------------------------------------ */
 
-export const drizzlePoseStore: PoseStore = {
-  async findActiveByToken(token) {
-    const [row] = await db
-      .select({
-        id: verificationChallenges.id,
-        userId: verificationChallenges.userId,
-        poseId: verificationChallenges.poseId,
-        gesture: verificationChallenges.gesture,
-        status: verificationChallenges.status,
-        expiresAt: verificationChallenges.expiresAt,
-        challengeToken: verificationChallenges.challengeToken,
-      })
-      .from(verificationChallenges)
-      .where(
-        and(
-          eq(verificationChallenges.challengeToken, token),
-          eq(verificationChallenges.status, "active")
+type PoseDatabase = Pick<typeof db, "select" | "update" | "insert">;
+
+/** Construct the same pose store for either the ordinary DB or a transaction.
+ * A transaction lets issuance serialize and roll back all pose writes together. */
+export function createDrizzlePoseStore(database: PoseDatabase): PoseStore {
+  return {
+    async findActiveByToken(token) {
+      const [row] = await database
+        .select({
+          id: verificationChallenges.id,
+          userId: verificationChallenges.userId,
+          poseId: verificationChallenges.poseId,
+          gesture: verificationChallenges.gesture,
+          status: verificationChallenges.status,
+          expiresAt: verificationChallenges.expiresAt,
+          challengeToken: verificationChallenges.challengeToken,
+        })
+        .from(verificationChallenges)
+        .where(
+          and(
+            eq(verificationChallenges.challengeToken, token),
+            eq(verificationChallenges.status, "active")
+          )
         )
-      )
-      .limit(1);
-    return (row as PoseRow) ?? null;
-  },
+        .limit(1);
+      return (row as PoseRow) ?? null;
+    },
 
-  async findByToken(token) {
-    const [row] = await db
-      .select({
-        id: verificationChallenges.id,
-        userId: verificationChallenges.userId,
-        poseId: verificationChallenges.poseId,
-        gesture: verificationChallenges.gesture,
-        status: verificationChallenges.status,
-        expiresAt: verificationChallenges.expiresAt,
-        challengeToken: verificationChallenges.challengeToken,
-      })
-      .from(verificationChallenges)
-      .where(eq(verificationChallenges.challengeToken, token))
-      .limit(1);
-    return (row as PoseRow) ?? null;
-  },
+    async findByToken(token) {
+      const [row] = await database
+        .select({
+          id: verificationChallenges.id,
+          userId: verificationChallenges.userId,
+          poseId: verificationChallenges.poseId,
+          gesture: verificationChallenges.gesture,
+          status: verificationChallenges.status,
+          expiresAt: verificationChallenges.expiresAt,
+          challengeToken: verificationChallenges.challengeToken,
+        })
+        .from(verificationChallenges)
+        .where(eq(verificationChallenges.challengeToken, token))
+        .limit(1);
+      return (row as PoseRow) ?? null;
+    },
 
-  async latestPoseId(userId) {
-    const [row] = await db
-      .select({ poseId: verificationChallenges.poseId })
-      .from(verificationChallenges)
-      .where(eq(verificationChallenges.userId, userId))
-      .orderBy(desc(verificationChallenges.createdAt))
-      .limit(1);
-    return row?.poseId ?? null;
-  },
+    async latestPoseId(userId) {
+      const [row] = await database
+        .select({ poseId: verificationChallenges.poseId })
+        .from(verificationChallenges)
+        .where(eq(verificationChallenges.userId, userId))
+        .orderBy(desc(verificationChallenges.createdAt))
+        .limit(1);
+      return row?.poseId ?? null;
+    },
 
-  async expireOtherActive(userId, keepToken) {
-    await db
-      .update(verificationChallenges)
-      .set({ status: "expired" })
-      .where(
-        and(
-          eq(verificationChallenges.userId, userId),
-          eq(verificationChallenges.status, "active"),
-          /* text = text. The live column is TEXT with a UNIQUE index on it (verified via
-             information_schema); adding a `::uuid` cast here throws 42883 on every call. */
-          sql`challenge_token <> ${keepToken}`
+    async expireOtherActive(userId, keepToken) {
+      await database
+        .update(verificationChallenges)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(verificationChallenges.userId, userId),
+            eq(verificationChallenges.status, "active"),
+            /* text = text. The live column is TEXT with a UNIQUE index on it (verified via
+               information_schema); adding a `::uuid` cast here throws 42883 on every call. */
+            sql`challenge_token <> ${keepToken}`
+          )
+        );
+    },
+
+    async insert(row) {
+      await database.insert(verificationChallenges).values({
+        userId: row.userId,
+        poseId: row.poseId,
+        gesture: row.gesture,
+        /* The two extra NOT NULL columns exist in the live table. They are filled from the
+           same label the model is asked about: this pose set is hand-gesture based, so head
+           and expression are explicitly unconstrained rather than silently invented. */
+        headDirection: "any",
+        expressionCue: "any",
+        challengeToken: row.challengeToken,
+        challengePayload: { demo: row.demo, issuedBy: "server" },
+        status: "active",
+        expiresAt: sql`timezone('utc', now()) + interval '${sql.raw(String(row.ttlSeconds))} seconds'`,
+      });
+    },
+
+    async consume(id) {
+      const [won] = await database
+        .update(verificationChallenges)
+        .set({ status: "consumed" })
+        .where(
+          and(
+            eq(verificationChallenges.id, id),
+            eq(verificationChallenges.status, "active")
+          )
         )
-      );
-  },
+        .returning({ id: verificationChallenges.id });
+      return Boolean(won);
+    },
 
-  async insert(row) {
-    await db.insert(verificationChallenges).values({
-      userId: row.userId,
-      poseId: row.poseId,
-      gesture: row.gesture,
-      /* The two extra NOT NULL columns exist in the live table. They are filled from the
-         same label the model is asked about: this pose set is hand-gesture based, so head
-         and expression are explicitly unconstrained rather than silently invented. */
-      headDirection: "any",
-      expressionCue: "any",
-      challengeToken: row.challengeToken,
-      challengePayload: { demo: row.demo, issuedBy: "server" },
-      status: "active",
-      expiresAt: sql`timezone('utc', now()) + interval '${sql.raw(String(row.ttlSeconds))} seconds'`,
-    });
-  },
+    async markExpired(id) {
+      await database
+        .update(verificationChallenges)
+        .set({ status: "expired" })
+        .where(
+          and(
+            eq(verificationChallenges.id, id),
+            eq(verificationChallenges.status, "active")
+          )
+        );
+    },
+  };
+}
 
-  async consume(id) {
-    const [won] = await db
-      .update(verificationChallenges)
-      .set({ status: "consumed" })
-      .where(
-        and(
-          eq(verificationChallenges.id, id),
-          eq(verificationChallenges.status, "active")
-        )
-      )
-      .returning({ id: verificationChallenges.id });
-    return Boolean(won);
-  },
-
-  async markExpired(id) {
-    await db
-      .update(verificationChallenges)
-      .set({ status: "expired" })
-      .where(
-        and(
-          eq(verificationChallenges.id, id),
-          eq(verificationChallenges.status, "active")
-        )
-      );
-  },
-};
+export const drizzlePoseStore: PoseStore = createDrizzlePoseStore(db);
 
 /** Route-facing wrapper: the production store, with the token shape guarded. */
 export async function assignPoseChallenge(
   userId: string,
-  challengeToken: string
+  challengeToken: string,
+  database: PoseDatabase = db
 ): Promise<AssignedPose> {
-  return assignPose(userId, challengeToken, drizzlePoseStore);
+  return assignPose(userId, challengeToken, createDrizzlePoseStore(database));
 }
 
 export async function consumePoseChallenge(
