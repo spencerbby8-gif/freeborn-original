@@ -13,6 +13,16 @@ const results=[];async function check(name,fn){try{await fn();results.push({name
 try{
  await reset();await check('Failed or consumed challenge cannot be solved again',async()=>{const c=await challenge('failed');const r=await h.request('verify','POST','a',{nonce:c.nonce,solution:'0'});assert.notEqual(r.status,200)});
  await reset();await check('Expired solved challenge cannot authorize an appeal',async()=>{const c=await challenge('solved',"now()-interval '1 minute'");const r=await h.request('appeals','POST','a',{detail:'This is a synthetic test appeal.',challengeToken:c.id});assert.equal(r.status,428);assert.equal((await q("select count(*)::int n from appeals where email=$1 and status='under_review'",[email])).rows[0].n,0)});
+ await reset();await check('Challenge verification refuses a token expiring while a row lock is held',async()=>{
+  const c=await challenge('issued',"clock_timestamp()+interval '2 seconds'");await q('begin');let job,blocked=false;
+  try{await q('select id from human_challenges where id=$1 for update',[c.id]);job=h.request('verify','POST','a',{nonce:c.nonce,solution:'0'});const end=Date.now()+1500;while(Date.now()<end){await q('select pg_stat_clear_snapshot()');blocked=(await q("select count(*)::int n from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and state='active'")).rows[0].n>0;if(blocked)break;await new Promise(r=>setTimeout(r,20))}assert.ok(blocked,'verifier must wait for row lock');await q('select pg_sleep(2.2)')}finally{await q('commit')}
+  const r=await job;assert.notEqual(r.status,200);assert.equal((await q('select status from human_challenges where id=$1',[c.id])).rows[0].status,'expired');
+ });
+ await reset();await check('Enforced appeal refuses a solved token expiring while a row lock is held',async()=>{
+  const c=await challenge('solved',"clock_timestamp()+interval '2 seconds'");await q('begin');let job,blocked=false;
+  try{await q('select id from human_challenges where id=$1 for update',[c.id]);job=h.request('appeals','POST','a',{detail:'This is a synthetic test appeal.',challengeToken:c.id});const end=Date.now()+1500;while(Date.now()<end){await q('select pg_stat_clear_snapshot()');blocked=(await q("select count(*)::int n from pg_stat_activity where datname=current_database() and wait_event_type='Lock' and state='active'")).rows[0].n>0;if(blocked)break;await new Promise(r=>setTimeout(r,20))}assert.ok(blocked,'appeal must wait for row lock');await q('select pg_sleep(2.2)')}finally{await q('commit')}
+  const r=await job;assert.equal(r.status,428);assert.equal((await q("select count(*)::int n from appeals where email=$1 and status='under_review'",[email])).rows[0].n,0);
+ });
  await reset();await check('Wrong type appeal detail is rejected',async()=>{const r=await h.request('appeals','POST','a',{detail:{text:'not text'}});assert.equal(r.status,400)});
  await reset();await check('Concurrent appeals serialize behind held advisory lock and create one pending appeal',async()=>{
   const c=await challenge('solved');await q('begin');let jobs;let blocked=0;

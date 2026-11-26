@@ -94,8 +94,12 @@ export async function POST(request: Request) {
       const token = (body as { challengeToken?: unknown } | null)?.challengeToken;
       let solved = false;
       if (typeof token === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
-        // 'expired' is terminal to the verify endpoint; a consumed solution
-        // cannot be re-solved. A conditional UPDATE is the claim operation.
+        // Lock the owned row before evaluating the clock predicate. A predicate
+        // evaluated by UPDATE before waiting on an unchanged row can go stale.
+        await tx.select({ id: humanChallenges.id }).from(humanChallenges)
+          .where(and(eq(humanChallenges.id, token), eq(humanChallenges.email, email), eq(humanChallenges.purpose, "appeal")))
+          .limit(1).for("update");
+        // 'expired' is terminal to the verifier; it cannot be solved again.
         const consumed = await tx.update(humanChallenges).set({ status: "expired" })
           .where(and(eq(humanChallenges.id, token), eq(humanChallenges.email, email),
             eq(humanChallenges.purpose, "appeal"), eq(humanChallenges.status, "solved"), gt(humanChallenges.expiresAt, sql`clock_timestamp()`)))

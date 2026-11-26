@@ -542,9 +542,9 @@ ok("a verification purpose exists in schema and migration, not only in code",
 ok("the challenge route is auth-gated, cross-origin-guarded and single-live",
   chalSrc.includes("Not signed in.") && chalSrc.includes("rejectCrossOrigin") &&
   chalSrc.includes('eq(humanChallenges.status, "issued")'));
-ok("the token is consumed, not looked up twice, and bound to one member",
+ok("the token is consumed once under a row lock, bounded by the database clock and bound to one member",
   liveSrc.includes("status: \"solved\"") && liveSrc.includes("foreign") &&
-  liveSrc.includes("lost the consume race"));
+  liveSrc.includes('.for("update")') && liveSrc.includes("clock_timestamp()"));
 ok("replay, expiry and absence are distinct states rather than one boolean",
   /missing\|expired\|replayed\|foreign/.test(liveSrc.replace(/[`\s]/g, "")) ||
   (liveSrc.includes('"missing"') && liveSrc.includes('"expired"') && liveSrc.includes('"replayed"') && liveSrc.includes('"foreign"')));

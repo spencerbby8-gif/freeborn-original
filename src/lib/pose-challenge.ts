@@ -57,7 +57,7 @@ export * from "@/lib/pose-store";
  * Production adapter. Nothing above this line touches the database. *
  * ------------------------------------------------------------------ */
 
-type PoseDatabase = Pick<typeof db, "select" | "update" | "insert">;
+type PoseDatabase = Pick<typeof db, "select" | "update" | "insert" | "transaction">;
 
 /** Construct the same pose store for either the ordinary DB or a transaction.
  * A transaction lets issuance serialize and roll back all pose writes together. */
@@ -145,17 +145,28 @@ export function createDrizzlePoseStore(database: PoseDatabase): PoseStore {
     },
 
     async consume(id) {
-      const [won] = await database
-        .update(verificationChallenges)
-        .set({ status: "consumed" })
-        .where(
-          and(
-            eq(verificationChallenges.id, id),
-            eq(verificationChallenges.status, "active")
-          )
-        )
-        .returning({ id: verificationChallenges.id });
-      return Boolean(won);
+      return database.transaction(async tx => {
+        // Wait for the row lock first. Checking the TTL before an UPDATE waits
+        // permits an unchanged row to expire while it is blocked.
+        const [row] = await tx.select({ id: verificationChallenges.id })
+          .from(verificationChallenges)
+          .where(eq(verificationChallenges.id, id))
+          .limit(1).for("update");
+        if (!row) return false;
+        const [won] = await tx.update(verificationChallenges)
+          .set({ status: "consumed" })
+          .where(and(
+            eq(verificationChallenges.id, id), eq(verificationChallenges.status, "active"),
+            sql`(${verificationChallenges.expiresAt} is null or ${verificationChallenges.expiresAt} > clock_timestamp())`
+          ))
+          .returning({ id: verificationChallenges.id });
+        if (won) return true;
+        await tx.update(verificationChallenges).set({ status: "expired" }).where(and(
+          eq(verificationChallenges.id, id), eq(verificationChallenges.status, "active"),
+          sql`${verificationChallenges.expiresAt} <= clock_timestamp()`
+        ));
+        return false;
+      });
     },
 
     async markExpired(id) {
