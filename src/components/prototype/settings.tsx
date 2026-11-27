@@ -4,6 +4,7 @@ import { EmailPreferencesCard } from "@/components/app/member-communications";
 import { loadFilters, saveFilters } from "@/components/app/filters";
 import { FreebornLoader } from "@/components/ui/freeborn-loader";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -107,26 +108,28 @@ export function VaultCard(){
   async function save(){setBusy(true);setError(null);setSaved(false);try{await memberRequest('/api/vault',{entries:stance?{vaccination_stance:stance}:{}});setSaved(true);await load();}catch(e){setError(e instanceof Error?e.message:'Could not save private preferences.');}finally{setBusy(false);}}
   async function deleteAll(){setBusy(true);setError(null);try{await memberRequest('/api/vault',undefined,undefined,'DELETE');setStance('');await load();}catch(e){setError(e instanceof Error?e.message:'Could not delete private preferences.');}finally{setBusy(false);}}
   if(dismissed)return null;
-  return <div className="menu-group" style={{paddingTop:18}}>
-    <span className="coral-label pad-x">Private preferences</span>
-    {loadError?<ScreenError message={loadError} retry={()=>void load()}/>:!state?<Loading/>:!state.consent?(
-      <>
-        <p className="fineprint" style={{padding:'0 22px'}}>These preferences are private. They&apos;re stored encrypted and shown only to members who chose the same answers. You can delete them anytime. They&apos;re never public.</p>
-        <div className="pref-pills" style={{padding:'0 22px'}}>
-          <Button unstyled className="btn-grad big wide" disabled={busy} onClick={()=>void accept()}>Save &amp; continue</Button>
-          <Button unstyled className="btn-ghost" disabled={busy} onClick={()=>setDismissed(true)}>No thanks</Button>
-        </div>
-      </>
-    ):(
-      <>
-        {state.consent && !state.consent.current ? <p role="status" className="fineprint" style={{padding:'0 22px'}}>Your answers are saved but hidden from other members until you accept the updated terms below.</p> : null}
-        <div className="pref-pills" style={{padding:'0 22px'}}>{VAULT_ANSWERS.map(v=><Button unstyled key={v} aria-pressed={stance===v} className={`pref-pill ${stance===v?'selected':''}`} disabled={busy} onClick={()=>{setStance(v);setSaved(false);}}>{VAULT_ANSWER_LABELS[v]}</Button>)}</div>
-        <div className="pref-foot"><Button unstyled className="btn-grad big wide" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save'}</Button></div>
-        {saved&&<p role="status" className="fineprint center">Private preferences saved.</p>}
-        <p className="fineprint center">Answers are shown to another member only when you both picked the same one.</p>
-        <div className="pref-foot"><Button unstyled className="btn-ghost" disabled={busy} onClick={()=>void deleteAll()}>{busy?'Deleting…':'Delete all private preferences'}</Button></div>
-      </>
-    )}
-    <ScreenError message={error}/>
-  </div>;
+  return (
+    <div className="mx-4 my-5 space-y-4 rounded-[22px] border border-[var(--color-gold-500)]/25 bg-[var(--color-gold-500)]/[0.05] p-5">
+      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--color-gold-500)]">Private preferences</p>
+      {loadError?<ScreenError message={loadError} retry={()=>void load()}/>:!state?<Loading/>:!state.consent?(
+        <>
+          <p className="text-[12.5px] leading-6 text-[var(--color-mist)]">These preferences are private. They&apos;re stored encrypted and shown only to members who chose the same answers. You can delete them anytime. They&apos;re never public.</p>
+          <div className="space-y-2">
+            <Button variant="brand" size="md" block loading={busy} loadingLabel="Saving…" onClick={()=>void accept()}>Save &amp; continue</Button>
+            <Button variant="quiet" size="md" block disabled={busy} onClick={()=>setDismissed(true)}>No thanks</Button>
+          </div>
+        </>
+      ):(
+        <>
+          {state.consent && !state.consent.current ? <p role="status" className="inline-block rounded-full border border-[var(--color-ember-500)]/30 bg-[var(--color-ember-500)]/[0.08] px-3 py-1 text-[12px] font-bold text-[var(--color-ember-300)]">Your answers are saved but hidden from other members until you accept the updated terms below.</p> : null}
+          <div className="flex flex-wrap gap-2">{VAULT_ANSWERS.map(v=><Chip key={v} aria-pressed={stance===v} disabled={busy} onClick={()=>{setStance(v);setSaved(false);}}>{VAULT_ANSWER_LABELS[v]}</Chip>)}</div>
+          <Button variant="brand" size="md" block loading={busy} loadingLabel="Saving…" onClick={()=>void save()}>Save</Button>
+          {saved&&<p role="status" className="text-[12.5px] leading-6 text-[var(--color-mist)]">Private preferences saved.</p>}
+          <p className="text-[12.5px] leading-6 text-[var(--color-mist)]">Answers are shown to another member only when you both picked the same one.</p>
+          <Button variant="danger" size="md" block loading={busy} loadingLabel="Deleting…" onClick={()=>void deleteAll()}>Delete all private preferences</Button>
+        </>
+      )}
+      <ScreenError message={error}/>
+    </div>
+  );
 }
