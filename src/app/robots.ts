@@ -72,6 +72,12 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    /* B21: the `host` field is intentionally absent. Next.js serialises a
+       `host` property into a `Host:` directive, but Google dropped support for
+       that directive in 2019 (it is not part of RFC 9309) and Search Console
+       flags it as "Rule ignored by Googlebot (line N)". Yandex is the only
+       engine that ever read it. Host preference is handled correctly by the
+       canonical tag, the 301 http->https redirect and the 308 www->apex
+       redirect — all three already agree on https://freeborndating.com. */
   };
 }
